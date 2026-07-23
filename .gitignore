@@ -1,0 +1,11 @@
+.venv
+recordings
+csm_recordings
+.env
+__pycache__
+*.pyc
+.pytest_cache
+checkpoints.db
+*.egg-info
+node_modules
+.next

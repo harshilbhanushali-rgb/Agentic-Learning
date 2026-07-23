@@ -1,0 +1,27 @@
+## Design Health Score
+
+| # | Heuristic | Score | Key Issue |
+|---|-----------|-------|-----------|
+| 1 | Visibility of System Status | 2 | Oracle live + nav active states solid; no loading states |
+| 2 | Match System / Real World | 3 | Natural language; branded concepts require learning |
+| 3 | User Control and Freedom | 3 | Modal focus trap correct; dark mode toggle added |
+| 4 | Consistency and Standards | 3 | Typography vocabulary tighter; eyebrow pattern reduced |
+| 5 | Error Prevention | 1 | Locked item meta text exists; no click feedback |
+| 6 | Recognition Rather Than Recall | 3 | Shortcuts visible in sidebar; all labels present |
+| 7 | Flexibility and Efficiency | 3 | Dark mode now reachable; shortcuts documented |
+| 8 | Aesthetic and Minimalist Design | 3 | Eyebrow pattern down from 11 to 7 uses |
+| 9 | Error Recovery | 1 | Prototype limitation |
+| 10 | Help and Documentation | 2 | Shortcut hints strong; no contextual tooltips |
+| Total | | 24/40 | Acceptable |
+
+## Anti-Patterns Verdict
+
+Detector: 0 findings (down from 2). The two layout-transition violations resolved.
+LLM: Eyebrow consolidation successful. Remaining 7 uppercase+tracking uses all carry clear semantic roles.
+
+## Remaining Priority Issues
+
+[P2] grid-template-columns animation on sidebar collapse - known trade-off, no CSS alternative.
+[P2] No Oracle search loading/response state - prototype limitation, design ready when backend wires up.
+[P2] Dark mode flashes light on hard refresh - fix: add synchronous script in head before body paint.
+[P3] Locked waterfall items give no click feedback - add title attribute or aria-disabled.

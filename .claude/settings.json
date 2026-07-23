@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python /c/PF/Joveo/CS-platform/.venv/Scripts/python.exe -c \"print\\('python ok'\\)\")",
+      "Bash(/c/PF/Joveo/CS-platform/.venv/Scripts/python.exe -c \"print\\('venv python ok'\\)\")",
+      "WebSearch",
+      "Skill(claude-md-management:revise-claude-md)",
+      "Skill(claude-md-management:revise-claude-md:*)",
+      "PowerShell($env:DATABASE_URL=\"postgresql://neondb_owner:npg_FGB0M6wmSiUL@ep-quiet-glitter-aouaozcz-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require\"; $env:PYTHONIOENCODING=\"utf-8\"; C:\\\\PF\\\\Joveo\\\\CS-platform\\\\.venv\\\\Scripts\\\\python.exe C:\\\\Users\\\\HARSHI~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--PF-Joveo-CS-platform\\\\09194379-69c9-404e-92eb-352feb81e830\\\\scratchpad\\\\inspect_db.py)"
+    ],
+    "additionalDirectories": [
+      "c:\\PF\\Joveo\\CS-platform\\Brain"
+    ]
+  }
+}
