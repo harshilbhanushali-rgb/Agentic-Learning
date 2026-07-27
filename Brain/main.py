@@ -2,6 +2,13 @@
 from __future__ import annotations
 import hashlib
 import sys
+
+# Force the cwd marker instead of a literal absolute path -- avoids a Windows
+# importlib FileFinder bug (WinError 6714) where scanning sys.path[0] as a
+# literal path string breaks pyarrow's import chain (via sentence_transformers).
+if sys.path and sys.path[0] not in ("", "."):
+    sys.path[0] = ""
+
 from pathlib import Path
 from config import load_config
 from shared import storage, checkpoint

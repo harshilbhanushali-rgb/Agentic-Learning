@@ -14,6 +14,7 @@ class Config:
     naren_name_lower: str
     pinecone_api_key: str
     pinecone_index_name: str
+    gemma_api_keys: tuple = ()
 
 
 def load_config() -> Config:
@@ -22,6 +23,8 @@ def load_config() -> Config:
     joveo_raw = os.environ["JOVEO_SPEAKER_NAMES"]
     naren_raw = os.environ["NAREN_SPEAKER_NAME"]
     joveo_lower = frozenset(n.strip().lower() for n in joveo_raw.split(",") if n.strip())
+    extra_key = os.environ.get("GEMMA_API_KEY_2", "").strip()
+    gemma_api_keys = (api_key, extra_key) if extra_key else (api_key,)
     return Config(
         gemma_api_key=api_key,
         database_url=db_url,
@@ -29,4 +32,5 @@ def load_config() -> Config:
         naren_name_lower=naren_raw.strip().lower(),
         pinecone_api_key=os.environ["PINECONE_API_KEY"],
         pinecone_index_name=os.environ["PINECONE_INDEX_NAME"],
+        gemma_api_keys=gemma_api_keys,
     )

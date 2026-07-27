@@ -34,7 +34,7 @@ def run_layer_c(
             n_instances=len(responses),
             responses_text=responses_text,
         )
-        result = call_gemma(prompt, config.gemma_api_key)
+        result = call_gemma(prompt, config.gemma_api_keys)
         rubric = {
             "scenario_id": info["scenario_id"],
             "scenario_key": scenario_key,

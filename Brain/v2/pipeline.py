@@ -2,7 +2,7 @@
 from pathlib import Path
 import psycopg
 from config import Config
-from preprocessing.transcript_parser import parse_transcript
+from preprocessing.transcript_parser import parse_transcript, load_roster
 from shared import storage, checkpoint
 from v2 import layer_a, layer_b, layer_c
 
@@ -18,14 +18,17 @@ def run_v2(recordings_dir: str, config: Config, conn: psycopg.Connection, run_id
     all_turns = []
     all_turns_by_file: dict[str, tuple] = {}
     for txt_path in txt_files:
-        turns = parse_transcript(str(txt_path), config.joveo_speakers_lower, config.naren_name_lower)
+        turns = parse_transcript(
+            str(txt_path), config.joveo_speakers_lower, config.naren_name_lower,
+            roster=load_roster(str(txt_path)),
+        )
         call_id = storage.upsert_call(conn, txt_path.name)
         all_turns.extend(turns)
         all_turns_by_file[txt_path.stem] = (turns, call_id)
         print(f"  Parsed {txt_path.name}: {len(turns)} turns")
 
     if not checkpoint.is_done(run_id, "ALL", "layer_a"):
-        scenario_map = layer_a.run_layer_a_v2(all_turns, config, conn)
+        scenario_map, conn = layer_a.run_layer_a_v2(all_turns, config, conn)
         checkpoint.mark_done(run_id, "ALL", "layer_a")
     else:
         print("[Layer A] Already done — loading from DB.")

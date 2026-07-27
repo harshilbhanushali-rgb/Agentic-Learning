@@ -55,7 +55,7 @@ def _check_via_gemma(
         scenarios_text=scenarios_text,
     )
     print("[Step 0] Calling Gemma for signal recognition check...")
-    result = call_gemma(prompt, config.gemma_api_key)
+    result = call_gemma(prompt, config.gemma_api_keys)
     raw_signals = result if isinstance(result, list) else result.get("signals_detected", [])
 
     signals = []

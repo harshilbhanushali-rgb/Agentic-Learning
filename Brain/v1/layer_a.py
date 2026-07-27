@@ -10,7 +10,7 @@ def identify_scenarios(transcripts_text: str, config: Config) -> list[dict]:
     """Call Gemma only — no DB. Returns raw scenario list."""
     prompt = PROMPT_LAYER_A_V1.format(transcripts_text=transcripts_text)
     print("[Layer A] Calling Gemma for scenario identification...")
-    result = call_gemma(prompt, config.gemma_api_key)
+    result = call_gemma(prompt, config.gemma_api_keys)
     scenarios = result if isinstance(result, list) else result.get("scenarios", [])
     print(f"[Layer A] Gemma identified {len(scenarios)} scenario(s).")
     return scenarios

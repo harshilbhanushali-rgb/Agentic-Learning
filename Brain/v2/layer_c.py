@@ -1,4 +1,5 @@
 ﻿from __future__ import annotations
+import time
 import numpy as np
 import psycopg
 from config import Config
@@ -10,6 +11,9 @@ from shared.prompts import (
     PROMPT_LAYER_C_V1,
 )
 from shared import storage, checkpoint
+
+_GEMMA_CALL_DELAY = 5  # seconds between calls -- free-tier quota is 16000 input tokens/minute
+_MAX_RUBRIC_RESPONSES = 12  # cap responses fed into one rubric prompt -- some scenarios match 50+ instances
 
 
 def run_layer_c_v2(
@@ -88,12 +92,13 @@ def run_layer_c_v2(
                     n_instances=len(responses),
                     milestones_text=ms_text,
                 ),
-                config.gemma_api_key,
+                config.gemma_api_keys,
             )
             for item in hv_result.get("milestone_sequencing", []):
                 for m in high_var:
                     if item["label"].lower() in " ".join(m["clauses"][:2]).lower():
                         sequencing_map[m["cluster_id"]] = item["sequencing_type"]
+            time.sleep(_GEMMA_CALL_DELAY)
 
         milestones = []
         for order_idx, cluster in enumerate(ordered):
@@ -105,8 +110,9 @@ def run_layer_c_v2(
                     total=len(ordered),
                     cluster_clauses=clauses_text,
                 ),
-                config.gemma_api_key,
+                config.gemma_api_keys,
             )
+            time.sleep(_GEMMA_CALL_DELAY)
             milestones.append({
                 "order": order_idx + 1,
                 "label": desc.get("label", f"Milestone {order_idx+1}"),
@@ -117,20 +123,23 @@ def run_layer_c_v2(
                 "source_v": "v2_hdbscan",
             })
 
+        sample_responses = responses[:_MAX_RUBRIC_RESPONSES]
         responses_text = "\n\n".join(
-            f"[{r['call_filename']}]\n{r['response_text']}" for r in responses
+            f"[{r['call_filename']}]\n{r['response_text']}" for r in sample_responses
         )
         rubric_result = call_gemma(
             PROMPT_LAYER_C_V1.format(
                 scenario_key=scenario_key,
                 sub_topic=info["sub_topic"],
                 primary_topic=info["primary_topic"],
-                n_instances=len(responses),
+                n_instances=len(sample_responses),
                 responses_text=responses_text,
             ),
-            config.gemma_api_key,
+            config.gemma_api_keys,
         )
+        time.sleep(_GEMMA_CALL_DELAY)
 
+        conn = storage.reconnect_if_closed(conn)  # Gemma calls above can idle-drop the SSL connection
         rubric_id = storage.upsert_rubric(conn, {
             "scenario_id": info["scenario_id"],
             "scenario_key": scenario_key,

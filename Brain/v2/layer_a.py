@@ -13,7 +13,7 @@ def run_layer_a_v2(
     all_turns: list[Turn],
     config: Config,
     conn: psycopg.Connection,
-) -> dict[str, dict]:
+) -> tuple[dict[str, dict], psycopg.Connection]:
     """V2 scenario identification via BERTopic + Gemma labelling."""
     from bertopic import BERTopic
     from umap import UMAP
@@ -33,7 +33,7 @@ def run_layer_a_v2(
     embeddings_matrix = np.array(vecs)
 
     n = len(client_clauses)
-    min_cluster_size = max(3, n // 10)
+    min_cluster_size = max(3, min(n // 10, 50))
     min_samples = max(2, min_cluster_size // 3)
     umap_model = UMAP(n_components=5, n_neighbors=min(15, n - 1), min_dist=0.0, metric="cosine", random_state=42)
     hdbscan_model = HDBSCAN(min_cluster_size=min_cluster_size, min_samples=min_samples,
@@ -52,7 +52,17 @@ def run_layer_a_v2(
 
     topic_info = topic_model.get_topic_info()
     valid_topics = topic_info[topic_info["Topic"] != -1]
-    print(f"[V2 Layer A] BERTopic found {len(valid_topics)} cluster(s). Labelling with Gemma...")
+    print(f"[V2 Layer A] BERTopic found {len(valid_topics)} raw cluster(s).")
+
+    MAX_CLUSTERS = 150
+    if len(valid_topics) > MAX_CLUSTERS:
+        print(f"[V2 Layer A] Reducing to {MAX_CLUSTERS} cluster(s) via topic merging...")
+        topic_model.reduce_topics(client_clauses, nr_topics=MAX_CLUSTERS)
+        topics = topic_model.topics_
+        topic_info = topic_model.get_topic_info()
+        valid_topics = topic_info[topic_info["Topic"] != -1]
+
+    print(f"[V2 Layer A] Labelling {len(valid_topics)} cluster(s) with Gemma...")
 
     scenario_map: dict[str, dict] = {}
     for _, row in valid_topics.iterrows():
@@ -66,7 +76,7 @@ def run_layer_a_v2(
             keywords=keywords,
             representative_utterances=representative,
         )
-        result = call_gemma(prompt, config.gemma_api_key)
+        result = call_gemma(prompt, config.gemma_api_keys)
 
         base_key = result["scenario_key"]
         key = base_key
@@ -76,6 +86,7 @@ def run_layer_a_v2(
             suffix += 1
         result["scenario_key"] = key
 
+        conn = storage.reconnect_if_closed(conn)  # Gemma call above can idle-drop the SSL connection
         scenario_id = storage.upsert_scenario(conn, result)
         scenario_map[key] = {
             "scenario_id": scenario_id,
@@ -85,4 +96,4 @@ def run_layer_a_v2(
         }
         print(f"  v cluster {topic_id} -> {key} (scenario_id={scenario_id})")
 
-    return scenario_map
+    return scenario_map, conn

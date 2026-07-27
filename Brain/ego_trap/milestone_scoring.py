@@ -33,7 +33,7 @@ def score_milestones(
             benchmark_response=benchmark_response,
             csm_response=csm_response_text,
         )
-        result = call_gemma(prompt, config.gemma_api_key)
+        result = call_gemma(prompt, config.gemma_api_keys)
         results.append({
             "milestone_id": milestone_id,
             "milestone_description": milestone.get("description", ""),
@@ -66,7 +66,7 @@ def score_soft_skills(
             failing_execution=soft_skill_rubric.get("failing_execution", ""),
             csm_response=csm_response_text,
         )
-        result = call_gemma(prompt, config.gemma_api_key)
+        result = call_gemma(prompt, config.gemma_api_keys)
         results.append({
             "skill": skill_name,
             "rating": result.get("rating", "adequate"),
@@ -102,7 +102,7 @@ def score_milestones_batch(items: list[dict], config: Config) -> list[list[dict]
         return results_by_item
 
     prompt = PROMPT_STEP3_MILESTONE_SCORE_BATCH.format(items_block="\n\n".join(lines))
-    raw = call_gemma(prompt, config.gemma_api_key)
+    raw = call_gemma(prompt, config.gemma_api_keys)
     raw_list = raw if isinstance(raw, list) else raw.get("results", [])
     by_id = {r["id"]: r for r in raw_list if "id" in r}
 
@@ -150,7 +150,7 @@ def score_soft_skills_batch(items: list[dict], config: Config) -> list[list[dict
         return results_by_item
 
     prompt = PROMPT_STEP3_SOFT_SKILL_SCORE_BATCH.format(items_block="\n\n".join(lines))
-    raw = call_gemma(prompt, config.gemma_api_key)
+    raw = call_gemma(prompt, config.gemma_api_keys)
     raw_list = raw if isinstance(raw, list) else raw.get("results", [])
     by_id = {r["id"]: r for r in raw_list if "id" in r}
 

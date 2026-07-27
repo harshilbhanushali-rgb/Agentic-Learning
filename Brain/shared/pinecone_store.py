@@ -21,7 +21,7 @@ def init_index(api_key: str, index_name: str) -> None:
     if index_name not in [i.name for i in pc.list_indexes()]:
         pc.create_index(
             name=index_name,
-            dimension=2048,
+            dimension=768,  # BAAI/bge-base-en-v1.5 (local embedder)
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region="us-east-1"),
         )
