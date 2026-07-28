@@ -9,3 +9,9 @@ checkpoints.db
 *.egg-info
 node_modules
 .next
+
+# Local embedding cache (hundreds of MB, rebuildable)
+embed_cache.db
+Brain/embed_cache.db
+checkpoints.db
+Brain/checkpoints.db

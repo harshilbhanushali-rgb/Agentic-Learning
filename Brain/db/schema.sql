@@ -6,6 +6,18 @@ CREATE TABLE IF NOT EXISTS calls (
 );
 
 -- Layer A: scenario taxonomy
+--
+-- Evidence columns (added 2026-07-27) record WHY each scenario exists, so the
+-- taxonomy is auditable without re-running the pipeline:
+--   is_coachable   false => no rubric; acts as a sink for junk Layer B matches
+--   cluster_kind   scenario | mechanics | logistics
+--   support_calls  distinct calls the cluster drew clauses from
+--   call_coverage  support_calls / total calls in the corpus
+--   triage_verdict scenario_candidate | needs_review (evidence routing, pre-LLM)
+--   adjudication_reason  the LLM's one-sentence justification. Required reading
+--                  for any needs_review cluster that stayed coachable.
+--   rubric_status  rubric_generated | skipped_not_coachable
+--                  | skipped_insufficient_responses | failed
 CREATE TABLE IF NOT EXISTS scenarios (
     scenario_id   SERIAL PRIMARY KEY,
     scenario_key  TEXT UNIQUE NOT NULL,
@@ -16,10 +28,29 @@ CREATE TABLE IF NOT EXISTS scenarios (
     bloom_level   TEXT NOT NULL CHECK (bloom_level IN (
                       'remember','understand','apply','analyze','evaluate','create'
                   )),
+    is_coachable        BOOLEAN NOT NULL DEFAULT TRUE,
+    cluster_kind        TEXT    NOT NULL DEFAULT 'scenario',
+    support_calls       INTEGER NOT NULL DEFAULT 0,
+    support_clauses     INTEGER NOT NULL DEFAULT 0,
+    call_coverage       REAL    NOT NULL DEFAULT 0,
+    triage_verdict      TEXT,
+    adjudication_reason TEXT,
+    rubric_status       TEXT,
     created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_scenarios_keyphrases
     ON scenarios USING GIN(keyphrases);
+
+-- init_db.py only creates missing tables, it never alters existing ones, so
+-- every column above needs an explicit ALTER for already-provisioned databases.
+ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS is_coachable        BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS cluster_kind        TEXT    NOT NULL DEFAULT 'scenario';
+ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS support_calls       INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS support_clauses     INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS call_coverage       REAL    NOT NULL DEFAULT 0;
+ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS triage_verdict      TEXT;
+ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS adjudication_reason TEXT;
+ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS rubric_status       TEXT;
 
 -- Layer B: trigger-response pairs
 -- Vectors stored in Pinecone (index: narens-brain, namespaces: triggers / responses)

@@ -252,3 +252,64 @@ Respond ONLY with valid JSON — a single array with exactly one object per item
   {{"id": "<id>", "rating": "excellent", "confidence": "high", "reason": "one sentence explanation"}}
 ]
 """
+
+# Layer A V2 triage. Replaces PROMPT_LAYER_A_V2_LABEL, which asked only "what is
+# this cluster?" with no memory of prior clusters -- so nothing stopped it from
+# minting a 9th near-identical acknowledgment scenario.
+#
+# Two additions carry the whole fix:
+#   nearest_scenarios  lets the model SEE it is looking at a duplicate.
+#   coverage_note      tells it when a cluster is broad enough to be suspicious,
+#                      without pre-judging the answer. Coverage alone cannot
+#                      separate backchannel from a core business topic that
+#                      genuinely comes up in most calls, so the model decides.
+PROMPT_LAYER_A_V2_TRIAGE = """\
+You are curating a taxonomy of coachable CLIENT scenarios from Joveo sales call transcripts.
+A junior colleague will be trained against this taxonomy, so every entry must be a distinct
+client situation that demands a deliberate strategic response.
+
+CLUSTER KEYWORDS (c-TF-IDF): {keywords}
+
+REPRESENTATIVE CLIENT UTTERANCES:
+{representative_utterances}
+
+EVIDENCE:
+- appears in {distinct_calls} of {total_calls} distinct calls ({call_coverage:.0%} of the corpus)
+- {n_clauses} clauses total, merged from {n_merged} raw cluster(s)
+{coverage_note}
+
+NEAREST SCENARIOS ALREADY ACCEPTED (by embedding similarity):
+{nearest_scenarios}
+
+Choose exactly one decision:
+
+- "merge_into"    this cluster is the same client situation as one of the accepted scenarios
+                  above, only worded differently. Set merge_into_key to its exact key.
+                  Prefer this over creating a near-duplicate.
+- "mechanics"     this is conversational machinery, not a scenario: acknowledgment,
+                  backchannel, greetings, thanks, filler, scheduling chatter, audio checks.
+                  There is no strategic choice to coach here.
+- "not_coachable" real content, but it carries no client need to respond to: pleasantries,
+                  off-topic small talk, or garbled fragments with no recoverable meaning.
+- "new_scenario"  a genuine client situation not already in the list above.
+
+Judge the utterances, not the keywords. High corpus coverage is a reason to look harder,
+NOT a reason to reject: a central business topic can legitimately appear in most calls.
+
+Respond ONLY with valid JSON:
+{{
+  "decision": "new_scenario",
+  "merge_into_key": null,
+  "reason": "one sentence justifying the decision",
+  "scenario_key": "snake_case_identifier",
+  "primary_topic": "High-level category",
+  "sub_topic": "Specific client situation (1 sentence)",
+  "keyphrases": ["2-4 word phrase", "another phrase"],
+  "soft_skills": ["empathy"],
+  "bloom_level": "apply"
+}}
+
+For "merge_into", set merge_into_key and reason; the remaining fields may be null.
+For "mechanics" and "not_coachable", still supply scenario_key, primary_topic and sub_topic
+so the cluster can be recorded and used as a sink for unmatched pairs.
+"""

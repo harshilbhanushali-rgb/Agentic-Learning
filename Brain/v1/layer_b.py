@@ -7,8 +7,9 @@ from preprocessing.transcript_parser import Turn, SpeakerRole
 from preprocessing import embedder
 from shared import storage
 from shared import pinecone_store
+from shared.scenario_vectors import build_scenario_vecs as _build_scenario_vecs
+from shared.tuning import load_tuning
 
-_SIMILARITY_THRESHOLD = 0.30
 _MIN_CONTENT_WORDS = 5
 
 _nlp = spacy.load("en_core_web_lg", disable=["parser", "ner"])
@@ -19,16 +20,6 @@ def _is_substantive(text: str) -> bool:
     doc = _nlp(text)
     content = [t for t in doc if t.is_alpha and not t.is_stop]
     return len(content) >= _MIN_CONTENT_WORDS
-
-
-def _build_scenario_vecs(scenario_map: dict) -> tuple[list[str], list[list[float]]]:
-    keys = list(scenario_map.keys())
-    descs = [
-        scenario_map[k]["sub_topic"] + " " + " ".join(scenario_map[k].get("keyphrases", []))
-        for k in keys
-    ]
-    vecs = embedder.embed_document(descs)
-    return keys, vecs
 
 
 def extract_pairs(
@@ -76,17 +67,27 @@ def assign_scenarios(
     scenario_map: dict[str, dict],
     config: Config,
 ) -> list[list[float]]:
-    """Assign each pair to one or more scenarios using a two-stage strategy:
+    """Assign each pair to its best-matching scenarios by RELATIVE similarity.
 
-    Stage 1 — per-pair multi-match:
-      Compute cosine similarity between each trigger and all scenario descriptions.
-      Assign the pair to every scenario that crosses _SIMILARITY_THRESHOLD.
-      scenario_key = the highest-scoring match; scenario_keys = all matches.
+    The old rule was an absolute cosine floor of 0.30 against every scenario. That
+    does not scale with taxonomy size: at 149 scenarios, 70% of pairs cleared it
+    against nearly all of them at once, which left Layer C training on a
+    near-random response pool. An absolute threshold also has no defensible value
+    -- these embeddings put short conversational text in a narrow similarity band,
+    so the number that works at one corpus size is wrong at the next.
 
-    Stage 2 — centroid fallback:
-      For pairs that matched nothing in Stage 1, compute the call centroid
-      (mean of all trigger embeddings) and assign the best-matching scenario
-      unconditionally. Ensures no pair is left with scenario_key = None.
+    Relative top-K is scale-invariant instead: rank scenarios per trigger, keep
+    those within RELATIVE_MARGIN of the trigger's OWN best match, cap the count.
+    A trigger that genuinely fits one scenario keeps one; an ambiguous trigger
+    keeps a few; nothing keeps 149.
+
+    Sinks (is_coachable=false clusters -- mechanics, pleasantries) stay match
+    candidates on purpose. If a junk trigger's best match is a sink, it is filed
+    there ALONE and stops. That sink is what replaces the old centroid fallback:
+    because a relative cutoff always keeps at least the best match, no pair can
+    be left unassigned, so the fallback stage is gone entirely rather than
+    rerouted. Previously it guaranteed every unmatched junk pair was forced into
+    some real scenario's rubric.
 
     Returns trigger vecs so embed_and_store_pairs can reuse them.
     """
@@ -99,7 +100,9 @@ def assign_scenarios(
     if not scenario_map:
         return trigger_vecs
 
+    tuning = load_tuning().layer_b
     scenario_keys, scenario_vecs = _build_scenario_vecs(scenario_map)
+    is_sink = [not scenario_map[k].get("is_coachable", True) for k in scenario_keys]
 
     T = np.array(trigger_vecs)
     S = np.array(scenario_vecs)
@@ -107,31 +110,29 @@ def assign_scenarios(
     S_norm = S / (np.linalg.norm(S, axis=1, keepdims=True) + 1e-10)
     sim_matrix = T_norm @ S_norm.T  # (n_pairs, n_scenarios)
 
-    # Stage 1: per-pair multi-match
-    unmatched = []
-    for i, pair in enumerate(pairs):
-        matched = [scenario_keys[j] for j in range(len(scenario_keys))
-                   if sim_matrix[i, j] >= _SIMILARITY_THRESHOLD]
-        if matched:
-            best_j = int(np.argmax(sim_matrix[i]))
-            pair["scenario_keys"] = matched
-            pair["scenario_key"]  = scenario_keys[best_j]
-            pair["scenario_id"]   = scenario_map[scenario_keys[best_j]]["scenario_id"]
-        else:
-            unmatched.append(i)
+    def _assign(pair, keys):
+        pair["scenario_keys"] = keys
+        pair["scenario_key"] = keys[0]
+        pair["scenario_id"] = scenario_map[keys[0]]["scenario_id"]
 
-    # Stage 2: centroid fallback for unmatched pairs
-    if unmatched:
-        centroid = T_norm.mean(axis=0)
-        centroid = centroid / (np.linalg.norm(centroid) + 1e-10)
-        sims = S_norm @ centroid
-        best_j = int(np.argmax(sims))
-        fallback_key = scenario_keys[best_j]
-        fallback_id  = scenario_map[fallback_key]["scenario_id"]
-        for i in unmatched:
-            pairs[i]["scenario_key"]  = fallback_key
-            pairs[i]["scenario_id"]   = fallback_id
-            pairs[i]["scenario_keys"] = [fallback_key]
+    for i, pair in enumerate(pairs):
+        sims = sim_matrix[i]
+        order = np.argsort(sims)[::-1]
+        best_j = int(order[0])
+
+        # A junk trigger whose closest match is machinery belongs only there.
+        # Letting it also match real scenarios is exactly how backchannel ended up
+        # in strategic rubrics.
+        if is_sink[best_j]:
+            _assign(pair, [scenario_keys[best_j]])
+            continue
+
+        cutoff = tuning.relative_margin * float(sims[best_j])
+        kept = [
+            scenario_keys[int(j)] for j in order[:tuning.max_scenarios_per_pair]
+            if float(sims[int(j)]) >= cutoff and not is_sink[int(j)]
+        ]
+        _assign(pair, kept or [scenario_keys[best_j]])
 
     return trigger_vecs
 

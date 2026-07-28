@@ -99,15 +99,31 @@ python -m spacy download en_core_web_lg
 # Run tests (use root venv directly -- `uv run pytest` creates a new Brain/.venv)
 ..\.venv\Scripts\pytest tests/ -v
 
+# Calibrate the scenario taxonomy -- no Gemma calls, no DB writes, read-only
+python dry_run_layer_a.py --sweep                        # threshold grid (counts only)
+python dry_run_layer_a.py --merge-detail 0.75,0.80,0.85  # what each merge threshold collapses
+python dry_run_layer_a.py                                # full report + coverage distribution
+
+# Calibrate Layer B matching + Layer C milestones -- also zero Gemma, zero DB/Pinecone
+python dry_run_layer_bc.py --limit 30                    # fast smoke test
+python dry_run_layer_bc.py                               # full corpus
+
 # Run pipeline
 python main.py
+
+# Wipe Postgres + checkpoints before a clean re-run
+python clear_data.py
 ```
+
+Long dry runs must be launched with `PYTHONUNBUFFERED=1` when redirecting to a log — otherwise stdout is block-buffered and the log sits at 0 bytes for minutes, which is indistinguishable from a hung process.
 
 ### Brain Stack
 
 - **Python 3.11**, `uv` package manager, venv at `c:\PF\Joveo\CS-platform\.venv`
 - **LLM:** `google-genai` → Gemma 4 31B via Google AI Studio (`GEMMA_API_KEY`)
-- **Vectors:** Pinecone `llama-text-embed-v2` (2048 dims, cosine) — index `narens-brain`, AWS us-east-1
+- **Embeddings:** LOCAL `sentence-transformers` running `BAAI/bge-base-en-v1.5` (768 dims, `normalize_embeddings=True`), CUDA if available — see `preprocessing/embedder.py`. Not a hosted embedding API.
+- **Vector store:** Pinecone, index `narens-brain` (768 dims, cosine), AWS us-east-1 — storage/retrieval only, it does no embedding
+- **Embedding cache:** SQLite at `Brain/embed_cache.db`, float32, keyed `sha256(model|prefix|text)`
 - **Sentence splitting:** spaCy `en_core_web_lg`
 - **Relational DB:** PostgreSQL via `psycopg[binary]` — no vectors stored here, vectors in Pinecone only
 - **Checkpointing:** SQLite at `Brain/checkpoints.db`
@@ -119,9 +135,15 @@ python main.py
 - `shared/` — `gemma.py`, `storage.py` (Postgres CRUD), `pinecone_store.py`, `checkpoint.py`, `prompts.py`
 - `v1/` — Gemma-direct pipeline (Layer A: scenario ID, Layer B: pair extraction, Layer C: rubrics)
 - `v2/` — BERTopic clustering for Layer A/C; Layer B re-exports v1
+- `tuning.yaml` + `shared/tuning.py` — **every clustering/milestone threshold lives here**, not in code. Unknown or missing keys raise at load time, so a typo fails loudly instead of silently reverting to a default. Change values here; never hardcode a threshold in a layer.
+- `shared/cluster_evidence.py` — pure, testable triage helpers (`support_stats`, `merge_by_similarity`, `triage`, `required_call_support`, `required_milestone_support`)
+- `shared/scenario_vectors.py` — the one definition of "the scenario vector" (`sub_topic` + `keyphrases`), shared by Layer B matching and Layer C relevance filtering
+- `dry_run_layer_a.py` — read-only taxonomy preview: `--sweep` (threshold grid), `--merge-detail 0.75,0.85` (what each merge threshold actually collapses), plain run (full report + coverage distribution). Zero Gemma calls, zero DB writes
+- `dry_run_layer_bc.py` — Layer B/C calibration. Chains off Layer A's clustering, substitutes **c-TF-IDF keywords as pseudo scenario descriptions** (Gemma writes the real ones), then runs the *production* `layer_b.assign_scenarios` and `layer_c._relevance_filter`. Reports sink-absorption rate, assignment concentration, best-match cosine spread, a `relative_margin` sweep, and the milestone-count distribution per `(percentile, fraction)` — including how many scenarios end with **zero** milestones. Zero Gemma, zero Postgres, zero Pinecone
 - `main.py` — entry point; asks V1 or V2; generates `run_id`; inits Pinecone index + SQLite checkpoint
 - `recordings/` — place `.txt` transcript files here (stem = call_id)
 - `db/schema.sql` — Postgres tables only (no vector columns); `db/init_db.py` runs it
+- `tests/` — pytest suite (72 tests). `test_cluster_evidence.py` and `test_tuning.py` cover the triage helpers and the config loader; `test_layer_b_assignment.py` covers relative top-K scenario matching using hand-built orthogonal unit vectors, so it tests the *rule* rather than the embedding model
 - `ego_trap/` — gap-analysis pipeline (Steps 0-4 + Layer D) scoring CSM calls against Naren's rubrics; `run_ego_trap.py` is its non-interactive batch entry point, `clear_ego_trap_data.py` resets only its own tables
 
 ### Transcript format
@@ -136,19 +158,27 @@ Their utterance.
 
 No participant header block. Speaker classification is config-driven via `JOVEO_SPEAKER_NAMES` env var.
 
-### Pinecone embedding API
+### Embedding API
+
+Always go through `preprocessing/embedder.py` — never call the model or Pinecone inference directly:
 
 ```python
-result = pc.inference.embed(
-    model="llama-text-embed-v2",
-    inputs=texts,
-    parameters={"input_type": "query",  # or "passage" for documents
-                "dimension": 2048, "truncate": "END"},
-)
-vecs = [e.values for e in result]  # access .values, not .embedding or []
+from preprocessing import embedder
+vecs = embedder.embed_query(texts)     # CLIENT triggers / search side -> list[list[float]]
+vecs = embedder.embed_document(texts)  # responses, scenario descriptions -> list[list[float]]
+
+# Prefer these for large pools -- returns (n, dim) float32 ndarray, no list round-trip
+mat = embedder.embed_query_matrix(texts)
+mat = embedder.embed_document_matrix(texts)
 ```
 
-Two namespaces in one index: `"triggers"` (CLIENT utterances) and `"responses"` (Naren responses).
+**Use the `_matrix` variants for anything corpus-sized.** The list-returning functions materialise ~56 million Python float objects for a 74k-clause pool, which made a *cache hit* slower than re-embedding the whole corpus on the GPU. `layer_a`, `layer_c` and `dry_run_layer_a` all use the matrix path.
+
+`embed_query` prepends bge's instruction prefix (`"Represent this sentence for searching relevant passages: "`); `embed_document` does not. The cache is keyed on the prefix, so the same string correctly yields two different vectors depending on which function is used. Both return plain `list[list[float]]`, already L2-normalised.
+
+Two namespaces in one Pinecone index: `"triggers"` (CLIENT utterances) and `"responses"` (Naren responses).
+
+**Embeddings are not reproducible across runs unless cached.** CUDA matmul reduction order varies, so the same corpus re-embedded from scratch yields slightly different vectors, and UMAP/HDBSCAN amplify that into different cluster counts (241 → 231 → 226 raw clusters were observed for one identical corpus). The float32 `embed_cache.db` is what pins results — keep it between calibration runs, and delete it only when you intend to re-embed.
 
 ### Checkpointing
 
@@ -167,6 +197,9 @@ SQLite `checkpoints.db` — item convention: `"ALL"` for Layer A, call stem (e.g
 - All `read_text()` calls must use `encoding="utf-8-sig"` not `"utf-8"` — Windows editors save transcripts and SQL files with a UTF-8 BOM that breaks psycopg and the transcript parser
 - PowerShell `Set-Content -Encoding utf8` also writes a BOM ? breaks `python-dotenv` (`.env` silently not loaded) and TOML parsers (`pyproject.toml` build fails); strip with `[System.IO.File]::WriteAllText(path, content, [System.Text.UTF8Encoding]::new($false))`
 - `clear_data.py` — run `python clear_data.py` from `Brain/` to wipe all Postgres tables + checkpoints in one step (use before a clean re-run)
+- **You cannot keep two pipeline runs in the DB at once — snapshot to a Postgres schema instead.** There is no `run_id` column on `calls` / `scenarios` / `kb_pairs` / `rubrics`, and each has a UNIQUE constraint (`calls.filename`, `scenarios.scenario_key`, `rubrics.scenario_id`, plus a unique index on `kb_pairs(call, turn)`), so a second run collides rather than coexisting. To compare before/after, copy the four tables server-side first — `CREATE SCHEMA baseline_<date>; CREATE TABLE baseline_<date>.<t> AS SELECT * FROM <t>;` — which needs no `pg_dump`, keeps both versions queryable in SQL, and copies rows only (no constraints), then run `clear_data.py`. Existing snapshot: **`baseline_20260728`** = the pre-rework run (calls 416, scenarios 149, kb_pairs 4605, rubrics 148 — note the 149-vs-148 gap that `_reconcile` now prevents).
+- **Skipping `clear_data.py` does not preserve a run, it produces a no-op run.** `run_id` is a hash of the sorted transcript stems, so re-running the same 416 transcripts yields the *same* `run_id`; `checkpoints.db` then reports the work as already done and the pipeline skips it. Clearing checkpoints is mandatory for a genuine re-run, which is why `clear_data.py` does both.
+- A pre-rework baseline lacks the evidence columns (`is_coachable`, `cluster_kind`, `triage_verdict`, `rubric_status`, milestone support fields), so comparing against it is a "taxonomy before vs after" diff, **not** a controlled A/B of individual knobs. A real A/B needs two *post-rework* runs differing in one knob — double the Gemma spend, so decide deliberately.
 - Gemma sometimes returns a bare JSON array `[...]` instead of `{"scenarios": [...]}` — always guard with `result if isinstance(result, list) else result.get("key", [])`
 - `llama-text-embed-v2` cosine similarities between short conversational utterances and abstract scenario descriptions are very low in practice (max ~0.14 observed) — `_SIMILARITY_THRESHOLD` in `layer_b.py` is the tuning knob; centroid fallback ensures no pair stays unassigned
 - `ego_trap/settings.py` defaults (e.g. `STEP_0_MODE=similarity`) can be silently overridden by `Brain/.env` — always check `.env` before trusting a settings.py default
@@ -177,11 +210,62 @@ SQLite `checkpoints.db` — item convention: `"ALL"` for Layer A, call stem (e.g
 - Never grep/cat the whole `.env` file to check one setting — it prints `GEMMA_API_KEY`/`DATABASE_URL` in plaintext; grep for the specific key only (e.g. `grep '^STEP_0_MODE=' .env`)
 - `run_ego_trap.py` fires Gemma calls back-to-back across transcripts with no pacing — `STEP_0_MODE=gemma` doubles call volume (Step 0 + Step 3 per transcript) and increases 429/503 retry-backoff stalls (`gemma.py`'s backoff can add up to 62s per call)
 - Adding a column to an existing table requires an explicit `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` in `schema.sql` alongside the updated `CREATE TABLE IF NOT EXISTS` literal — `db/init_db.py` only creates missing tables, it never alters existing ones
+- **There are TWO separate substantive-text filters and they do not share a knob.** `v1/layer_b._is_substantive` uses its own module constant `_MIN_CONTENT_WORDS = 5`; `shared/cluster_evidence.is_substantive` takes its threshold from `tuning.yaml`'s `layer_a.min_content_words`. Editing `tuning.yaml` does **not** change Layer B pair extraction — change the constant in `layer_b.py` for that
+- `storage.get_scenarios` **must** select `is_coachable` and `cluster_kind`. It backs `_load_scenario_map`, which is the checkpoint-resume path — without them a resumed run treats every mechanics sink as coachable and generates rubrics for backchannel
+- `layer_c`'s `min_milestone_calls_floor: 3` means a scenario whose responses span fewer than 3 calls can never satisfy the support gate, so it always falls through to the V1 Gemma fallback. That is intended (V1 still produces a rubric), but it means small scenarios are not clustered — don't read it as a bug
+- V2 Layer A adjudication deliberately makes **no DB calls inside the Gemma loop**; all scenarios are written in one pass afterwards. Holding a Postgres connection across ~200 sequential Gemma calls invites the `IdleInTransactionSessionTimeout` / SSL-drop failure mode. Don't add an `upsert` back into that loop
+- `tuning.yaml` keys are validated on load — an unknown or missing key raises rather than silently falling back to a default. Add the key to both `tuning.yaml` and the dataclass in `shared/tuning.py`, or the loader fails
+- A threshold must never be a count of outputs or a curated list. Every knob in `tuning.yaml` is a property of the data (fraction of calls, cosine distance, relative margin, percentile) so that adding transcripts re-derives every bound. `MAX_CLUSTERS=150` is the cautionary tale: a count halts at N whether duplication remains or not
 
 ### Brain Schema (current state)
 
 - `kb_pairs` has `scenario_keys TEXT[]` (added 2026-06-29) — multi-scenario array; `scenario_key TEXT` is the primary/display one used by Layer C queries
 - Layer D (Ego Trap, added 2026-07-06): `csms`, `milestone_performance`, `signal_recognition_gaps`, `gap_events` — `gap_events.signal_turn_index` is a transcript turn number, not a timestamp (real call recordings have no timestamps)
+- `scenarios` evidence columns (added 2026-07-27) — record *why* each scenario exists so the taxonomy is auditable without re-running the pipeline:
+  - `is_coachable BOOLEAN` — false ⇒ no rubric; the row acts as a sink for junk Layer B matches
+  - `cluster_kind TEXT` — `scenario` | `mechanics` | `logistics`
+  - `support_calls INTEGER`, `support_clauses INTEGER`, `call_coverage REAL` — the cluster's evidence
+  - `triage_verdict TEXT` — `scenario_candidate` | `needs_review` (pre-LLM routing)
+  - `adjudication_reason TEXT` — the LLM's one-sentence justification. **Required reading for any `needs_review` cluster that stayed coachable** — that is the audit trail replacing the old automatic-mechanics rejection
+  - `rubric_status TEXT` — `rubric_generated` | `skipped_not_coachable` | `skipped_insufficient_responses` | `failed`
+- Milestone JSONB gains `support_calls`, `support_clauses`, `relevance_mean` per milestone (2026-07-27)
+
+### V2 evidence-triage clustering (2026-07-27)
+
+Design: `docs/superpowers/specs/2026-07-27-evidence-triage-clustering-design.md` (read the **Amendment** section — it corrects the approved design against measured data).
+
+Core principle: **cluster freely, then triage clusters against evidence.** Filtering 74k utterances can never be exhaustive; judging ~200 clusters is cheap enough to afford real evidence. Whatever survives *is* the taxonomy — there is no target count.
+
+- `MAX_CLUSTERS=150` / `reduce_topics` is **deleted**. It merged the *rarest* topics first by c-TF-IDF keyword overlap — the opposite end of the distribution from the backchannel families that duplicate, and blind to them anyway since `"Perfect. Alright then"` and `"yeah that makes sense"` share no vocabulary.
+- Layer A: similarity-merge topic centroids → `cluster_evidence.triage` → one Gemma call per surviving cluster via `PROMPT_LAYER_A_V2_TRIAGE`, which sees the cluster's own stats **and the top-3 nearest already-accepted scenarios**, so it can tell it is looking at the 9th acknowledgment variant. Clusters are adjudicated largest-first so the best-evidenced member of a family becomes canonical.
+- `triage()` returns `scenario_candidate` | `needs_review` | `insufficient_evidence`. **High coverage is a review flag, never a rejection** — it condemned ~50% of clusters when it was a verdict, because a core business topic legitimately appears in most calls. Only `insufficient_evidence` is terminal (and it saves a Gemma call).
+- Non-coachable clusters are **kept** as sinks (`is_coachable=false`, `cluster_kind` `mechanics`/`logistics`), not deleted. Layer B files junk there instead of contaminating a real rubric.
+- Layer B: relative top-K (`>= relative_margin * best`, capped) replaces the absolute `_SIMILARITY_THRESHOLD = 0.30`, which did not scale — at 149 scenarios 70% of pairs matched nearly all of them. If the best match is a sink, the pair is filed there **alone**. The centroid fallback is gone: a relative cutoff always keeps at least the best match, so no pair can be unassigned.
+- Layer C: scenario-relevance percentile filter on the response clause pool, then a **distinct-call support gate** (`max(floor, ceil(fraction * scenario_call_count))`). `min_cluster_size=2` was the 95-milestone bug — with no provenance, two adjacent clauses of ONE response counted as "recurring". `milestone_hard_cap` is a backstop that logs loudly; if it binds, the support floor is miscalibrated.
+- Every scenario ends with a non-null `scenarios.rubric_status`; `v2/pipeline.py::_reconcile` prints the status table and **raises** if any is unset. This is what makes a silent 149-scenarios-vs-148-rubrics gap impossible.
+
+**First production V2 run (2026-07-28)** — `relative_margin 0.95`, `percentile 40`, `fraction 0.10`, `merge 0.85`, `ubiquity 0.60`. Baseline for comparison is Postgres schema `baseline_20260728`.
+
+- 416 calls, **158 scenarios** (85 coachable + 66 mechanics + 7 logistics), 4605 kb_pairs, **85 rubrics**. `rubric_status` = 85 `rubric_generated` + 73 `skipped_not_coachable`, **no NULLs** — `_reconcile` passed. The baseline's 149-vs-148 gap is gone.
+- Cheap because sinks skip Layer C entirely: 158 triage calls, but rubric generation ran for 85 scenarios instead of ~148.
+- **Coverage-flags-never-rejects is confirmed by the data, in both directions.** 62 of the 73 sinks were `scenario_candidate` with coverage **0.38–0.52, all below the 0.60 ceiling** — triage passed them and only the LLM caught them (`conversational_confirmation_and_fillers`, `generic_greetings_and_pleasantries`, `client_hedging_and_fillers`, …). A coverage-only rule would have admitted every one. Conversely, of 16 `needs_review`, 11 were junk and **5 were real business topics** that the old reject-on-coverage rule would have destroyed: stakeholder roles (0.80), budget/spend (0.77), timeline/feasibility (0.75), technical integration (0.67), client knowledge-gap admission (0.64).
+- So **46% non-coachable is not the "~50% mechanics is implausible" failure returning.** That failure was coverage condemning real topics blind; here every rejection carries a specific content justification in `adjudication_reason` and the survivors are genuine. Read the reasons before ever re-litigating this.
+- Observed max cluster coverage is now **0.798** (earlier calibration recorded 0.74).
+- **Production match width was 63% / 19% / 18% (one/two/three scenarios), not the dry run's predicted 47/25/27, and 39.7% of pairs went to a sink vs 13.3% predicted.** Both follow mechanically from 73 sinks instead of 15 — more pairs hit the sink short-circuit and never reach the margin. Not a margin miscalibration.
+
+Calibration gotchas:
+
+- `min_call_support_fraction` is **inert** at this corpus size (dropped 0–3 of 226 clusters across the whole sweep grid) because BERTopic's `min_cluster_size` is already 50 clauses. It is a small-corpus safety floor — do not credit it with removing junk.
+- `merge_cosine_threshold` and `ubiquity_ceiling` **interact**: merging unions the member call sets, which raises each surviving cluster's coverage. They cannot be tuned independently.
+- **`relative_margin` does NOT feed Layer C — measured 2026-07-28.** This was assumed to couple and it does not. Re-running `dry_run_layer_bc.py` at margin 0.95 produced a **byte-identical** Layer C table to the 0.85 run, because Layer C keys off the single primary `scenario_key` (the best match) while `relative_margin` only controls the *additional* entries in `scenario_keys`. So the two knobs are independent and can be calibrated in either order. `relative_margin` is also `layer_b` only — **Layer A never reads it** — so changing it never requires re-running the Layer A dry run either.
+- One dry run measures the **whole** Layer C grid: the sweep evaluates every `(percentile, fraction)` combination in a single pass, so selecting a row afterwards needs no re-run. Only changing something *upstream* of the clustering (the clause pool, the merge threshold, the embeddings) invalidates the table.
+- Any Layer B sweep **must model the sink short-circuit**. `assign_scenarios` files a pair whose *best* match is a sink to that sink alone, never reaching the margin logic. A sweep that ignores this reports a match width production would never produce (it disagreed with production's own output by 99.7% vs 14% on first attempt).
+- **`relative_margin: 0.85` was confirmed too permissive at full scale, and 0.95 is the calibrated value.** The narrow-band prediction held: measured over 416 transcripts, best-match cosine is `p10=0.496 p50=0.550 p90=0.613` (spread 0.117 — the band is real but sits higher than the 30-transcript smoke test suggested). `0.85 × p50 = 0.467` falls below p10, so nearly everything cleared: 64% of pairs hit the 3-scenario cap. `0.95 × p50 = 0.522` lands near p25 and gives 47% one match / 25% two / 27% at cap. Full sweep is recorded inline in `tuning.yaml`.
+- Merge threshold must be validated by **reading the groups** (`--merge-detail`), not by cluster count. At 0.80 it fused campaigns + sales team + brand + markets + vendors into one cluster; 0.85 unifies the true duplicate families while leaving distinct business topics separate. Below ~0.85 the centroids of large clause sets converge toward a generic "conversation" direction, so aggressive merging destroys real distinctions *before* it removes duplicates.
+- **Layer C is calibrated to `percentile=40`, `fraction=0.10` (2026-07-28).** Measured zero-milestone counts out of 154 coachable scenarios: percentile 40 → 74/74/75/87 across fractions 0.05/0.10/0.15/0.25; percentile 60 → 83/83/86/96; percentile 75 → 80/80/89/99. 40 is the minimum-zero percentile; the old guess of 60 cost 9 extra all-zero scenarios for nothing. Between 0.05 and 0.10 (both 74) pick **0.10**, because the floor of 3 dominates until 30 calls rather than 60, keeping the fraction a live self-scaling term instead of an inert one. `capped` is 0 at every grid point, so `milestone_hard_cap` never binds.
+- **The dry run's 48%-zero-milestone forecast did not materialise — production was 3 of 85 (2026-07-28).** The dry run predicted 74 of 154 coachable scenarios would end with no clustered milestone. Production produced 3 empty rubrics out of 85 (distribution 0→3, 1→20, 2→36, 3→21, 4→5). The forecast was wrong because the dry run's pseudo-taxonomy assumed only 15 sinks while Gemma actually sinked 73: the clusters that could not clear `min_milestone_calls_floor: 3` were largely *the junk itself*, so removing it removed the zero-milestone problem. **Lesson: the dry run cannot predict Layer C yield, because it cannot predict coachability** — that is Gemma's call, and it is the dominant term. Treat dry-run Layer C numbers as an upper bound on scenario count, not a forecast of milestone yield.
+- Milestone-level (not rubric-level) split is still roughly half fallback: of 175 total milestones, 87 carry `support_calls` (clustered) and 88 do not (Gemma-written). Whether that is whole-scenario fallback or mixed within rubrics is **unmeasured** — query `support_calls IS NULL` grouped by `scenario_id` before drawing conclusions.
+- **Never hardcode a near-tie ratio in a Layer B test.** `test_ambiguous_trigger_keeps_the_near_ties` baked in a 0.95 second-match weight, which silently meant "comfortably above the cutoff" only while the margin was 0.85; at 0.95 it landed exactly on the boundary and failed on float rounding. It now derives the tie from `load_tuning().layer_b.relative_margin`, so it tests the rule at any margin. A passing suite proves nothing is broken — it never proves a threshold is *right*; only the sweep does that.
 
 ### Brain Architecture Notes
 

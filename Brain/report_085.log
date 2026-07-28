@@ -1,0 +1,491 @@
+Parsed 416 transcript(s), 49229 turns.
+CLIENT clause pool: 73771 clauses. Embedding...
+2026-07-27 22:13:59,717 - BERTopic - Dimensionality - Fitting the dimensionality reduction algorithm
+2026-07-27 22:15:23,388 - BERTopic - Dimensionality - Completed ✓
+2026-07-27 22:15:23,389 - BERTopic - Cluster - Start clustering the reduced embeddings
+2026-07-27 22:15:28,893 - BERTopic - Cluster - Completed ✓
+2026-07-27 22:15:28,907 - BERTopic - Representation - Fine-tuning topics using representation models.
+2026-07-27 22:15:29,974 - BERTopic - Representation - Completed ✓
+
+BERTopic: 237 raw cluster(s), 33321 outlier clause(s).
+Similarity merge at cosine >= 0.85: 237 -> 171 cluster(s).
+Requiring >= 9 distinct calls (2% of 416, floor 4).
+
+==============================================================================
+CLEAN PASS (straight to LLM labelling): 156
+==============================================================================
+ clauses  calls    cover  merged  keywords / sample
+     742    240   57.7%       2  email, emails, send email, whatsapp, text, send
+                                 Just text a hex code of the red. | We're also interested in looking at the, SMS messaging features as wel
+     579    247   59.4%       3  question, ask, question question, questions, ask question, gonna ask
+                                 Just a few quick questions. | So let me just fill you in here.
+     569    218   52.4%       3  boards, job boards, job board, board, job, different job
+                                 So it's essentially, I guess what we would call, like, kind of a progr | Like, it's a it's a more white glove situation or you're going to use,
+     548    188   45.2%       3  id, candidate, candidate id, job id, profile, unique
+                                 Share your ID? | Because what all we receive in the email is the resume.
+     542    234   56.2%       1  conversation, talk, conversations, discuss, talking, discussion
+                                 She also mentioned to me yesterday when I spoke to her about I think i | Have you actually meet our team, like a business team, not not the pro
+     506    123   29.6%       2  city, country, state, location, city state, state country
+                                 Only only where it's use only where it's touching Aperture. | Do you, set your own expanded radius based on our guidelines, or you r
+     453    177   42.5%       2  applications, applicants, 20, 10, slots, hires
+                                 You know, like, 3,400 jobs, like. | They may hire 40 architects in Pune, and they may hire 26 to 50.
+     451    225   54.1%       2  dont want, dont wanna, dont, want, wanna, dont care
+                                 If I work remotely and to support that, and I don't wanna say reluctan | Because I'm not in the habit of selling things to people that they don
+     423    199   47.8%       2  share, documentation, shared, copy, document, demo
+                                 Just to now have gone through the document, which has been shared earl | Let me ask them how fast they they can put up, like, a small demo to s
+     416    222   53.4%       2  able, walk, make happen, make, like able, able make
+                                 Kushi, if you could just align with the team if there is anything else | Can we do, like, a two phase and get that done, and then because here'
+     407    206   49.5%       2  gonna say, saying, youre saying, say, heard, did say
+                                 What do you say? | Do you have, like, any like, you see that as the last thing that you w
+     406    196   47.1%       2  sorry, sorry sorry, oh sorry, im sorry, apologies, sorry oh
+                                 Apologies if it's a silly one. | It's, sorry.
+     381    210   50.5%       3  ongoing, did, thats doing, doing, process, progress
+                                 It was just more so like, this is how we do things. | We're, they're still working on the scope.
+     378    186   44.7%       2  like like, like, just like, like just, just just, things like
+                                 So it's like. | It's like post sales stuff.
+     369    202   48.6%       1  ways, things, couple things, separate, theres, couple
+                                 So there's kinda two parts. | Are the two areas.
+     334    117   28.1%       2  landing, landing page, page, landing pages, pages, page landing
+                                 It's just like a landing page, really. | They wanna land on their page, but we can still make to them for organ
+     322    150   36.1%       2  ads, ad, social, social media, retargeting, media
+                                 So would it be in, like, an ad? | What you can retarget that candidate.
+     309    190   45.7%       2  helpful, help, really helpful, help help, thatd, thatd helpful
+                                 So, we have, found some suggestion in the configuration level, for thi | Maybe we help them on the therapy side.
+     302    174   41.8%       2  start, started, lets start, starting, kick, good start
+                                 Do you wanna go first? | I'm just starting.
+     300    179   43.0%       2  im gonna, gonna im, coming, gonna, thats coming, maybe need
+                                 It's coming. | It's gonna be a factor.
+     296    160   38.5%       4  sense makes, makes sense, makes, sense, sense like, like makes
+                                 That makes sense. | Doug, that it makes sense why you saw HCS.
+     286    168   40.4%       3  think think, think, yeah think, think thats, think yeah, know think
+                                 Okay, and I think that. | I think my.
+     280    157   37.7%       1  know know, familiar, familiar know, know, im familiar, oh know
+                                 We we know about it. | Like, I I knew already meaning, I knew already that the corporate is j
+     276    180   43.3%       2  hows, doing doing, guys doing, doing, doing guys, going guys
+                                 But And Laura, how is it going on the questionnaire? | How's it going?
+     270    173   41.6%       2  wasnt, isnt, thats thats, thats, thats know, know thats
+                                 It's not services. | Not not in any kind of not in any kind of structured way.
+     260     67   16.1%       1  pixel, pixels, fired, image, javascript, image pixel
+                                 We wanted to add a pixel into the ATS to then be able to track how man | Durga, do you have any questions on the pixel piece?
+     258    156   37.5%       2  good, think good, good think, good good, doing good, im doing
+                                 III realized that while all that is good, it's it's the organizing. | So fortunately, everything went fine.
+     256    156   37.5%       2  remove, stop, camera, stop sharing, turn, microphone
+                                 So I can probably remove that one step. | I have was having an issue with Outlook, and IT's now had holding my c
+     253    113   27.2%       1  ai, like ai, using ai, ai ai, use ai, ai interviewer
+                                 I asked a question on our AI team, so that's our responsible. | You mentioned that AI will be involved.
+     249    152   36.5%       2  thats thats, thats, thats thing, yeah thats, thing, presumption
+                                 That's what. | So that's for Western Asset.
+     239     25    6.0%       1  aperture, broadbean, broadbeam, integration, use aperture, ats
+                                 In fact, we use Broadbean in EMEA as well. | Mostly, that's been Aperture.
+     238     96   23.1%       1  programmatic, programmatic advertising, advertising, like programmatic, programmatic media, know programmatic
+                                 Whether it's programmatic jobs or it's programmatic display ads, SEM. | So we were like, this is probably a good time to start looking at prog
+     237    101   24.3%       1  ats, atss, ats ats, dayforce, ats integration, integration
+                                 Right now, we mainly get our candidates from Indeed, for an ATS system | We'll be building that out more formally once we move over to Dayforce
+     234     71   17.1%       1  chatbot, like chatbot, ai chatbot, chatbot chatbot, chatbot like, chatbots
+                                 So, like, the chatbot chat box would be helpful, with shortening the a | Ai bot, if you're gonna have to put it on every single site, it's like
+     229    155   37.3%       2  possible, thats possible, think does, pretty standard, does, maybe
+                                 Whatever it takes. | So that could potentially be on the table.
+     221    135   32.5%       1  issue, concern, problem, issues, nervous, problems
+                                 That's what I was concerned about. | Here is, the particular region and problem that they had.
+     220    130   31.2%       1  check, double check, double, ill check, let check, just check
+                                 Just wanted to check internally in the system level, how it works in t | Let me check that message.
+     217    130   31.2%       1  team, teams, team team, thats team, know team, rest team
+                                 Igor is in my team as well. | People and culture, they kind of act as one team.
+     217    140   33.7%       1  come, ill come, catch, circle, ill, catching
+                                 The bigger to do list when you come back because, like, everyone's lik | I need to have some, analysis on this, and I'll come back to you.
+     217    140   33.7%       1  problem, worry, dont worry, worries, issue, dont think
+                                 Can't complain. | Can't complain.
+     212    152   36.5%       2  ill ill, ill let, let, ill, let ill, let let
+                                 I'll let me let me let me repeat it. | So I'm gonna get the when are you available?
+     212    133   32.0%       2  thats right, thats correct, correct thats, correct, right thats, right think
+                                 I think so. | I think so.
+     211     59   14.2%       1  fields, field, custom, custom field, different fields, fields like
+                                 So I have gone through this document, and I found, there are 11, manda | So when you for example, in order to get job details, I need these 7 f
+     210    141   33.9%       1  everybody, everyones, think entire, things, thats think, thats thats
+                                 Everyone has a deck on this thing. | But other than that, we have everyone.
+     208    130   31.2%       2  sounds good, good sounds, sounds, good, sound good, does sound
+                                 It sounds it. | That sounds good.
+     207    125   30.0%       1  excited, im excited, exciting, really excited, looking forward, im really
+                                 With all the bells and whistles, as they say, I wanna make them very e | I'm I'm excited to learn more, honestly.
+     202    108   26.0%       3  website, tag, tags, tagging, website like, new website
+                                 We just implemented final site, which is our website, and so we have t | Okay, and we have that on our website, I think, with ours
+     201    125   30.0%       1  change, changed, changing, changes, shift, need change
+                                 So there's some big shifts happening here, and I really wanna position | So, when they reached out, initially, I wasn't, looking, and there hav
+     201     98   23.6%       1  east, toronto, based, im based, atlanta, coast
+                                 I, I grew up in, in New York, and my partner, she has asthma. | Sometimes I get pulled into East Coast stuff.
+     193    116   27.9%       1  feel, feel like, feels, feeling, like feel, felt
+                                 So, yep, that feels like it feels identical, but I don't know. | So that's the reason why I feel one 60, one 80.
+     190    127   30.5%       1  similar, exact, exactly, thing, like similar, identical
+                                 That's similar. | We'll make you frontline similar.
+     185    131   31.5%       1  hard, tricky, challenges, difficult, really hard, hard say
+                                 Having that that's something that's always been a a struggle for us. | Is complicated, and the problems are always bespoke, and the acumen of
+     185    109   26.2%       1  update, updated, updates, posted, just update, ill update
+                                 But, no, I should have an update on, on next steps. | I'll keep you posted.
+     183    108   26.0%       2  funnel, quality, funnel tracking, tracking, attribution, quality applications
+                                 Because while people wanna say I have a quality higher, I think qualit | Regarding the quality of applications, I just wanted to double check w
+     182    130   31.2%       1  lot, theres lot, theres, lot know, lot people, just lot
+                                 Really eats into my personal life. | It's a lot of the stuff that, Radacy is trying to put out there.
+     180    114   27.4%       1  naren, noreen, narin, hi, noren, naren naren
+                                 I just sorry, Noren. | Is it Noreen?
+     173    113   27.2%       2  important, thats important, value, think important, important important, important thats
+                                 I think this is important, in terms of, like, preparing for these to l | I have a very important.
+     173     91   21.9%       2  years, year, years ago, ago, like years, renewal
+                                 I was there about 3 years of Clubman. | At 33, III managed to support Carmax, getting their site up and runnin
+     171    109   26.2%       2  does work, does, work does, work, like does, work like
+                                 How does it work? | How would that work from a competitor analysis perspective?
+     170    120   28.8%       1  havent, didnt, dont dont, dont, like havent, weve dont
+                                 I know we've not covered that just yet. | So we don't have that yet.
+     166    108   26.0%       2  minutes, hour, half hour, half, 30 minutes, 10 minutes
+                                 I got 10 minutes. | So, yeah, hard to get it done in 30 minutes.
+     163     96   23.1%       1  love, love love, love like, like love, favorite, really like
+                                 I love being, enthusiasm. | That's the stuff that I like the most.
+     161     85   20.4%       1  central, eastern, pacific, 0330, mountain, time
+                                 I was like, it's really nice of them to do this at a time that works f | Does time zone make a difference in terms of, like, where you're getti
+     160    101   24.3%       1  questions, questions questions, cover, need aware, aware, questions far
+                                 Anything from our tech folks? | Come back if you've got any other questions.
+     153     80   19.2%       1  integration, integrations, integration know, like integration, integrate, integration kind
+                                 It's essentially once we go into the apply process where the integrati | But Aviture would only allow us to have 1. to point integration.
+     150    105   25.2%       1  easy, simple, easier, straightforward, pretty straightforward, thats easy
+                                 That's simpler. | It's simpler.
+     144     49   11.8%       1  crm, like crm, crms, crm know, crm like, know crm
+                                 We are buying a CRM. | Maybe our CRM could help and automate in in some of those ways, but yo
+     143    105   25.2%       1  notes, note, taker, note taker, fyi, make note
+                                 Like sticky notes? | Oh, I do have sticky notes on my.
+     143     61   14.7%       1  workday, workday workday, workday integration, integration workday, integration, workday like
+                                 So it pulls all so, also, I should mention that our our system is Work | It has to somehow integrate with Workday.
+     142     18    4.3%       1  dance, happy dance, happy, happydance, dance jovio, like happy
+                                 I communicated everything you said to the Happy Dance team with Andrew | Well, we'll be able to tell Happydance directly on our team meeting to
+     141     82   19.7%       1  share screen, screen, share, let share, screen let, screenshot
+                                 I have shared this screenshot, which I'm talking about. | Let me share my screen.
+     139     78   18.8%       1  apply, quick apply, application, click, quick, easy apply
+                                 Let's start with upload jobs, all upload jobs. | Like, you're just getting apply clicks.
+     139     83   20.0%       2  markets, market, competitive, local, local markets, new markets
+                                 Yeah, or something market specific happened. | However, we're highly competitive at the middle and upper.
+     137     92   22.1%       2  got got, got, like got, got im, oh got, nava
+                                 Got it, and and things like that. | You got it.
+     130     89   21.4%       1  nice meet, meet, nice, great meet, meet great, good meet
+                                 Nice to meet you. | Nice to meet you too.
+     127     86   20.7%       1  mute, hear, hear hear, muted, youre, guys hear
+                                 I get myself on mute. | I was muted.
+     125     69   16.6%       1  weather, warm, cold, snow, raining, hot
+                                 At least the sun's out here in The UK today, which makes a nice change | Actually, and it was raining a little bit, but it looks like it's clea
+     124     86   20.7%       1  better, better better, efficient, thats better, getting better, improvement
+                                 I want it to be better. | This this is a we want better service.
+     122     74   17.8%       1  test, testing, test like, tested, run test, testing need
+                                 Can we, can we test it in production, or we need to have, you know, a  | If not, then maybe we could, again, run a test.
+     120     42   10.1%       1  appcast, bayard, bayard appcast, avcast, appcast know, like appcast
+                                 So like this, when Infinitecare calls up Yonah or whoever it is and sa | What is Appcast giving you?
+     120     86   20.7%       1  different, bit different, different different, thats different, different little, difference
+                                 Not to say the product didn't answer to see CS teams, but it was a lit | But for us, it's different.
+     120     83   20.0%       1  add, just add, added, add just, add add, columns
+                                 If you're just if you're just adding a match. | So, yeah, Paul, you're just added to it.
+     119     96   23.1%       2  answer, know aperture, answer say, aperture said, just left, new contracts
+                                 But, no. | Not at all.
+     118     88   21.2%       1  weekend, rest day, enjoy, day, rest, great weekend
+                                 Have a good day. | Have a great weekend.
+     117     42   10.1%       1  nurse, nurses, health, nursing, health care, registered
+                                 Nursing is more across the board, but specifically in those in in Sout | So it's a lot of these nursing groups, they have a a third party staff
+     116     94   22.6%       1  look like, does look, looks like, look, looks, like does
+                                 It looks like. | In terms of social media, like, what would that look like?
+     115     24    5.8%       1  veterinarian, veterinarians, banfield, vet, veterinary, vet tech
+                                 It's like, you know, why have a career set at all? | Job because scouts identified the right role, like, in Cincinnati, Ohi
+     115     71   17.1%       1  hear, listen, hear hear, youre saying, hearing, saying
+                                 I like what you're saying. | You can hear you.
+     111     78   18.8%       1  second, just moment, moment, minute, moment just, just second
+                                 Just a moment. | The default message is, just a moment.
+     109     83   20.0%       1  horrible, worst, bad, opposite, worse, terrible
+                                 This is not going well. | My relationship was was was horrible.
+     106     85   20.4%       1  thatd, thatd great, great, great great, amazing, awesome
+                                 Oh, that'd be good. | That would be amazing if we could.
+     104     87   20.9%       1  thats thing, thing, thats thats, thing thats, thats, just thing
+                                 I guess the only other thing is, like, so my style has been very hands | It's the only way I'm ever gonna invest that much time in something.
+     104     77   18.5%       1  works, does work, works works, work, work does, works work
+                                 That works best. | So that that model kinda works.
+     103     40    9.6%       1  uber, like uber, uber app, app, drivers, driver
+                                 But I think what we really need to do is be very clear of where what i | So there I do think this will also give us some time to operationally 
+      92     67   16.1%       1  ahead, grace, yeah ahead, let ahead, navin, john
+                                 I know you have more, so I'll let you go ahead. | John, go ahead if you'd like just to, you know, on a path forward here
+      91     60   14.4%       1  cool, really cool, thats cool, pretty cool, totally cool, thats pretty
+                                 Cool, and to be clear, when I'm talking about animations, I'm not talk | So Well, cool.
+      89     72   17.3%       1  little bit, little, bit, just little, bit little, bit know
+                                 What what exactly we're expecting when when we speak about, privacy? | A little bit.
+      89     37    8.9%       1  ziprecruiter, zip, like ziprecruiter, know ziprecruiter, zipapply, glassdoor
+                                 Accelerate is what it's called, and then Indeed and Ziprecruiter are a | Ziprecruiter and then Avcast Network that they send send the jobs out 
+      89     57   13.7%       1  transparent, rfp, transparency, just transparent, know transparency, rfp just
+                                 We had a RFP. | We'll we'll probably wanna to do that to be completely transparent, we
+      88     68   16.3%       1  agree, totally agree, 100, totally, agreed, completely agree
+                                 I totally agree. | Which I'll agree.
+      88     43   10.3%       1  onboarding, onboarding journey, onboarding process, journey, start onboarding, onboarding flow
+                                 So now how many onboarding completions do you have excluding fraud? | Maybe in the in yesterday, I I in hours on our side, I'm seeing one 27
+      86     56   13.5%       1  busy, holidays, pto, holiday, vacation, break
+                                 I took a break. | Great, and I might have I usually try to work around holidays best I c
+      85     61   14.7%       1  bye, yall, good, good good, new year, good nice
+                                 Good to see everyone again. | Thanks, y'all.
+      82     54   13.0%       1  recording, recorded, record, meeting, start recording, send recording
+                                 It was more could we record, please? | This meeting is being recorded.
+      81     70   16.8%       1  lets lets, lets, lets just, let lets, lets let, just lets
+                                 So let's let's. | Let's go to Complete Care.
+      81     28    6.7%       1  oracle, oracle oracle, like oracle, cloud, oracle clients, recruiting cloud
+                                 And, you know, like, when it comes to any sort of blockers you'd run i | I think a bunch, from Oracle should be joining.
+      79     58   13.9%       1  year, 2026, end year, 2025, 2027, year year
+                                 At the end of the year. | I believe this is, IMS et al, data points because in 2022, I was alrea
+      76     19    4.6%       1  mojo, mojo apply, apply, oracle, apply application, application
+                                 Well, I wanted to get I just wanted to hear from Mojo, apply, like, wh | So I think we I think the conversation still stands that I'd ultimatel
+      76     63   15.1%       1  big, huge, biggest, thats huge, thats big, big big
+                                 A big a big ISIMS. | There are situations where and that's and that's saying that was a med
+      75     64   15.4%       1  late, minutes late, late im, bit late, sorry, minutes
+                                 He's, like, you're late. | I had to be late.
+      74     57   13.7%       1  join, joining, joined, gonna join, carrie, joining just
+                                 My supervisor should be joining. | So if it's just Tom and Kerry, and Phil will be with us shortly.
+      74     58   13.9%       1  oh okay, okay oh, okay, oh, okay alright, okay okay
+                                 Oh, okay. | Oh, okay.
+      73     57   13.7%       1  remember, dont remember, forgot, forget, recall, dont recall
+                                 And it had I forgot. | I forget the specific ATS.
+      72     46   11.1%       1  depends, depend, just depends, dependent, really depends, depended
+                                 But, yeah, right now, I would say it kinda depends on, what the locati | So it just depends on that front line.
+      72     53   12.7%       1  automated, automate, automation, manually, doing manually, automating
+                                 Do we do it manually? | They raised that booking on here, and then that fires off to us, and w
+      71     34    8.2%       1  phenom, hosted, hosted apply, hosting, phenoms, apply
+                                 We collaborated with, Phenom at the time. | So I got a chance to take a look at how Phenom's platform so we suppor
+      71     53   12.7%       1  im im, nigerian, im, im course, angry, im yes
+                                 I know you're you're you're good at introing yourself. | I certainly am.
+      70     59   14.2%       1  waiting, wait, just waiting, think waiting, im waiting, like wait
+                                 I think we're still waiting on them. | I think is there anyone else we're waiting on?
+      69     41    9.9%       1  fun, kind fun, fun like, fun know, fun thats, good time
+                                 So, yeah, it's always fun. | Always always a good always a good time.
+      68     60   14.4%       1  perfect, thats perfect, timing, perfect timing, perfect oh, like perfect
+                                 That's perfect then Okay. | Other than that, it's almost perfect.
+      68     55   13.2%       1  pull, let pull, just pull, pull im, pulling, let
+                                 So a lot of the, pull it back up one second, and I I can't get probabl | We just pull.
+      68     35    8.4%       1  know mean, mean know, mean, know, talking know, mean mean
+                                 You know what I mean? | You know what I mean?
+      68     42   10.1%       1  fix, fixed, gonna fix, problem, fix just, fix problem
+                                 They brought me in to fix it. | I think it's gonna be fixed, and I would manually update it.
+      67     52   12.5%       1  example, example example, examples, lawyers, good example, ill example
+                                 Real example, by the way. | And, look, for example, it's an urban myth.
+      66     51   12.3%       1  steps, step, steps think, like steps, step step, like step
+                                 I kind of want to figure out next steps for. | What's my next career step, and then I mean, we can deep dive into job
+      66     36    8.7%       1  slide, slides, slide just, deck, like slide, help tell
+                                 Are they for by that one and a bit like, a a slide we showed previousl | and and I I'll probably just add a few slides on their current state, 
+      65     48   11.5%       1  feedback, feedback just, feedback ill, ive gotten, getting feedback, kind feedback
+                                 That I appreciate that feedback on the market piece because that, I th | Definitely want, I think, Jill will want to hear, you know, feedback f
+      65     55   13.2%       1  low, pretty low, really lot, ridiculously, low level, theyve
+                                 They they are much less. | It's impressively low.
+      64     56   13.5%       1  thanks, thanks thanks, thanks everybody, thanks thank, thank thanks, thank
+                                 Thanks, everyone. | Thank you, everyone.
+      64     45   10.8%       1  roles, role, academic, new roles, academic roles, like roles
+                                 This is what it would take for this number of roles over this amount o | A we have a number of position.
+      64     52   12.5%       1  yeah yeah, yeah, yeah yes, yes yeah, yep yeah, like yep
+                                 But, yeah, | But, so yeah.
+      63     46   11.1%       1  weird, crazy, insane, odd, strange, ridiculous
+                                 Which is which is crazy. | There's some weird you know?
+      63     53   12.7%       1  reason, reasons, reason thats, rationale, reason say, thats reason
+                                 For for for reasonable reasons. | Like, oh, this is why.
+      63     46   11.1%       1  interesting, thats interesting, interesting thats, really interesting, interesting really, oh interesting
+                                 That's a very interesting way of doing it. | I think this is pretty interesting.
+      63     51   12.3%       1  try push, guess just, leading, ian, actually merge, allegis
+                                 But, yeah, I guess just from my side. | So I think my, my nonprofessional side, kicked in thinking it was.
+      62     53   12.7%       1  happy, im happy, happy im, happy happy, smiling, happy like
+                                 So I'm happy. | Happy to do that.
+      62     45   10.8%       1  hi hi, hi, hi hey, hey hey, hey, hi hello
+                                 Hi, everyone. | Hello, everybody.
+      61     57   13.7%       1  ive got, got ive, ive, macbook, got, guitar
+                                 she she had that she had that relationship with well, I've got that co | You have that.
+      60     46   11.1%       1  good know, know good, goes, cowboys, good, know goes
+                                 Oh, there we go. | So there you go.
+      59     43   10.3%       1  oh god, god, oh, oh wow, wow oh, goodness
+                                 So Oh my god. | Oh my god.
+      57     49   11.8%       1  whats, whats whats, mean whats, menu, whats word, going replace
+                                 What is that in the landscape? | What's that?
+      57     12    2.9%       1  bullhorn, directly, instance, cie, like bullhorn, hcs
+                                 Okay, and manpower.it will, instead of sending the application to, bul | But I don't think it's a Bullhorn native site.
+      57     45   10.8%       1  happens, ill look, icon, shall, ill, look forward
+                                 We'll see. | We'll see.
+      56     47   11.3%       1  hey guys, guys hey, hi guys, man, guys hi, guys
+                                 Alright, man. | Of course, man.
+      56     33    7.9%       1  screening, screening questions, prescreening, screener, questions, screener questions
+                                 So, after going back and forth, I said to them, actually, screening sc | Another layer could be screening.
+      56     44   10.6%       1  follow, ill follow, follow ill, follow follow, gonna follow, ill
+                                 So I did follow up with her. | I'm gonna follow up with, Jan and folks.
+      55     31    7.5%       1  redirect, redirection, sign, redirects, work way, url
+                                 URL, apply line redirect, email apply, I think they call it. | They're redirected in the, work my way.
+      54     42   10.1%       1  schedule, scheduling, reschedule, calendar, scheduled, schedules
+                                 Otherwise, let's let's schedule. | I may be difficult to schedule, so I think, you know, like, I actually
+      53     47   11.3%       1  im just, throwing, just throwing, kidding, im, just im
+                                 I'm just teasing. | I'm just.
+      53     37    8.9%       1  workflow, backend, workflows, like backend, toolset, built way
+                                 So this flow is what's going to let you create. | This is just that workflow where we just stress on like, I mean, I'm l
+      53     41    9.9%       1  point, point thats, good point, valid, thats valid, great point
+                                 It is a execution point. | and I think that's the real key point here.
+      52     14    3.4%       1  tier, generalist, coders, tier generalist, courier, tier tier
+                                 Tier one generalist, I think there's not much to talk here. | Tier 3 tier 3.
+      52     40    9.6%       1  lets lets, lets, lets accounting, tax lets, ahead lets, lets ahead
+                                 Let's see. | Let's see.
+      51     39    9.4%       1  screen, screen screen, able screen, screen im, visible, just screen
+                                 I can just see a blank screen. | Durga, we can see your screen now.
+      51     40    9.6%       1  theyd theyd, ticket got, theyd, outage, actually going, drop
+                                 They're currently on an off site. | They they they they walled it off.
+      50     35    8.4%       1  chat, chat ill, drop chat, group chat, ping chat, gonna chat
+                                 Like, the one that you pasted on the chat, you can see it's coming. | Up a chat or a.
+
+==============================================================================
+NEEDS REVIEW (high coverage -- LLM decides scenario vs mechanics): 15
+==============================================================================
+ clauses  calls    cover  merged  keywords / sample
+    2209    309   74.3%       1  budget, spend, cost, spending, money, month
+                                 11 and up 8. | Indeed, we're at about 17,000 per month.
+    2083    300   72.1%       4  sales, client, clients, customer, customers, manager
+                                 So I'll report into a to a global role, which is why obviously we're h | So I am leading from a recruitment marketing and attraction side at Re
+    1153    262   63.0%       1  jovio, jovia, jovios, jovio team, like jovio, know jovio
+                                 See, I think are we still waiting on Jovio as well? | I haven't met these people from Jovio before.
+    1031    288   69.2%       2  months, days, weeks, month, january, july
+                                 Constantly raining since, January one. | Maybe in a few months, maybe in a few weeks.
+     989    268   64.4%       3  api, apis, ras, xml, ras report, sftp
+                                 So I don't know if we wanna start with the XML feed. | I just, want to understand, from where, or what is the data in this XM
+     915    280   67.3%       2  week, monday, friday, tuesday, thursday, wednesday
+                                 And so I won't work Wednesdays. | I don't work Wednesdays.
+     871    303   72.8%       3  appreciate, thank, thanks, really appreciate, thank guys, appreciate time
+                                 I appreciate that, Gabby. | If if this is part of, obviously, the the the meeting we had last week
+     731    283   68.0%       1  hi, thanks, hey, thank, steve, scott
+                                 Hi, Matthew. | Hey, Kushi.
+     710    268   64.4%       3  okay, fine, like okay, okay okay, say okay, alright
+                                 Is that okay? | Exactly, and then if they like it, they will say, okay.
+     650    268   64.4%       4  nice, good, great, looks, looks great, good good
+                                 But this this looks great. | So which is nice is, like
+     646    252   60.6%       2  calls, invite, jump, calling, invited, tomorrow
+                                 She has a call today on Indeed, please. | I think record side, I'm pretty sure most of you have seen me on a cal
+     630    254   61.1%       2  dont know, dont, know dont, im sure, didnt, sure
+                                 I was about to say I can't see anything. | I have zero technical knowledge.
+     625    266   63.9%       2  yeah yeah, yeah, yes, yeah yes, yes yeah, yep
+                                 So and people take that. | Right, then it is yeah.
+     540    252   60.6%       4  forward, continue, moving, moving forward, gotta, stay
+                                 I know we need to go through things. | To be continued.
+     517    250   60.1%       1  look, looking, looked, im looking, seen, look look
+                                 Anybody see it at the moment? | I've been able to see everything just yet.
+
+==============================================================================
+DROPPED (too few distinct calls, no Gemma call): 0
+==============================================================================
+ clauses  calls    cover  merged  keywords / sample
+
+==============================================================================
+MERGE GROUPS (near-duplicate clusters collapsed): 49
+==============================================================================
+  4 raw clusters -> 1 | sales, client, clients, customer, customers, manager
+      So I'll report into a to a global role, which is why obviously we're h | So I am leading from a recruitment marketing and attraction side at Re | I'm the product manager for TA and onboarding, and I have my team here
+  2 raw clusters -> 1 | months, days, weeks, month, january, july
+      Constantly raining since, January one. | Maybe in a few months, maybe in a few weeks. | In addition to that, there is, like, a variable that's added, on a per
+  3 raw clusters -> 1 | api, apis, ras, xml, ras report, sftp
+      So I don't know if we wanna start with the XML feed. | I just, want to understand, from where, or what is the data in this XM | Does it You have to get a copy of the XML.
+  2 raw clusters -> 1 | week, monday, friday, tuesday, thursday, wednesday
+      And so I won't work Wednesdays. | I don't work Wednesdays. | So last week with my manager out of office has kind of thrown everythi
+  3 raw clusters -> 1 | appreciate, thank, thanks, really appreciate, thank guys, appreciate time
+      I appreciate that, Gabby. | If if this is part of, obviously, the the the meeting we had last week | Thank you for the yes.
+  2 raw clusters -> 1 | email, emails, send email, whatsapp, text, send
+      Just text a hex code of the red. | We're also interested in looking at the, SMS messaging features as wel | They just email you, and they're like, hey.
+  3 raw clusters -> 1 | okay, fine, like okay, okay okay, say okay, alright
+      Is that okay? | Exactly, and then if they like it, they will say, okay. | I was like, okay.
+  4 raw clusters -> 1 | nice, good, great, looks, looks great, good good
+      But this this looks great. | So which is nice is, like | It's a great school for, their advertising program as well as fashion,
+  2 raw clusters -> 1 | calls, invite, jump, calling, invited, tomorrow
+      She has a call today on Indeed, please. | I think record side, I'm pretty sure most of you have seen me on a cal | Igor is also on the call, and just in the essence of time, I hope he d
+  2 raw clusters -> 1 | dont know, dont, know dont, im sure, didnt, sure
+      I was about to say I can't see anything. | I have zero technical knowledge. | I don't think I've heard of them before, but, I mean, I'm open to hear
+  2 raw clusters -> 1 | yeah yeah, yeah, yes, yeah yes, yes yeah, yep
+      So and people take that. | Right, then it is yeah. | Well, yes.
+  3 raw clusters -> 1 | question, ask, question question, questions, ask question, gonna ask
+      Just a few quick questions. | So let me just fill you in here. | She's a very nice lady, and she may have a lot of questions on how thi
+  3 raw clusters -> 1 | boards, job boards, job board, board, job, different job
+      So it's essentially, I guess what we would call, like, kind of a progr | Like, it's a it's a more white glove situation or you're going to use, | I would say of the job boards, they are the lead.
+  3 raw clusters -> 1 | id, candidate, candidate id, job id, profile, unique
+      Share your ID? | Because what all we receive in the email is the resume. | So even though they've given us their resume, they still need it to pu
+  4 raw clusters -> 1 | forward, continue, moving, moving forward, gotta, stay
+      I know we need to go through things. | To be continued. | We we will have to.
+  2 raw clusters -> 1 | city, country, state, location, city state, state country
+      Only only where it's use only where it's touching Aperture. | Do you, set your own expanded radius based on our guidelines, or you r | Like, we're able to input a drop down of different not a fit reasons b
+  2 raw clusters -> 1 | applications, applicants, 20, 10, slots, hires
+      You know, like, 3,400 jobs, like. | They may hire 40 architects in Pune, and they may hire 26 to 50. | We're about 20 to 2,300 hires over the last 3 years.
+  2 raw clusters -> 1 | dont want, dont wanna, dont, want, wanna, dont care
+      If I work remotely and to support that, and I don't wanna say reluctan | Because I'm not in the habit of selling things to people that they don | If it's not repeatable, I'm not doing that.
+  2 raw clusters -> 1 | share, documentation, shared, copy, document, demo
+      Just to now have gone through the document, which has been shared earl | Let me ask them how fast they they can put up, like, a small demo to s | In terms of demos, I wanna get a sense in terms of, like, where y'all 
+  2 raw clusters -> 1 | able, walk, make happen, make, like able, able make
+      Kushi, if you could just align with the team if there is anything else | Can we do, like, a two phase and get that done, and then because here' | Can we get this boosted?
+  2 raw clusters -> 1 | gonna say, saying, youre saying, say, heard, did say
+      What do you say? | Do you have, like, any like, you see that as the last thing that you w | Do you have one yet?
+  2 raw clusters -> 1 | sorry, sorry sorry, oh sorry, im sorry, apologies, sorry oh
+      Apologies if it's a silly one. | It's, sorry. | It's a clock clock now, and and again, sorry.
+  3 raw clusters -> 1 | ongoing, did, thats doing, doing, process, progress
+      It was just more so like, this is how we do things. | We're, they're still working on the scope. | So we do that.
+  2 raw clusters -> 1 | like like, like, just like, like just, just just, things like
+      So it's like. | It's like post sales stuff. | That includes, like, going to the gym, exercising, stuff like that.
+  2 raw clusters -> 1 | landing, landing page, page, landing pages, pages, page landing
+      It's just like a landing page, really. | They wanna land on their page, but we can still make to them for organ | So, there there will be some sort of, like, custom landing page, and t
+  2 raw clusters -> 1 | ads, ad, social, social media, retargeting, media
+      So would it be in, like, an ad? | What you can retarget that candidate. | Another way of, supporting that is through retargeting.
+  2 raw clusters -> 1 | helpful, help, really helpful, help help, thatd, thatd helpful
+      So, we have, found some suggestion in the configuration level, for thi | Maybe we help them on the therapy side. | I I think that's definitely something we'd be interested in.
+  2 raw clusters -> 1 | start, started, lets start, starting, kick, good start
+      Do you wanna go first? | I'm just starting. | I I would start with a ploy.
+  2 raw clusters -> 1 | im gonna, gonna im, coming, gonna, thats coming, maybe need
+      It's coming. | It's gonna be a factor. | I'm gonna.
+  4 raw clusters -> 1 | sense makes, makes sense, makes, sense, sense like, like makes
+      That makes sense. | Doug, that it makes sense why you saw HCS. | So that makes sense.
+  3 raw clusters -> 1 | think think, think, yeah think, think thats, think yeah, know think
+      Okay, and I think that. | I think my. | I think, at cost
+  2 raw clusters -> 1 | hows, doing doing, guys doing, doing, doing guys, going guys
+      But And Laura, how is it going on the questionnaire? | How's it going? | How how was the rest of your trip?
+  2 raw clusters -> 1 | wasnt, isnt, thats thats, thats, thats know, know thats
+      It's not services. | Not not in any kind of not in any kind of structured way. | It it's not based on a contract and date.
+  2 raw clusters -> 1 | good, think good, good think, good good, doing good, im doing
+      III realized that while all that is good, it's it's the organizing. | So fortunately, everything went fine. | Everything went smooth.
+  2 raw clusters -> 1 | remove, stop, camera, stop sharing, turn, microphone
+      So I can probably remove that one step. | I have was having an issue with Outlook, and IT's now had holding my c | My headphones are dying.
+  2 raw clusters -> 1 | thats thats, thats, thats thing, yeah thats, thing, presumption
+      That's what. | So that's for Western Asset. | That's what it is.
+  2 raw clusters -> 1 | possible, thats possible, think does, pretty standard, does, maybe
+      Whatever it takes. | So that could potentially be on the table. | This is possible.
+  2 raw clusters -> 1 | ill ill, ill let, let, ill, let ill, let let
+      I'll let me let me let me repeat it. | So I'm gonna get the when are you available? | But I'll I'll have that.
+  2 raw clusters -> 1 | thats right, thats correct, correct thats, correct, right thats, right think
+      I think so. | I think so. | That's correct.
+  2 raw clusters -> 1 | sounds good, good sounds, sounds, good, sound good, does sound
+      It sounds it. | That sounds good. | That sounds good.
+  3 raw clusters -> 1 | website, tag, tags, tagging, website like, new website
+      We just implemented final site, which is our website, and so we have t | Okay, and we have that on our website, I think, with ours | We've developed, websites from this perspective.
+  2 raw clusters -> 1 | funnel, quality, funnel tracking, tracking, attribution, quality applications
+      Because while people wanna say I have a quality higher, I think qualit | Regarding the quality of applications, I just wanted to double check w | I I mean, a lot of the stuff that we're focused on with our clients is
+  2 raw clusters -> 1 | important, thats important, value, think important, important important, important thats
+      I think this is important, in terms of, like, preparing for these to l | I have a very important. | It's a super important meat cutter.
+  2 raw clusters -> 1 | years, year, years ago, ago, like years, renewal
+      I was there about 3 years of Clubman. | At 33, III managed to support Carmax, getting their site up and runnin | We had a really nice contract with them for a few years, and now the c
+  2 raw clusters -> 1 | does work, does, work does, work, like does, work like
+      How does it work? | How would that work from a competitor analysis perspective? | We wanted to understand how it's how is it all working.
+  2 raw clusters -> 1 | minutes, hour, half hour, half, 30 minutes, 10 minutes
+      I got 10 minutes. | So, yeah, hard to get it done in 30 minutes. | Yep, and I I noticed this was for 15 minutes, which is which is fine.
+  2 raw clusters -> 1 | markets, market, competitive, local, local markets, new markets
+      Yeah, or something market specific happened. | However, we're highly competitive at the middle and upper. | It's gonna be specific to particular markets, etcetera.
+  2 raw clusters -> 1 | got got, got, like got, got im, oh got, nava
+      Got it, and and things like that. | You got it. | But Got it.
+  2 raw clusters -> 1 | answer, know aperture, answer say, aperture said, just left, new contracts
+      But, no. | Not at all. | Well, no.
+
+==============================================================================
+SUMMARY
+==============================================================================
+  raw clusters                : 237
+  after similarity merge      : 171
+  clean pass                  : 156
+  needs LLM review            : 15
+  dropped (thin evidence)     : 0
+  clusters costing a Gemma call: 171
+
+==============================================================================
+CALL-COVERAGE DISTRIBUTION over 171 merged cluster(s)
+==============================================================================
+  p10=10%  p25=12%  p50=20%  p75=35%  p90=56%  p95=64%  p99=72%
+  min=3%  max=74%  mean=26%
+  at ubiquity_ceiling=60%: 15 of 171 cluster(s) flagged for LLM review (9%)
+
+  thresholds: merge>=0.85 min_calls>=9 ubiquity<=60%
+  No Gemma calls made. No database writes. Nothing persisted.

@@ -1,0 +1,89 @@
+Parsed 416 transcript(s), 49229 turns.
+CLIENT clause pool: 73771 clauses. Embedding...
+2026-07-28 02:05:49,811 - BERTopic - Dimensionality - Fitting the dimensionality reduction algorithm
+2026-07-28 02:07:13,607 - BERTopic - Dimensionality - Completed ✓
+2026-07-28 02:07:13,608 - BERTopic - Cluster - Start clustering the reduced embeddings
+2026-07-28 02:07:19,076 - BERTopic - Cluster - Completed ✓
+2026-07-28 02:07:19,089 - BERTopic - Representation - Fine-tuning topics using representation models.
+2026-07-28 02:07:20,366 - BERTopic - Representation - Completed ✓
+[V2 Layer A] Similarity merge at cosine >= 0.85: 237 raw -> 171 cluster(s).
+
+Pseudo-taxonomy: 171 scenario(s) (156 coachable, 15 sink), 0 dropped below 9 calls.
+ASSUMPTION: needs_review clusters treated as SINKS. Gemma decides this for real -- of 15 flagged at merge 0.85, 11 were junk and 4 were real business topics.
+Scenario descriptions are c-TF-IDF keywords, not Gemma prose: relative similarity is representative, exact wording is not.
+
+Layer B: extracted 4605 pair(s). Assigning via production code...
+
+==============================================================================
+LAYER B -- ASSIGNMENT QUALITY
+==============================================================================
+  pairs extracted            : 4605
+  filed to a mechanics sink  : 611 (13.3%)
+  filed to a real scenario   : 3994 (86.7%)
+
+  scenarios matched per pair (cap 3, margin 0.95):
+    1 scenario(s):   2184 pair(s) (47.4%)
+    2 scenario(s):   1159 pair(s) (25.2%)
+    3 scenario(s):   1262 pair(s) (27.4%)
+
+  top 15 scenarios by pair volume (of 171 scenarios):
+      pairs   share  verdict            key
+        443   9.6%  scenario_candidate c097_answer
+        236   5.1%  scenario_candidate c015_boards
+        126   2.7%  scenario_candidate c115_onboarding
+        122   2.6%  scenario_candidate c049_possible
+        104   2.3%  scenario_candidate c027_ongoing
+        101   2.2%  SINK               c000_budget
+        101   2.2%  scenario_candidate c149_try_push
+         99   2.1%  scenario_candidate c159_screening
+         89   1.9%  scenario_candidate c092_better
+         84   1.8%  scenario_candidate c134_perfect
+         81   1.8%  scenario_candidate c021_applications
+         79   1.7%  scenario_candidate c016_id
+         77   1.7%  SINK               c009_okay
+         74   1.6%  scenario_candidate c068_funnel
+         71   1.5%  scenario_candidate c031_ads
+    top-10 share of all pairs: 32.7%
+    scenarios with zero pairs: 2
+
+  best-match cosine distribution (is the margin selective at all?):
+    p10=0.496  p25=0.522  p50=0.550  p75=0.581  p90=0.613
+    spread p90-p10 = 0.117 -- a narrow band means relative_margin has little room to discriminate
+
+  relative_margin sweep over the 3994 pair(s) whose best match is a real
+  scenario (611 short-circuit to a sink and ignore the margin):
+     margin    mean   1 match   at cap
+       0.70    2.79       1%     80%
+       0.80    2.76       3%     78%
+       0.85    2.68       6%     73%
+       0.90    2.46      15%     61%
+       0.95    1.92      39%     32%
+
+==============================================================================
+LAYER C -- MILESTONE THRESHOLD SWEEP
+==============================================================================
+  coachable scenarios with responses: 154
+  clustering once per relevance percentile, then evaluating support gates.
+
+   pct   frac  floor |  zero  median   p90   max  capped
+  --------------------------------------------------------------
+    40   0.05      3 |    74     0.0   2.0     4       0
+    40   0.10      3 |    74     0.0   2.0     4       0
+    40   0.15      3 |    75     0.0   2.0     3       0
+    40   0.25      3 |    87     0.0   2.0     3       0
+    60   0.05      3 |    83     0.0   2.0     4       0
+    60   0.10      3 |    83     0.0   2.0     3       0
+    60   0.15      3 |    86     0.0   2.0     3       0
+    60   0.25      3 |    96     0.0   1.0     2       0
+    75   0.05      3 |    80     0.0   2.0     4       0
+    75   0.10      3 |    80     0.0   2.0     3       0
+    75   0.15      3 |    89     0.0   1.0     2       0
+    75   0.25      3 |    99     0.0   1.0     2       0
+
+  zero   = scenarios left with NO milestone (over-filtering -- the key risk)
+  capped = scenarios exceeding milestone_hard_cap (10); should be 0
+  current tuning.yaml: percentile=60 fraction=0.15 floor=3
+
+==============================================================================
+No Gemma calls made. No Postgres or Pinecone writes.
+==============================================================================

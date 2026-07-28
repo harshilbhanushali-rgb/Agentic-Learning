@@ -1,0 +1,150 @@
+# Brain pipeline tuning parameters.
+#
+# Every threshold the clustering / milestone pipeline depends on lives here.
+# Change values in this file only -- no code edit is needed.
+#
+# Loaded by shared/tuning.py. Unknown or missing keys raise an error at load
+# time rather than being silently ignored, so a typo here fails loudly instead
+# of quietly reverting to a default you thought you had changed.
+#
+# Calibrate with:
+#     python dry_run_layer_a.py --sweep     # compare many thresholds at once
+#     python dry_run_layer_a.py             # full report for the values below
+# Neither makes a Gemma call nor writes to the database.
+
+layer_a:
+  # Minimum distinct-call support, as a FRACTION of the corpus.
+  #
+  # MEASURED: this lever is inert at 416 calls. Across the whole sweep grid it
+  # dropped 0-3 clusters out of 226, because BERTopic's min_cluster_size is
+  # already 50 clauses at this corpus size, so every surviving cluster trivially
+  # spans many calls. Kept as a safety floor for small corpora -- do NOT credit
+  # it with removing junk. It does not.
+  min_call_support_fraction: 0.02
+
+  # Absolute floor, for small corpora where the fraction rounds to nothing.
+  # Effective requirement is max(floor, ceil(fraction * total_calls)).
+  min_call_support_floor: 4
+
+  # Coverage above which a cluster is FLAGGED for LLM review -- not rejected.
+  #
+  # This used to auto-classify a cluster as mechanics. That was wrong: at every
+  # operating point it condemned ~50% of the taxonomy, because a core business
+  # topic legitimately appears in most calls and coverage alone cannot tell it
+  # apart from backchannel. Now high coverage only attaches a warning and the
+  # cluster's stats to the Gemma prompt, and the LLM decides.
+  #
+  # MEASURED over 171 merged clusters at merge=0.85 (416 calls):
+  #   p10=10%  p25=12%  p50=20%  p75=35%  p90=56%  p95=64%  p99=72%  max=74%
+  # 0.60 sits between p90 and p95 and flags 15 of 171 clusters (9%) -- an audit
+  # minority, which is the point. The old 0.25 sat below p75 and would have
+  # flagged well over a third of the taxonomy.
+  #
+  # Those 15 are exactly the ambiguous band, and they prove why this must not
+  # auto-reject: 11 are junk (thanks/appreciate 73%, greetings 68%, okay/fine
+  # 64%, nice/good/great 64%, yeah/yes/yep 64%, dont-know 61%, look/seen 60%,
+  # moving-forward 61%, weekday names 67%, month names 69%, call-scheduling 61%)
+  # but 4 are real business topics (budget/spend/cost 74%, client/customer/sales
+  # 72%, API/XML/SFTP integration 64%, and the Joveo entity itself 63%). Under
+  # the old auto-mechanics rule, budget-and-cost would have been DELETED from the
+  # taxonomy for being too common.
+  #
+  # Set it in the upper tail of the observed distribution. Re-read the
+  # CALL-COVERAGE DISTRIBUTION block from dry_run_layer_a.py after ANY change to
+  # merge_cosine_threshold -- merging unions call sets and shifts this whole
+  # distribution upward.
+  ubiquity_ceiling: 0.60
+
+  # Two clusters whose centroids are at least this cosine-similar are the same
+  # scenario and get merged. Replaces the old MAX_CLUSTERS=150 count cap, which
+  # merged the RAREST clusters first by keyword overlap -- the opposite end of
+  # the distribution from the backchannel families that actually duplicate.
+  #
+  # MEASURED at 0.70 / 0.75 / 0.80 / 0.85 by inspecting the actual merge groups
+  # (python dry_run_layer_a.py --merge-detail 0.70,0.75,0.80,0.85):
+  #   0.70 -> 26 groups   collapses nearly the whole corpus into 26 buckets
+  #   0.80 -> 119 groups  STILL over-merges: one group fused campaigns + sales
+  #                       team + brand + markets + vendors; another fused job
+  #                       boards + career sites + resumes + job descriptions
+  #   0.85 -> 162 groups  correctly unifies the duplicate families
+  #                       (thanks/appreciate, okay/fine/alright, calendar +
+  #                       scheduling, email + slack, city/country/region) while
+  #                       leaving distinct business topics separate
+  # Below ~0.85 the centroids of large clause sets converge toward a generic
+  # "conversation" direction, so aggressive merging destroys real distinctions
+  # before it removes duplicates. Lower = more aggressive merging.
+  merge_cosine_threshold: 0.85
+
+  # Cheap pre-filter: minimum non-stopword alphabetic tokens for a clause to
+  # enter the pool. Removes bare "Perfect." / "Yeah." only -- deliberately NOT
+  # the primary defence against generic text.
+  min_content_words: 5
+
+layer_b:
+  # Keep every scenario scoring at least this fraction of the best match for a
+  # given trigger. Replaces the absolute 0.30 cosine threshold, which did not
+  # scale: at 149 candidate scenarios, 70 percent of pairs cleared it against
+  # nearly all scenarios at once.
+  #
+  # Measured on the full 416-transcript corpus (report_bc.log): best-match cosine
+  # is a narrow band -- p10=0.496 p50=0.550 p90=0.613 -- so a low margin clears
+  # nearly every scenario. Sweep over the 3994 pairs whose best match is a real
+  # scenario (611 short-circuit to a sink and never reach the margin):
+  #   margin  mean matches  1 match  at cap
+  #   0.85        2.68         6%      73%   <- old value, "matches everything"
+  #   0.90        2.46        15%      61%
+  #   0.95        1.92        39%      32%
+  # 0.95 is the only point where most pairs get 1-2 matches rather than 3.
+  # 0.95 * p50 = 0.522, which sits near p25 of the observed band.
+  relative_margin: 0.95
+
+  # Hard ceiling on how many scenarios one pair may be assigned to.
+  max_scenarios_per_pair: 3
+
+layer_c:
+  # Keep only response clauses above this percentile of relevance to their own
+  # scenario vector. Removes generic cross-topic moves such as "Expressing
+  # Gratitude" before milestone clustering runs.
+  #
+  # Measured on the full corpus (report_bc_m095.log), 154 coachable scenarios
+  # with responses. "zero" = scenarios left with NO milestone (over-filtering,
+  # the primary Layer C risk); "capped" = scenarios over milestone_hard_cap:
+  #   pct  frac 0.05 / 0.10 / 0.15 / 0.25  ->  zero      capped
+  #    40      74  /  74   /  75   /  87              0
+  #    60      83  /  83   /  86   /  96              0
+  #    75      80  /  80   /  89   /  99              0
+  # 40 is the minimum-zero percentile; 60 cost 9 extra all-zero scenarios for
+  # no gain. capped is 0 at every point, so the hard cap never binds.
+  milestone_relevance_percentile: 40
+
+  # A milestone must appear in at least this fraction of the calls belonging to
+  # its own scenario. Self-scaling: a 200-call scenario must clear a
+  # proportionally higher bar than a 6-call one, so a large scenario cannot
+  # accumulate milestones merely by being large.
+  #
+  # 0.05 and 0.10 both yield 74 zeros at percentile 40 -- identical coverage.
+  # 0.10 is chosen because the floor of 3 dominates until 30 calls, whereas
+  # 0.05 would not bite until 60, making the fraction effectively inert and
+  # losing the self-scaling property for large scenarios at no benefit.
+  min_milestone_call_fraction: 0.10
+
+  # Absolute floor for small scenarios, applied as
+  #   max(floor, ceil(fraction * scenario_call_count))
+  min_milestone_calls_floor: 3
+
+  # Backstop only. If this ever binds, the support floor above is wrong -- the
+  # run logs loudly with the offending scenario key.
+  milestone_hard_cap: 10
+
+  # HDBSCAN minimum cluster size for milestone discovery, as a fraction of the
+  # clause pool, bounded below and above. The old hardcoded value of 2 let two
+  # adjacent clauses of a SINGLE response qualify as "recurring".
+  min_cluster_size_fraction: 0.02
+  min_cluster_size_floor: 3
+  min_cluster_size_ceiling: 25
+
+embedding:
+  # Cache embeddings on disk so threshold tuning does not re-embed the corpus.
+  # Worth far less on a CUDA box than on CPU -- the model runs locally.
+  cache_enabled: true
+  cache_path: embed_cache.db

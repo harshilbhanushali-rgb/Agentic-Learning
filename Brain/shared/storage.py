@@ -41,17 +41,31 @@ def upsert_call(conn: psycopg.Connection, filename: str) -> int:
 
 
 def upsert_scenario(conn: psycopg.Connection, scenario: dict) -> int:
+    """Insert or update a scenario.
+
+    The evidence columns default so that V1's Layer A, which has no clustering
+    evidence to report, can keep calling this unchanged.
+    """
     with conn.cursor() as cur:
         cur.execute("""
             INSERT INTO scenarios
-              (scenario_key, primary_topic, sub_topic, keyphrases, soft_skills, bloom_level)
-            VALUES (%s, %s, %s, %s, %s, %s)
+              (scenario_key, primary_topic, sub_topic, keyphrases, soft_skills, bloom_level,
+               is_coachable, cluster_kind, support_calls, support_clauses, call_coverage,
+               triage_verdict, adjudication_reason)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (scenario_key) DO UPDATE SET
                 primary_topic = EXCLUDED.primary_topic,
                 sub_topic     = EXCLUDED.sub_topic,
                 keyphrases    = EXCLUDED.keyphrases,
                 soft_skills   = EXCLUDED.soft_skills,
-                bloom_level   = EXCLUDED.bloom_level
+                bloom_level   = EXCLUDED.bloom_level,
+                is_coachable        = EXCLUDED.is_coachable,
+                cluster_kind        = EXCLUDED.cluster_kind,
+                support_calls       = EXCLUDED.support_calls,
+                support_clauses     = EXCLUDED.support_clauses,
+                call_coverage       = EXCLUDED.call_coverage,
+                triage_verdict      = EXCLUDED.triage_verdict,
+                adjudication_reason = EXCLUDED.adjudication_reason
             RETURNING scenario_id
         """, (
             scenario["scenario_key"],
@@ -60,10 +74,50 @@ def upsert_scenario(conn: psycopg.Connection, scenario: dict) -> int:
             scenario["keyphrases"],
             scenario["soft_skills"],
             scenario["bloom_level"],
+            scenario.get("is_coachable", True),
+            scenario.get("cluster_kind", "scenario"),
+            scenario.get("support_calls", 0),
+            scenario.get("support_clauses", 0),
+            scenario.get("call_coverage", 0.0),
+            scenario.get("triage_verdict"),
+            scenario.get("adjudication_reason"),
         ))
         scenario_id = cur.fetchone()[0]
     conn.commit()
     return scenario_id
+
+
+def set_rubric_status(conn: psycopg.Connection, scenario_key: str, status: str) -> None:
+    """Record a scenario's terminal Layer C outcome.
+
+    Every scenario must end with a non-null rubric_status. The reconciliation
+    check at the end of the run asserts that, which is what makes a silent
+    149-scenarios-but-148-rubrics gap impossible to produce.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE scenarios SET rubric_status = %s WHERE scenario_key = %s",
+            (status, scenario_key),
+        )
+    conn.commit()
+
+
+def get_rubric_status_report(conn: psycopg.Connection) -> list[tuple]:
+    """(cluster_kind, rubric_status, count) over every scenario, for the run summary."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT cluster_kind, COALESCE(rubric_status, 'MISSING') AS status, COUNT(*)
+            FROM scenarios
+            GROUP BY cluster_kind, status
+            ORDER BY cluster_kind, status
+        """)
+        return cur.fetchall()
+
+
+def count_scenarios_without_status(conn: psycopg.Connection) -> int:
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM scenarios WHERE rubric_status IS NULL")
+        return cur.fetchone()[0]
 
 
 def insert_kb_pair(conn: psycopg.Connection, pair: dict) -> int:
@@ -122,15 +176,23 @@ def upsert_rubric(conn: psycopg.Connection, rubric: dict) -> int:
 
 
 def get_scenarios(conn: psycopg.Connection) -> list[dict]:
+    """All scenarios, shaped like the scenario_map Layer A builds.
+
+    is_coachable and cluster_kind must be included: this is the checkpoint-resume
+    path, and without them a resumed run treats every mechanics sink as a real
+    coachable scenario and generates rubrics for backchannel.
+    """
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT scenario_id, scenario_key, sub_topic, primary_topic, keyphrases, soft_skills "
+            "SELECT scenario_id, scenario_key, sub_topic, primary_topic, keyphrases, "
+            "soft_skills, is_coachable, cluster_kind "
             "FROM scenarios"
         )
         rows = cur.fetchall()
     return [
         {"scenario_id": r[0], "scenario_key": r[1], "sub_topic": r[2],
-         "primary_topic": r[3], "keyphrases": r[4], "soft_skills": r[5]}
+         "primary_topic": r[3], "keyphrases": r[4], "soft_skills": r[5],
+         "is_coachable": r[6], "cluster_kind": r[7]}
         for r in rows
     ]
 

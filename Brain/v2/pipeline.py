@@ -52,4 +52,33 @@ def run_v2(recordings_dir: str, config: Config, conn: psycopg.Connection, run_id
     print("\n[V2 Layer C] Generating rubrics...")
     layer_c.run_layer_c_v2(scenario_map, config, conn, run_id)
 
-    print(f"\nV2 pipeline complete. Scenarios: {len(scenario_map)}")
+    _reconcile(conn, len(scenario_map))
+
+
+def _reconcile(conn: psycopg.Connection, n_scenarios: int) -> None:
+    """Account for every scenario, then fail loudly if any is unaccounted for.
+
+    The previous run reported 149 scenarios and 148 rubrics and gave no way to
+    learn which one was missing or why: Layer C skipped silently on an empty
+    response pool. Requiring a terminal status per scenario makes that class of
+    gap impossible to produce without noticing.
+    """
+    conn = storage.reconnect_if_closed(conn)
+    print("\n" + "=" * 62)
+    print("RECONCILIATION")
+    print("=" * 62)
+    print(f"  {'cluster_kind':<14} {'rubric_status':<34} count")
+    for kind, status, count in storage.get_rubric_status_report(conn):
+        print(f"  {kind:<14} {status:<34} {count}")
+
+    missing = storage.count_scenarios_without_status(conn)
+    print(f"\n  scenarios in this run : {n_scenarios}")
+    print(f"  without a status      : {missing}")
+    if missing:
+        raise AssertionError(
+            f"{missing} scenario(s) finished with no rubric_status. Every scenario "
+            f"must end as rubric_generated, skipped_not_coachable, "
+            f"skipped_insufficient_responses or failed -- an unset status means a "
+            f"code path returns without recording what it decided."
+        )
+    print("  All scenarios accounted for.")
