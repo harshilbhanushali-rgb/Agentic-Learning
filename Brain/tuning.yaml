@@ -130,18 +130,99 @@ layer_c:
 
   # Absolute floor for small scenarios, applied as
   #   max(floor, ceil(fraction * scenario_call_count))
-  min_milestone_calls_floor: 3
+  #
+  # MEASURED 2026-07-28 against the real production taxonomy (85 coachable
+  # scenarios, not simulated): floor=3->2 was re-derived by re-running the
+  # actual segment/embed/relevance-filter/HDBSCAN path for all 85 scenarios,
+  # stopping short of Gemma, and cross-checked against the live DB -- 0
+  # mismatches between recomputed and stored milestone counts for all 51
+  # scenarios already using V2 clustering, so the recomputation is trustworthy.
+  #
+  # At floor=2: 3 scenarios that were fully V1-fallback (client_knowledge_gap
+  # style zero-cluster cases -- specifically integration_ecosystem_constraints,
+  # backend_workflow_conceptualization, job_role_specification) gain 1-2
+  # evidence-backed milestones each. 9 already-V2-clustered scenarios gain
+  # exactly +1 milestone each (e.g. client_subjective_perception 1->2,
+  # ai_capability_and_implementation_discussion 2->3) -- a clean win, no
+  # tradeoff. Net effect: 87 -> 101 milestones (+16%) across the 60 scenarios
+  # this floor can reach.
+  #
+  # Caveat: for the 3 rescued-from-fallback scenarios specifically, this is a
+  # quantity-for-auditability tradeoff, not a pure gain -- their current V1
+  # Gemma free-text milestone counts (3, 3, 3) are HIGHER than what V2
+  # clustering produces at floor=2 (2, 2, 1). Adopted anyway because
+  # evidence-backed milestones (support_calls populated) are the entire point
+  # of V2 over V1.
+  #
+  # This floor does NOT touch the dominant fallback cause: 28 of 85 coachable
+  # scenarios hit 100% HDBSCAN noise (zero clusters found) regardless of
+  # clause pool size, from 10 clauses up to 680 -- a clustering-algorithm
+  # question, not a call-support-gate question. See
+  # docs/superpowers/specs/2026-07-28-layer-c-rubric-depth-design.md.
+  min_milestone_calls_floor: 2
 
-  # Backstop only. If this ever binds, the support floor above is wrong -- the
-  # run logs loudly with the offending scenario key.
-  milestone_hard_cap: 10
+  # Backstop, not the mechanism -- if it binds, the run logs loudly with the
+  # offending scenario key and truncates by ranking on distinct-call support.
+  #
+  # MEASURED 2026-07-28, after adding UMAP above: the cap went from dormant (0
+  # scenarios ever hit 10 raw candidates under the old raw-HDBSCAN algorithm)
+  # to binding on 3 of 85 coachable scenarios (raw candidate counts 11, 11, 12)
+  # -- an anticipated side effect of UMAP rescuing real signal, not a bug.
+  # Compared two fixes head-to-head over the SAME cached clustering (isolating
+  # the gate/cap knobs from the clustering algorithm):
+  #   - raise cap to 15: 403 -> 407 milestones, 0 scenarios capped, and the
+  #     depth distribution for the other 77 scenarios is UNCHANGED -- a
+  #     surgical fix that touches only the 3 scenarios actually hitting 10.
+  #   - tighten min_milestone_call_fraction instead (0.10 -> 0.12/0.15/0.20):
+  #     even the mildest step (0.12) drops total milestones 403 -> 365 (-9%)
+  #     while rescuing only 2 of the 3 capped scenarios, because it cuts depth
+  #     from ALL 80 clustered scenarios to fix a problem specific to 3. Wrong
+  #     lever, same shape as the ineffective percentile/min_cluster_size levers
+  #     already ruled out above. At 0.25 it starts destroying scenarios
+  #     outright (n_zero 5 -> 7).
+  # Raised to 15: the surgical fix, no downside measured for the other 77.
+  milestone_hard_cap: 15
 
   # HDBSCAN minimum cluster size for milestone discovery, as a fraction of the
   # clause pool, bounded below and above. The old hardcoded value of 2 let two
   # adjacent clauses of a SINGLE response qualify as "recurring".
+  #
+  # Swept alongside the UMAP fix below (2026-07-28) and shown NOT to matter --
+  # kept at the same values, don't re-tune them for UMAP.
   min_cluster_size_fraction: 0.02
   min_cluster_size_floor: 3
   min_cluster_size_ceiling: 25
+
+  # UMAP dimensionality reduction before HDBSCAN, mirroring Layer A's own
+  # bertopic+umap+hdbscan pipeline. MEASURED 2026-07-28
+  # (dry_run_layer_c_clustering.py): raw HDBSCAN on 768-dim bge embeddings hit
+  # 100% noise (zero clusters) on 28 of 85 coachable scenarios regardless of
+  # clause pool size (10 to 680 clauses) -- distance concentration in raw
+  # high-dimensional space. UMAP(n_components=5, metric='cosine',
+  # random_state=42) -> HDBSCAN rescued 26/28 with lower mean noise (37.9% vs
+  # 71.4%), confirmed by reading cluster contents for coherence, not just
+  # counting. This is a ceiling, not a fixed value: for pools too small to
+  # support 5 components, the caller clamps to min(this, pool_size - 2).
+  # Percentile/min_cluster_size sweeps to suppress the resulting backchannel
+  # leakage were tested and shown ineffective -- see the review_flag
+  # mechanism below instead. Full evidence:
+  # docs/superpowers/specs/2026-07-28-layer-c-rubric-depth-design.md.
+  umap_n_components: 5
+
+  # A milestone cluster's centroid is scored by cosine similarity against
+  # every sink-scenario (is_coachable=false) description vector, in the same
+  # embedding space. Milestones at or above this percentile of the WHOLE
+  # RUN's candidate-cluster similarity distribution are flagged for a batched
+  # Gemma review (PROMPT_LAYER_C_MILESTONE_TRIAGE_BATCH) -- not auto-rejected,
+  # mirroring Layer A's needs_review precedent, because the similarity band
+  # measured 2026-07-28 was narrow (p10=0.636 to p95=0.735) with no clean
+  # separation cliff between real milestones and backchannel.
+  #
+  # Self-scaling by design, like every other threshold in this file: computed
+  # LIVE from this run's own candidate population, never hardcoded, because
+  # the similarity distribution shifts with the corpus and with
+  # merge_cosine_threshold/ubiquity_ceiling upstream.
+  milestone_sink_similarity_percentile: 95
 
 embedding:
   # Cache embeddings on disk so threshold tuning does not re-embed the corpus.

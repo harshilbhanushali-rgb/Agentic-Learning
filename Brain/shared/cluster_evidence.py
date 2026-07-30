@@ -142,6 +142,42 @@ def triage(stats: ClusterStats, min_call_support: int, ubiquity_ceiling: float) 
     return SCENARIO_CANDIDATE
 
 
+def milestone_cluster_centroid(vecs: np.ndarray) -> np.ndarray:
+    """Unit-normalized centroid of a milestone candidate cluster's member embeddings.
+
+    Same construction as support_stats' centroid, but standalone: Layer C needs
+    this before the call-support gate runs, not bundled with call-coverage stats.
+    """
+    return _unit(np.asarray(vecs, dtype=np.float32).mean(axis=0))
+
+
+def nearest_sink_index(centroid: np.ndarray, sink_centroids: np.ndarray) -> tuple[int, float]:
+    """Index and cosine similarity of the sink-scenario centroid nearest a milestone
+    cluster's own centroid. Both must already be unit-normalized and share the same
+    embedding space (bge document embeddings of scenario descriptions vs. of
+    response clauses).
+
+    This is a soft review-flag signal, not a rejection filter: the measured
+    similarity band between real milestones and backchannel has no clean
+    separation cliff, so the caller only flags for LLM review at the upper tail.
+    """
+    if len(sink_centroids) == 0:
+        raise ValueError("sink_centroids must not be empty -- there is nothing to compare against")
+    sims = np.asarray(sink_centroids, dtype=np.float32) @ np.asarray(centroid, dtype=np.float32)
+    best = int(np.argmax(sims))
+    return best, float(sims[best])
+
+
+def review_flag_threshold(similarities: list[float], percentile: float) -> float:
+    """Self-scaling review-flag cutoff: the given percentile of a run's WHOLE
+    candidate-cluster sink-similarity population, computed live rather than
+    hardcoded -- consistent with every other threshold in this file.
+    """
+    if not similarities:
+        raise ValueError("similarities must not be empty -- there is no population to derive a percentile from")
+    return float(np.percentile(np.asarray(similarities, dtype=np.float32), percentile))
+
+
 def required_milestone_support(
     scenario_call_count: int, fraction: float, floor: int
 ) -> int:

@@ -21,6 +21,8 @@ layer_c:
   min_cluster_size_fraction: 0.02
   min_cluster_size_floor: 3
   min_cluster_size_ceiling: 25
+  umap_n_components: 5
+  milestone_sink_similarity_percentile: 95
 embedding:
   cache_enabled: true
   cache_path: embed_cache.db

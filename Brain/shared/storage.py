@@ -3,6 +3,9 @@ import psycopg
 
 _database_url: str = ""
 
+# Must mirror the scenarios_bloom_level_check constraint in db/schema.sql.
+_VALID_BLOOM_LEVELS = {"remember", "understand", "apply", "analyze", "evaluate", "create"}
+
 
 def get_connection(database_url: str) -> psycopg.Connection:
     global _database_url
@@ -45,7 +48,17 @@ def upsert_scenario(conn: psycopg.Connection, scenario: dict) -> int:
 
     The evidence columns default so that V1's Layer A, which has no clustering
     evidence to report, can keep calling this unchanged.
+
+    bloom_level is LLM-generated and not guaranteed to land in the DB's enum
+    (e.g. Gemma once returned "explain" instead of "understand") -- a bad
+    value here must not raise mid-way through a batch of upserts and strand
+    the rest of an expensive Gemma run unwritten.
     """
+    bloom_level = scenario["bloom_level"]
+    if bloom_level not in _VALID_BLOOM_LEVELS:
+        print(f"  ! invalid bloom_level {bloom_level!r} for "
+              f"{scenario['scenario_key']!r} -- defaulting to 'understand'")
+        bloom_level = "understand"
     with conn.cursor() as cur:
         cur.execute("""
             INSERT INTO scenarios
@@ -73,7 +86,7 @@ def upsert_scenario(conn: psycopg.Connection, scenario: dict) -> int:
             scenario["sub_topic"],
             scenario["keyphrases"],
             scenario["soft_skills"],
-            scenario["bloom_level"],
+            bloom_level,
             scenario.get("is_coachable", True),
             scenario.get("cluster_kind", "scenario"),
             scenario.get("support_calls", 0),
@@ -203,6 +216,7 @@ def get_naren_responses_for_scenario(conn: psycopg.Connection, scenario_key: str
             SELECT p.pair_id, p.response_text, c.filename
             FROM kb_pairs p JOIN calls c ON p.call_id = c.call_id
             WHERE p.scenario_key = %s
+            ORDER BY p.pair_id
         """, (scenario_key,))
         rows = cur.fetchall()
     return [{"pair_id": r[0], "response_text": r[1], "call_filename": r[2]} for r in rows]

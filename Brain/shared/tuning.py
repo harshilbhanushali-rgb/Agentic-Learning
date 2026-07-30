@@ -39,6 +39,8 @@ class LayerCTuning:
     min_cluster_size_fraction: float
     min_cluster_size_floor: int
     min_cluster_size_ceiling: int
+    umap_n_components: int
+    milestone_sink_similarity_percentile: float
 
 
 @dataclass(frozen=True)

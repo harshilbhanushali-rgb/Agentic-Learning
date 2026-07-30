@@ -97,6 +97,63 @@ class TestTriage:
         assert ce.triage(self._stats(3, 4), min_call_support=4, ubiquity_ceiling=0.4) == ce.INSUFFICIENT_EVIDENCE
 
 
+class TestMilestoneClusterCentroid:
+    def test_unit_length(self):
+        centroid = ce.milestone_cluster_centroid(np.array([[3.0, 0.0], [0.0, 4.0]]))
+        assert np.linalg.norm(centroid) == pytest.approx(1.0, abs=1e-5)
+
+    def test_averages_toward_the_members(self):
+        # Two members split evenly between two axes -> centroid points diagonally.
+        centroid = ce.milestone_cluster_centroid(np.array([[1.0, 0.0], [0.0, 1.0]]))
+        assert centroid[0] == pytest.approx(centroid[1], abs=1e-5)
+
+    def test_identical_members_reproduce_their_own_direction(self):
+        centroid = ce.milestone_cluster_centroid(np.tile(_vec(0.0, 1.0), (4, 1)))
+        assert centroid[0] == pytest.approx(0.0, abs=1e-5)
+        assert centroid[1] == pytest.approx(1.0, abs=1e-5)
+
+
+class TestNearestSinkIndex:
+    _sinks = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], dtype=np.float32)
+
+    def test_picks_the_closest_orthogonal_axis(self):
+        idx, sim = ce.nearest_sink_index(_vec(0.0, 1.0, 0.0), self._sinks)
+        assert idx == 1
+        assert sim == pytest.approx(1.0, abs=1e-5)
+
+    def test_similarity_reflects_angle_not_just_rank(self):
+        # Halfway between axis 0 and axis 1, slightly biased toward axis 0.
+        idx, sim = ce.nearest_sink_index(_vec(0.9, 0.1, 0.0) / np.linalg.norm([0.9, 0.1, 0.0]), self._sinks)
+        assert idx == 0
+        assert 0.0 < sim < 1.0
+
+    def test_orthogonal_to_everything_gives_low_similarity(self):
+        # Nothing in _sinks lies along this direction (all sinks are axis-aligned
+        # in the first three dims); a 4-dim probe can't be compared to 3-dim sinks,
+        # so use a vector far from all three axes instead.
+        probe = _vec(-1.0, -1.0, -1.0) / np.linalg.norm([-1.0, -1.0, -1.0])
+        idx, sim = ce.nearest_sink_index(probe, self._sinks)
+        assert sim == pytest.approx(-1.0 / np.sqrt(3), abs=1e-5)
+
+    def test_rejects_empty_sink_population(self):
+        with pytest.raises(ValueError, match="empty"):
+            ce.nearest_sink_index(_vec(1.0, 0.0), np.empty((0, 2)))
+
+
+class TestReviewFlagThreshold:
+    def test_is_the_requested_percentile(self):
+        sims = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+        assert ce.review_flag_threshold(sims, 90) == pytest.approx(np.percentile(sims, 90))
+
+    def test_higher_percentile_yields_a_higher_threshold(self):
+        sims = [0.1, 0.5, 0.6, 0.65, 0.7, 0.9]
+        assert ce.review_flag_threshold(sims, 95) > ce.review_flag_threshold(sims, 50)
+
+    def test_rejects_empty_population(self):
+        with pytest.raises(ValueError, match="empty"):
+            ce.review_flag_threshold([], 95)
+
+
 class TestMilestoneSupport:
     def test_scales_with_scenario_size(self):
         # This is what stops a 200-call scenario accruing milestones by volume.

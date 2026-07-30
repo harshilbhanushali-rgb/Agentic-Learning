@@ -125,21 +125,63 @@ Respond ONLY with valid JSON:
 }}
 """
 
-PROMPT_LAYER_C_MILESTONE_DESCRIBE = """\
-Describe one recurring communicative move in Naren Shankar's sales responses.
+# Batched milestone-description prompt. Same rationale as
+# PROMPT_LAYER_C_MILESTONE_TRIAGE_BATCH: describing one milestone at a time was
+# the dominant Gemma call count in Layer C (up to milestone_hard_cap calls per
+# scenario, ~241-403 total across a full run), each carrying only a handful of
+# short clauses -- exactly the shape ego_trap/milestone_scoring.py's *_batch
+# functions exist to avoid.
+PROMPT_LAYER_C_MILESTONE_DESCRIBE_BATCH = """\
+Describe each recurring communicative move in Naren Shankar's sales responses below.
+Each item below has a unique "id" and belongs to a specific scenario/milestone-position --
+describe EACH independently using only its own clauses, do not let one item influence another.
 
-SCENARIO: {scenario_key}
-MILESTONE: {order} of {total}
+ITEMS:
+{items_block}
 
-Clauses grouped into this cluster:
-{cluster_clauses}
+Respond ONLY with valid JSON -- a single array with exactly one object per item, in this shape:
+[
+  {{
+    "id": "<id>",
+    "label": "2-4 word action label",
+    "description": "2-3 sentences grounded in the clauses above",
+    "detection_hint": "How to tell this milestone is present vs a near-miss"
+  }}
+]
+"""
 
-Respond ONLY with valid JSON:
-{{
-  "label": "2-4 word action label",
-  "description": "2-3 sentences grounded in the clauses above",
-  "detection_hint": "How to tell this milestone is present vs a near-miss"
-}}
+# Batched review-flag judge for V2 Layer C milestone candidates. Mirrors
+# PROMPT_LAYER_A_V2_TRIAGE's precedent: a flagged item is not left dangling, it
+# gets resolved with one Gemma call in the same run. Batched (up to 5 per call)
+# because flagged candidates are sparse (~5% of clusters) and scattered thinly
+# across scenarios -- judging one at a time would be one call for a handful of
+# tokens each, the same shape ego_trap/milestone_scoring.py's *_batch functions
+# already exist to avoid.
+PROMPT_LAYER_C_MILESTONE_TRIAGE_BATCH = """\
+You are auditing candidate rubric milestones for Naren Shankar's sales coaching taxonomy.
+Each candidate below is a cluster of clauses from Naren's responses that recurred across
+multiple calls and was proposed as a milestone -- a strategic move worth coaching a junior
+rep to repeat. Some of these are genuine strategic milestones; others are conversational
+mechanics (backchannel, acknowledgment, scheduling chatter) that clustered densely because
+they recur verbatim, not because they carry a coaching-worthy strategic move. Each was
+flagged because its embedding centroid is unusually similar to a known non-coachable
+scenario (the NEAREST SINK below) -- that is a hint, not a verdict; judge the clauses.
+
+Each item below has a unique "id". Judge EACH item independently -- do not let one item
+influence another.
+
+ITEMS:
+{items_block}
+
+For each item, decide exactly one of:
+- "genuine_milestone"  a real strategic move a rep should be coached to repeat.
+- "mechanics"          backchannel, acknowledgment, scheduling, or other conversational
+                       plumbing with no strategic content to coach.
+
+Respond ONLY with valid JSON -- a single array with exactly one object per item, in this shape:
+[
+  {{"id": "<id>", "verdict": "genuine_milestone", "reason": "one sentence justifying the decision"}}
+]
 """
 
 PROMPT_LAYER_B_CLEAN = """\
@@ -295,6 +337,23 @@ Choose exactly one decision:
 
 Judge the utterances, not the keywords. High corpus coverage is a reason to look harder,
 NOT a reason to reject: a central business topic can legitimately appear in most calls.
+
+**Bloom levels** — for "new_scenario" only, assign the level that best reflects the cognitive
+demand placed on the CS rep to handle this scenario effectively. `bloom_level` MUST be exactly
+one of these six words:
+- **remember**: Rep must recall specific facts — product names, pricing tiers, contract terms,
+  past conversation details, or SLA commitments
+- **understand**: Rep must explain or translate — restate the client's concern in Joveo terms,
+  or clarify a feature's value in plain language to a skeptical stakeholder
+- **apply**: Rep must deploy a skill in the moment — use an objection-handling move, pivot the
+  conversation, or match a specific product capability to a stated need
+- **analyze**: Rep must diagnose — identify the root cause of dissatisfaction, parse conflicting
+  signals from multiple stakeholders, or map a client's workflow to Joveo's data model
+- **evaluate**: Rep must judge and justify — decide whether to escalate vs. hold, negotiate
+  pricing vs. stand firm, or weigh which product is the right fit given client constraints
+- **create**: Rep must construct something novel — build a custom ROI narrative, design a
+  multi-product proposal, or synthesize patterns across multiple calls into a new client-facing
+  framing
 
 Respond ONLY with valid JSON:
 {{

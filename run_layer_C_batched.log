@@ -1,0 +1,1886 @@
+
+=== Naren's Brain Builder ===
+
+Found 416 transcript(s) in recordings/:
+  - 015a5979-4c9f-44ae-9b9d-f642529a5478.txt
+  - 017d6697-5957-49cd-b314-c98e467e024a.txt
+  - 024e3c77-906d-4be5-96fe-cb23376ee75b.txt
+  - 027ed51b-be07-49f5-b40b-633947f7dcd3.txt
+  - 029276c2-cc3c-452e-827c-3b9a8e751e0c.txt
+  - 04cbf470-61b1-4f09-ad7c-45cb96b67f63.txt
+  - 050514a1-9706-4fe8-a676-760b12fb33b5.txt
+  - 060e51ca-8371-432b-8b18-9d0e8142d86c.txt
+  - 06a22a9a-3053-46b3-aedd-371e2a15b4ad.txt
+  - 07258bf9-5ce4-4680-a412-05e56cdfecf1.txt
+  - 07a3aa92-c47d-4487-a7ab-ea291baf85b1.txt
+  - 082374e7-211c-4d56-b86e-58d762e05775.txt
+  - 082690f8-a5be-4275-b5bc-7eb0594564f5.txt
+  - 08c6fad2-aab7-40d0-8232-a9f417a003a5.txt
+  - 0908f34c-f066-4d9d-8c8b-aa2769cc8c7b.txt
+  - 09094d0d-3d5f-4b42-9639-35ddb40573d4.txt
+  - 091463fb-62d1-4208-860e-33c878aad4a6.txt
+  - 0b4f4d94-d55f-4c9a-844f-611a33785e31.txt
+  - 0c45576c-663a-4fd9-9993-b31afc7a1cad.txt
+  - 0c6a1aa7-d862-4945-a5ad-54c325a74c5f.txt
+  - 0e47e3cd-3333-452a-83f2-d451acb31bfc.txt
+  - 0e9034a6-6a9b-4b87-b049-234caa9ea482.txt
+  - 0f983de5-e2d2-4586-acca-b0d848cdbe98.txt
+  - 0fc1f3af-ddac-4565-b235-79c8b5137905.txt
+  - 0fcf0943-91bc-4487-a762-de599a9b8a0b.txt
+  - 109344fe-e1cc-43a1-bcdd-2b0bd99dcb12.txt
+  - 1280e21c-b6c6-4545-a01b-943607f70be3.txt
+  - 12a9e539-4851-4a8b-a838-3c1ebf0ff300.txt
+  - 12e4267c-7b23-4691-9b05-84a5678a5cf0.txt
+  - 12fce0a1-bd00-4b50-9793-1ac71ae5af63.txt
+  - 131f85c6-c096-42e6-8deb-4a2ac491367d.txt
+  - 13e90b68-c693-418d-b31f-089e44a48699.txt
+  - 140fec2d-7a20-4deb-9276-ab658f5a9087.txt
+  - 143f118a-0559-48a9-9b8d-f4e865bdbd35.txt
+  - 157c9e39-ea53-411c-95d5-646f14248785.txt
+  - 158487c4-0c7f-4db5-aa93-bc9c19dddb55.txt
+  - 15af55f1-638a-4825-a2f9-b0bc25aed759.txt
+  - 161b0889-0227-4510-a419-649e2371240e.txt
+  - 16303a58-2b67-4b20-a36c-cdaf3b9f0ed1.txt
+  - 1658e131-e1ff-49c8-8822-7e44ec856174.txt
+  - 167a3a81-97e8-4570-9881-d32138cb6898.txt
+  - 175e8529-be6f-4c91-b3c6-5219347708c4.txt
+  - 17b55f1f-c0c7-41a7-8797-4d65cdb76456.txt
+  - 180386e1-eafe-4cd7-ba58-26481a84eae5.txt
+  - 19752037-ce80-42ee-b901-56792fc16d76.txt
+  - 197a5239-bdb8-4f0b-a6d7-a00b1ea14e84.txt
+  - 19949c43-f49a-4123-b2c3-0ee09bb22542.txt
+  - 1a031715-78cf-4bce-b61a-21031a7b5c1b.txt
+  - 1b535a0a-d220-46bf-bb97-6342f5035794.txt
+  - 1c2a3561-a3d1-49ee-bca3-6f3e691b1be9.txt
+  - 1c645b8b-d8ea-44fc-920e-fefe06327046.txt
+  - 1e2c03ac-2841-40d2-822f-9907a39e3c47.txt
+  - 1fc37b04-965e-4c58-a33a-112cd4e89be0.txt
+  - 20cfd4a8-3755-4a8e-917b-e40b265b2d46.txt
+  - 20ee2343-9f80-4b4c-ab55-d58bc42fcdb5.txt
+  - 21c1456a-63b5-4f78-a282-e4152188c498.txt
+  - 223a17df-1f36-4045-b520-92d6f4ae8a51.txt
+  - 23fe9cdf-e617-49c5-a3ce-fbf45a76ef60.txt
+  - 245eb3b6-b96f-4f38-ad0f-0fc3e468e877.txt
+  - 246c3edd-dd00-46a4-9aaa-d93c690c8a5e.txt
+  - 24980cc6-e3ac-4bd7-80aa-8bbe3bf02ea5.txt
+  - 24a1acf5-f796-47cd-906f-f2213dcc8f6f.txt
+  - 24c6c1f4-50bc-4ad8-97da-bb0d8fd480f4.txt
+  - 25ad72d5-c42d-4221-a7dd-0f0a74bea76e.txt
+  - 25d9e3e5-e13c-4dc6-ae5c-9fc402a4722a.txt
+  - 26c89244-8c0c-446a-bca1-1c185936351c.txt
+  - 26fc8714-878d-482d-bf82-2fb55c9f03bf.txt
+  - 27a042dd-800f-4d69-95f2-bd4639496e03.txt
+  - 27e9de91-4993-4b01-b753-8e0fa7bd38bb.txt
+  - 28cd171d-d8d9-4a25-9510-287548e13990.txt
+  - 2a2bd7c6-4920-4762-a62b-41f5ae1dec50.txt
+  - 2b1cc972-0b2e-48d1-b563-dc2f1afec4ac.txt
+  - 2d32651d-3bc2-4532-b1e0-60d1b5505dee.txt
+  - 2d7b864d-7586-4344-9e8b-200a2e81dde1.txt
+  - 2ddc1cad-ecb7-4b5e-93fe-4e6b19321b30.txt
+  - 2ec64a88-51b1-463e-9275-e556de0a8089.txt
+  - 2f4a5e86-3f05-4f28-8094-7cb012b7b391.txt
+  - 2f6f3a54-1043-41c3-9ed6-554407d196dc.txt
+  - 300be1e1-fd6c-4778-80ab-849f78e69dd6.txt
+  - 3075c84a-b535-44ae-b32e-359610be36dd.txt
+  - 325c897b-0057-4bda-ace3-4f6bafb4bcf5.txt
+  - 32909863-31ba-45a4-8d2f-8d642931e338.txt
+  - 343cb4e0-6fb7-4da1-bc68-7baf9115b0d8.txt
+  - 3842a1c4-4495-42a5-ab5d-f4b1c7f9b7af.txt
+  - 38892b87-0011-415e-ae10-81184e509072.txt
+  - 39d374d6-85e3-4410-837e-ff185bc5b367.txt
+  - 3a901f87-9ce7-43f9-a36a-f231f0db5aa1.txt
+  - 3caa287d-7afa-4fe0-b28b-940325ba9e88.txt
+  - 3dadeb77-eec6-4046-8e0a-a432e1e9b505.txt
+  - 3db43c7b-bc7e-483e-9713-8369a0bb8523.txt
+  - 3df9cbf5-eea7-4c9d-b94a-4cfb2fbabce0.txt
+  - 3e32cd87-6ba4-468c-bbd9-d8715ebd4a5d.txt
+  - 3e4a62ed-9d1b-4d83-900c-b8dcc66f3120.txt
+  - 3e4c3393-c3cc-4047-a5bc-57bccbfaee4f.txt
+  - 3e8f663f-ce29-4214-88b6-c55af26d5a1b.txt
+  - 3f7bd20d-0c77-468d-b95a-09f650020899.txt
+  - 3ff780c7-4a20-407a-af3f-584dc44f89f2.txt
+  - 3ffb382f-4d4b-49bd-a636-36e6358ee29e.txt
+  - 40103071-9af7-4f40-8137-ec83e1e37219.txt
+  - 40a783fd-48d6-45f2-8a29-31c1f0d2c541.txt
+  - 40fc4d01-9a9e-4da2-855d-e26f549c418f.txt
+  - 41511525-3303-41ce-8025-f9bbde377c91.txt
+  - 419ee94e-f786-4bc3-9d62-6b70eee0ad2c.txt
+  - 4210ee5b-cbfd-458f-aa3b-7c2d5d0d6443.txt
+  - 429ad3a8-330f-41d6-8f80-bb36770b5341.txt
+  - 42a13d3d-7d89-4ab9-849b-86878527f9cc.txt
+  - 42c9627e-16c7-4eb3-8d1d-b261f8bb4a02.txt
+  - 430f1b37-2eb8-4826-b600-560ffa0b5d53.txt
+  - 4398bea0-1e23-4864-8a2c-c6c78475abe8.txt
+  - 43ebc3ea-ed7c-453c-af01-12694d376f7e.txt
+  - 44be9288-76d7-46b1-859e-6566fa4bc7d3.txt
+  - 45c580b5-bff3-43c5-be15-98a591dfc7b0.txt
+  - 45ec89ed-7e2b-4790-bb06-7cfeeb636c1b.txt
+  - 45ee54f7-816a-46b9-a1d7-e8e880b0d7b9.txt
+  - 46984598-f001-4228-af74-08384586d573.txt
+  - 4747fd4d-4dd4-4d8a-8b38-f82c9401b106.txt
+  - 486bb2c5-7166-46dd-a3b3-926db471ce8a.txt
+  - 4990585d-350c-4578-9d2a-ce6795720eb3.txt
+  - 49e61ed3-479b-462d-8301-e1bc804d8ea0.txt
+  - 4a33d23a-01b0-4500-b3fb-f4d28ed03ca9.txt
+  - 4a545998-797e-403e-829e-a4afa54c96e1.txt
+  - 4a6bafa5-8216-443e-be24-bf144b145943.txt
+  - 4b8103dd-c1c9-49da-9c5f-85f67df00167.txt
+  - 4c03e03a-56ff-4025-9a89-76ce53ab86db.txt
+  - 4c1ab82d-aaa9-45d2-a86c-e9a9e900905e.txt
+  - 4c610b70-d024-422c-8d00-a0cb7523ca47.txt
+  - 4d6f0b8e-dad4-47e9-94c7-d5f165e95476.txt
+  - 4de07972-b723-4325-be67-9b5798f523e9.txt
+  - 4de70af0-4a69-43b4-9bb5-25bdefaed5d4.txt
+  - 4dea0d11-71f9-4215-bbc9-515d6e4c90f6.txt
+  - 4e74b595-0482-40cb-bc7a-2edc57025c93.txt
+  - 4ec3b2af-f9c8-4d05-87c6-25c3cbd4861e.txt
+  - 4ee08fa2-57d3-46e2-aefb-f5d92dc27a91.txt
+  - 4f69f5cb-0fc3-4867-9b0a-96c47614f3e9.txt
+  - 500d8231-f371-4ae4-9cee-476866971c09.txt
+  - 507640c3-9601-4316-a660-d8978d777275.txt
+  - 534583de-064c-46a7-8514-deed40fcdf03.txt
+  - 5391083b-0096-4f2b-9dbc-7365b00b956d.txt
+  - 547b8bc7-1412-4e4f-a315-269fd92e57c1.txt
+  - 54911435-c99c-4f05-80a4-8b76b1391e5e.txt
+  - 54c07609-8622-4a9f-bb63-bf05e04c7fcb.txt
+  - 54ed7907-45fd-4c67-91a6-3e06ed6abc43.txt
+  - 550b2b9a-f2dc-4981-a2c1-84dcb8f0490a.txt
+  - 555e2e48-c0cc-44bc-8760-9f7b896b0bb6.txt
+  - 557aae8b-1430-4422-86bd-782ab868337d.txt
+  - 55c783a4-9341-4d1e-a600-c6947967aaf2.txt
+  - 5645373e-bb8b-40b4-9379-abf8d7c995fe.txt
+  - 564b5a2b-8339-416e-9d95-177c7bc38de0.txt
+  - 56a79f60-721b-4785-ab8b-e2bef190a3b2.txt
+  - 59c247aa-0667-49de-a88b-3fa075f9a1b8.txt
+  - 5abe14f8-c5a6-421f-b984-1b8890be6640.txt
+  - 5b27c3d7-1584-406c-9161-412d0bab5b08.txt
+  - 5ba71622-9f5d-48b9-b19f-a341b4556f80.txt
+  - 5bb1a755-ce71-4152-81fc-ef69ab0e6cf5.txt
+  - 5c241243-28f6-4de1-ab88-4fbed8c2c57a.txt
+  - 5c7d8714-8554-4a9c-8d8c-958e3566ae13.txt
+  - 5d08ec27-aa0d-466a-90ef-a77649245db7.txt
+  - 5d8cdec7-2742-48d0-9c7c-7ea9389ed5d7.txt
+  - 5df8e9e5-f9e9-48b5-aa6b-7a0bf158c30c.txt
+  - 5e53e0b2-407d-44b7-b02e-d540c0b7da6b.txt
+  - 5f0ade70-d613-43de-be12-306ab815b80e.txt
+  - 5f72798f-cc20-4ecb-90b1-072c680c58c9.txt
+  - 5f9d8f75-69e6-4c89-a1bf-cf4caa6445b6.txt
+  - 600a71bf-9dc1-4b31-a915-6d90d9ecd269.txt
+  - 60898be1-c415-4899-a68c-a40713becb2b.txt
+  - 62d1bc04-519a-4812-a2f4-1734af9dd891.txt
+  - 63cae46c-419e-43da-9ad3-d7ccf1a8e914.txt
+  - 658e0e36-a1a6-4003-8f11-9e9c17525377.txt
+  - 66d79001-6d7f-47fd-b410-d9105e207683.txt
+  - 673880f2-1168-4d7a-8f75-22abad6b686d.txt
+  - 674a0f84-f4d2-4e17-9e96-12617a5f04b4.txt
+  - 676f9781-2dc2-4cad-9740-d98244d034de.txt
+  - 6afaa9c0-39d4-485a-a8eb-c957098c9a03.txt
+  - 6b454bba-2097-4b34-8eeb-08668e021e03.txt
+  - 6c629c01-759e-4172-a07f-4439dd01ddbd.txt
+  - 6d9ffe90-2015-44b8-94f9-4476ba470036.txt
+  - 6e509a7f-e0d0-4fd1-b779-ddfb4e8e12f1.txt
+  - 6e9e9ba8-a181-4efb-aecc-812242606bba.txt
+  - 6e9f72ab-e0c7-483d-9ee4-c83660053da1.txt
+  - 6f6bb5e9-3e52-4ac2-a6d4-62a94919b5a0.txt
+  - 6fe00c2f-2cfe-452b-b8db-c85272720426.txt
+  - 7008624c-3497-46ba-9398-9d8c1b47a1c6.txt
+  - 71389833-fe50-40d1-a970-7f2068e4f0fc.txt
+  - 71d90f49-d6d9-4701-8e7d-484d331d9b24.txt
+  - 7242f063-9ce3-45f4-b78e-9f4d2b90b35b.txt
+  - 72c8b2a4-2eab-4b4d-a695-cf508e304ab9.txt
+  - 73e111e0-87c3-4d3c-9b93-54ebbf4f3ccd.txt
+  - 73efd7fb-c25d-4f61-a97d-6f55946ba2bf.txt
+  - 74cb4201-9b5e-424b-8386-0b61ba282fdf.txt
+  - 75002e09-b9c7-4988-910e-9db924ef49db.txt
+  - 76017387-fbf2-4ac3-98ef-607195e11526.txt
+  - 7611ea52-5da5-4499-baac-2ffe9621581b.txt
+  - 7683abc6-a283-442c-836a-4014ee4d0695.txt
+  - 76928b97-4f52-489b-8dda-86993bbf91ee.txt
+  - 76977841-5bd2-4564-ab1a-a379396c6dbb.txt
+  - 76b75f76-9ab5-4ef8-b4a2-ffc87448743d.txt
+  - 76e5c022-83c9-49f4-8e74-3137aefbc237.txt
+  - 76eaae2b-f740-4494-b2c9-4166eff30bd6.txt
+  - 76f042ca-4aba-4728-a90e-9b95fa13b80c.txt
+  - 7792569e-dd7a-41c2-8e2d-2eae8a79ad90.txt
+  - 78691c25-8ca0-4cbc-aa7c-e8eaa01d320f.txt
+  - 7a62464b-6ec1-4a4e-8190-2b3c2341637b.txt
+  - 7aac8600-ee91-4a66-a5d2-193382b046aa.txt
+  - 7ba0f820-e7ac-4944-b6d5-e8c329498b76.txt
+  - 7cb6c543-fe8b-4532-b35c-d58c70569864.txt
+  - 7d03ef80-ee61-4729-96ae-1a5de99ec580.txt
+  - 7dba355c-0781-4911-8be1-2aece83359cb.txt
+  - 7f6fa9bf-1557-4d6e-992c-402e03aad7a5.txt
+  - 802b50ca-08b3-4e6b-bf38-db946a2779b0.txt
+  - 8094d6f9-3cb8-4983-a74b-23087883980f.txt
+  - 80e6cf19-d8ab-4600-9f65-1f26f772f80c.txt
+  - 820da9b3-8391-4f95-b8dd-f9fbcd366877.txt
+  - 823b8d41-f936-4aad-b64d-79b92a0054ab.txt
+  - 8318f837-4efd-4ce2-b576-3da7abce801b.txt
+  - 83c65aae-d485-4239-8a91-917145a021c5.txt
+  - 852def4d-af78-42de-8c56-16b3eb0a7fde.txt
+  - 85e6ef37-41b8-4548-add2-80fe50d4c2bc.txt
+  - 85f18d2e-fe89-4cfd-a850-6b09a680382f.txt
+  - 86052a63-b141-4528-933f-c2c52754c817.txt
+  - 865fb234-af06-4884-ad21-f1bc405d9c4b.txt
+  - 871437b6-780e-46a6-8b97-f21bd7127db7.txt
+  - 87b40c98-7f57-4a0b-a72d-aa13b58e5ee7.txt
+  - 88c1956e-43a9-48b5-bd3f-1671a85b2774.txt
+  - 8a208fa4-8b79-455c-86ad-634e7c5bca55.txt
+  - 8af5964f-4301-411d-a7df-3493bc50a200.txt
+  - 8c79e188-3592-438a-af44-37e0a4451d22.txt
+  - 8cef3122-80b0-418e-b749-9a8650fe5db3.txt
+  - 8d87bfe2-a308-4509-9fce-39c7ae35ca7a.txt
+  - 8d914a02-eba4-4cb8-82da-8cec95cba04f.txt
+  - 8d970135-0c8a-4a44-ab8b-fbaab1da7e65.txt
+  - 8ed31d79-cb11-4a9a-a4a9-68ca1a90d7fe.txt
+  - 8f250df0-e782-4141-b01d-e96aaa479be5.txt
+  - 8f3a1ff2-ab6e-451b-bba2-fc400fc9eee5.txt
+  - 8f5af4ff-a50e-4849-8ab2-a16cd1349e9e.txt
+  - 8f72a49c-2001-4407-8082-c6450681bcb1.txt
+  - 8fe8c09c-1c7f-48f4-873d-1243907370f1.txt
+  - 91318b13-772e-4408-ab38-ccf6fc5d1426.txt
+  - 91db7a01-3908-42c1-8320-6612b3396e95.txt
+  - 921c7067-30cb-4e32-bf20-17bef2f3a053.txt
+  - 9250506d-6896-4670-8668-827ba1391fe8.txt
+  - 93a9182b-2bdd-45d0-bbd7-7c493adfcf48.txt
+  - 9481bbef-7177-469c-ae61-dcfe77fea98a.txt
+  - 94c4b6fc-79c6-4275-8232-b306e5a54fd0.txt
+  - 950cdbfc-b5a7-4888-81e6-88916702c3d6.txt
+  - 95306917-eef3-4102-8244-4eda3080abb2.txt
+  - 95fa12f9-c0ee-4825-bdf7-0ab0da96debb.txt
+  - 960369e5-e924-4e5b-9a78-c275215ade2d.txt
+  - 961e2ff6-242c-44c3-9043-2a4dfeb5fde6.txt
+  - 96409d29-525c-494c-b541-33b031ae9c3b.txt
+  - 96bd358f-b9ac-44fa-99f7-45cec003e5af.txt
+  - 96c81797-f4e5-4f4f-9b37-449d3cc8ef86.txt
+  - 96e4cb9e-3f34-421f-8bb9-01fd3db41a2a.txt
+  - 976a9046-a758-4d39-8b26-e4aa66b2c25b.txt
+  - 9804d58d-fe50-4c69-a6cc-82f9789edb4c.txt
+  - 98463170-a1f3-4f81-a343-b38077569c65.txt
+  - 98c99c02-6d87-4b99-b983-7611607888e8.txt
+  - 98ff9084-27ab-40cf-a1a2-e80fd46c458c.txt
+  - 998fa75c-900c-4ef2-b851-876c90a91d24.txt
+  - 9a4975d1-4da7-40d4-8eb5-8cfe8855a32b.txt
+  - 9a6326d2-5bf0-46dd-9cfb-4b6cea573963.txt
+  - 9b2a018a-d7c7-4fd5-877e-02f7143f2ed3.txt
+  - 9becbd19-d671-46d9-855c-adf2fac4b532.txt
+  - 9c10ba28-0b55-4a78-8e2f-289187fe624f.txt
+  - 9cab9693-4e10-4f5d-a75b-4ff6aaec0bb3.txt
+  - 9da366ab-bed7-43c7-87ed-4711960bf0c2.txt
+  - 9e7c8925-7bb1-437a-bf13-0fd92f6ecdef.txt
+  - 9ee038d5-81fa-413e-a617-ef2d1cf9c8b3.txt
+  - 9f80f1d6-a1bb-44b8-84a2-ed0eb1e518d1.txt
+  - 9fa3b00c-74fa-4e5a-b2cc-186f94400e4f.txt
+  - 9fa3b664-acc4-40bd-a963-6a02950e2861.txt
+  - a0bf4c53-3d24-434e-9eac-6813d380f52e.txt
+  - a0cf17e2-f7e9-4ac0-9292-44039855d62f.txt
+  - a1b310bb-e201-4e45-a446-cfa2653d4bb9.txt
+  - a26e1562-1c14-484e-96d8-97533c3cf715.txt
+  - a2f22b1a-897f-4614-97e0-fca4f768d1fb.txt
+  - a476135e-0161-47ff-9dad-fbf71731c8b6.txt
+  - a7147ffc-4f0c-4de6-82a9-8c1f7eb2e6df.txt
+  - a72dc491-54d2-4968-8d2b-303ac7523bd6.txt
+  - a7842980-e67f-4675-a085-7f4872197e23.txt
+  - a80d9169-bf41-4d83-b5d7-46a169388459.txt
+  - a84daddb-5276-44bd-ac19-fae1d18c021b.txt
+  - a8d59830-455d-4496-bebc-32bac479ec9c.txt
+  - a9c2634d-94a1-4535-b153-be82a4007dd9.txt
+  - aabecb86-28f8-49ce-9172-1b975c88a405.txt
+  - ac1aac7b-b2f1-4f82-8837-a97361517d22.txt
+  - ac557b55-914c-498a-badb-f754dbee9e6c.txt
+  - acc24a3f-c810-40b7-8f93-94788bc6a03d.txt
+  - acc5ce5a-6930-4060-a95b-0732a26af407.txt
+  - add622ce-9a2e-4897-a3c0-d8ff48d440ed.txt
+  - adea9dd5-eb7e-4828-a5bc-7a2e3a2a69a6.txt
+  - afde4448-e144-4245-8f52-c47d076a7fa8.txt
+  - b098071a-600d-4a1a-a4c7-c08cd61136da.txt
+  - b0f408a1-c8e0-43b3-bdd4-1927a58c81ef.txt
+  - b0fccf1b-0f58-4bed-81a9-3b18bb712562.txt
+  - b11b5232-ae16-4171-ba13-5df563866876.txt
+  - b162fc95-3516-42ac-96ad-befa42cac271.txt
+  - b1693be6-ded5-4c93-9d5a-32289af3d512.txt
+  - b29431d7-f650-4c8d-bcf6-dd319731dcf6.txt
+  - b3549fde-4c4b-4b52-9608-0175391eb138.txt
+  - b3658f2a-5fab-4bf1-93e6-9e0cc4fd3f80.txt
+  - b396d715-4476-4bb4-9aaa-2bf7e2746fba.txt
+  - b49b7ddc-3c54-4494-9767-d7471b5acf00.txt
+  - b4e3ea49-39f8-41f1-804a-f12b091f79bb.txt
+  - b4faa900-5ee6-404b-95b7-aff3a0763a6b.txt
+  - b5179c46-f8cd-45bb-b04b-6b1eb5e37176.txt
+  - b51f37de-1881-4416-b3b1-78b6d64619d3.txt
+  - b67528dd-e62a-4098-b0a3-7c441ae837c2.txt
+  - b6c549f2-ce33-492d-9072-4c24cc32b148.txt
+  - b6f87222-4325-4f20-8047-54034e96f3c5.txt
+  - b73054dc-a462-4b6b-8ffa-079e8bca9468.txt
+  - b76e6685-36f0-408b-b67f-ecafb3bff767.txt
+  - b85a6a44-9b5b-4358-8f5c-53ac3a9b5442.txt
+  - b8a8c123-f343-4dfa-857a-fd3b8cb285ad.txt
+  - b99ce347-cf6b-47d4-b3c2-8efac781fb48.txt
+  - b9adf776-e701-4b56-87e0-aa48399e615e.txt
+  - ba4933f4-5449-4cef-afa9-1096d5986369.txt
+  - bb5c2fc8-4695-4f80-bbd9-928543962eb2.txt
+  - bbdf3c89-7140-453d-b2b3-7a5d9f6398fe.txt
+  - bc33c275-869c-4c4e-99a3-d1f25a427b4e.txt
+  - bda8ebbf-fd6d-4ee7-9c61-d9f8ad7d1fe3.txt
+  - c3023e51-f493-4e2c-9a52-02a0be7e90bd.txt
+  - c39b7d84-a80b-4251-adce-0f50c61e0a50.txt
+  - c3aed1c3-0af5-48db-81f4-2648adb7f637.txt
+  - c3d391b4-cef3-48c2-8fff-119de36ebecd.txt
+  - c645eaf3-da00-49f2-b72c-3303a5a81d98.txt
+  - c651e498-296a-4ba2-8bf9-8d596d2e2d75.txt
+  - c6be9540-38fb-4aec-beb7-42c800d1f6f2.txt
+  - c7919ce5-e7ed-4e24-b14c-37ff4e6bc009.txt
+  - c820402f-e28a-46ad-870b-a8b687a79ce5.txt
+  - c9a8a8cb-6c33-44f4-aa3e-4ac2b50024a3.txt
+  - ca23457d-44f5-432f-9dca-f42803b4990c.txt
+  - Call1.txt
+  - Call3.txt
+  - Call4.txt
+  - Call5.txt
+  - cbcf9b1d-76be-494b-9d4f-28614e9e7b69.txt
+  - ccb9152a-0361-4020-8e41-e0468a7617f6.txt
+  - cd31e351-bd9d-4d12-9dcd-33358d69d29e.txt
+  - cd448e83-d0f0-4cb3-af0b-db9d3dac7c2f.txt
+  - ce30eae6-f393-45d9-b146-cf84b4896f5b.txt
+  - cf957bdf-988d-4e48-a89c-fee8d978e758.txt
+  - d0a21e49-b775-4d77-83f5-a664bf6ea647.txt
+  - d20484f1-d129-4fbe-9892-43541e561eb4.txt
+  - d2103a96-be6f-4a79-b239-f09fd07fb9f0.txt
+  - d29b5a91-c0b5-4685-9bcc-18381f8d3752.txt
+  - d373e123-c63c-4682-8ec4-680a2448f5a5.txt
+  - d41acec6-7883-4cb3-916c-d5885bd378e3.txt
+  - d4257c83-810f-4ae4-bb73-68073be6508b.txt
+  - d4caadb6-d1e7-4361-aea7-146e17c09807.txt
+  - d5ba2781-34f8-4beb-81ca-cf7731e1bd4b.txt
+  - d5cfbb65-0244-421c-8240-3cd1f5d9f5a9.txt
+  - d5e7324f-5ed3-403c-b91d-6c79f0477f06.txt
+  - d631effd-81bb-4e8a-abfa-5e455f0144cb.txt
+  - d636f0a1-a7d9-4572-846c-b73848b87075.txt
+  - d6fd12b9-5329-4a6c-9115-aa60ff621a8f.txt
+  - d782dfd1-e7af-43c8-b8f1-e16c619a4631.txt
+  - da13f8fd-144f-42a3-8b51-450ee80ec86f.txt
+  - da238639-fe82-44ce-a0e1-691c7fa6cc2b.txt
+  - db20a991-f797-459b-a683-2a135b1915e1.txt
+  - dbd6185c-415b-4061-9a2b-e61d233c0aaf.txt
+  - dc182681-a08c-4ed0-b69b-fad0bc32b486.txt
+  - dda80b00-9c44-42d4-b98c-a98329401f01.txt
+  - de324894-cffd-4799-9583-ade47b5a24c7.txt
+  - dea2db49-3890-4890-8f0f-433ef728e31b.txt
+  - df7e1ec4-3d4f-4f60-80a8-c5e8b8fb6f89.txt
+  - dfa3752a-a8bf-4c5a-a26b-fa9dbe713ba7.txt
+  - dfc8eeb9-16f4-46a3-8883-f00fa16b9ac7.txt
+  - e080ca9b-a09b-4214-8221-efc82a7ed176.txt
+  - e1cd66a1-0563-45bc-9cdb-566e5885b7f0.txt
+  - e226ce7c-16c1-4950-b4c7-19efbf1aa325.txt
+  - e2c4292a-31d3-4ad5-9f1b-20c27e617f3d.txt
+  - e3596375-71c6-4fe8-ae8b-c09ed56fdac7.txt
+  - e3945e43-d108-4b8c-9265-4891b47703c5.txt
+  - e3d161a4-b2f5-4190-af6c-2c2dc78a27c4.txt
+  - e4bfdaf3-aab4-4a35-af1f-8cd170522df4.txt
+  - e541c35f-bdc0-4589-9b77-41a39a74ab31.txt
+  - e582e000-664c-481b-963f-867fb0cfb357.txt
+  - e5e43491-35f4-405a-b791-f5cd2352ea29.txt
+  - e5ec576d-1307-4b98-9ea4-3fa259f17cce.txt
+  - e6a4efc7-9297-46e2-a56a-ac17a7226e9f.txt
+  - e6d08d91-b5e8-48f8-bf84-fed6fbea30b9.txt
+  - e88e1a5d-0853-4fb4-95b8-bef36ff62194.txt
+  - e8915821-6bba-4bbb-87ea-45c1b1285f38.txt
+  - e8e21e48-6d80-4aca-8026-b27c839a1ee0.txt
+  - e8e2a304-0a68-40dd-8665-95bd7d1eabeb.txt
+  - e90f9c3f-9b65-4722-829e-ec4fc63d809d.txt
+  - ea0100e0-1f7e-4f0e-9d54-1de47548b5b4.txt
+  - ea2db642-9c30-473d-bad1-ca39948f4b25.txt
+  - ea36bf8b-8fb7-4df6-a18b-f903bd5de8da.txt
+  - ea6c3a75-b8f3-4200-ae9d-a5240991ad19.txt
+  - eac6df36-f90c-49d9-8fd5-b92b4394ef5b.txt
+  - ead8eaf5-57fe-4bae-91de-d4dd01199a6a.txt
+  - eaf841c5-5f20-420a-b6f3-250b8c2beaa5.txt
+  - ecbdbf14-3759-430d-aee1-072b929b8ae8.txt
+  - ed19dc51-48d3-4966-a0b7-39e2f0d5ea93.txt
+  - ede081e5-19d3-4106-9f17-69852173a2ce.txt
+  - ee762edd-3c8c-49b2-aa3b-e13055b345b1.txt
+  - eed5d24c-91a0-4b75-94f9-2bbb0a4bf3a9.txt
+  - f1981d79-2ea4-4b82-a98e-79af073b3860.txt
+  - f2bd93ca-85c2-4e47-b060-2eaabfb93b4d.txt
+  - f2c653f0-20ad-4cb7-bcb9-9dfc8cd4d799.txt
+  - f3947931-9c8a-45f1-89d3-bcafedda4b8b.txt
+  - f5d39fe1-2b40-41d9-a1e1-fb269a0d0674.txt
+  - f7b1a335-9644-48d8-b572-9163af82363f.txt
+  - f808353a-ecce-493d-90b7-3f9c20499b3b.txt
+  - f8286b6b-c315-47d2-a32f-acbd3b726f3b.txt
+  - fa0ec6ae-ab71-4e34-aa93-7d254b65c871.txt
+  - fa2b6ab2-abbe-4cc7-a5df-7bf8e15f8da7.txt
+  - fa5dccb8-dee0-42d6-b3b8-452ea94dcfea.txt
+  - fa7194f6-023a-4808-8142-4bdc1feb90df.txt
+  - fbec7e2b-ec0b-4f64-8a9b-60abf5b3fa8c.txt
+  - fc915ebb-c20e-48df-a947-8d1474ca2900.txt
+  - fdf2a099-dab4-40c2-aa94-e57c4e1ca099.txt
+  - fe2d07a6-e3d3-4814-866c-d2951910258e.txt
+  - fe5670b8-95bf-446b-a6d7-c986bea1c15c.txt
+  - fe6dcf1d-4e1f-448b-9736-1dab5bd11c1e.txt
+
+Choose pipeline version:
+  [1] V1 -- Gemma-direct  (recommended for <=5 calls)
+  [2] V2 -- Statistical clustering  (requires 30+ calls for Layer A)
+
+Enter 1 or 2: 
+Initializing database...
+Initializing Pinecone index...
+[pinecone] Index 'narens-brain' already exists.
+Initializing checkpoint store...
+  Run ID: 492c7be385c5
+
+[V2] Found 416 transcript(s).
+  Parsed 015a5979-4c9f-44ae-9b9d-f642529a5478.txt: 89 turns
+  Parsed 017d6697-5957-49cd-b314-c98e467e024a.txt: 77 turns
+  Parsed 024e3c77-906d-4be5-96fe-cb23376ee75b.txt: 128 turns
+  Parsed 027ed51b-be07-49f5-b40b-633947f7dcd3.txt: 157 turns
+  Parsed 029276c2-cc3c-452e-827c-3b9a8e751e0c.txt: 103 turns
+  Parsed 04cbf470-61b1-4f09-ad7c-45cb96b67f63.txt: 147 turns
+  Parsed 050514a1-9706-4fe8-a676-760b12fb33b5.txt: 187 turns
+  Parsed 060e51ca-8371-432b-8b18-9d0e8142d86c.txt: 81 turns
+  Parsed 06a22a9a-3053-46b3-aedd-371e2a15b4ad.txt: 66 turns
+  Parsed 07258bf9-5ce4-4680-a412-05e56cdfecf1.txt: 157 turns
+  Parsed 07a3aa92-c47d-4487-a7ab-ea291baf85b1.txt: 175 turns
+  Parsed 082374e7-211c-4d56-b86e-58d762e05775.txt: 146 turns
+  Parsed 082690f8-a5be-4275-b5bc-7eb0594564f5.txt: 98 turns
+  Parsed 08c6fad2-aab7-40d0-8232-a9f417a003a5.txt: 52 turns
+  Parsed 0908f34c-f066-4d9d-8c8b-aa2769cc8c7b.txt: 101 turns
+  Parsed 09094d0d-3d5f-4b42-9639-35ddb40573d4.txt: 171 turns
+  Parsed 091463fb-62d1-4208-860e-33c878aad4a6.txt: 182 turns
+  Parsed 0b4f4d94-d55f-4c9a-844f-611a33785e31.txt: 108 turns
+  Parsed 0c45576c-663a-4fd9-9993-b31afc7a1cad.txt: 132 turns
+  Parsed 0c6a1aa7-d862-4945-a5ad-54c325a74c5f.txt: 96 turns
+  Parsed 0e47e3cd-3333-452a-83f2-d451acb31bfc.txt: 108 turns
+  Parsed 0e9034a6-6a9b-4b87-b049-234caa9ea482.txt: 67 turns
+  Parsed 0f983de5-e2d2-4586-acca-b0d848cdbe98.txt: 231 turns
+  Parsed 0fc1f3af-ddac-4565-b235-79c8b5137905.txt: 168 turns
+  Parsed 0fcf0943-91bc-4487-a762-de599a9b8a0b.txt: 119 turns
+  Parsed 109344fe-e1cc-43a1-bcdd-2b0bd99dcb12.txt: 70 turns
+  Parsed 1280e21c-b6c6-4545-a01b-943607f70be3.txt: 143 turns
+  Parsed 12a9e539-4851-4a8b-a838-3c1ebf0ff300.txt: 63 turns
+  Parsed 12e4267c-7b23-4691-9b05-84a5678a5cf0.txt: 102 turns
+  Parsed 12fce0a1-bd00-4b50-9793-1ac71ae5af63.txt: 5 turns
+  Parsed 131f85c6-c096-42e6-8deb-4a2ac491367d.txt: 147 turns
+  Parsed 13e90b68-c693-418d-b31f-089e44a48699.txt: 77 turns
+  Parsed 140fec2d-7a20-4deb-9276-ab658f5a9087.txt: 119 turns
+  Parsed 143f118a-0559-48a9-9b8d-f4e865bdbd35.txt: 121 turns
+  Parsed 157c9e39-ea53-411c-95d5-646f14248785.txt: 115 turns
+  Parsed 158487c4-0c7f-4db5-aa93-bc9c19dddb55.txt: 110 turns
+  Parsed 15af55f1-638a-4825-a2f9-b0bc25aed759.txt: 136 turns
+  Parsed 161b0889-0227-4510-a419-649e2371240e.txt: 99 turns
+  Parsed 16303a58-2b67-4b20-a36c-cdaf3b9f0ed1.txt: 105 turns
+  Parsed 1658e131-e1ff-49c8-8822-7e44ec856174.txt: 233 turns
+  Parsed 167a3a81-97e8-4570-9881-d32138cb6898.txt: 60 turns
+  Parsed 175e8529-be6f-4c91-b3c6-5219347708c4.txt: 114 turns
+  Parsed 17b55f1f-c0c7-41a7-8797-4d65cdb76456.txt: 238 turns
+  Parsed 180386e1-eafe-4cd7-ba58-26481a84eae5.txt: 42 turns
+  Parsed 19752037-ce80-42ee-b901-56792fc16d76.txt: 172 turns
+  Parsed 197a5239-bdb8-4f0b-a6d7-a00b1ea14e84.txt: 142 turns
+  Parsed 19949c43-f49a-4123-b2c3-0ee09bb22542.txt: 120 turns
+  Parsed 1a031715-78cf-4bce-b61a-21031a7b5c1b.txt: 183 turns
+  Parsed 1b535a0a-d220-46bf-bb97-6342f5035794.txt: 349 turns
+  Parsed 1c2a3561-a3d1-49ee-bca3-6f3e691b1be9.txt: 2 turns
+  Parsed 1c645b8b-d8ea-44fc-920e-fefe06327046.txt: 157 turns
+  Parsed 1e2c03ac-2841-40d2-822f-9907a39e3c47.txt: 53 turns
+  Parsed 1fc37b04-965e-4c58-a33a-112cd4e89be0.txt: 162 turns
+  Parsed 20cfd4a8-3755-4a8e-917b-e40b265b2d46.txt: 32 turns
+  Parsed 20ee2343-9f80-4b4c-ab55-d58bc42fcdb5.txt: 156 turns
+  Parsed 21c1456a-63b5-4f78-a282-e4152188c498.txt: 138 turns
+  Parsed 223a17df-1f36-4045-b520-92d6f4ae8a51.txt: 247 turns
+  Parsed 23fe9cdf-e617-49c5-a3ce-fbf45a76ef60.txt: 213 turns
+  Parsed 245eb3b6-b96f-4f38-ad0f-0fc3e468e877.txt: 86 turns
+  Parsed 246c3edd-dd00-46a4-9aaa-d93c690c8a5e.txt: 201 turns
+  Parsed 24980cc6-e3ac-4bd7-80aa-8bbe3bf02ea5.txt: 133 turns
+  Parsed 24a1acf5-f796-47cd-906f-f2213dcc8f6f.txt: 225 turns
+  Parsed 24c6c1f4-50bc-4ad8-97da-bb0d8fd480f4.txt: 184 turns
+  Parsed 25ad72d5-c42d-4221-a7dd-0f0a74bea76e.txt: 27 turns
+  Parsed 25d9e3e5-e13c-4dc6-ae5c-9fc402a4722a.txt: 121 turns
+  Parsed 26c89244-8c0c-446a-bca1-1c185936351c.txt: 29 turns
+  Parsed 26fc8714-878d-482d-bf82-2fb55c9f03bf.txt: 103 turns
+  Parsed 27a042dd-800f-4d69-95f2-bd4639496e03.txt: 84 turns
+  Parsed 27e9de91-4993-4b01-b753-8e0fa7bd38bb.txt: 71 turns
+  Parsed 28cd171d-d8d9-4a25-9510-287548e13990.txt: 84 turns
+  Parsed 2a2bd7c6-4920-4762-a62b-41f5ae1dec50.txt: 104 turns
+  Parsed 2b1cc972-0b2e-48d1-b563-dc2f1afec4ac.txt: 131 turns
+  Parsed 2d32651d-3bc2-4532-b1e0-60d1b5505dee.txt: 152 turns
+  Parsed 2d7b864d-7586-4344-9e8b-200a2e81dde1.txt: 51 turns
+  Parsed 2ddc1cad-ecb7-4b5e-93fe-4e6b19321b30.txt: 125 turns
+  Parsed 2ec64a88-51b1-463e-9275-e556de0a8089.txt: 22 turns
+  Parsed 2f4a5e86-3f05-4f28-8094-7cb012b7b391.txt: 96 turns
+  Parsed 2f6f3a54-1043-41c3-9ed6-554407d196dc.txt: 301 turns
+  Parsed 300be1e1-fd6c-4778-80ab-849f78e69dd6.txt: 53 turns
+  Parsed 3075c84a-b535-44ae-b32e-359610be36dd.txt: 87 turns
+  Parsed 325c897b-0057-4bda-ace3-4f6bafb4bcf5.txt: 4 turns
+  Parsed 32909863-31ba-45a4-8d2f-8d642931e338.txt: 251 turns
+  Parsed 343cb4e0-6fb7-4da1-bc68-7baf9115b0d8.txt: 75 turns
+  Parsed 3842a1c4-4495-42a5-ab5d-f4b1c7f9b7af.txt: 131 turns
+  Parsed 38892b87-0011-415e-ae10-81184e509072.txt: 99 turns
+  Parsed 39d374d6-85e3-4410-837e-ff185bc5b367.txt: 142 turns
+  Parsed 3a901f87-9ce7-43f9-a36a-f231f0db5aa1.txt: 293 turns
+  Parsed 3caa287d-7afa-4fe0-b28b-940325ba9e88.txt: 115 turns
+  Parsed 3dadeb77-eec6-4046-8e0a-a432e1e9b505.txt: 94 turns
+  Parsed 3db43c7b-bc7e-483e-9713-8369a0bb8523.txt: 146 turns
+  Parsed 3df9cbf5-eea7-4c9d-b94a-4cfb2fbabce0.txt: 68 turns
+  Parsed 3e32cd87-6ba4-468c-bbd9-d8715ebd4a5d.txt: 87 turns
+  Parsed 3e4a62ed-9d1b-4d83-900c-b8dcc66f3120.txt: 112 turns
+  Parsed 3e4c3393-c3cc-4047-a5bc-57bccbfaee4f.txt: 127 turns
+  Parsed 3e8f663f-ce29-4214-88b6-c55af26d5a1b.txt: 46 turns
+  Parsed 3f7bd20d-0c77-468d-b95a-09f650020899.txt: 44 turns
+  Parsed 3ff780c7-4a20-407a-af3f-584dc44f89f2.txt: 69 turns
+  Parsed 3ffb382f-4d4b-49bd-a636-36e6358ee29e.txt: 180 turns
+  Parsed 40103071-9af7-4f40-8137-ec83e1e37219.txt: 213 turns
+  Parsed 40a783fd-48d6-45f2-8a29-31c1f0d2c541.txt: 212 turns
+  Parsed 40fc4d01-9a9e-4da2-855d-e26f549c418f.txt: 104 turns
+  Parsed 41511525-3303-41ce-8025-f9bbde377c91.txt: 104 turns
+  Parsed 419ee94e-f786-4bc3-9d62-6b70eee0ad2c.txt: 105 turns
+  Parsed 4210ee5b-cbfd-458f-aa3b-7c2d5d0d6443.txt: 161 turns
+  Parsed 429ad3a8-330f-41d6-8f80-bb36770b5341.txt: 128 turns
+  Parsed 42a13d3d-7d89-4ab9-849b-86878527f9cc.txt: 71 turns
+  Parsed 42c9627e-16c7-4eb3-8d1d-b261f8bb4a02.txt: 132 turns
+  Parsed 430f1b37-2eb8-4826-b600-560ffa0b5d53.txt: 96 turns
+  Parsed 4398bea0-1e23-4864-8a2c-c6c78475abe8.txt: 38 turns
+  Parsed 43ebc3ea-ed7c-453c-af01-12694d376f7e.txt: 118 turns
+  Parsed 44be9288-76d7-46b1-859e-6566fa4bc7d3.txt: 118 turns
+  Parsed 45c580b5-bff3-43c5-be15-98a591dfc7b0.txt: 137 turns
+  Parsed 45ec89ed-7e2b-4790-bb06-7cfeeb636c1b.txt: 130 turns
+  Parsed 45ee54f7-816a-46b9-a1d7-e8e880b0d7b9.txt: 120 turns
+  Parsed 46984598-f001-4228-af74-08384586d573.txt: 81 turns
+  Parsed 4747fd4d-4dd4-4d8a-8b38-f82c9401b106.txt: 154 turns
+  Parsed 486bb2c5-7166-46dd-a3b3-926db471ce8a.txt: 20 turns
+  Parsed 4990585d-350c-4578-9d2a-ce6795720eb3.txt: 33 turns
+  Parsed 49e61ed3-479b-462d-8301-e1bc804d8ea0.txt: 76 turns
+  Parsed 4a33d23a-01b0-4500-b3fb-f4d28ed03ca9.txt: 78 turns
+  Parsed 4a545998-797e-403e-829e-a4afa54c96e1.txt: 136 turns
+  Parsed 4a6bafa5-8216-443e-be24-bf144b145943.txt: 139 turns
+  Parsed 4b8103dd-c1c9-49da-9c5f-85f67df00167.txt: 126 turns
+  Parsed 4c03e03a-56ff-4025-9a89-76ce53ab86db.txt: 90 turns
+  Parsed 4c1ab82d-aaa9-45d2-a86c-e9a9e900905e.txt: 195 turns
+  Parsed 4c610b70-d024-422c-8d00-a0cb7523ca47.txt: 140 turns
+  Parsed 4d6f0b8e-dad4-47e9-94c7-d5f165e95476.txt: 100 turns
+  Parsed 4de07972-b723-4325-be67-9b5798f523e9.txt: 84 turns
+  Parsed 4de70af0-4a69-43b4-9bb5-25bdefaed5d4.txt: 89 turns
+  Parsed 4dea0d11-71f9-4215-bbc9-515d6e4c90f6.txt: 116 turns
+  Parsed 4e74b595-0482-40cb-bc7a-2edc57025c93.txt: 135 turns
+  Parsed 4ec3b2af-f9c8-4d05-87c6-25c3cbd4861e.txt: 7 turns
+  Parsed 4ee08fa2-57d3-46e2-aefb-f5d92dc27a91.txt: 64 turns
+  Parsed 4f69f5cb-0fc3-4867-9b0a-96c47614f3e9.txt: 106 turns
+  Parsed 500d8231-f371-4ae4-9cee-476866971c09.txt: 124 turns
+  Parsed 507640c3-9601-4316-a660-d8978d777275.txt: 105 turns
+  Parsed 534583de-064c-46a7-8514-deed40fcdf03.txt: 89 turns
+  Parsed 5391083b-0096-4f2b-9dbc-7365b00b956d.txt: 108 turns
+  Parsed 547b8bc7-1412-4e4f-a315-269fd92e57c1.txt: 125 turns
+  Parsed 54911435-c99c-4f05-80a4-8b76b1391e5e.txt: 75 turns
+  Parsed 54c07609-8622-4a9f-bb63-bf05e04c7fcb.txt: 111 turns
+  Parsed 54ed7907-45fd-4c67-91a6-3e06ed6abc43.txt: 55 turns
+  Parsed 550b2b9a-f2dc-4981-a2c1-84dcb8f0490a.txt: 4 turns
+  Parsed 555e2e48-c0cc-44bc-8760-9f7b896b0bb6.txt: 145 turns
+  Parsed 557aae8b-1430-4422-86bd-782ab868337d.txt: 149 turns
+  Parsed 55c783a4-9341-4d1e-a600-c6947967aaf2.txt: 153 turns
+  Parsed 5645373e-bb8b-40b4-9379-abf8d7c995fe.txt: 111 turns
+  Parsed 564b5a2b-8339-416e-9d95-177c7bc38de0.txt: 32 turns
+  Parsed 56a79f60-721b-4785-ab8b-e2bef190a3b2.txt: 144 turns
+  Parsed 59c247aa-0667-49de-a88b-3fa075f9a1b8.txt: 74 turns
+  Parsed 5abe14f8-c5a6-421f-b984-1b8890be6640.txt: 4 turns
+  Parsed 5b27c3d7-1584-406c-9161-412d0bab5b08.txt: 100 turns
+  Parsed 5ba71622-9f5d-48b9-b19f-a341b4556f80.txt: 82 turns
+  Parsed 5bb1a755-ce71-4152-81fc-ef69ab0e6cf5.txt: 236 turns
+  Parsed 5c241243-28f6-4de1-ab88-4fbed8c2c57a.txt: 151 turns
+  Parsed 5c7d8714-8554-4a9c-8d8c-958e3566ae13.txt: 79 turns
+  Parsed 5d08ec27-aa0d-466a-90ef-a77649245db7.txt: 36 turns
+  Parsed 5d8cdec7-2742-48d0-9c7c-7ea9389ed5d7.txt: 288 turns
+  Parsed 5df8e9e5-f9e9-48b5-aa6b-7a0bf158c30c.txt: 124 turns
+  Parsed 5e53e0b2-407d-44b7-b02e-d540c0b7da6b.txt: 96 turns
+  Parsed 5f0ade70-d613-43de-be12-306ab815b80e.txt: 242 turns
+  Parsed 5f72798f-cc20-4ecb-90b1-072c680c58c9.txt: 48 turns
+  Parsed 5f9d8f75-69e6-4c89-a1bf-cf4caa6445b6.txt: 17 turns
+  Parsed 600a71bf-9dc1-4b31-a915-6d90d9ecd269.txt: 172 turns
+  Parsed 60898be1-c415-4899-a68c-a40713becb2b.txt: 126 turns
+  Parsed 62d1bc04-519a-4812-a2f4-1734af9dd891.txt: 57 turns
+  Parsed 63cae46c-419e-43da-9ad3-d7ccf1a8e914.txt: 102 turns
+  Parsed 658e0e36-a1a6-4003-8f11-9e9c17525377.txt: 86 turns
+  Parsed 66d79001-6d7f-47fd-b410-d9105e207683.txt: 181 turns
+  Parsed 673880f2-1168-4d7a-8f75-22abad6b686d.txt: 146 turns
+  Parsed 674a0f84-f4d2-4e17-9e96-12617a5f04b4.txt: 140 turns
+  Parsed 676f9781-2dc2-4cad-9740-d98244d034de.txt: 233 turns
+  Parsed 6afaa9c0-39d4-485a-a8eb-c957098c9a03.txt: 134 turns
+  Parsed 6b454bba-2097-4b34-8eeb-08668e021e03.txt: 216 turns
+  Parsed 6c629c01-759e-4172-a07f-4439dd01ddbd.txt: 141 turns
+  Parsed 6d9ffe90-2015-44b8-94f9-4476ba470036.txt: 76 turns
+  Parsed 6e509a7f-e0d0-4fd1-b779-ddfb4e8e12f1.txt: 83 turns
+  Parsed 6e9e9ba8-a181-4efb-aecc-812242606bba.txt: 2 turns
+  Parsed 6e9f72ab-e0c7-483d-9ee4-c83660053da1.txt: 101 turns
+  Parsed 6f6bb5e9-3e52-4ac2-a6d4-62a94919b5a0.txt: 147 turns
+  Parsed 6fe00c2f-2cfe-452b-b8db-c85272720426.txt: 110 turns
+  Parsed 7008624c-3497-46ba-9398-9d8c1b47a1c6.txt: 199 turns
+  Parsed 71389833-fe50-40d1-a970-7f2068e4f0fc.txt: 183 turns
+  Parsed 71d90f49-d6d9-4701-8e7d-484d331d9b24.txt: 244 turns
+  Parsed 7242f063-9ce3-45f4-b78e-9f4d2b90b35b.txt: 64 turns
+  Parsed 72c8b2a4-2eab-4b4d-a695-cf508e304ab9.txt: 133 turns
+  Parsed 73e111e0-87c3-4d3c-9b93-54ebbf4f3ccd.txt: 89 turns
+  Parsed 73efd7fb-c25d-4f61-a97d-6f55946ba2bf.txt: 196 turns
+  Parsed 74cb4201-9b5e-424b-8386-0b61ba282fdf.txt: 155 turns
+  Parsed 75002e09-b9c7-4988-910e-9db924ef49db.txt: 73 turns
+  Parsed 76017387-fbf2-4ac3-98ef-607195e11526.txt: 124 turns
+  Parsed 7611ea52-5da5-4499-baac-2ffe9621581b.txt: 34 turns
+  Parsed 7683abc6-a283-442c-836a-4014ee4d0695.txt: 105 turns
+  Parsed 76928b97-4f52-489b-8dda-86993bbf91ee.txt: 84 turns
+  Parsed 76977841-5bd2-4564-ab1a-a379396c6dbb.txt: 243 turns
+  Parsed 76b75f76-9ab5-4ef8-b4a2-ffc87448743d.txt: 74 turns
+  Parsed 76e5c022-83c9-49f4-8e74-3137aefbc237.txt: 124 turns
+  Parsed 76eaae2b-f740-4494-b2c9-4166eff30bd6.txt: 72 turns
+  Parsed 76f042ca-4aba-4728-a90e-9b95fa13b80c.txt: 155 turns
+  Parsed 7792569e-dd7a-41c2-8e2d-2eae8a79ad90.txt: 137 turns
+  Parsed 78691c25-8ca0-4cbc-aa7c-e8eaa01d320f.txt: 69 turns
+  Parsed 7a62464b-6ec1-4a4e-8190-2b3c2341637b.txt: 130 turns
+  Parsed 7aac8600-ee91-4a66-a5d2-193382b046aa.txt: 43 turns
+  Parsed 7ba0f820-e7ac-4944-b6d5-e8c329498b76.txt: 117 turns
+  Parsed 7cb6c543-fe8b-4532-b35c-d58c70569864.txt: 115 turns
+  Parsed 7d03ef80-ee61-4729-96ae-1a5de99ec580.txt: 137 turns
+  Parsed 7dba355c-0781-4911-8be1-2aece83359cb.txt: 131 turns
+  Parsed 7f6fa9bf-1557-4d6e-992c-402e03aad7a5.txt: 136 turns
+  Parsed 802b50ca-08b3-4e6b-bf38-db946a2779b0.txt: 98 turns
+  Parsed 8094d6f9-3cb8-4983-a74b-23087883980f.txt: 86 turns
+  Parsed 80e6cf19-d8ab-4600-9f65-1f26f772f80c.txt: 144 turns
+  Parsed 820da9b3-8391-4f95-b8dd-f9fbcd366877.txt: 115 turns
+  Parsed 823b8d41-f936-4aad-b64d-79b92a0054ab.txt: 146 turns
+  Parsed 8318f837-4efd-4ce2-b576-3da7abce801b.txt: 47 turns
+  Parsed 83c65aae-d485-4239-8a91-917145a021c5.txt: 65 turns
+  Parsed 852def4d-af78-42de-8c56-16b3eb0a7fde.txt: 92 turns
+  Parsed 85e6ef37-41b8-4548-add2-80fe50d4c2bc.txt: 135 turns
+  Parsed 85f18d2e-fe89-4cfd-a850-6b09a680382f.txt: 97 turns
+  Parsed 86052a63-b141-4528-933f-c2c52754c817.txt: 117 turns
+  Parsed 865fb234-af06-4884-ad21-f1bc405d9c4b.txt: 73 turns
+  Parsed 871437b6-780e-46a6-8b97-f21bd7127db7.txt: 115 turns
+  Parsed 87b40c98-7f57-4a0b-a72d-aa13b58e5ee7.txt: 154 turns
+  Parsed 88c1956e-43a9-48b5-bd3f-1671a85b2774.txt: 97 turns
+  Parsed 8a208fa4-8b79-455c-86ad-634e7c5bca55.txt: 176 turns
+  Parsed 8af5964f-4301-411d-a7df-3493bc50a200.txt: 71 turns
+  Parsed 8c79e188-3592-438a-af44-37e0a4451d22.txt: 86 turns
+  Parsed 8cef3122-80b0-418e-b749-9a8650fe5db3.txt: 87 turns
+  Parsed 8d87bfe2-a308-4509-9fce-39c7ae35ca7a.txt: 113 turns
+  Parsed 8d914a02-eba4-4cb8-82da-8cec95cba04f.txt: 92 turns
+  Parsed 8d970135-0c8a-4a44-ab8b-fbaab1da7e65.txt: 162 turns
+  Parsed 8ed31d79-cb11-4a9a-a4a9-68ca1a90d7fe.txt: 100 turns
+  Parsed 8f250df0-e782-4141-b01d-e96aaa479be5.txt: 154 turns
+  Parsed 8f3a1ff2-ab6e-451b-bba2-fc400fc9eee5.txt: 169 turns
+  Parsed 8f5af4ff-a50e-4849-8ab2-a16cd1349e9e.txt: 59 turns
+  Parsed 8f72a49c-2001-4407-8082-c6450681bcb1.txt: 57 turns
+  Parsed 8fe8c09c-1c7f-48f4-873d-1243907370f1.txt: 136 turns
+  Parsed 91318b13-772e-4408-ab38-ccf6fc5d1426.txt: 124 turns
+  Parsed 91db7a01-3908-42c1-8320-6612b3396e95.txt: 61 turns
+  Parsed 921c7067-30cb-4e32-bf20-17bef2f3a053.txt: 119 turns
+  Parsed 9250506d-6896-4670-8668-827ba1391fe8.txt: 125 turns
+  Parsed 93a9182b-2bdd-45d0-bbd7-7c493adfcf48.txt: 183 turns
+  Parsed 9481bbef-7177-469c-ae61-dcfe77fea98a.txt: 112 turns
+  Parsed 94c4b6fc-79c6-4275-8232-b306e5a54fd0.txt: 142 turns
+  Parsed 950cdbfc-b5a7-4888-81e6-88916702c3d6.txt: 119 turns
+  Parsed 95306917-eef3-4102-8244-4eda3080abb2.txt: 99 turns
+  Parsed 95fa12f9-c0ee-4825-bdf7-0ab0da96debb.txt: 202 turns
+  Parsed 960369e5-e924-4e5b-9a78-c275215ade2d.txt: 70 turns
+  Parsed 961e2ff6-242c-44c3-9043-2a4dfeb5fde6.txt: 64 turns
+  Parsed 96409d29-525c-494c-b541-33b031ae9c3b.txt: 130 turns
+  Parsed 96bd358f-b9ac-44fa-99f7-45cec003e5af.txt: 76 turns
+  Parsed 96c81797-f4e5-4f4f-9b37-449d3cc8ef86.txt: 69 turns
+  Parsed 96e4cb9e-3f34-421f-8bb9-01fd3db41a2a.txt: 100 turns
+  Parsed 976a9046-a758-4d39-8b26-e4aa66b2c25b.txt: 155 turns
+  Parsed 9804d58d-fe50-4c69-a6cc-82f9789edb4c.txt: 202 turns
+  Parsed 98463170-a1f3-4f81-a343-b38077569c65.txt: 64 turns
+  Parsed 98c99c02-6d87-4b99-b983-7611607888e8.txt: 166 turns
+  Parsed 98ff9084-27ab-40cf-a1a2-e80fd46c458c.txt: 98 turns
+  Parsed 998fa75c-900c-4ef2-b851-876c90a91d24.txt: 65 turns
+  Parsed 9a4975d1-4da7-40d4-8eb5-8cfe8855a32b.txt: 89 turns
+  Parsed 9a6326d2-5bf0-46dd-9cfb-4b6cea573963.txt: 129 turns
+  Parsed 9b2a018a-d7c7-4fd5-877e-02f7143f2ed3.txt: 63 turns
+  Parsed 9becbd19-d671-46d9-855c-adf2fac4b532.txt: 69 turns
+  Parsed 9c10ba28-0b55-4a78-8e2f-289187fe624f.txt: 107 turns
+  Parsed 9cab9693-4e10-4f5d-a75b-4ff6aaec0bb3.txt: 145 turns
+  Parsed 9da366ab-bed7-43c7-87ed-4711960bf0c2.txt: 125 turns
+  Parsed 9e7c8925-7bb1-437a-bf13-0fd92f6ecdef.txt: 100 turns
+  Parsed 9ee038d5-81fa-413e-a617-ef2d1cf9c8b3.txt: 46 turns
+  Parsed 9f80f1d6-a1bb-44b8-84a2-ed0eb1e518d1.txt: 82 turns
+  Parsed 9fa3b00c-74fa-4e5a-b2cc-186f94400e4f.txt: 184 turns
+  Parsed 9fa3b664-acc4-40bd-a963-6a02950e2861.txt: 129 turns
+  Parsed a0bf4c53-3d24-434e-9eac-6813d380f52e.txt: 124 turns
+  Parsed a0cf17e2-f7e9-4ac0-9292-44039855d62f.txt: 162 turns
+  Parsed a1b310bb-e201-4e45-a446-cfa2653d4bb9.txt: 185 turns
+  Parsed a26e1562-1c14-484e-96d8-97533c3cf715.txt: 114 turns
+  Parsed a2f22b1a-897f-4614-97e0-fca4f768d1fb.txt: 137 turns
+  Parsed a476135e-0161-47ff-9dad-fbf71731c8b6.txt: 258 turns
+  Parsed a7147ffc-4f0c-4de6-82a9-8c1f7eb2e6df.txt: 32 turns
+  Parsed a72dc491-54d2-4968-8d2b-303ac7523bd6.txt: 157 turns
+  Parsed a7842980-e67f-4675-a085-7f4872197e23.txt: 151 turns
+  Parsed a80d9169-bf41-4d83-b5d7-46a169388459.txt: 132 turns
+  Parsed a84daddb-5276-44bd-ac19-fae1d18c021b.txt: 173 turns
+  Parsed a8d59830-455d-4496-bebc-32bac479ec9c.txt: 121 turns
+  Parsed a9c2634d-94a1-4535-b153-be82a4007dd9.txt: 51 turns
+  Parsed aabecb86-28f8-49ce-9172-1b975c88a405.txt: 29 turns
+  Parsed ac1aac7b-b2f1-4f82-8837-a97361517d22.txt: 216 turns
+  Parsed ac557b55-914c-498a-badb-f754dbee9e6c.txt: 60 turns
+  Parsed acc24a3f-c810-40b7-8f93-94788bc6a03d.txt: 60 turns
+  Parsed acc5ce5a-6930-4060-a95b-0732a26af407.txt: 38 turns
+  Parsed add622ce-9a2e-4897-a3c0-d8ff48d440ed.txt: 88 turns
+  Parsed adea9dd5-eb7e-4828-a5bc-7a2e3a2a69a6.txt: 3 turns
+  Parsed afde4448-e144-4245-8f52-c47d076a7fa8.txt: 247 turns
+  Parsed b098071a-600d-4a1a-a4c7-c08cd61136da.txt: 118 turns
+  Parsed b0f408a1-c8e0-43b3-bdd4-1927a58c81ef.txt: 88 turns
+  Parsed b0fccf1b-0f58-4bed-81a9-3b18bb712562.txt: 281 turns
+  Parsed b11b5232-ae16-4171-ba13-5df563866876.txt: 73 turns
+  Parsed b162fc95-3516-42ac-96ad-befa42cac271.txt: 79 turns
+  Parsed b1693be6-ded5-4c93-9d5a-32289af3d512.txt: 35 turns
+  Parsed b29431d7-f650-4c8d-bcf6-dd319731dcf6.txt: 67 turns
+  Parsed b3549fde-4c4b-4b52-9608-0175391eb138.txt: 211 turns
+  Parsed b3658f2a-5fab-4bf1-93e6-9e0cc4fd3f80.txt: 156 turns
+  Parsed b396d715-4476-4bb4-9aaa-2bf7e2746fba.txt: 67 turns
+  Parsed b49b7ddc-3c54-4494-9767-d7471b5acf00.txt: 83 turns
+  Parsed b4e3ea49-39f8-41f1-804a-f12b091f79bb.txt: 247 turns
+  Parsed b4faa900-5ee6-404b-95b7-aff3a0763a6b.txt: 123 turns
+  Parsed b5179c46-f8cd-45bb-b04b-6b1eb5e37176.txt: 123 turns
+  Parsed b51f37de-1881-4416-b3b1-78b6d64619d3.txt: 88 turns
+  Parsed b67528dd-e62a-4098-b0a3-7c441ae837c2.txt: 73 turns
+  Parsed b6c549f2-ce33-492d-9072-4c24cc32b148.txt: 210 turns
+  Parsed b6f87222-4325-4f20-8047-54034e96f3c5.txt: 95 turns
+  Parsed b73054dc-a462-4b6b-8ffa-079e8bca9468.txt: 54 turns
+  Parsed b76e6685-36f0-408b-b67f-ecafb3bff767.txt: 89 turns
+  Parsed b85a6a44-9b5b-4358-8f5c-53ac3a9b5442.txt: 140 turns
+  Parsed b8a8c123-f343-4dfa-857a-fd3b8cb285ad.txt: 84 turns
+  Parsed b99ce347-cf6b-47d4-b3c2-8efac781fb48.txt: 114 turns
+  Parsed b9adf776-e701-4b56-87e0-aa48399e615e.txt: 109 turns
+  Parsed ba4933f4-5449-4cef-afa9-1096d5986369.txt: 177 turns
+  Parsed bb5c2fc8-4695-4f80-bbd9-928543962eb2.txt: 127 turns
+  Parsed bbdf3c89-7140-453d-b2b3-7a5d9f6398fe.txt: 78 turns
+  Parsed bc33c275-869c-4c4e-99a3-d1f25a427b4e.txt: 96 turns
+  Parsed bda8ebbf-fd6d-4ee7-9c61-d9f8ad7d1fe3.txt: 103 turns
+  Parsed c3023e51-f493-4e2c-9a52-02a0be7e90bd.txt: 45 turns
+  Parsed c39b7d84-a80b-4251-adce-0f50c61e0a50.txt: 177 turns
+  Parsed c3aed1c3-0af5-48db-81f4-2648adb7f637.txt: 68 turns
+  Parsed c3d391b4-cef3-48c2-8fff-119de36ebecd.txt: 114 turns
+  Parsed c645eaf3-da00-49f2-b72c-3303a5a81d98.txt: 128 turns
+  Parsed c651e498-296a-4ba2-8bf9-8d596d2e2d75.txt: 78 turns
+  Parsed c6be9540-38fb-4aec-beb7-42c800d1f6f2.txt: 73 turns
+  Parsed c7919ce5-e7ed-4e24-b14c-37ff4e6bc009.txt: 191 turns
+  Parsed c820402f-e28a-46ad-870b-a8b687a79ce5.txt: 123 turns
+  Parsed c9a8a8cb-6c33-44f4-aa3e-4ac2b50024a3.txt: 177 turns
+  Parsed ca23457d-44f5-432f-9dca-f42803b4990c.txt: 191 turns
+  Parsed Call1.txt: 231 turns
+  Parsed Call3.txt: 177 turns
+  Parsed Call4.txt: 238 turns
+  Parsed Call5.txt: 104 turns
+  Parsed cbcf9b1d-76be-494b-9d4f-28614e9e7b69.txt: 69 turns
+  Parsed ccb9152a-0361-4020-8e41-e0468a7617f6.txt: 120 turns
+  Parsed cd31e351-bd9d-4d12-9dcd-33358d69d29e.txt: 72 turns
+  Parsed cd448e83-d0f0-4cb3-af0b-db9d3dac7c2f.txt: 172 turns
+  Parsed ce30eae6-f393-45d9-b146-cf84b4896f5b.txt: 108 turns
+  Parsed cf957bdf-988d-4e48-a89c-fee8d978e758.txt: 11 turns
+  Parsed d0a21e49-b775-4d77-83f5-a664bf6ea647.txt: 124 turns
+  Parsed d20484f1-d129-4fbe-9892-43541e561eb4.txt: 96 turns
+  Parsed d2103a96-be6f-4a79-b239-f09fd07fb9f0.txt: 174 turns
+  Parsed d29b5a91-c0b5-4685-9bcc-18381f8d3752.txt: 30 turns
+  Parsed d373e123-c63c-4682-8ec4-680a2448f5a5.txt: 104 turns
+  Parsed d41acec6-7883-4cb3-916c-d5885bd378e3.txt: 136 turns
+  Parsed d4257c83-810f-4ae4-bb73-68073be6508b.txt: 53 turns
+  Parsed d4caadb6-d1e7-4361-aea7-146e17c09807.txt: 110 turns
+  Parsed d5ba2781-34f8-4beb-81ca-cf7731e1bd4b.txt: 142 turns
+  Parsed d5cfbb65-0244-421c-8240-3cd1f5d9f5a9.txt: 154 turns
+  Parsed d5e7324f-5ed3-403c-b91d-6c79f0477f06.txt: 127 turns
+  Parsed d631effd-81bb-4e8a-abfa-5e455f0144cb.txt: 101 turns
+  Parsed d636f0a1-a7d9-4572-846c-b73848b87075.txt: 55 turns
+  Parsed d6fd12b9-5329-4a6c-9115-aa60ff621a8f.txt: 70 turns
+  Parsed d782dfd1-e7af-43c8-b8f1-e16c619a4631.txt: 35 turns
+  Parsed da13f8fd-144f-42a3-8b51-450ee80ec86f.txt: 143 turns
+  Parsed da238639-fe82-44ce-a0e1-691c7fa6cc2b.txt: 98 turns
+  Parsed db20a991-f797-459b-a683-2a135b1915e1.txt: 34 turns
+  Parsed dbd6185c-415b-4061-9a2b-e61d233c0aaf.txt: 137 turns
+  Parsed dc182681-a08c-4ed0-b69b-fad0bc32b486.txt: 142 turns
+  Parsed dda80b00-9c44-42d4-b98c-a98329401f01.txt: 59 turns
+  Parsed de324894-cffd-4799-9583-ade47b5a24c7.txt: 122 turns
+  Parsed dea2db49-3890-4890-8f0f-433ef728e31b.txt: 243 turns
+  Parsed df7e1ec4-3d4f-4f60-80a8-c5e8b8fb6f89.txt: 41 turns
+  Parsed dfa3752a-a8bf-4c5a-a26b-fa9dbe713ba7.txt: 94 turns
+  Parsed dfc8eeb9-16f4-46a3-8883-f00fa16b9ac7.txt: 149 turns
+  Parsed e080ca9b-a09b-4214-8221-efc82a7ed176.txt: 130 turns
+  Parsed e1cd66a1-0563-45bc-9cdb-566e5885b7f0.txt: 128 turns
+  Parsed e226ce7c-16c1-4950-b4c7-19efbf1aa325.txt: 39 turns
+  Parsed e2c4292a-31d3-4ad5-9f1b-20c27e617f3d.txt: 56 turns
+  Parsed e3596375-71c6-4fe8-ae8b-c09ed56fdac7.txt: 68 turns
+  Parsed e3945e43-d108-4b8c-9265-4891b47703c5.txt: 122 turns
+  Parsed e3d161a4-b2f5-4190-af6c-2c2dc78a27c4.txt: 287 turns
+  Parsed e4bfdaf3-aab4-4a35-af1f-8cd170522df4.txt: 280 turns
+  Parsed e541c35f-bdc0-4589-9b77-41a39a74ab31.txt: 134 turns
+  Parsed e582e000-664c-481b-963f-867fb0cfb357.txt: 133 turns
+  Parsed e5e43491-35f4-405a-b791-f5cd2352ea29.txt: 90 turns
+  Parsed e5ec576d-1307-4b98-9ea4-3fa259f17cce.txt: 145 turns
+  Parsed e6a4efc7-9297-46e2-a56a-ac17a7226e9f.txt: 122 turns
+  Parsed e6d08d91-b5e8-48f8-bf84-fed6fbea30b9.txt: 140 turns
+  Parsed e88e1a5d-0853-4fb4-95b8-bef36ff62194.txt: 44 turns
+  Parsed e8915821-6bba-4bbb-87ea-45c1b1285f38.txt: 137 turns
+  Parsed e8e21e48-6d80-4aca-8026-b27c839a1ee0.txt: 187 turns
+  Parsed e8e2a304-0a68-40dd-8665-95bd7d1eabeb.txt: 31 turns
+  Parsed e90f9c3f-9b65-4722-829e-ec4fc63d809d.txt: 64 turns
+  Parsed ea0100e0-1f7e-4f0e-9d54-1de47548b5b4.txt: 78 turns
+  Parsed ea2db642-9c30-473d-bad1-ca39948f4b25.txt: 47 turns
+  Parsed ea36bf8b-8fb7-4df6-a18b-f903bd5de8da.txt: 155 turns
+  Parsed ea6c3a75-b8f3-4200-ae9d-a5240991ad19.txt: 94 turns
+  Parsed eac6df36-f90c-49d9-8fd5-b92b4394ef5b.txt: 122 turns
+  Parsed ead8eaf5-57fe-4bae-91de-d4dd01199a6a.txt: 104 turns
+  Parsed eaf841c5-5f20-420a-b6f3-250b8c2beaa5.txt: 141 turns
+  Parsed ecbdbf14-3759-430d-aee1-072b929b8ae8.txt: 106 turns
+  Parsed ed19dc51-48d3-4966-a0b7-39e2f0d5ea93.txt: 106 turns
+  Parsed ede081e5-19d3-4106-9f17-69852173a2ce.txt: 145 turns
+  Parsed ee762edd-3c8c-49b2-aa3b-e13055b345b1.txt: 263 turns
+  Parsed eed5d24c-91a0-4b75-94f9-2bbb0a4bf3a9.txt: 137 turns
+  Parsed f1981d79-2ea4-4b82-a98e-79af073b3860.txt: 61 turns
+  Parsed f2bd93ca-85c2-4e47-b060-2eaabfb93b4d.txt: 74 turns
+  Parsed f2c653f0-20ad-4cb7-bcb9-9dfc8cd4d799.txt: 144 turns
+  Parsed f3947931-9c8a-45f1-89d3-bcafedda4b8b.txt: 256 turns
+  Parsed f5d39fe1-2b40-41d9-a1e1-fb269a0d0674.txt: 98 turns
+  Parsed f7b1a335-9644-48d8-b572-9163af82363f.txt: 138 turns
+  Parsed f808353a-ecce-493d-90b7-3f9c20499b3b.txt: 89 turns
+  Parsed f8286b6b-c315-47d2-a32f-acbd3b726f3b.txt: 54 turns
+  Parsed fa0ec6ae-ab71-4e34-aa93-7d254b65c871.txt: 245 turns
+  Parsed fa2b6ab2-abbe-4cc7-a5df-7bf8e15f8da7.txt: 96 turns
+  Parsed fa5dccb8-dee0-42d6-b3b8-452ea94dcfea.txt: 260 turns
+  Parsed fa7194f6-023a-4808-8142-4bdc1feb90df.txt: 57 turns
+  Parsed fbec7e2b-ec0b-4f64-8a9b-60abf5b3fa8c.txt: 117 turns
+  Parsed fc915ebb-c20e-48df-a947-8d1474ca2900.txt: 49 turns
+  Parsed fdf2a099-dab4-40c2-aa94-e57c4e1ca099.txt: 163 turns
+  Parsed fe2d07a6-e3d3-4814-866c-d2951910258e.txt: 101 turns
+  Parsed fe5670b8-95bf-446b-a6d7-c986bea1c15c.txt: 166 turns
+  Parsed fe6dcf1d-4e1f-448b-9736-1dab5bd11c1e.txt: 398 turns
+[Layer A] Already done — loading from DB.
+[Layer B] 015a5979-4c9f-44ae-9b9d-f642529a5478 already done — skipping.
+[Layer B] 017d6697-5957-49cd-b314-c98e467e024a already done — skipping.
+[Layer B] 024e3c77-906d-4be5-96fe-cb23376ee75b already done — skipping.
+[Layer B] 027ed51b-be07-49f5-b40b-633947f7dcd3 already done — skipping.
+[Layer B] 029276c2-cc3c-452e-827c-3b9a8e751e0c already done — skipping.
+[Layer B] 04cbf470-61b1-4f09-ad7c-45cb96b67f63 already done — skipping.
+[Layer B] 050514a1-9706-4fe8-a676-760b12fb33b5 already done — skipping.
+[Layer B] 060e51ca-8371-432b-8b18-9d0e8142d86c already done — skipping.
+[Layer B] 06a22a9a-3053-46b3-aedd-371e2a15b4ad already done — skipping.
+[Layer B] 07258bf9-5ce4-4680-a412-05e56cdfecf1 already done — skipping.
+[Layer B] 07a3aa92-c47d-4487-a7ab-ea291baf85b1 already done — skipping.
+[Layer B] 082374e7-211c-4d56-b86e-58d762e05775 already done — skipping.
+[Layer B] 082690f8-a5be-4275-b5bc-7eb0594564f5 already done — skipping.
+[Layer B] 08c6fad2-aab7-40d0-8232-a9f417a003a5 already done — skipping.
+[Layer B] 0908f34c-f066-4d9d-8c8b-aa2769cc8c7b already done — skipping.
+[Layer B] 09094d0d-3d5f-4b42-9639-35ddb40573d4 already done — skipping.
+[Layer B] 091463fb-62d1-4208-860e-33c878aad4a6 already done — skipping.
+[Layer B] 0b4f4d94-d55f-4c9a-844f-611a33785e31 already done — skipping.
+[Layer B] 0c45576c-663a-4fd9-9993-b31afc7a1cad already done — skipping.
+[Layer B] 0c6a1aa7-d862-4945-a5ad-54c325a74c5f already done — skipping.
+[Layer B] 0e47e3cd-3333-452a-83f2-d451acb31bfc already done — skipping.
+[Layer B] 0e9034a6-6a9b-4b87-b049-234caa9ea482 already done — skipping.
+[Layer B] 0f983de5-e2d2-4586-acca-b0d848cdbe98 already done — skipping.
+[Layer B] 0fc1f3af-ddac-4565-b235-79c8b5137905 already done — skipping.
+[Layer B] 0fcf0943-91bc-4487-a762-de599a9b8a0b already done — skipping.
+[Layer B] 109344fe-e1cc-43a1-bcdd-2b0bd99dcb12 already done — skipping.
+[Layer B] 1280e21c-b6c6-4545-a01b-943607f70be3 already done — skipping.
+[Layer B] 12a9e539-4851-4a8b-a838-3c1ebf0ff300 already done — skipping.
+[Layer B] 12e4267c-7b23-4691-9b05-84a5678a5cf0 already done — skipping.
+[Layer B] 12fce0a1-bd00-4b50-9793-1ac71ae5af63 already done — skipping.
+[Layer B] 131f85c6-c096-42e6-8deb-4a2ac491367d already done — skipping.
+[Layer B] 13e90b68-c693-418d-b31f-089e44a48699 already done — skipping.
+[Layer B] 140fec2d-7a20-4deb-9276-ab658f5a9087 already done — skipping.
+[Layer B] 143f118a-0559-48a9-9b8d-f4e865bdbd35 already done — skipping.
+[Layer B] 157c9e39-ea53-411c-95d5-646f14248785 already done — skipping.
+[Layer B] 158487c4-0c7f-4db5-aa93-bc9c19dddb55 already done — skipping.
+[Layer B] 15af55f1-638a-4825-a2f9-b0bc25aed759 already done — skipping.
+[Layer B] 161b0889-0227-4510-a419-649e2371240e already done — skipping.
+[Layer B] 16303a58-2b67-4b20-a36c-cdaf3b9f0ed1 already done — skipping.
+[Layer B] 1658e131-e1ff-49c8-8822-7e44ec856174 already done — skipping.
+[Layer B] 167a3a81-97e8-4570-9881-d32138cb6898 already done — skipping.
+[Layer B] 175e8529-be6f-4c91-b3c6-5219347708c4 already done — skipping.
+[Layer B] 17b55f1f-c0c7-41a7-8797-4d65cdb76456 already done — skipping.
+[Layer B] 180386e1-eafe-4cd7-ba58-26481a84eae5 already done — skipping.
+[Layer B] 19752037-ce80-42ee-b901-56792fc16d76 already done — skipping.
+[Layer B] 197a5239-bdb8-4f0b-a6d7-a00b1ea14e84 already done — skipping.
+[Layer B] 19949c43-f49a-4123-b2c3-0ee09bb22542 already done — skipping.
+[Layer B] 1a031715-78cf-4bce-b61a-21031a7b5c1b already done — skipping.
+[Layer B] 1b535a0a-d220-46bf-bb97-6342f5035794 already done — skipping.
+[Layer B] 1c2a3561-a3d1-49ee-bca3-6f3e691b1be9 already done — skipping.
+[Layer B] 1c645b8b-d8ea-44fc-920e-fefe06327046 already done — skipping.
+[Layer B] 1e2c03ac-2841-40d2-822f-9907a39e3c47 already done — skipping.
+[Layer B] 1fc37b04-965e-4c58-a33a-112cd4e89be0 already done — skipping.
+[Layer B] 20cfd4a8-3755-4a8e-917b-e40b265b2d46 already done — skipping.
+[Layer B] 20ee2343-9f80-4b4c-ab55-d58bc42fcdb5 already done — skipping.
+[Layer B] 21c1456a-63b5-4f78-a282-e4152188c498 already done — skipping.
+[Layer B] 223a17df-1f36-4045-b520-92d6f4ae8a51 already done — skipping.
+[Layer B] 23fe9cdf-e617-49c5-a3ce-fbf45a76ef60 already done — skipping.
+[Layer B] 245eb3b6-b96f-4f38-ad0f-0fc3e468e877 already done — skipping.
+[Layer B] 246c3edd-dd00-46a4-9aaa-d93c690c8a5e already done — skipping.
+[Layer B] 24980cc6-e3ac-4bd7-80aa-8bbe3bf02ea5 already done — skipping.
+[Layer B] 24a1acf5-f796-47cd-906f-f2213dcc8f6f already done — skipping.
+[Layer B] 24c6c1f4-50bc-4ad8-97da-bb0d8fd480f4 already done — skipping.
+[Layer B] 25ad72d5-c42d-4221-a7dd-0f0a74bea76e already done — skipping.
+[Layer B] 25d9e3e5-e13c-4dc6-ae5c-9fc402a4722a already done — skipping.
+[Layer B] 26c89244-8c0c-446a-bca1-1c185936351c already done — skipping.
+[Layer B] 26fc8714-878d-482d-bf82-2fb55c9f03bf already done — skipping.
+[Layer B] 27a042dd-800f-4d69-95f2-bd4639496e03 already done — skipping.
+[Layer B] 27e9de91-4993-4b01-b753-8e0fa7bd38bb already done — skipping.
+[Layer B] 28cd171d-d8d9-4a25-9510-287548e13990 already done — skipping.
+[Layer B] 2a2bd7c6-4920-4762-a62b-41f5ae1dec50 already done — skipping.
+[Layer B] 2b1cc972-0b2e-48d1-b563-dc2f1afec4ac already done — skipping.
+[Layer B] 2d32651d-3bc2-4532-b1e0-60d1b5505dee already done — skipping.
+[Layer B] 2d7b864d-7586-4344-9e8b-200a2e81dde1 already done — skipping.
+[Layer B] 2ddc1cad-ecb7-4b5e-93fe-4e6b19321b30 already done — skipping.
+[Layer B] 2ec64a88-51b1-463e-9275-e556de0a8089 already done — skipping.
+[Layer B] 2f4a5e86-3f05-4f28-8094-7cb012b7b391 already done — skipping.
+[Layer B] 2f6f3a54-1043-41c3-9ed6-554407d196dc already done — skipping.
+[Layer B] 300be1e1-fd6c-4778-80ab-849f78e69dd6 already done — skipping.
+[Layer B] 3075c84a-b535-44ae-b32e-359610be36dd already done — skipping.
+[Layer B] 325c897b-0057-4bda-ace3-4f6bafb4bcf5 already done — skipping.
+[Layer B] 32909863-31ba-45a4-8d2f-8d642931e338 already done — skipping.
+[Layer B] 343cb4e0-6fb7-4da1-bc68-7baf9115b0d8 already done — skipping.
+[Layer B] 3842a1c4-4495-42a5-ab5d-f4b1c7f9b7af already done — skipping.
+[Layer B] 38892b87-0011-415e-ae10-81184e509072 already done — skipping.
+[Layer B] 39d374d6-85e3-4410-837e-ff185bc5b367 already done — skipping.
+[Layer B] 3a901f87-9ce7-43f9-a36a-f231f0db5aa1 already done — skipping.
+[Layer B] 3caa287d-7afa-4fe0-b28b-940325ba9e88 already done — skipping.
+[Layer B] 3dadeb77-eec6-4046-8e0a-a432e1e9b505 already done — skipping.
+[Layer B] 3db43c7b-bc7e-483e-9713-8369a0bb8523 already done — skipping.
+[Layer B] 3df9cbf5-eea7-4c9d-b94a-4cfb2fbabce0 already done — skipping.
+[Layer B] 3e32cd87-6ba4-468c-bbd9-d8715ebd4a5d already done — skipping.
+[Layer B] 3e4a62ed-9d1b-4d83-900c-b8dcc66f3120 already done — skipping.
+[Layer B] 3e4c3393-c3cc-4047-a5bc-57bccbfaee4f already done — skipping.
+[Layer B] 3e8f663f-ce29-4214-88b6-c55af26d5a1b already done — skipping.
+[Layer B] 3f7bd20d-0c77-468d-b95a-09f650020899 already done — skipping.
+[Layer B] 3ff780c7-4a20-407a-af3f-584dc44f89f2 already done — skipping.
+[Layer B] 3ffb382f-4d4b-49bd-a636-36e6358ee29e already done — skipping.
+[Layer B] 40103071-9af7-4f40-8137-ec83e1e37219 already done — skipping.
+[Layer B] 40a783fd-48d6-45f2-8a29-31c1f0d2c541 already done — skipping.
+[Layer B] 40fc4d01-9a9e-4da2-855d-e26f549c418f already done — skipping.
+[Layer B] 41511525-3303-41ce-8025-f9bbde377c91 already done — skipping.
+[Layer B] 419ee94e-f786-4bc3-9d62-6b70eee0ad2c already done — skipping.
+[Layer B] 4210ee5b-cbfd-458f-aa3b-7c2d5d0d6443 already done — skipping.
+[Layer B] 429ad3a8-330f-41d6-8f80-bb36770b5341 already done — skipping.
+[Layer B] 42a13d3d-7d89-4ab9-849b-86878527f9cc already done — skipping.
+[Layer B] 42c9627e-16c7-4eb3-8d1d-b261f8bb4a02 already done — skipping.
+[Layer B] 430f1b37-2eb8-4826-b600-560ffa0b5d53 already done — skipping.
+[Layer B] 4398bea0-1e23-4864-8a2c-c6c78475abe8 already done — skipping.
+[Layer B] 43ebc3ea-ed7c-453c-af01-12694d376f7e already done — skipping.
+[Layer B] 44be9288-76d7-46b1-859e-6566fa4bc7d3 already done — skipping.
+[Layer B] 45c580b5-bff3-43c5-be15-98a591dfc7b0 already done — skipping.
+[Layer B] 45ec89ed-7e2b-4790-bb06-7cfeeb636c1b already done — skipping.
+[Layer B] 45ee54f7-816a-46b9-a1d7-e8e880b0d7b9 already done — skipping.
+[Layer B] 46984598-f001-4228-af74-08384586d573 already done — skipping.
+[Layer B] 4747fd4d-4dd4-4d8a-8b38-f82c9401b106 already done — skipping.
+[Layer B] 486bb2c5-7166-46dd-a3b3-926db471ce8a already done — skipping.
+[Layer B] 4990585d-350c-4578-9d2a-ce6795720eb3 already done — skipping.
+[Layer B] 49e61ed3-479b-462d-8301-e1bc804d8ea0 already done — skipping.
+[Layer B] 4a33d23a-01b0-4500-b3fb-f4d28ed03ca9 already done — skipping.
+[Layer B] 4a545998-797e-403e-829e-a4afa54c96e1 already done — skipping.
+[Layer B] 4a6bafa5-8216-443e-be24-bf144b145943 already done — skipping.
+[Layer B] 4b8103dd-c1c9-49da-9c5f-85f67df00167 already done — skipping.
+[Layer B] 4c03e03a-56ff-4025-9a89-76ce53ab86db already done — skipping.
+[Layer B] 4c1ab82d-aaa9-45d2-a86c-e9a9e900905e already done — skipping.
+[Layer B] 4c610b70-d024-422c-8d00-a0cb7523ca47 already done — skipping.
+[Layer B] 4d6f0b8e-dad4-47e9-94c7-d5f165e95476 already done — skipping.
+[Layer B] 4de07972-b723-4325-be67-9b5798f523e9 already done — skipping.
+[Layer B] 4de70af0-4a69-43b4-9bb5-25bdefaed5d4 already done — skipping.
+[Layer B] 4dea0d11-71f9-4215-bbc9-515d6e4c90f6 already done — skipping.
+[Layer B] 4e74b595-0482-40cb-bc7a-2edc57025c93 already done — skipping.
+[Layer B] 4ec3b2af-f9c8-4d05-87c6-25c3cbd4861e already done — skipping.
+[Layer B] 4ee08fa2-57d3-46e2-aefb-f5d92dc27a91 already done — skipping.
+[Layer B] 4f69f5cb-0fc3-4867-9b0a-96c47614f3e9 already done — skipping.
+[Layer B] 500d8231-f371-4ae4-9cee-476866971c09 already done — skipping.
+[Layer B] 507640c3-9601-4316-a660-d8978d777275 already done — skipping.
+[Layer B] 534583de-064c-46a7-8514-deed40fcdf03 already done — skipping.
+[Layer B] 5391083b-0096-4f2b-9dbc-7365b00b956d already done — skipping.
+[Layer B] 547b8bc7-1412-4e4f-a315-269fd92e57c1 already done — skipping.
+[Layer B] 54911435-c99c-4f05-80a4-8b76b1391e5e already done — skipping.
+[Layer B] 54c07609-8622-4a9f-bb63-bf05e04c7fcb already done — skipping.
+[Layer B] 54ed7907-45fd-4c67-91a6-3e06ed6abc43 already done — skipping.
+[Layer B] 550b2b9a-f2dc-4981-a2c1-84dcb8f0490a already done — skipping.
+[Layer B] 555e2e48-c0cc-44bc-8760-9f7b896b0bb6 already done — skipping.
+[Layer B] 557aae8b-1430-4422-86bd-782ab868337d already done — skipping.
+[Layer B] 55c783a4-9341-4d1e-a600-c6947967aaf2 already done — skipping.
+[Layer B] 5645373e-bb8b-40b4-9379-abf8d7c995fe already done — skipping.
+[Layer B] 564b5a2b-8339-416e-9d95-177c7bc38de0 already done — skipping.
+[Layer B] 56a79f60-721b-4785-ab8b-e2bef190a3b2 already done — skipping.
+[Layer B] 59c247aa-0667-49de-a88b-3fa075f9a1b8 already done — skipping.
+[Layer B] 5abe14f8-c5a6-421f-b984-1b8890be6640 already done — skipping.
+[Layer B] 5b27c3d7-1584-406c-9161-412d0bab5b08 already done — skipping.
+[Layer B] 5ba71622-9f5d-48b9-b19f-a341b4556f80 already done — skipping.
+[Layer B] 5bb1a755-ce71-4152-81fc-ef69ab0e6cf5 already done — skipping.
+[Layer B] 5c241243-28f6-4de1-ab88-4fbed8c2c57a already done — skipping.
+[Layer B] 5c7d8714-8554-4a9c-8d8c-958e3566ae13 already done — skipping.
+[Layer B] 5d08ec27-aa0d-466a-90ef-a77649245db7 already done — skipping.
+[Layer B] 5d8cdec7-2742-48d0-9c7c-7ea9389ed5d7 already done — skipping.
+[Layer B] 5df8e9e5-f9e9-48b5-aa6b-7a0bf158c30c already done — skipping.
+[Layer B] 5e53e0b2-407d-44b7-b02e-d540c0b7da6b already done — skipping.
+[Layer B] 5f0ade70-d613-43de-be12-306ab815b80e already done — skipping.
+[Layer B] 5f72798f-cc20-4ecb-90b1-072c680c58c9 already done — skipping.
+[Layer B] 5f9d8f75-69e6-4c89-a1bf-cf4caa6445b6 already done — skipping.
+[Layer B] 600a71bf-9dc1-4b31-a915-6d90d9ecd269 already done — skipping.
+[Layer B] 60898be1-c415-4899-a68c-a40713becb2b already done — skipping.
+[Layer B] 62d1bc04-519a-4812-a2f4-1734af9dd891 already done — skipping.
+[Layer B] 63cae46c-419e-43da-9ad3-d7ccf1a8e914 already done — skipping.
+[Layer B] 658e0e36-a1a6-4003-8f11-9e9c17525377 already done — skipping.
+[Layer B] 66d79001-6d7f-47fd-b410-d9105e207683 already done — skipping.
+[Layer B] 673880f2-1168-4d7a-8f75-22abad6b686d already done — skipping.
+[Layer B] 674a0f84-f4d2-4e17-9e96-12617a5f04b4 already done — skipping.
+[Layer B] 676f9781-2dc2-4cad-9740-d98244d034de already done — skipping.
+[Layer B] 6afaa9c0-39d4-485a-a8eb-c957098c9a03 already done — skipping.
+[Layer B] 6b454bba-2097-4b34-8eeb-08668e021e03 already done — skipping.
+[Layer B] 6c629c01-759e-4172-a07f-4439dd01ddbd already done — skipping.
+[Layer B] 6d9ffe90-2015-44b8-94f9-4476ba470036 already done — skipping.
+[Layer B] 6e509a7f-e0d0-4fd1-b779-ddfb4e8e12f1 already done — skipping.
+[Layer B] 6e9e9ba8-a181-4efb-aecc-812242606bba already done — skipping.
+[Layer B] 6e9f72ab-e0c7-483d-9ee4-c83660053da1 already done — skipping.
+[Layer B] 6f6bb5e9-3e52-4ac2-a6d4-62a94919b5a0 already done — skipping.
+[Layer B] 6fe00c2f-2cfe-452b-b8db-c85272720426 already done — skipping.
+[Layer B] 7008624c-3497-46ba-9398-9d8c1b47a1c6 already done — skipping.
+[Layer B] 71389833-fe50-40d1-a970-7f2068e4f0fc already done — skipping.
+[Layer B] 71d90f49-d6d9-4701-8e7d-484d331d9b24 already done — skipping.
+[Layer B] 7242f063-9ce3-45f4-b78e-9f4d2b90b35b already done — skipping.
+[Layer B] 72c8b2a4-2eab-4b4d-a695-cf508e304ab9 already done — skipping.
+[Layer B] 73e111e0-87c3-4d3c-9b93-54ebbf4f3ccd already done — skipping.
+[Layer B] 73efd7fb-c25d-4f61-a97d-6f55946ba2bf already done — skipping.
+[Layer B] 74cb4201-9b5e-424b-8386-0b61ba282fdf already done — skipping.
+[Layer B] 75002e09-b9c7-4988-910e-9db924ef49db already done — skipping.
+[Layer B] 76017387-fbf2-4ac3-98ef-607195e11526 already done — skipping.
+[Layer B] 7611ea52-5da5-4499-baac-2ffe9621581b already done — skipping.
+[Layer B] 7683abc6-a283-442c-836a-4014ee4d0695 already done — skipping.
+[Layer B] 76928b97-4f52-489b-8dda-86993bbf91ee already done — skipping.
+[Layer B] 76977841-5bd2-4564-ab1a-a379396c6dbb already done — skipping.
+[Layer B] 76b75f76-9ab5-4ef8-b4a2-ffc87448743d already done — skipping.
+[Layer B] 76e5c022-83c9-49f4-8e74-3137aefbc237 already done — skipping.
+[Layer B] 76eaae2b-f740-4494-b2c9-4166eff30bd6 already done — skipping.
+[Layer B] 76f042ca-4aba-4728-a90e-9b95fa13b80c already done — skipping.
+[Layer B] 7792569e-dd7a-41c2-8e2d-2eae8a79ad90 already done — skipping.
+[Layer B] 78691c25-8ca0-4cbc-aa7c-e8eaa01d320f already done — skipping.
+[Layer B] 7a62464b-6ec1-4a4e-8190-2b3c2341637b already done — skipping.
+[Layer B] 7aac8600-ee91-4a66-a5d2-193382b046aa already done — skipping.
+[Layer B] 7ba0f820-e7ac-4944-b6d5-e8c329498b76 already done — skipping.
+[Layer B] 7cb6c543-fe8b-4532-b35c-d58c70569864 already done — skipping.
+[Layer B] 7d03ef80-ee61-4729-96ae-1a5de99ec580 already done — skipping.
+[Layer B] 7dba355c-0781-4911-8be1-2aece83359cb already done — skipping.
+[Layer B] 7f6fa9bf-1557-4d6e-992c-402e03aad7a5 already done — skipping.
+[Layer B] 802b50ca-08b3-4e6b-bf38-db946a2779b0 already done — skipping.
+[Layer B] 8094d6f9-3cb8-4983-a74b-23087883980f already done — skipping.
+[Layer B] 80e6cf19-d8ab-4600-9f65-1f26f772f80c already done — skipping.
+[Layer B] 820da9b3-8391-4f95-b8dd-f9fbcd366877 already done — skipping.
+[Layer B] 823b8d41-f936-4aad-b64d-79b92a0054ab already done — skipping.
+[Layer B] 8318f837-4efd-4ce2-b576-3da7abce801b already done — skipping.
+[Layer B] 83c65aae-d485-4239-8a91-917145a021c5 already done — skipping.
+[Layer B] 852def4d-af78-42de-8c56-16b3eb0a7fde already done — skipping.
+[Layer B] 85e6ef37-41b8-4548-add2-80fe50d4c2bc already done — skipping.
+[Layer B] 85f18d2e-fe89-4cfd-a850-6b09a680382f already done — skipping.
+[Layer B] 86052a63-b141-4528-933f-c2c52754c817 already done — skipping.
+[Layer B] 865fb234-af06-4884-ad21-f1bc405d9c4b already done — skipping.
+[Layer B] 871437b6-780e-46a6-8b97-f21bd7127db7 already done — skipping.
+[Layer B] 87b40c98-7f57-4a0b-a72d-aa13b58e5ee7 already done — skipping.
+[Layer B] 88c1956e-43a9-48b5-bd3f-1671a85b2774 already done — skipping.
+[Layer B] 8a208fa4-8b79-455c-86ad-634e7c5bca55 already done — skipping.
+[Layer B] 8af5964f-4301-411d-a7df-3493bc50a200 already done — skipping.
+[Layer B] 8c79e188-3592-438a-af44-37e0a4451d22 already done — skipping.
+[Layer B] 8cef3122-80b0-418e-b749-9a8650fe5db3 already done — skipping.
+[Layer B] 8d87bfe2-a308-4509-9fce-39c7ae35ca7a already done — skipping.
+[Layer B] 8d914a02-eba4-4cb8-82da-8cec95cba04f already done — skipping.
+[Layer B] 8d970135-0c8a-4a44-ab8b-fbaab1da7e65 already done — skipping.
+[Layer B] 8ed31d79-cb11-4a9a-a4a9-68ca1a90d7fe already done — skipping.
+[Layer B] 8f250df0-e782-4141-b01d-e96aaa479be5 already done — skipping.
+[Layer B] 8f3a1ff2-ab6e-451b-bba2-fc400fc9eee5 already done — skipping.
+[Layer B] 8f5af4ff-a50e-4849-8ab2-a16cd1349e9e already done — skipping.
+[Layer B] 8f72a49c-2001-4407-8082-c6450681bcb1 already done — skipping.
+[Layer B] 8fe8c09c-1c7f-48f4-873d-1243907370f1 already done — skipping.
+[Layer B] 91318b13-772e-4408-ab38-ccf6fc5d1426 already done — skipping.
+[Layer B] 91db7a01-3908-42c1-8320-6612b3396e95 already done — skipping.
+[Layer B] 921c7067-30cb-4e32-bf20-17bef2f3a053 already done — skipping.
+[Layer B] 9250506d-6896-4670-8668-827ba1391fe8 already done — skipping.
+[Layer B] 93a9182b-2bdd-45d0-bbd7-7c493adfcf48 already done — skipping.
+[Layer B] 9481bbef-7177-469c-ae61-dcfe77fea98a already done — skipping.
+[Layer B] 94c4b6fc-79c6-4275-8232-b306e5a54fd0 already done — skipping.
+[Layer B] 950cdbfc-b5a7-4888-81e6-88916702c3d6 already done — skipping.
+[Layer B] 95306917-eef3-4102-8244-4eda3080abb2 already done — skipping.
+[Layer B] 95fa12f9-c0ee-4825-bdf7-0ab0da96debb already done — skipping.
+[Layer B] 960369e5-e924-4e5b-9a78-c275215ade2d already done — skipping.
+[Layer B] 961e2ff6-242c-44c3-9043-2a4dfeb5fde6 already done — skipping.
+[Layer B] 96409d29-525c-494c-b541-33b031ae9c3b already done — skipping.
+[Layer B] 96bd358f-b9ac-44fa-99f7-45cec003e5af already done — skipping.
+[Layer B] 96c81797-f4e5-4f4f-9b37-449d3cc8ef86 already done — skipping.
+[Layer B] 96e4cb9e-3f34-421f-8bb9-01fd3db41a2a already done — skipping.
+[Layer B] 976a9046-a758-4d39-8b26-e4aa66b2c25b already done — skipping.
+[Layer B] 9804d58d-fe50-4c69-a6cc-82f9789edb4c already done — skipping.
+[Layer B] 98463170-a1f3-4f81-a343-b38077569c65 already done — skipping.
+[Layer B] 98c99c02-6d87-4b99-b983-7611607888e8 already done — skipping.
+[Layer B] 98ff9084-27ab-40cf-a1a2-e80fd46c458c already done — skipping.
+[Layer B] 998fa75c-900c-4ef2-b851-876c90a91d24 already done — skipping.
+[Layer B] 9a4975d1-4da7-40d4-8eb5-8cfe8855a32b already done — skipping.
+[Layer B] 9a6326d2-5bf0-46dd-9cfb-4b6cea573963 already done — skipping.
+[Layer B] 9b2a018a-d7c7-4fd5-877e-02f7143f2ed3 already done — skipping.
+[Layer B] 9becbd19-d671-46d9-855c-adf2fac4b532 already done — skipping.
+[Layer B] 9c10ba28-0b55-4a78-8e2f-289187fe624f already done — skipping.
+[Layer B] 9cab9693-4e10-4f5d-a75b-4ff6aaec0bb3 already done — skipping.
+[Layer B] 9da366ab-bed7-43c7-87ed-4711960bf0c2 already done — skipping.
+[Layer B] 9e7c8925-7bb1-437a-bf13-0fd92f6ecdef already done — skipping.
+[Layer B] 9ee038d5-81fa-413e-a617-ef2d1cf9c8b3 already done — skipping.
+[Layer B] 9f80f1d6-a1bb-44b8-84a2-ed0eb1e518d1 already done — skipping.
+[Layer B] 9fa3b00c-74fa-4e5a-b2cc-186f94400e4f already done — skipping.
+[Layer B] 9fa3b664-acc4-40bd-a963-6a02950e2861 already done — skipping.
+[Layer B] a0bf4c53-3d24-434e-9eac-6813d380f52e already done — skipping.
+[Layer B] a0cf17e2-f7e9-4ac0-9292-44039855d62f already done — skipping.
+[Layer B] a1b310bb-e201-4e45-a446-cfa2653d4bb9 already done — skipping.
+[Layer B] a26e1562-1c14-484e-96d8-97533c3cf715 already done — skipping.
+[Layer B] a2f22b1a-897f-4614-97e0-fca4f768d1fb already done — skipping.
+[Layer B] a476135e-0161-47ff-9dad-fbf71731c8b6 already done — skipping.
+[Layer B] a7147ffc-4f0c-4de6-82a9-8c1f7eb2e6df already done — skipping.
+[Layer B] a72dc491-54d2-4968-8d2b-303ac7523bd6 already done — skipping.
+[Layer B] a7842980-e67f-4675-a085-7f4872197e23 already done — skipping.
+[Layer B] a80d9169-bf41-4d83-b5d7-46a169388459 already done — skipping.
+[Layer B] a84daddb-5276-44bd-ac19-fae1d18c021b already done — skipping.
+[Layer B] a8d59830-455d-4496-bebc-32bac479ec9c already done — skipping.
+[Layer B] a9c2634d-94a1-4535-b153-be82a4007dd9 already done — skipping.
+[Layer B] aabecb86-28f8-49ce-9172-1b975c88a405 already done — skipping.
+[Layer B] ac1aac7b-b2f1-4f82-8837-a97361517d22 already done — skipping.
+[Layer B] ac557b55-914c-498a-badb-f754dbee9e6c already done — skipping.
+[Layer B] acc24a3f-c810-40b7-8f93-94788bc6a03d already done — skipping.
+[Layer B] acc5ce5a-6930-4060-a95b-0732a26af407 already done — skipping.
+[Layer B] add622ce-9a2e-4897-a3c0-d8ff48d440ed already done — skipping.
+[Layer B] adea9dd5-eb7e-4828-a5bc-7a2e3a2a69a6 already done — skipping.
+[Layer B] afde4448-e144-4245-8f52-c47d076a7fa8 already done — skipping.
+[Layer B] b098071a-600d-4a1a-a4c7-c08cd61136da already done — skipping.
+[Layer B] b0f408a1-c8e0-43b3-bdd4-1927a58c81ef already done — skipping.
+[Layer B] b0fccf1b-0f58-4bed-81a9-3b18bb712562 already done — skipping.
+[Layer B] b11b5232-ae16-4171-ba13-5df563866876 already done — skipping.
+[Layer B] b162fc95-3516-42ac-96ad-befa42cac271 already done — skipping.
+[Layer B] b1693be6-ded5-4c93-9d5a-32289af3d512 already done — skipping.
+[Layer B] b29431d7-f650-4c8d-bcf6-dd319731dcf6 already done — skipping.
+[Layer B] b3549fde-4c4b-4b52-9608-0175391eb138 already done — skipping.
+[Layer B] b3658f2a-5fab-4bf1-93e6-9e0cc4fd3f80 already done — skipping.
+[Layer B] b396d715-4476-4bb4-9aaa-2bf7e2746fba already done — skipping.
+[Layer B] b49b7ddc-3c54-4494-9767-d7471b5acf00 already done — skipping.
+[Layer B] b4e3ea49-39f8-41f1-804a-f12b091f79bb already done — skipping.
+[Layer B] b4faa900-5ee6-404b-95b7-aff3a0763a6b already done — skipping.
+[Layer B] b5179c46-f8cd-45bb-b04b-6b1eb5e37176 already done — skipping.
+[Layer B] b51f37de-1881-4416-b3b1-78b6d64619d3 already done — skipping.
+[Layer B] b67528dd-e62a-4098-b0a3-7c441ae837c2 already done — skipping.
+[Layer B] b6c549f2-ce33-492d-9072-4c24cc32b148 already done — skipping.
+[Layer B] b6f87222-4325-4f20-8047-54034e96f3c5 already done — skipping.
+[Layer B] b73054dc-a462-4b6b-8ffa-079e8bca9468 already done — skipping.
+[Layer B] b76e6685-36f0-408b-b67f-ecafb3bff767 already done — skipping.
+[Layer B] b85a6a44-9b5b-4358-8f5c-53ac3a9b5442 already done — skipping.
+[Layer B] b8a8c123-f343-4dfa-857a-fd3b8cb285ad already done — skipping.
+[Layer B] b99ce347-cf6b-47d4-b3c2-8efac781fb48 already done — skipping.
+[Layer B] b9adf776-e701-4b56-87e0-aa48399e615e already done — skipping.
+[Layer B] ba4933f4-5449-4cef-afa9-1096d5986369 already done — skipping.
+[Layer B] bb5c2fc8-4695-4f80-bbd9-928543962eb2 already done — skipping.
+[Layer B] bbdf3c89-7140-453d-b2b3-7a5d9f6398fe already done — skipping.
+[Layer B] bc33c275-869c-4c4e-99a3-d1f25a427b4e already done — skipping.
+[Layer B] bda8ebbf-fd6d-4ee7-9c61-d9f8ad7d1fe3 already done — skipping.
+[Layer B] c3023e51-f493-4e2c-9a52-02a0be7e90bd already done — skipping.
+[Layer B] c39b7d84-a80b-4251-adce-0f50c61e0a50 already done — skipping.
+[Layer B] c3aed1c3-0af5-48db-81f4-2648adb7f637 already done — skipping.
+[Layer B] c3d391b4-cef3-48c2-8fff-119de36ebecd already done — skipping.
+[Layer B] c645eaf3-da00-49f2-b72c-3303a5a81d98 already done — skipping.
+[Layer B] c651e498-296a-4ba2-8bf9-8d596d2e2d75 already done — skipping.
+[Layer B] c6be9540-38fb-4aec-beb7-42c800d1f6f2 already done — skipping.
+[Layer B] c7919ce5-e7ed-4e24-b14c-37ff4e6bc009 already done — skipping.
+[Layer B] c820402f-e28a-46ad-870b-a8b687a79ce5 already done — skipping.
+[Layer B] c9a8a8cb-6c33-44f4-aa3e-4ac2b50024a3 already done — skipping.
+[Layer B] ca23457d-44f5-432f-9dca-f42803b4990c already done — skipping.
+[Layer B] Call1 already done — skipping.
+[Layer B] Call3 already done — skipping.
+[Layer B] Call4 already done — skipping.
+[Layer B] Call5 already done — skipping.
+[Layer B] cbcf9b1d-76be-494b-9d4f-28614e9e7b69 already done — skipping.
+[Layer B] ccb9152a-0361-4020-8e41-e0468a7617f6 already done — skipping.
+[Layer B] cd31e351-bd9d-4d12-9dcd-33358d69d29e already done — skipping.
+[Layer B] cd448e83-d0f0-4cb3-af0b-db9d3dac7c2f already done — skipping.
+[Layer B] ce30eae6-f393-45d9-b146-cf84b4896f5b already done — skipping.
+[Layer B] cf957bdf-988d-4e48-a89c-fee8d978e758 already done — skipping.
+[Layer B] d0a21e49-b775-4d77-83f5-a664bf6ea647 already done — skipping.
+[Layer B] d20484f1-d129-4fbe-9892-43541e561eb4 already done — skipping.
+[Layer B] d2103a96-be6f-4a79-b239-f09fd07fb9f0 already done — skipping.
+[Layer B] d29b5a91-c0b5-4685-9bcc-18381f8d3752 already done — skipping.
+[Layer B] d373e123-c63c-4682-8ec4-680a2448f5a5 already done — skipping.
+[Layer B] d41acec6-7883-4cb3-916c-d5885bd378e3 already done — skipping.
+[Layer B] d4257c83-810f-4ae4-bb73-68073be6508b already done — skipping.
+[Layer B] d4caadb6-d1e7-4361-aea7-146e17c09807 already done — skipping.
+[Layer B] d5ba2781-34f8-4beb-81ca-cf7731e1bd4b already done — skipping.
+[Layer B] d5cfbb65-0244-421c-8240-3cd1f5d9f5a9 already done — skipping.
+[Layer B] d5e7324f-5ed3-403c-b91d-6c79f0477f06 already done — skipping.
+[Layer B] d631effd-81bb-4e8a-abfa-5e455f0144cb already done — skipping.
+[Layer B] d636f0a1-a7d9-4572-846c-b73848b87075 already done — skipping.
+[Layer B] d6fd12b9-5329-4a6c-9115-aa60ff621a8f already done — skipping.
+[Layer B] d782dfd1-e7af-43c8-b8f1-e16c619a4631 already done — skipping.
+[Layer B] da13f8fd-144f-42a3-8b51-450ee80ec86f already done — skipping.
+[Layer B] da238639-fe82-44ce-a0e1-691c7fa6cc2b already done — skipping.
+[Layer B] db20a991-f797-459b-a683-2a135b1915e1 already done — skipping.
+[Layer B] dbd6185c-415b-4061-9a2b-e61d233c0aaf already done — skipping.
+[Layer B] dc182681-a08c-4ed0-b69b-fad0bc32b486 already done — skipping.
+[Layer B] dda80b00-9c44-42d4-b98c-a98329401f01 already done — skipping.
+[Layer B] de324894-cffd-4799-9583-ade47b5a24c7 already done — skipping.
+[Layer B] dea2db49-3890-4890-8f0f-433ef728e31b already done — skipping.
+[Layer B] df7e1ec4-3d4f-4f60-80a8-c5e8b8fb6f89 already done — skipping.
+[Layer B] dfa3752a-a8bf-4c5a-a26b-fa9dbe713ba7 already done — skipping.
+[Layer B] dfc8eeb9-16f4-46a3-8883-f00fa16b9ac7 already done — skipping.
+[Layer B] e080ca9b-a09b-4214-8221-efc82a7ed176 already done — skipping.
+[Layer B] e1cd66a1-0563-45bc-9cdb-566e5885b7f0 already done — skipping.
+[Layer B] e226ce7c-16c1-4950-b4c7-19efbf1aa325 already done — skipping.
+[Layer B] e2c4292a-31d3-4ad5-9f1b-20c27e617f3d already done — skipping.
+[Layer B] e3596375-71c6-4fe8-ae8b-c09ed56fdac7 already done — skipping.
+[Layer B] e3945e43-d108-4b8c-9265-4891b47703c5 already done — skipping.
+[Layer B] e3d161a4-b2f5-4190-af6c-2c2dc78a27c4 already done — skipping.
+[Layer B] e4bfdaf3-aab4-4a35-af1f-8cd170522df4 already done — skipping.
+[Layer B] e541c35f-bdc0-4589-9b77-41a39a74ab31 already done — skipping.
+[Layer B] e582e000-664c-481b-963f-867fb0cfb357 already done — skipping.
+[Layer B] e5e43491-35f4-405a-b791-f5cd2352ea29 already done — skipping.
+[Layer B] e5ec576d-1307-4b98-9ea4-3fa259f17cce already done — skipping.
+[Layer B] e6a4efc7-9297-46e2-a56a-ac17a7226e9f already done — skipping.
+[Layer B] e6d08d91-b5e8-48f8-bf84-fed6fbea30b9 already done — skipping.
+[Layer B] e88e1a5d-0853-4fb4-95b8-bef36ff62194 already done — skipping.
+[Layer B] e8915821-6bba-4bbb-87ea-45c1b1285f38 already done — skipping.
+[Layer B] e8e21e48-6d80-4aca-8026-b27c839a1ee0 already done — skipping.
+[Layer B] e8e2a304-0a68-40dd-8665-95bd7d1eabeb already done — skipping.
+[Layer B] e90f9c3f-9b65-4722-829e-ec4fc63d809d already done — skipping.
+[Layer B] ea0100e0-1f7e-4f0e-9d54-1de47548b5b4 already done — skipping.
+[Layer B] ea2db642-9c30-473d-bad1-ca39948f4b25 already done — skipping.
+[Layer B] ea36bf8b-8fb7-4df6-a18b-f903bd5de8da already done — skipping.
+[Layer B] ea6c3a75-b8f3-4200-ae9d-a5240991ad19 already done — skipping.
+[Layer B] eac6df36-f90c-49d9-8fd5-b92b4394ef5b already done — skipping.
+[Layer B] ead8eaf5-57fe-4bae-91de-d4dd01199a6a already done — skipping.
+[Layer B] eaf841c5-5f20-420a-b6f3-250b8c2beaa5 already done — skipping.
+[Layer B] ecbdbf14-3759-430d-aee1-072b929b8ae8 already done — skipping.
+[Layer B] ed19dc51-48d3-4966-a0b7-39e2f0d5ea93 already done — skipping.
+[Layer B] ede081e5-19d3-4106-9f17-69852173a2ce already done — skipping.
+[Layer B] ee762edd-3c8c-49b2-aa3b-e13055b345b1 already done — skipping.
+[Layer B] eed5d24c-91a0-4b75-94f9-2bbb0a4bf3a9 already done — skipping.
+[Layer B] f1981d79-2ea4-4b82-a98e-79af073b3860 already done — skipping.
+[Layer B] f2bd93ca-85c2-4e47-b060-2eaabfb93b4d already done — skipping.
+[Layer B] f2c653f0-20ad-4cb7-bcb9-9dfc8cd4d799 already done — skipping.
+[Layer B] f3947931-9c8a-45f1-89d3-bcafedda4b8b already done — skipping.
+[Layer B] f5d39fe1-2b40-41d9-a1e1-fb269a0d0674 already done — skipping.
+[Layer B] f7b1a335-9644-48d8-b572-9163af82363f already done — skipping.
+[Layer B] f808353a-ecce-493d-90b7-3f9c20499b3b already done — skipping.
+[Layer B] f8286b6b-c315-47d2-a32f-acbd3b726f3b already done — skipping.
+[Layer B] fa0ec6ae-ab71-4e34-aa93-7d254b65c871 already done — skipping.
+[Layer B] fa2b6ab2-abbe-4cc7-a5df-7bf8e15f8da7 already done — skipping.
+[Layer B] fa5dccb8-dee0-42d6-b3b8-452ea94dcfea already done — skipping.
+[Layer B] fa7194f6-023a-4808-8142-4bdc1feb90df already done — skipping.
+[Layer B] fbec7e2b-ec0b-4f64-8a9b-60abf5b3fa8c already done — skipping.
+[Layer B] fc915ebb-c20e-48df-a947-8d1474ca2900 already done — skipping.
+[Layer B] fdf2a099-dab4-40c2-aa94-e57c4e1ca099 already done — skipping.
+[Layer B] fe2d07a6-e3d3-4814-866c-d2951910258e already done — skipping.
+[Layer B] fe5670b8-95bf-446b-a6d7-c986bea1c15c already done — skipping.
+[Layer B] fe6dcf1d-4e1f-448b-9736-1dab5bd11c1e already done — skipping.
+
+[V2 Layer C] Generating rubrics...
+[V2 Layer C] Clustering scenario: technical_integration_method_discussion
+  Relevance filter (>40th pct): 55 -> 33 clause(s) over 9 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 9 calls): 3 -> 3 milestone(s).
+[V2 Layer C] scheduling_and_temporal_references is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: communication_channel_capabilities_and_issues
+  Relevance filter (>40th pct): 39 -> 23 clause(s) over 4 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 4 calls): 2 -> 1 milestone(s).
+[V2 Layer C] conversational_acknowledgments_and_thanks is a mechanics sink -- no rubric.
+[V2 Layer C] conversational_greetings_and_introductions is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: client_knowledge_gap_admission
+  ! Fewer than 2 responses -- will fall back to V1 Gemma approach.
+[V2 Layer C] conversational_acknowledgments is a mechanics sink -- no rubric.
+[V2 Layer C] generic_positive_acknowledgment is a mechanics sink -- no rubric.
+[V2 Layer C] call_logistics_and_participation is a mechanics sink -- no rubric.
+[V2 Layer C] conversational_backchanneling is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: stakeholder_role_identification
+  Relevance filter (>40th pct): 55 -> 33 clause(s) over 5 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 5 calls): 3 -> 1 milestone(s).
+[V2 Layer C] vendor_presence_identification is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: candidate_identifier_mapping_discussion
+  Relevance filter (>40th pct): 190 -> 114 clause(s) over 21 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 21 calls): 11 -> 8 milestone(s).
+[V2 Layer C] Clustering scenario: stakeholder_coordination_and_alignment
+  Relevance filter (>40th pct): 348 -> 209 clause(s) over 25 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 25 calls): 12 -> 10 milestone(s).
+[V2 Layer C] Clustering scenario: geographic_targeting_configuration
+  Relevance filter (>40th pct): 408 -> 245 clause(s) over 32 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 4 of 32 calls): 10 -> 7 milestone(s).
+[V2 Layer C] visual_confirmation_and_navigation is a mechanics sink -- no rubric.
+[V2 Layer C] conversational_confirmation_and_fillers is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: recruitment_volume_and_scale_disclosure
+  Relevance filter (>40th pct): 260 -> 156 clause(s) over 27 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 27 calls): 16 -> 11 milestone(s).
+[V2 Layer C] Clustering scenario: client_boundaries_and_constraints
+  Relevance filter (>40th pct): 359 -> 215 clause(s) over 45 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 5 of 45 calls): 2 -> 1 milestone(s).
+[V2 Layer C] Clustering scenario: implementation_feasibility_requests
+  Relevance filter (>40th pct): 1097 -> 658 clause(s) over 93 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 10 of 93 calls): 7 -> 6 milestone(s).
+[V2 Layer C] client_conversational_apologies is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: job_board_strategy_discussion
+  Relevance filter (>40th pct): 713 -> 428 clause(s) over 62 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 7 of 62 calls): 7 -> 6 milestone(s).
+[V2 Layer C] conversational_process_transitions is a mechanics sink -- no rubric.
+[V2 Layer C] meeting_initiation_and_flow is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: advertising_retargeting_strategy_discussion
+  Relevance filter (>40th pct): 1125 -> 675 clause(s) over 89 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 9 of 89 calls): 8 -> 7 milestone(s).
+[V2 Layer C] Clustering scenario: client_value_acknowledgment
+  Relevance filter (>40th pct): 510 -> 306 clause(s) over 63 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 7 of 63 calls): 8 -> 6 milestone(s).
+[V2 Layer C] Clustering scenario: client_claims_prior_knowledge
+  Relevance filter (>40th pct): 517 -> 310 clause(s) over 65 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 7 of 65 calls): 10 -> 6 milestone(s).
+[V2 Layer C] conversational_fillers_and_fragments is a mechanics sink -- no rubric.
+[V2 Layer C] client_acknowledgment_understanding is a mechanics sink -- no rubric.
+[V2 Layer C] client_hedging_and_fillers is a mechanics sink -- no rubric.
+[V2 Layer C] generic_greetings_and_pleasantries is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: conversion_tracking_pixel_discussion
+  Relevance filter (>40th pct): 382 -> 229 clause(s) over 32 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 4 of 32 calls): 7 -> 7 milestone(s).
+[V2 Layer C] general_positive_sentiment is a logistics sink -- no rubric.
+[V2 Layer C] Clustering scenario: landing_page_strategy_discussion
+  Relevance filter (>40th pct): 274 -> 164 clause(s) over 32 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 4 of 32 calls): 2 -> 1 milestone(s).
+[V2 Layer C] conversational_filler_hedges is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: current_ats_tool_disclosure
+  Relevance filter (>40th pct): 91 -> 55 clause(s) over 9 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 9 calls): 4 -> 3 milestone(s).
+[V2 Layer C] client_absence_of_friction is a logistics sink -- no rubric.
+[V2 Layer C] Clustering scenario: ats_ecosystem_disclosure
+  Relevance filter (>40th pct): 100 -> 60 clause(s) over 13 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 13 calls): 3 -> 3 milestone(s).
+[V2 Layer C] Clustering scenario: chatbot_candidate_experience_utility
+  Relevance filter (>40th pct): 469 -> 281 clause(s) over 36 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 4 of 36 calls): 3 -> 3 milestone(s).
+[V2 Layer C] Clustering scenario: hypothetical_scenario_validation
+  Relevance filter (>40th pct): 1134 -> 680 clause(s) over 110 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 11 of 110 calls): 6 -> 5 milestone(s).
+[V2 Layer C] Clustering scenario: client_concern_expression
+  Relevance filter (>40th pct): 142 -> 85 clause(s) over 21 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 21 calls): 8 -> 7 milestone(s).
+[V2 Layer C] Clustering scenario: internal_verification_deferral
+  Relevance filter (>40th pct): 170 -> 102 clause(s) over 28 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 28 calls): 10 -> 8 milestone(s).
+[V2 Layer C] conversational_machinery_and_scheduling is a mechanics sink -- no rubric.
+[V2 Layer C] client_affirmation_acknowledgment is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: ai_capability_and_implementation_discussion
+  Relevance filter (>40th pct): 190 -> 114 clause(s) over 14 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 14 calls): 7 -> 7 milestone(s).
+[V2 Layer C] conversational_fillers_and_fragments_1 is a mechanics sink -- no rubric.
+[V2 Layer C] generic_agreement_acknowledgment is a mechanics sink -- no rubric.
+[V2 Layer C] client_positive_sentiment is a logistics sink -- no rubric.
+[V2 Layer C] client_location_disclosure is a logistics sink -- no rubric.
+[V2 Layer C] Clustering scenario: organizational_or_process_change
+  Relevance filter (>40th pct): 148 -> 89 clause(s) over 20 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 20 calls): 5 -> 4 milestone(s).
+[V2 Layer C] name_addressing_and_acknowledgments is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: client_subjective_perception
+  Relevance filter (>40th pct): 183 -> 110 clause(s) over 19 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 19 calls): 12 -> 10 milestone(s).
+[V2 Layer C] Clustering scenario: client_identifies_similarity
+  Relevance filter (>40th pct): 677 -> 406 clause(s) over 65 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 7 of 65 calls): 8 -> 7 milestone(s).
+[V2 Layer C] Clustering scenario: client_followup_and_status_communication
+  Relevance filter (>40th pct): 360 -> 216 clause(s) over 42 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 5 of 42 calls): 14 -> 7 milestone(s).
+[V2 Layer C] Clustering scenario: candidate_quality_and_funnel_optimization
+  Relevance filter (>40th pct): 707 -> 424 clause(s) over 54 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 6 of 54 calls): 9 -> 9 milestone(s).
+[V2 Layer C] Clustering scenario: client_overwhelmed_complexity
+  ! Too few clauses (3) -- will fall back to V1.
+[V2 Layer C] Clustering scenario: website_tracking_tag_implementation_issues
+  Relevance filter (>40th pct): 79 -> 47 clause(s) over 12 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 12 calls): 4 -> 4 milestone(s).
+[V2 Layer C] vague_generalizations is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: product_functionality_inquiry
+  Relevance filter (>40th pct): 604 -> 362 clause(s) over 51 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 6 of 51 calls): 8 -> 8 milestone(s).
+[V2 Layer C] Clustering scenario: client_operational_gap_admission
+  Relevance filter (>40th pct): 166 -> 100 clause(s) over 16 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 16 calls): 8 -> 8 milestone(s).
+[V2 Layer C] Clustering scenario: client_time_constraints
+  Relevance filter (>40th pct): 136 -> 82 clause(s) over 15 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 15 calls): 5 -> 4 milestone(s).
+[V2 Layer C] meeting_closure_and_question_check is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: timezone_logistics_concerns
+  Relevance filter (>40th pct): 178 -> 107 clause(s) over 29 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 29 calls): 8 -> 6 milestone(s).
+[V2 Layer C] client_note_taking_logistics is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: integration_ecosystem_constraints
+  Relevance filter (>40th pct): 32 -> 19 clause(s) over 4 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 4 calls): 2 -> 2 milestone(s).
+[V2 Layer C] Clustering scenario: simplicity_ease_of_use
+  Relevance filter (>40th pct): 151 -> 91 clause(s) over 15 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 15 calls): 6 -> 5 milestone(s).
+[V2 Layer C] Clustering scenario: crm_utilization_strategy
+  Relevance filter (>40th pct): 100 -> 60 clause(s) over 11 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 11 calls): 4 -> 4 milestone(s).
+[V2 Layer C] Clustering scenario: ats_compatibility_requirement
+  Relevance filter (>40th pct): 282 -> 169 clause(s) over 34 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 4 of 34 calls): 13 -> 10 milestone(s).
+[V2 Layer C] Clustering scenario: third_party_partner_coordination
+  Relevance filter (>40th pct): 186 -> 113 clause(s) over 21 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 21 calls): 11 -> 7 milestone(s).
+[V2 Layer C] client_positive_sentiment_1 is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: application_conversion_and_apply_flow
+  Relevance filter (>40th pct): 859 -> 515 clause(s) over 85 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 9 of 85 calls): 4 -> 2 milestone(s).
+[V2 Layer C] Clustering scenario: market_and_competitive_landscape
+  Relevance filter (>40th pct): 176 -> 106 clause(s) over 16 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 16 calls): 2 -> 2 milestone(s).
+[V2 Layer C] initial_greetings_and_pleasantries is a mechanics sink -- no rubric.
+[V2 Layer C] audio_technical_checks is a mechanics sink -- no rubric.
+[V2 Layer C] weather_small_talk is a logistics sink -- no rubric.
+[V2 Layer C] generic_comparative_evaluations is a mechanics sink -- no rubric.
+[V2 Layer C] client_simple_negative_response is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: technical_testing_strategy
+  Relevance filter (>40th pct): 143 -> 86 clause(s) over 21 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 21 calls): 8 -> 8 milestone(s).
+[V2 Layer C] Clustering scenario: competitor_mention_appcast
+  Relevance filter (>40th pct): 162 -> 97 clause(s) over 13 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 13 calls): 7 -> 7 milestone(s).
+[V2 Layer C] Clustering scenario: unique_operational_nuance
+  Relevance filter (>40th pct): 221 -> 133 clause(s) over 25 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 25 calls): 12 -> 9 milestone(s).
+[V2 Layer C] Clustering scenario: client_account_configuration_update
+  Relevance filter (>40th pct): 60 -> 36 clause(s) over 15 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 15 calls): 5 -> 4 milestone(s).
+[V2 Layer C] client_social_pleasantries is a logistics sink -- no rubric.
+[V2 Layer C] client_acknowledgment_backchannel is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: operational_workflow_inquiry
+  Relevance filter (>40th pct): 98 -> 59 clause(s) over 9 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 9 calls): 7 -> 6 milestone(s).
+[V2 Layer C] Clustering scenario: niche_industry_role_discovery
+  Relevance filter (>40th pct): 1098 -> 659 clause(s) over 101 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 11 of 101 calls): 5 -> 4 milestone(s).
+[V2 Layer C] client_momentary_pause is a mechanics sink -- no rubric.
+[V2 Layer C] conversational_filler_transitions is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: client_expression_of_dissatisfaction
+  Relevance filter (>40th pct): 38 -> 23 clause(s) over 7 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 7 calls): 2 -> 1 milestone(s).
+[V2 Layer C] conversational_turn_yielding is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: client_operational_readiness_alignment
+  Relevance filter (>40th pct): 33 -> 20 clause(s) over 3 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 3 calls): 2 -> 2 milestone(s).
+[V2 Layer C] client_casual_acknowledgment is a mechanics sink -- no rubric.
+[V2 Layer C] conversational_hedging_and_fillers is a mechanics sink -- no rubric.
+[V2 Layer C] client_agreement_acknowledgment is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: rfp_process_disclosure
+  ! Fewer than 2 responses -- will fall back to V1 Gemma approach.
+[V2 Layer C] client_acknowledgment_backchannel_1 is a mechanics sink -- no rubric.
+[V2 Layer C] meeting_recording_logistics is a mechanics sink -- no rubric.
+[V2 Layer C] conversational_transitions_and_agreements is a mechanics sink -- no rubric.
+[V2 Layer C] client_late_arrival is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: third_party_vendor_coordination
+  Relevance filter (>40th pct): 49 -> 29 clause(s) over 9 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 9 calls): 2 -> 2 milestone(s).
+[V2 Layer C] Clustering scenario: ats_integration_strategy_coexistence
+  Relevance filter (>40th pct): 211 -> 127 clause(s) over 22 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 22 calls): 8 -> 7 milestone(s).
+[V2 Layer C] Clustering scenario: client_emphasizes_scale
+  Relevance filter (>40th pct): 126 -> 76 clause(s) over 13 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 13 calls): 3 -> 3 milestone(s).
+[V2 Layer C] meeting_attendance_logistics is a mechanics sink -- no rubric.
+[V2 Layer C] conversational_acknowledgment is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: client_detail_recall_lapse
+  Relevance filter (>40th pct): 82 -> 49 clause(s) over 16 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 16 calls): 5 -> 4 milestone(s).
+[V2 Layer C] Clustering scenario: client_dependency_expression
+  Relevance filter (>40th pct): 186 -> 112 clause(s) over 23 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 23 calls): 2 -> 1 milestone(s).
+[V2 Layer C] Clustering scenario: workflow_automation_and_manual_effort_reduction
+  Relevance filter (>40th pct): 42 -> 25 clause(s) over 5 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 5 calls): 2 -> 2 milestone(s).
+[V2 Layer C] conversational_pleasantries_and_greetings is a mechanics sink -- no rubric.
+[V2 Layer C] meeting_attendance_logistics_1 is a mechanics sink -- no rubric.
+[V2 Layer C] client_positive_sentiment_pleasantries is a logistics sink -- no rubric.
+[V2 Layer C] screen_sharing_logistics_1 is a mechanics sink -- no rubric.
+[V2 Layer C] conversational_filler_understanding_check is a mechanics sink -- no rubric.
+[V2 Layer C] call_closing_gratitude is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: remediation_of_broken_processes
+  Relevance filter (>40th pct): 75 -> 45 clause(s) over 8 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 8 calls): 5 -> 2 milestone(s).
+[V2 Layer C] Clustering scenario: request_for_concrete_example
+  Relevance filter (>40th pct): 133 -> 80 clause(s) over 22 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 22 calls): 8 -> 6 milestone(s).
+[V2 Layer C] Clustering scenario: next_steps_and_roadmap_definition
+  Relevance filter (>40th pct): 176 -> 106 clause(s) over 22 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 22 calls): 2 -> 2 milestone(s).
+[V2 Layer C] Clustering scenario: collateral_refinement_for_internal_storytelling
+  Relevance filter (>40th pct): 42 -> 25 clause(s) over 9 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 9 calls): 3 -> 2 milestone(s).
+[V2 Layer C] Clustering scenario: client_feedback_and_validation
+  Relevance filter (>40th pct): 441 -> 265 clause(s) over 37 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 4 of 37 calls): 14 -> 13 milestone(s).
+[V2 Layer C] Clustering scenario: client_benchmark_gap_admission
+  Relevance filter (>40th pct): 40 -> 24 clause(s) over 8 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 8 calls): 2 -> 2 milestone(s).
+[V2 Layer C] conversational_fillers_and_affirmations is a mechanics sink -- no rubric.
+[V2 Layer C] conversational_turn_taking_and_attendance is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: client_reaction_to_anomaly
+  Relevance filter (>40th pct): 299 -> 179 clause(s) over 24 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 24 calls): 10 -> 7 milestone(s).
+[V2 Layer C] Clustering scenario: client_rationale_provision
+  Relevance filter (>40th pct): 94 -> 56 clause(s) over 13 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 13 calls): 5 -> 5 milestone(s).
+[V2 Layer C] client_positive_sentiment_acknowledgment is a mechanics sink -- no rubric.
+[V2 Layer C] conversational_greetings is a mechanics sink -- no rubric.
+[V2 Layer C] conversational_completion_markers is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: client_claims_existing_capability
+  Relevance filter (>40th pct): 63 -> 38 clause(s) over 12 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 12 calls): 4 -> 4 milestone(s).
+[V2 Layer C] client_exclamatory_backchannel is a mechanics sink -- no rubric.
+[V2 Layer C] conversational_greetings_and_fillers is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: visual_concept_clarification
+  Relevance filter (>40th pct): 201 -> 121 clause(s) over 26 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 26 calls): 9 -> 6 milestone(s).
+[V2 Layer C] Clustering scenario: ats_integration_architecture_disclosure
+  Relevance filter (>40th pct): 17 -> 10 clause(s) over 1 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:2462: UserWarning: n_neighbors is larger than the dataset size; truncating to X.shape[0] - 1
+  warn(
+  ! HDBSCAN found no clusters -- will fall back to V1.
+[V2 Layer C] Clustering scenario: client_uncertainty_deferral
+  Relevance filter (>40th pct): 181 -> 109 clause(s) over 25 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 25 calls): 5 -> 3 milestone(s).
+[V2 Layer C] conversational_backchanneling_1 is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: budget_and_spend_disclosure
+  Relevance filter (>40th pct): 871 -> 523 clause(s) over 73 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 8 of 73 calls): 2 -> 2 milestone(s).
+[V2 Layer C] Clustering scenario: timeline_and_feasibility_discussion
+  Relevance filter (>40th pct): 280 -> 168 clause(s) over 43 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 5 of 43 calls): 16 -> 8 milestone(s).
+[V2 Layer C] Clustering scenario: current_process_description
+  Relevance filter (>40th pct): 339 -> 203 clause(s) over 36 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 4 of 36 calls): 16 -> 12 milestone(s).
+[V2 Layer C] Clustering scenario: url_redirect_implementation_discussion
+  Relevance filter (>40th pct): 144 -> 86 clause(s) over 20 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 20 calls): 7 -> 7 milestone(s).
+[V2 Layer C] client_point_acknowledgment is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: backend_workflow_conceptualization
+  Relevance filter (>40th pct): 105 -> 63 clause(s) over 8 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 8 calls): 6 -> 5 milestone(s).
+[V2 Layer C] conversational_filler_thinking is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: role_tier_specification
+  Relevance filter (>40th pct): 27 -> 16 clause(s) over 5 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  ! HDBSCAN found no clusters -- will fall back to V1.
+[V2 Layer C] screen_sharing_visibility_checks is a mechanics sink -- no rubric.
+[V2 Layer C] meeting_chat_logistics is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: client_reports_internal_setbacks
+  Relevance filter (>40th pct): 118 -> 71 clause(s) over 10 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 10 calls): 8 -> 7 milestone(s).
+[V2 Layer C] conversational_question_and_answer_flow is a mechanics sink -- no rubric.
+[V2 Layer C] conversational_hedging_and_banter is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: client_correction_of_misconception
+  Relevance filter (>40th pct): 68 -> 41 clause(s) over 10 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 10 calls): 2 -> 2 milestone(s).
+[V2 Layer C] Clustering scenario: data_field_mapping_requirements
+  Relevance filter (>40th pct): 60 -> 36 clause(s) over 10 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 10 calls): 2 -> 2 milestone(s).
+[V2 Layer C] Clustering scenario: contract_lifecycle_and_renewal_concerns
+  Relevance filter (>40th pct): 174 -> 104 clause(s) over 16 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 16 calls): 8 -> 7 milestone(s).
+[V2 Layer C] Clustering scenario: healthcare_vertical_context
+  Relevance filter (>40th pct): 72 -> 43 clause(s) over 9 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 9 calls): 4 -> 4 milestone(s).
+[V2 Layer C] Clustering scenario: onboarding_completion_tracking
+  Relevance filter (>40th pct): 233 -> 140 clause(s) over 32 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 4 of 32 calls): 2 -> 2 milestone(s).
+[V2 Layer C] Clustering scenario: client_availability_and_scheduling_friction
+  Relevance filter (>40th pct): 294 -> 176 clause(s) over 38 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 4 of 38 calls): 9 -> 8 milestone(s).
+[V2 Layer C] Clustering scenario: current_tech_stack_disclosure
+  Relevance filter (>40th pct): 53 -> 32 clause(s) over 11 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 11 calls): 3 -> 3 milestone(s).
+[V2 Layer C] Clustering scenario: job_role_specification
+  Relevance filter (>40th pct): 79 -> 47 clause(s) over 9 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 2 of 9 calls): 3 -> 3 milestone(s).
+[V2 Layer C] Clustering scenario: candidate_screening_and_prescreening
+  Relevance filter (>40th pct): 394 -> 236 clause(s) over 27 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 27 calls): 2 -> 2 milestone(s).
+[V2 Layer C] collateral_and_scheduling_logistics is a mechanics sink -- no rubric.
+[V2 Layer C] screen_sharing_logistics is a mechanics sink -- no rubric.
+[V2 Layer C] meeting_logistics_and_technical_glitches is a mechanics sink -- no rubric.
+[V2 Layer C] Clustering scenario: programmatic_advertising_adoption_status
+  Relevance filter (>40th pct): 232 -> 139 clause(s) over 22 call(s).
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+  Call-support gate (>= 3 of 22 calls): 9 -> 6 milestone(s).
+[V2 Layer C] Review-flag threshold (p95 over 408 milestone candidate(s)): 0.739
+[V2 Layer C] 21 milestone candidate(s) flagged for review -- batched into 5 Gemma call(s).
+[Layer C] Processing scenario: client_knowledge_gap_admission
+  v Rubric stored (id=340), 0 milestone(s).
+  ! Gemma judge dropped milestone cluster 7 in stakeholder_coordination_and_alignment as mechanics: The sample clauses focus entirely on scheduling, availability, and logistics rather than strategic stakeholder alignment.
+  ! Gemma judge dropped milestone cluster 5 in advertising_retargeting_strategy_discussion as mechanics: The clauses consist of generic conversational fillers, time-checks, and screen-sharing transitions with no mention of advertising strategy.
+  ! Gemma judge dropped milestone cluster 0 in client_value_acknowledgment as mechanics: These clauses are standard wrap-up and follow-up logistics, such as asking for final questions and promising a debrief email.
+  ! Gemma judge dropped milestone cluster 5 in client_concern_expression as mechanics: The clauses are fragmented descriptions of daily routines and general chatter rather than the expression of a strategic business concern.
+  ! Gemma judge dropped milestone cluster 3 in client_concern_expression as mechanics: The clauses are fragmented acknowledgments and filler phrases that lack any strategic coaching value.
+  ! Gemma judge dropped milestone cluster 3 in ai_capability_and_implementation_discussion as mechanics: The clauses consist of general business chatter regarding KPIs and hiring rather than a strategic discussion on AI implementation.
+[Layer C] Processing scenario: client_overwhelmed_complexity
+  v Rubric stored (id=370), 0 milestone(s).
+  ! Gemma judge dropped milestone cluster 0 in client_time_constraints as mechanics: The clauses are part of a standard product demo monologue and do not reflect a strategic move to handle time constraints.
+  ! Gemma judge dropped milestone cluster 1 in simplicity_ease_of_use as mechanics: The clauses are primarily conversational turn-yielding, basic confirmations, and fillers.
+  ! Gemma judge dropped milestone cluster 1 in crm_utilization_strategy as mechanics: The clauses include logistical requests like screen sharing and basic functional questions rather than a strategic CRM conversation.
+  ! Gemma judge dropped milestone cluster 1 in ats_compatibility_requirement as mechanics: The sample clauses consist of fragmented sentences and conversational fillers that do not address ATS compatibility or integration requirements.
+  ! Gemma judge dropped milestone cluster 6 in competitor_mention_appcast as mechanics: The clauses are purely social introductions and conversational turn-yielding markers with no mention of competitors or strategic comparisons.
+[Layer C] Processing scenario: rfp_process_disclosure
+  v Rubric stored (id=392), 0 milestone(s).
+  ! Gemma judge dropped milestone cluster 0 in remediation_of_broken_processes as mechanics: The sample clauses consist entirely of scheduling logistics and basic conversational fillers rather than strategic discussions about process remediation.
+  ! Gemma judge dropped milestone cluster 3 in visual_concept_clarification as mechanics: The clauses are focused on scheduling technical calls and attendance logistics, not on clarifying visual concepts or terms.
+[Layer C] Processing scenario: ats_integration_architecture_disclosure
+  v Rubric stored (id=413), 3 milestone(s).
+  ! Gemma judge dropped milestone cluster 8 in timeline_and_feasibility_discussion as mechanics: The clauses contain general partnership platitudes and vague scheduling comments rather than a concrete discussion of timeline or feasibility.
+[Layer C] Processing scenario: role_tier_specification
+  v Rubric stored (id=418), 2 milestone(s).
+  ! Gemma judge dropped milestone cluster 1 in onboarding_completion_tracking as mechanics: The clauses consist of administrative updates, mentions of team involvement, and basic clarifications rather than a strategic sales move.
+[gemma] Transient error on gemma-4-31b-it (attempt 1). Waiting 2s...
+[gemma] Transient error on gemma-4-31b-it (attempt 1). Waiting 2s...
+[gemma] Transient error on gemma-4-31b-it (attempt 1). Waiting 2s...
+[V2 Layer C] 393 milestone(s) to describe -- batched into 79 Gemma call(s).
+  v Rubric stored (scenario=technical_integration_method_discussion, id=338), 3 milestone(s).
+  v Rubric stored (scenario=communication_channel_capabilities_and_issues, id=339), 1 milestone(s).
+  v Rubric stored (scenario=stakeholder_role_identification, id=336), 1 milestone(s).
+[gemma] Transient error on gemma-4-31b-it (attempt 1). Waiting 2s...
+  v Rubric stored (scenario=candidate_identifier_mapping_discussion, id=342), 8 milestone(s).
+  v Rubric stored (scenario=stakeholder_coordination_and_alignment, id=343), 9 milestone(s).
+  v Rubric stored (scenario=geographic_targeting_configuration, id=344), 7 milestone(s).
+  v Rubric stored (scenario=recruitment_volume_and_scale_disclosure, id=345), 11 milestone(s).
+  v Rubric stored (scenario=client_boundaries_and_constraints, id=346), 1 milestone(s).
+  v Rubric stored (scenario=implementation_feasibility_requests, id=347), 6 milestone(s).
+  v Rubric stored (scenario=job_board_strategy_discussion, id=341), 6 milestone(s).
+  v Rubric stored (scenario=advertising_retargeting_strategy_discussion, id=350), 6 milestone(s).
+  v Rubric stored (scenario=client_value_acknowledgment, id=351), 5 milestone(s).
+  v Rubric stored (scenario=client_claims_prior_knowledge, id=352), 6 milestone(s).
+  v Rubric stored (scenario=conversion_tracking_pixel_discussion, id=354), 7 milestone(s).
+  v Rubric stored (scenario=landing_page_strategy_discussion, id=349), 1 milestone(s).
+  v Rubric stored (scenario=current_ats_tool_disclosure, id=356), 3 milestone(s).
+  v Rubric stored (scenario=ats_ecosystem_disclosure, id=358), 3 milestone(s).
+  v Rubric stored (scenario=chatbot_candidate_experience_utility, id=359), 3 milestone(s).
+  v Rubric stored (scenario=hypothetical_scenario_validation, id=360), 5 milestone(s).
+  v Rubric stored (scenario=client_concern_expression, id=361), 5 milestone(s).
+  v Rubric stored (scenario=internal_verification_deferral, id=362), 8 milestone(s).
+[gemma] Transient error on gemma-4-31b-it (attempt 1). Waiting 2s...
+  v Rubric stored (scenario=ai_capability_and_implementation_discussion, id=355), 6 milestone(s).
+  v Rubric stored (scenario=organizational_or_process_change, id=365), 4 milestone(s).
+  v Rubric stored (scenario=client_subjective_perception, id=366), 10 milestone(s).
+  v Rubric stored (scenario=client_identifies_similarity, id=367), 7 milestone(s).
+  v Rubric stored (scenario=client_followup_and_status_communication, id=368), 7 milestone(s).
+  v Rubric stored (scenario=candidate_quality_and_funnel_optimization, id=369), 9 milestone(s).
+  v Rubric stored (scenario=website_tracking_tag_implementation_issues, id=364), 4 milestone(s).
+  v Rubric stored (scenario=product_functionality_inquiry, id=372), 8 milestone(s).
+  v Rubric stored (scenario=client_operational_gap_admission, id=373), 8 milestone(s).
+  v Rubric stored (scenario=client_time_constraints, id=374), 3 milestone(s).
+  v Rubric stored (scenario=timezone_logistics_concerns, id=375), 6 milestone(s).
+  v Rubric stored (scenario=integration_ecosystem_constraints, id=376), 2 milestone(s).
+  v Rubric stored (scenario=simplicity_ease_of_use, id=377), 4 milestone(s).
+  v Rubric stored (scenario=crm_utilization_strategy, id=378), 3 milestone(s).
+  v Rubric stored (scenario=ats_compatibility_requirement, id=379), 9 milestone(s).
+  v Rubric stored (scenario=third_party_partner_coordination, id=380), 7 milestone(s).
+  v Rubric stored (scenario=application_conversion_and_apply_flow, id=381), 2 milestone(s).
+  v Rubric stored (scenario=market_and_competitive_landscape, id=382), 2 milestone(s).
+  v Rubric stored (scenario=technical_testing_strategy, id=383), 8 milestone(s).
+  v Rubric stored (scenario=competitor_mention_appcast, id=384), 6 milestone(s).
+  v Rubric stored (scenario=unique_operational_nuance, id=385), 9 milestone(s).
+  v Rubric stored (scenario=client_account_configuration_update, id=386), 4 milestone(s).
+  v Rubric stored (scenario=operational_workflow_inquiry, id=388), 6 milestone(s).
+  v Rubric stored (scenario=niche_industry_role_discovery, id=389), 4 milestone(s).
+  v Rubric stored (scenario=client_expression_of_dissatisfaction, id=390), 1 milestone(s).
+  v Rubric stored (scenario=client_operational_readiness_alignment, id=391), 2 milestone(s).
+  v Rubric stored (scenario=third_party_vendor_coordination, id=395), 2 milestone(s).
+  v Rubric stored (scenario=ats_integration_strategy_coexistence, id=396), 7 milestone(s).
+  v Rubric stored (scenario=client_emphasizes_scale, id=397), 3 milestone(s).
+  v Rubric stored (scenario=client_detail_recall_lapse, id=398), 4 milestone(s).
+  v Rubric stored (scenario=client_dependency_expression, id=399), 1 milestone(s).
+  v Rubric stored (scenario=workflow_automation_and_manual_effort_reduction, id=400), 2 milestone(s).
+  v Rubric stored (scenario=remediation_of_broken_processes, id=402), 1 milestone(s).
+  v Rubric stored (scenario=request_for_concrete_example, id=403), 6 milestone(s).
+  v Rubric stored (scenario=next_steps_and_roadmap_definition, id=404), 2 milestone(s).
+  v Rubric stored (scenario=collateral_refinement_for_internal_storytelling, id=405), 2 milestone(s).
+  v Rubric stored (scenario=client_feedback_and_validation, id=406), 13 milestone(s).
+  v Rubric stored (scenario=client_benchmark_gap_admission, id=407), 2 milestone(s).
+  v Rubric stored (scenario=client_reaction_to_anomaly, id=409), 7 milestone(s).
+  v Rubric stored (scenario=client_rationale_provision, id=410), 5 milestone(s).
+  v Rubric stored (scenario=client_claims_existing_capability, id=411), 4 milestone(s).
+  v Rubric stored (scenario=visual_concept_clarification, id=412), 5 milestone(s).
+  v Rubric stored (scenario=client_uncertainty_deferral, id=414), 3 milestone(s).
+  v Rubric stored (scenario=budget_and_spend_disclosure, id=335), 2 milestone(s).
+  v Rubric stored (scenario=timeline_and_feasibility_discussion, id=337), 7 milestone(s).
+  v Rubric stored (scenario=current_process_description, id=348), 12 milestone(s).
+  v Rubric stored (scenario=url_redirect_implementation_discussion, id=416), 7 milestone(s).
+  v Rubric stored (scenario=backend_workflow_conceptualization, id=417), 5 milestone(s).
+  v Rubric stored (scenario=client_reports_internal_setbacks, id=419), 7 milestone(s).
+  v Rubric stored (scenario=client_correction_of_misconception, id=353), 2 milestone(s).
+  v Rubric stored (scenario=data_field_mapping_requirements, id=363), 2 milestone(s).
+[gemma] Transient error on gemma-4-31b-it (attempt 1). Waiting 2s...
+  v Rubric stored (scenario=contract_lifecycle_and_renewal_concerns, id=371), 7 milestone(s).
+  v Rubric stored (scenario=healthcare_vertical_context, id=387), 4 milestone(s).
+  v Rubric stored (scenario=onboarding_completion_tracking, id=393), 1 milestone(s).
+  v Rubric stored (scenario=client_availability_and_scheduling_friction, id=394), 8 milestone(s).
+  v Rubric stored (scenario=current_tech_stack_disclosure, id=401), 3 milestone(s).
+  v Rubric stored (scenario=job_role_specification, id=408), 3 milestone(s).
+[gemma] Transient error on gemma-4-31b-it (attempt 1). Waiting 2s...
+  v Rubric stored (scenario=candidate_screening_and_prescreening, id=415), 2 milestone(s).
+  v Rubric stored (scenario=programmatic_advertising_adoption_status, id=357), 6 milestone(s).
+
+==============================================================
+RECONCILIATION
+==============================================================
+  cluster_kind   rubric_status                      count
+  logistics      skipped_not_coachable              7
+  mechanics      skipped_not_coachable              66
+  scenario       rubric_generated                   85
+
+  scenarios in this run : 158
+  without a status      : 0
+  All scenarios accounted for.
