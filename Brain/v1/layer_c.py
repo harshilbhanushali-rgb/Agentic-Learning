@@ -29,7 +29,7 @@ def run_layer_c(
         )
         prompt = PROMPT_LAYER_C_V1.format(
             scenario_key=scenario_key,
-            sub_topic=info["sub_topic"],
+            sub_topic=info["business_description"],
             primary_topic=info["primary_topic"],
             n_instances=len(responses),
             responses_text=responses_text,

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from collections import defaultdict
 
 import numpy as np
@@ -7,12 +7,13 @@ from config import Config
 from preprocessing import segmenter, embedder
 from preprocessing.transcript_parser import Turn, SpeakerRole
 from shared.gemma import call_gemma
-from shared.prompts import PROMPT_LAYER_A_V2_TRIAGE
-from shared import storage, cluster_evidence
+from shared.prompts import PROMPT_LAYER_A_V2_TRIAGE, PROMPT_LAYER_A_PRIMARY_TOPIC_LABEL_BATCH
+from shared import storage, cluster_evidence, topic_grouping
 from shared.tuning import load_tuning
 
 _NEAREST_SHOWN = 3
 _REPRESENTATIVE_SHOWN = 6
+_TOPIC_LABEL_BATCH_SIZE = 5
 
 
 def build_client_clause_pool(
@@ -67,6 +68,53 @@ def fit_topic_model(clauses: list[str], embeddings_matrix: np.ndarray):
     return topic_model, topics
 
 
+def _raw_topic_data(call_ids, vecs, topics, total_calls):
+    """Group clause indices by raw BERTopic topic id, and centroid each one.
+
+    Shared by both grouping mechanisms below: the flat merge (_merged_clusters)
+    and the nested merge (_nested_clusters) both start from the same raw
+    per-topic members/centroids, they only differ in what they do with them.
+    """
+    members: dict[int, list[int]] = defaultdict(list)
+    for i, t in enumerate(topics):
+        if t != -1:
+            members[int(t)].append(i)
+    raw_ids = sorted(members)
+    if not raw_ids:
+        return members, raw_ids, np.empty((0, 0), dtype=np.float32)
+
+    raw_centroids = np.stack([
+        cluster_evidence.support_stats(
+            [call_ids[i] for i in members[t]], vecs[members[t]], total_calls
+        ).centroid
+        for t in raw_ids
+    ])
+    return members, raw_ids, raw_centroids
+
+
+def _build_cluster_record(tids, members, clauses, call_ids, vecs, topic_model, total_calls,
+                           macro_group_id=None):
+    """One cluster dict from a list of raw topic ids already decided to belong together."""
+    idxs = [i for t in tids for i in members[t]]
+    texts = [clauses[i] for i in idxs]
+    stats = cluster_evidence.support_stats(
+        [call_ids[i] for i in idxs], vecs[idxs], total_calls, texts=texts
+    )
+    # Keywords come from the largest member topic, not tids[0], so a merged
+    # group is described by its dominant sense.
+    lead = max(tids, key=lambda t: len(members[t]))
+    record = {
+        "n_merged": len(tids),
+        "stats": stats,
+        "keywords": ", ".join(w for w, _ in topic_model.get_topic(lead)[:10]),
+        "texts": texts,
+        "call_set": {call_ids[i] for i in idxs},
+    }
+    if macro_group_id is not None:
+        record["macro_group_id"] = macro_group_id
+    return record
+
+
 def _merged_clusters(clauses, call_ids, vecs, topics, topic_model, total_calls, threshold):
     """Cluster BERTopic topics into evidence-bearing groups, largest first.
 
@@ -79,44 +127,62 @@ def _merged_clusters(clauses, call_ids, vecs, topics, topic_model, total_calls, 
     Largest-first ordering matters downstream: the best-evidenced cluster in a
     family is adjudicated first and becomes the canonical scenario, so later
     variants have something to merge INTO.
+
+    This is the 'post_hoc' grouping method's subtopic path -- unchanged by the
+    primary-topic hierarchy. Primary-topic grouping runs AFTER this function's
+    output has been fully adjudicated, as a separate pass (see
+    _finalize_primary_topics), so this function's behaviour is untouched.
     """
-    members: dict[int, list[int]] = defaultdict(list)
-    for i, t in enumerate(topics):
-        if t != -1:
-            members[int(t)].append(i)
-    raw_ids = sorted(members)
+    members, raw_ids, raw_centroids = _raw_topic_data(call_ids, vecs, topics, total_calls)
     if not raw_ids:
         return []
 
-    raw_centroids = np.stack([
-        cluster_evidence.support_stats(
-            [call_ids[i] for i in members[t]], vecs[members[t]], total_calls
-        ).centroid
-        for t in raw_ids
-    ])
     groups = cluster_evidence.merge_by_similarity(raw_centroids, threshold)
     print(f"[V2 Layer A] Similarity merge at cosine >= {threshold}: "
           f"{len(raw_ids)} raw -> {len(groups)} cluster(s).")
 
-    clusters = []
-    for group in groups:
-        tids = [raw_ids[g] for g in group]
-        idxs = [i for t in tids for i in members[t]]
-        texts = [clauses[i] for i in idxs]
-        stats = cluster_evidence.support_stats(
-            [call_ids[i] for i in idxs], vecs[idxs], total_calls, texts=texts
-        )
-        # Keywords come from the largest member topic, not tids[0], so a merged
-        # group is described by its dominant sense.
-        lead = max(tids, key=lambda t: len(members[t]))
-        clusters.append({
-            "n_merged": len(tids),
-            "stats": stats,
-            "keywords": ", ".join(w for w, _ in topic_model.get_topic(lead)[:10]),
-            "texts": texts,
-            "call_set": {call_ids[i] for i in idxs},
-        })
+    clusters = [
+        _build_cluster_record([raw_ids[g] for g in group], members, clauses, call_ids, vecs,
+                               topic_model, total_calls)
+        for group in groups
+    ]
     clusters.sort(key=lambda c: c["stats"].n_items, reverse=True)
+    return clusters
+
+
+def _nested_clusters(clauses, call_ids, vecs, topics, topic_model, total_calls,
+                      loose_threshold, tight_threshold):
+    """The 'nested' grouping method's subtopic path.
+
+    Merges RAW topic centroids into macro-groups at loose_threshold FIRST, then
+    subtopic-merges within each macro-group at tight_threshold (subtopic
+    dedup's own threshold) -- rather than merging already-adjudicated subtopics
+    into macro-groups after the fact, as _merged_clusters + post_hoc grouping
+    does. Every returned cluster carries macro_group_id so the caller can later
+    group by_key entries by macro-group without a second merge pass.
+
+    Ordered macro-group by macro-group (largest macro-group first, largest
+    subtopic first within it) rather than one flat globally-sorted list --
+    _adjudicate's nearest-accepted-scenario context is therefore built up one
+    macro-group at a time.
+    """
+    members, raw_ids, raw_centroids = _raw_topic_data(call_ids, vecs, topics, total_calls)
+    if not raw_ids:
+        return []
+
+    nested = topic_grouping.group_nested(raw_centroids, loose_threshold, tight_threshold)
+    print(f"[V2 Layer A] Nested merge: {len(raw_ids)} raw -> {len(nested)} macro-group(s) "
+          f"(loose>={loose_threshold}, tight>={tight_threshold}).")
+
+    clusters = []
+    for macro_idx, sub_groups in enumerate(nested):
+        macro_clusters = [
+            _build_cluster_record([raw_ids[g] for g in sub], members, clauses, call_ids, vecs,
+                                   topic_model, total_calls, macro_group_id=macro_idx)
+            for sub in sub_groups
+        ]
+        macro_clusters.sort(key=lambda c: c["stats"].n_items, reverse=True)
+        clusters.extend(macro_clusters)
     return clusters
 
 
@@ -131,12 +197,16 @@ def _nearest_accepted(centroid, accepted):
 
 
 def _adjudicate(cluster, verdict, accepted, total_calls, config):
-    """One Gemma call: is this a new scenario, a duplicate, or not coachable?"""
+    """One Gemma call: is this a new scenario, a duplicate, or not coachable?
+
+    Does not ask for a primary_topic -- that is now assigned structurally, once
+    per macro-group, by _finalize_primary_topics after this whole loop finishes.
+    """
     stats = cluster["stats"]
     nearest = _nearest_accepted(stats.centroid, accepted)
     if nearest:
         nearest_block = "\n".join(
-            f'- {a["scenario_key"]} (cosine {sim:.2f}): {a["sub_topic"]}'
+            f'- {a["scenario_key"]} (cosine {sim:.2f}): {a["business_description"]}'
             for a, sim in nearest
         )
     else:
@@ -174,6 +244,140 @@ _KIND_BY_DECISION = {
     "not_coachable": cluster_evidence.KIND_LOGISTICS,
 }
 
+_GROUPING_METHOD_TAG = {
+    "post_hoc": "post_hoc_merge",
+    "nested": "nested_cluster",
+}
+
+
+def _label_primary_topics_batch(groups: list[list[dict]], config: Config) -> list[dict]:
+    """One batched Gemma call per _TOPIC_LABEL_BATCH_SIZE macro-groups: name the
+    umbrella category each group's members share.
+
+    Zero DB writes -- mirrors v2/layer_c.py's batch-describe/batch-judge
+    convention: results held in memory, applied by the caller. Returns one
+    {primary_topic_key, label, description, keyphrases} dict per group, in the
+    same order as `groups`, with a de-duplicated primary_topic_key (a repeated
+    key across groups is a Gemma naming collision, not a real merge -- same
+    handling as run_layer_a_v2's own scenario_key collision guard).
+    """
+    if not groups:
+        return []
+
+    results_by_idx: dict[int, dict] = {}
+    for i in range(0, len(groups), _TOPIC_LABEL_BATCH_SIZE):
+        chunk = list(enumerate(groups))[i:i + _TOPIC_LABEL_BATCH_SIZE]
+        items_block = "\n\n".join(
+            f"- id: g{idx}\n" + "\n".join(
+                f"    - {m['scenario_key']}: {m.get('business_description', '')} "
+                f"(keywords: {m['keywords']})"
+                for m in members
+            )
+            for idx, members in chunk
+        )
+        raw = call_gemma(
+            PROMPT_LAYER_A_PRIMARY_TOPIC_LABEL_BATCH.format(items_block=items_block),
+            config.gemma_api_keys,
+        )
+        raw_list = raw if isinstance(raw, list) else raw.get("results", [])
+        for r in raw_list:
+            gid = r.get("id", "")
+            if gid.startswith("g") and gid[1:].isdigit():
+                results_by_idx[int(gid[1:])] = r
+
+    used_keys: set[str] = set()
+    labels = []
+    for idx in range(len(groups)):
+        r = results_by_idx.get(idx, {})
+        base_key = r.get("primary_topic_key") or f"primary_topic_{idx}"
+        key = base_key
+        suffix = 1
+        while key in used_keys:
+            key = f"{base_key}_{suffix}"
+            suffix += 1
+        used_keys.add(key)
+        labels.append({
+            "primary_topic_key": key,
+            "label": r.get("label") or "Uncategorised",
+            "description": r.get("description") or "",
+            "keyphrases": r.get("keyphrases") or [],
+        })
+
+    # Each batch of _TOPIC_LABEL_BATCH_SIZE groups is labeled by an independent
+    # Gemma call, so two different batches can reinvent the same natural-
+    # language label for genuinely unrelated groups -- confirmed in production
+    # ("Positive Client Sentiment" assigned to both a 5-member and a 1-member
+    # group). primary_topic_key already gets a uniqueness suffix above; the
+    # label a human actually reads needs the same treatment, or two distinct
+    # rows are indistinguishable when browsing the taxonomy.
+    label_counts: dict[str, int] = {}
+    for entry in labels:
+        label_counts[entry["label"]] = label_counts.get(entry["label"], 0) + 1
+    seen_labels: dict[str, int] = {}
+    for entry in labels:
+        base_label = entry["label"]
+        if label_counts[base_label] > 1:
+            seen_labels[base_label] = seen_labels.get(base_label, 0) + 1
+            entry["label"] = f"{base_label} ({seen_labels[base_label]})"
+    return labels
+
+
+def _finalize_primary_topics(by_key: dict[str, dict], tuning, config: Config, total_calls: int) -> list[dict]:
+    """Group every subtopic record (coachable AND sink -- sinks get a
+    primary_topic_key too, so the taxonomy stays uniform to browse) into
+    primary-topic macro-groups, label each via Gemma, and mutate every record
+    in-place with primary_topic_key/primary_topic (the denormalized label).
+
+    Dispatches on tuning.grouping_method. Zero DB calls -- called after
+    adjudication finishes and before the DB-write loop in run_layer_a_v2, same
+    "no DB calls inside the Gemma loop" discipline that loop already follows.
+
+    Returns the primary_topics rows ready for storage.upsert_primary_topic.
+    """
+    records = list(by_key.values())
+    if not records:
+        return []
+
+    if tuning.grouping_method == "nested":
+        by_macro: dict[int, list[dict]] = defaultdict(list)
+        for r in records:
+            by_macro[r["macro_group_id"]].append(r)
+        groups = [by_macro[k] for k in sorted(by_macro)]
+    elif tuning.grouping_method == "post_hoc":
+        key_groups = topic_grouping.group_post_hoc(records, tuning.primary_topic_merge_threshold)
+        by_scenario_key = {r["scenario_key"]: r for r in records}
+        groups = [[by_scenario_key[k] for k in g] for g in key_groups]
+    else:
+        raise ValueError(
+            f"tuning.yaml: layer_a.grouping_method must be 'post_hoc' or 'nested', "
+            f"got {tuning.grouping_method!r}"
+        )
+
+    groups = topic_grouping.split_by_coachability(groups)
+    groups = topic_grouping.tighten_coachable_groups(groups, tuning.merge_cosine_threshold)
+    labels = _label_primary_topics_batch(groups, config)
+    method_tag = _GROUPING_METHOD_TAG[tuning.grouping_method]
+
+    rows = []
+    for group, label_info in zip(groups, labels):
+        member_calls: set[str] = set()
+        for r in group:
+            member_calls |= r["call_set"]
+        rows.append({
+            "primary_topic_key": label_info["primary_topic_key"],
+            "label": label_info["label"],
+            "description": label_info["description"],
+            "keyphrases": label_info["keyphrases"],
+            "grouping_method": method_tag,
+            "support_calls": len(member_calls),
+            "support_subtopics": len(group),
+            "call_coverage": len(member_calls) / total_calls,
+        })
+        for r in group:
+            r["primary_topic_key"] = label_info["primary_topic_key"]
+            r["primary_topic"] = label_info["label"]
+    return rows
+
 
 def run_layer_a_v2(
     all_turns: list[Turn],
@@ -188,8 +392,17 @@ def run_layer_a_v2(
     because thin clusters are dropped before they reach the LLM.
 
     Whatever survives IS the taxonomy. There is no target count.
+
+    Primary-topic grouping (tuning.grouping_method) runs as a separate pass
+    after every subtopic is adjudicated: it never changes which subtopics exist
+    or how they were triaged, only which primary_topic each one belongs to.
     """
     tuning = load_tuning().layer_a
+    if tuning.grouping_method not in ("post_hoc", "nested"):
+        raise ValueError(
+            f"tuning.yaml: layer_a.grouping_method must be 'post_hoc' or 'nested', "
+            f"got {tuning.grouping_method!r}"
+        )
     client_clauses, call_ids = build_client_clause_pool(all_turns)
 
     if not client_clauses:
@@ -201,10 +414,16 @@ def run_layer_a_v2(
     vecs = embedder.embed_query_matrix(client_clauses)
 
     topic_model, topics = fit_topic_model(client_clauses, vecs)
-    clusters = _merged_clusters(
-        client_clauses, call_ids, vecs, topics, topic_model,
-        total_calls, tuning.merge_cosine_threshold,
-    )
+    if tuning.grouping_method == "nested":
+        clusters = _nested_clusters(
+            client_clauses, call_ids, vecs, topics, topic_model, total_calls,
+            tuning.primary_topic_merge_threshold, tuning.merge_cosine_threshold,
+        )
+    else:
+        clusters = _merged_clusters(
+            client_clauses, call_ids, vecs, topics, topic_model,
+            total_calls, tuning.merge_cosine_threshold,
+        )
     if not clusters:
         raise ValueError("BERTopic produced no clusters -- check min_cluster_size.")
 
@@ -275,9 +494,12 @@ def run_layer_a_v2(
 
         record = {
             "scenario_key": key,
-            "primary_topic": result.get("primary_topic") or "Uncategorised",
-            "sub_topic": result.get("sub_topic") or "",
+            "business_description": result.get("sub_topic") or "",
             "keyphrases": result.get("keyphrases") or [],
+            # Carried through from the raw cluster (not Gemma's response) so
+            # _label_primary_topics_batch can describe this subtopic to the
+            # LLM by its actual c-TF-IDF keywords, same as the triage prompt.
+            "keywords": cluster["keywords"],
             "soft_skills": result.get("soft_skills") or [],
             "bloom_level": result.get("bloom_level") or "understand",
             "is_coachable": is_coachable,
@@ -291,6 +513,7 @@ def run_layer_a_v2(
             "centroid": stats.centroid,
             "call_set": set(cluster["call_set"]),
             "n_items": stats.n_items,
+            "macro_group_id": cluster.get("macro_group_id"),
         }
         by_key[key] = record
         # Sinks are deliberately excluded from the nearest-neighbour list: a real
@@ -301,17 +524,25 @@ def run_layer_a_v2(
         print(f"  {marker} {key} [{kind}] {stats.distinct_calls} calls "
               f"({stats.call_coverage:.0%}) | {reason[:70]}")
 
+    primary_topic_rows = _finalize_primary_topics(by_key, tuning, config, total_calls)
+    print(f"[V2 Layer A] Grouped {len(by_key)} subtopic(s) into "
+          f"{len(primary_topic_rows)} primary topic(s) via '{tuning.grouping_method}'.")
+
     conn = storage.reconnect_if_closed(conn)
+    for row in primary_topic_rows:
+        storage.upsert_primary_topic(conn, row)
+
     scenario_map: dict[str, dict] = {}
     for key, record in by_key.items():
         row = {k: v for k, v in record.items()
-               if k not in ("centroid", "call_set", "n_items")}
+               if k not in ("centroid", "call_set", "n_items", "macro_group_id")}
         scenario_id = storage.upsert_scenario(conn, row)
         scenario_map[key] = {
             "scenario_id": scenario_id,
             "keyphrases": record["keyphrases"],
-            "sub_topic": record["sub_topic"],
+            "business_description": record["business_description"],
             "primary_topic": record["primary_topic"],
+            "primary_topic_key": record["primary_topic_key"],
             "is_coachable": record["is_coachable"],
             "cluster_kind": record["cluster_kind"],
         }

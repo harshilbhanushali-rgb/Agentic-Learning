@@ -5,6 +5,33 @@ CREATE TABLE IF NOT EXISTS calls (
     imported_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Primary-topic taxonomy (added 2026-07-30): a genuine, deduplicated parent
+-- entity for scenarios.primary_topic_key to reference, instead of a free-text
+-- primary_topic string independently reinvented per subtopic cluster with no
+-- shared identity across clusters. Produced by shared/topic_grouping.py, which
+-- one of two mechanisms (grouping_method) builds -- see tuning.yaml.
+--   grouping_method    'post_hoc_merge' | 'nested_cluster' -- which mechanism
+--                       produced this row; an audit trail, not meant to vary
+--                       within one run.
+--   keyphrases          exists so a later spec can build an embeddable
+--                       primary-topic vector without a schema change.
+--   support_calls / support_subtopics / call_coverage
+--                       evidence rollup: the union of member subtopics' call
+--                       sets, mirroring the evidence columns scenarios already
+--                       has.
+CREATE TABLE IF NOT EXISTS primary_topics (
+    id                SERIAL PRIMARY KEY,
+    primary_topic_key TEXT NOT NULL UNIQUE,
+    label             TEXT NOT NULL,
+    description       TEXT NOT NULL,
+    keyphrases        TEXT[] NOT NULL DEFAULT '{}',
+    grouping_method   TEXT NOT NULL,
+    support_calls     INTEGER NOT NULL,
+    support_subtopics INTEGER NOT NULL,
+    call_coverage     REAL NOT NULL,
+    created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Layer A: scenario taxonomy
 --
 -- Evidence columns (added 2026-07-27) record WHY each scenario exists, so the
@@ -18,11 +45,17 @@ CREATE TABLE IF NOT EXISTS calls (
 --                  for any needs_review cluster that stayed coachable.
 --   rubric_status  rubric_generated | skipped_not_coachable
 --                  | skipped_insufficient_responses | failed
+--
+-- business_description (renamed from sub_topic 2026-07-30): a one-sentence
+-- business description of the subtopic, used as embedding text and pasted
+-- into rubric prompts. primary_topic stays a NOT NULL denormalized copy of the
+-- parent primary_topics row's label (existing simple readers keep working with
+-- zero code change); primary_topic_key is the real FK used for grouping/joins.
 CREATE TABLE IF NOT EXISTS scenarios (
     scenario_id   SERIAL PRIMARY KEY,
     scenario_key  TEXT UNIQUE NOT NULL,
     primary_topic TEXT NOT NULL,
-    sub_topic     TEXT NOT NULL,
+    business_description TEXT NOT NULL,
     keyphrases    TEXT[] NOT NULL DEFAULT '{}',
     soft_skills   TEXT[] NOT NULL DEFAULT '{}',
     bloom_level   TEXT NOT NULL CHECK (bloom_level IN (
@@ -36,6 +69,7 @@ CREATE TABLE IF NOT EXISTS scenarios (
     triage_verdict      TEXT,
     adjudication_reason TEXT,
     rubric_status       TEXT,
+    primary_topic_key   TEXT REFERENCES primary_topics(primary_topic_key),
     created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_scenarios_keyphrases
@@ -51,6 +85,29 @@ ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS call_coverage       REAL    NOT N
 ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS triage_verdict      TEXT;
 ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS adjudication_reason TEXT;
 ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS rubric_status       TEXT;
+ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS primary_topic_key   TEXT REFERENCES primary_topics(primary_topic_key);
+
+-- RENAME COLUMN has no IF EXISTS form, unlike ADD/DROP COLUMN above -- init_db.py
+-- re-runs this whole file on every startup, so the rename is guarded explicitly
+-- to stay idempotent on a database that already has business_description.
+--
+-- table_schema MUST be qualified: information_schema.columns spans every
+-- schema, including the baseline_*/v2_*/pre_hierarchy_* snapshot schemas this
+-- project keeps around, several of which predate this rename and still have
+-- their own snapshot copy of a 'scenarios' table with a literal 'sub_topic'
+-- column. An unqualified lookup matches one of those, evaluates true, and the
+-- unqualified ALTER below then runs against public.scenarios (via search_path)
+-- where sub_topic no longer exists -- confirmed 2026-07-30, this exact bug
+-- fired on the first init_db() call after the snapshots existed.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'scenarios' AND column_name = 'sub_topic'
+    ) THEN
+        ALTER TABLE scenarios RENAME COLUMN sub_topic TO business_description;
+    END IF;
+END $$;
 
 -- Layer B: trigger-response pairs
 -- Vectors stored in Pinecone (index: narens-brain, namespaces: triggers / responses)

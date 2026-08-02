@@ -62,13 +62,13 @@ def upsert_scenario(conn: psycopg.Connection, scenario: dict) -> int:
     with conn.cursor() as cur:
         cur.execute("""
             INSERT INTO scenarios
-              (scenario_key, primary_topic, sub_topic, keyphrases, soft_skills, bloom_level,
-               is_coachable, cluster_kind, support_calls, support_clauses, call_coverage,
-               triage_verdict, adjudication_reason)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+              (scenario_key, primary_topic, business_description, keyphrases, soft_skills,
+               bloom_level, is_coachable, cluster_kind, support_calls, support_clauses,
+               call_coverage, triage_verdict, adjudication_reason, primary_topic_key)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (scenario_key) DO UPDATE SET
                 primary_topic = EXCLUDED.primary_topic,
-                sub_topic     = EXCLUDED.sub_topic,
+                business_description = EXCLUDED.business_description,
                 keyphrases    = EXCLUDED.keyphrases,
                 soft_skills   = EXCLUDED.soft_skills,
                 bloom_level   = EXCLUDED.bloom_level,
@@ -78,12 +78,13 @@ def upsert_scenario(conn: psycopg.Connection, scenario: dict) -> int:
                 support_clauses     = EXCLUDED.support_clauses,
                 call_coverage       = EXCLUDED.call_coverage,
                 triage_verdict      = EXCLUDED.triage_verdict,
-                adjudication_reason = EXCLUDED.adjudication_reason
+                adjudication_reason = EXCLUDED.adjudication_reason,
+                primary_topic_key   = EXCLUDED.primary_topic_key
             RETURNING scenario_id
         """, (
             scenario["scenario_key"],
             scenario["primary_topic"],
-            scenario["sub_topic"],
+            scenario["business_description"],
             scenario["keyphrases"],
             scenario["soft_skills"],
             bloom_level,
@@ -94,10 +95,49 @@ def upsert_scenario(conn: psycopg.Connection, scenario: dict) -> int:
             scenario.get("call_coverage", 0.0),
             scenario.get("triage_verdict"),
             scenario.get("adjudication_reason"),
+            scenario.get("primary_topic_key"),
         ))
         scenario_id = cur.fetchone()[0]
     conn.commit()
     return scenario_id
+
+
+def upsert_primary_topic(conn: psycopg.Connection, topic: dict) -> int:
+    """Insert or update a primary_topics row.
+
+    Written once per macro-group after Layer A's per-subtopic adjudication loop
+    finishes (zero Gemma calls at that point -- topic_grouping.group_post_hoc/
+    group_nested and the label-batch Gemma call already ran), mirroring
+    upsert_scenario's shape.
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO primary_topics
+              (primary_topic_key, label, description, keyphrases, grouping_method,
+               support_calls, support_subtopics, call_coverage)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (primary_topic_key) DO UPDATE SET
+                label             = EXCLUDED.label,
+                description       = EXCLUDED.description,
+                keyphrases        = EXCLUDED.keyphrases,
+                grouping_method   = EXCLUDED.grouping_method,
+                support_calls     = EXCLUDED.support_calls,
+                support_subtopics = EXCLUDED.support_subtopics,
+                call_coverage     = EXCLUDED.call_coverage
+            RETURNING id
+        """, (
+            topic["primary_topic_key"],
+            topic["label"],
+            topic["description"],
+            topic["keyphrases"],
+            topic["grouping_method"],
+            topic["support_calls"],
+            topic["support_subtopics"],
+            topic["call_coverage"],
+        ))
+        topic_id = cur.fetchone()[0]
+    conn.commit()
+    return topic_id
 
 
 def set_rubric_status(conn: psycopg.Connection, scenario_key: str, status: str) -> None:
@@ -197,15 +237,32 @@ def get_scenarios(conn: psycopg.Connection) -> list[dict]:
     """
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT scenario_id, scenario_key, sub_topic, primary_topic, keyphrases, "
-            "soft_skills, is_coachable, cluster_kind "
+            "SELECT scenario_id, scenario_key, business_description, primary_topic, keyphrases, "
+            "soft_skills, is_coachable, cluster_kind, primary_topic_key "
             "FROM scenarios"
         )
         rows = cur.fetchall()
     return [
-        {"scenario_id": r[0], "scenario_key": r[1], "sub_topic": r[2],
+        {"scenario_id": r[0], "scenario_key": r[1], "business_description": r[2],
          "primary_topic": r[3], "keyphrases": r[4], "soft_skills": r[5],
-         "is_coachable": r[6], "cluster_kind": r[7]}
+         "is_coachable": r[6], "cluster_kind": r[7], "primary_topic_key": r[8]}
+        for r in rows
+    ]
+
+
+def get_primary_topics(conn: psycopg.Connection) -> list[dict]:
+    """All primary_topics, shaped for shared.scenario_vectors.build_primary_topic_vecs.
+
+    Analogous to get_scenarios() -- callers key this list by primary_topic_key
+    to build the map Layer B's two-stage matching needs.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT primary_topic_key, label, description, keyphrases FROM primary_topics"
+        )
+        rows = cur.fetchall()
+    return [
+        {"primary_topic_key": r[0], "label": r[1], "description": r[2], "keyphrases": r[3]}
         for r in rows
     ]
 

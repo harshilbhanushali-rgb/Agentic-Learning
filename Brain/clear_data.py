@@ -17,10 +17,11 @@ pg = psycopg.connect(config.database_url)
 pg.execute("DELETE FROM rubrics")
 pg.execute("DELETE FROM kb_pairs")
 pg.execute("DELETE FROM scenarios")
+pg.execute("DELETE FROM primary_topics")
 pg.execute("DELETE FROM calls")
 pg.commit()
 pg.close()
-print("Postgres cleared: rubrics, kb_pairs, scenarios, calls")
+print("Postgres cleared: rubrics, kb_pairs, scenarios, primary_topics, calls")
 
 db_path = Path(__file__).parent / "checkpoints.db"
 if db_path.exists():

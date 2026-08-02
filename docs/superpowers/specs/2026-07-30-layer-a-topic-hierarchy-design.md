@@ -1,7 +1,9 @@
 # Layer A Primary-Topic / Subtopic Hierarchy Design
 
 **Date:** 2026-07-30
-**Status:** Approved, not yet implemented
+**Status:** Implemented and calibrated 2026-07-30 (code + schema migration shipped; see
+Calibration results below). Not yet exercised by a real production run — `primary_topics`
+is empty until the next full pipeline run against `Brain/recordings/`.
 **Scope:** Layer A only (clustering, adjudication, schema). Layer B two-stage matching is a
 **separate follow-up spec**, written after this one ships and produces real `primary_topics` data
 to design and calibrate against.
@@ -171,6 +173,51 @@ The winner (method + threshold) gets hardcoded into `tuning.yaml`'s new `layer_a
 key once judged — same convention as every other threshold in that file. There is no runtime
 switch needed in production after that decision is made; the flag exists for the comparison
 phase only.
+
+## Calibration results (2026-07-30)
+
+Ran `python dry_run_layer_a.py --grouping-compare` over the full 416-call corpus (zero Gemma
+calls), sweeping loose thresholds 0.55-0.80 for both mechanisms:
+
+| loose | post_hoc groups (top size) | nested groups (top size) |
+|---|---|---|
+| 0.55 | 2 (170) | 3 (168) |
+| 0.60 | 6 (153) | 8 (147) |
+| 0.65 | 13 (125) | 17 (121) |
+| 0.70 | 29 (93) | 31 (92) |
+| 0.75 | 56 (26) | 68 (21) |
+| 0.80 | 101 (13) | 118 (5) |
+
+Below ~0.70 both mechanisms collapse into one indiscriminate mega-group fusing budget/spend,
+Joveo-brand mentions, sales-role mentions, and calendar dates -- the same
+centroids-converge-toward-a-generic-direction failure `merge_cosine_threshold` calibration
+already documents below 0.85, reappearing one level up the hierarchy. Above ~0.80 both
+fragment families that clearly belong together (backchannel/affirmation splits into isolated
+2-member pairs). **0.75 is the sweet spot for both.** `nested` was chosen over `post_hoc` at
+that threshold: smaller residual blob (21 vs 26 members), and it recovers real distinctions
+post_hoc's two-step process misses (a clean 5-member scheduling/timezone group; an
+AI+automation group that captures "programmatic advertising," a real Joveo product term,
+where post_hoc's version doesn't). Set in `tuning.yaml`: `grouping_method: nested`,
+`primary_topic_merge_threshold: 0.75`.
+
+**Follow-up experiment -- does sink contamination explain the residual blob?** Extended
+`dry_run_layer_a.py --grouping-compare` with an `--exclude-sinks` flag: a zero-Gemma
+coachability proxy (`cluster_evidence.triage` at the subtopic level, the same rule production
+applies before ever calling Gemma) excludes likely-sink subtopics before grouping, for both
+methods, so the comparison stays apples-to-apples. Result over the same corpus: 15/171
+subtopics (35/237 raw topics) excluded as sink-proxy; the residual top blob at loose=0.75
+shrank from 26->19 (post_hoc) and 21->15 (nested) members -- confirms sinks were part of the
+glue, but the blob didn't disappear: what's left still fuses candidate-management,
+job-boards, programmatic-advertising, and landing-page content into one group. Separately, a
+known contamination case (`answer/aperture` ATS-integration mentions glued to
+`yeah-yeah/yep` backchannel) survived the exclusion unchanged in both methods -- the
+evidence-only proxy can't catch it because it only measures call-coverage, not semantic
+content, and this particular backchannel doesn't trip the ubiquity threshold as a single raw
+topic. Confirms the design's own caveat: coverage-based signals can flag, but only the real
+Gemma per-subtopic read (already in production, unrelated to this feature) can actually tell
+mechanics apart from a real topic that happens to sit nearby in embedding space. No further
+tuning-knob change is expected to close this gap; it needs the real pipeline run's
+adjudication, not more threshold sweeping.
 
 ## Testing
 

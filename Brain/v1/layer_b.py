@@ -8,6 +8,7 @@ from preprocessing import embedder
 from shared import storage
 from shared import pinecone_store
 from shared.scenario_vectors import build_scenario_vecs as _build_scenario_vecs
+from shared.scenario_vectors import build_primary_topic_vecs as _build_primary_topic_vecs
 from shared.tuning import load_tuning
 
 _MIN_CONTENT_WORDS = 5
@@ -133,6 +134,139 @@ def assign_scenarios(
             if float(sims[int(j)]) >= cutoff and not is_sink[int(j)]
         ]
         _assign(pair, kept or [scenario_keys[best_j]])
+
+    return trigger_vecs
+
+
+def _topk_pick(
+    sims: np.ndarray,
+    keys: list[str],
+    is_sink_arr: list[bool],
+    cap: int,
+    margin: float,
+    restrict_to: set[int] | None = None,
+) -> list[str] | None:
+    """Shared relative top-K rule: rank `keys` by `sims`, keep entries within
+    `margin` of the best among the (optionally restricted) non-sink candidates,
+    capped at `cap`. Always keeps at least the best. Returns None if no
+    candidate survives the sink/restrict filter -- the caller decides the
+    fallback in that case.
+    """
+    order = np.argsort(sims)[::-1]
+    candidates = [
+        int(j) for j in order
+        if not is_sink_arr[int(j)] and (restrict_to is None or int(j) in restrict_to)
+    ]
+    if not candidates:
+        return None
+    best_j = candidates[0]
+    cutoff = margin * float(sims[best_j])
+    kept = [keys[j] for j in candidates[:cap] if float(sims[j]) >= cutoff]
+    return kept or [keys[best_j]]
+
+
+def assign_scenarios_two_stage(
+    pairs: list[dict],
+    scenario_map: dict[str, dict],
+    primary_topic_map: dict[str, dict],
+    config: Config,
+    strategy: str,
+) -> list[list[float]]:
+    """Primary-topic-first variant of assign_scenarios: strict / soft / fallback.
+
+    See docs/superpowers/specs/2026-07-30-layer-b-two-stage-matching-design.md.
+    UNCALIBRATED as of 2026-07-30 -- primary_topics is empty until a real
+    pipeline run happens, so this has only been exercised against synthetic
+    vectors in tests/test_two_stage_matching.py, never dry-run-compared
+    against flat matching on real data. Kept fully separate from
+    assign_scenarios (flat) rather than folded in, so that already-calibrated
+    function stays untouched.
+
+    Stage 1 (shared by all three strategies): narrow to the trigger's own
+    primary_topic(s) within primary_topic_relative_margin of its best match.
+    The sink short-circuit is untouched -- exactly like flat matching, it is
+    decided from the raw subtopic best match BEFORE stage 1 ever runs, so a
+    junk trigger still files to its sink alone regardless of strategy.
+    """
+    if not pairs:
+        return []
+
+    trigger_texts = [p["trigger_text"] for p in pairs]
+    trigger_vecs = embedder.embed_query(trigger_texts)
+
+    if not scenario_map or not primary_topic_map:
+        return trigger_vecs
+
+    tuning = load_tuning().layer_b
+    scenario_keys, scenario_vecs = _build_scenario_vecs(scenario_map)
+    is_sink = [not scenario_map[k].get("is_coachable", True) for k in scenario_keys]
+    pt_of = [scenario_map[k].get("primary_topic_key") for k in scenario_keys]
+
+    pt_keys, pt_vecs = _build_primary_topic_vecs(primary_topic_map)
+    pt_index = {k: i for i, k in enumerate(pt_keys)}
+
+    T = np.array(trigger_vecs)
+    S = np.array(scenario_vecs)
+    PT = np.array(pt_vecs)
+    T_norm = T / (np.linalg.norm(T, axis=1, keepdims=True) + 1e-10)
+    S_norm = S / (np.linalg.norm(S, axis=1, keepdims=True) + 1e-10)
+    PT_norm = PT / (np.linalg.norm(PT, axis=1, keepdims=True) + 1e-10)
+    sim_matrix = T_norm @ S_norm.T        # (n_pairs, n_scenarios)
+    pt_sim_matrix = T_norm @ PT_norm.T    # (n_pairs, n_primary_topics)
+    no_sink = [False] * len(pt_keys)
+
+    def _assign(pair, keys):
+        pair["scenario_keys"] = keys
+        pair["scenario_key"] = keys[0]
+        pair["scenario_id"] = scenario_map[keys[0]]["scenario_id"]
+
+    for i, pair in enumerate(pairs):
+        sims = sim_matrix[i]
+        order = np.argsort(sims)[::-1]
+        best_j = int(order[0])
+
+        # Same rule as flat: a junk trigger belongs to its sink alone, decided
+        # from the raw subtopic match, ignoring the primary_topic stage.
+        if is_sink[best_j]:
+            _assign(pair, [scenario_keys[best_j]])
+            continue
+
+        kept_pt = set(_topk_pick(
+            pt_sim_matrix[i], pt_keys, no_sink,
+            tuning.max_primary_topics_per_pair, tuning.primary_topic_relative_margin,
+        ) or [])
+        restrict_to = {j for j, pt in enumerate(pt_of) if pt in kept_pt}
+
+        strict_kept = _topk_pick(
+            sims, scenario_keys, is_sink, tuning.max_scenarios_per_pair,
+            tuning.relative_margin, restrict_to=restrict_to,
+        ) or [scenario_keys[best_j]]
+
+        if strategy == "strict":
+            _assign(pair, strict_kept)
+        elif strategy == "fallback":
+            top1_sim = float(sims[scenario_keys.index(strict_kept[0])])
+            if top1_sim < tuning.two_stage_fallback_floor:
+                flat_kept = _topk_pick(
+                    sims, scenario_keys, is_sink, tuning.max_scenarios_per_pair,
+                    tuning.relative_margin,
+                ) or [scenario_keys[best_j]]
+                _assign(pair, flat_kept)
+            else:
+                _assign(pair, strict_kept)
+        elif strategy == "soft":
+            blended = np.array([
+                float(sims[j]) * float(pt_sim_matrix[i][pt_index[pt_of[j]]])
+                if pt_of[j] in pt_index else 0.0
+                for j in range(len(scenario_keys))
+            ])
+            soft_kept = _topk_pick(
+                blended, scenario_keys, is_sink, tuning.max_scenarios_per_pair,
+                tuning.relative_margin,
+            ) or [scenario_keys[best_j]]
+            _assign(pair, soft_kept)
+        else:
+            raise ValueError(f"unknown matching strategy: {strategy!r}")
 
     return trigger_vecs
 

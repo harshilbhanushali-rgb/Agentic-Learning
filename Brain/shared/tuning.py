@@ -22,12 +22,18 @@ class LayerATuning:
     ubiquity_ceiling: float
     merge_cosine_threshold: float
     min_content_words: int
+    grouping_method: str
+    primary_topic_merge_threshold: float
 
 
 @dataclass(frozen=True)
 class LayerBTuning:
     relative_margin: float
     max_scenarios_per_pair: int
+    matching_strategy: str
+    primary_topic_relative_margin: float
+    max_primary_topics_per_pair: int
+    two_stage_fallback_floor: float
 
 
 @dataclass(frozen=True)

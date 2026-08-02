@@ -47,7 +47,7 @@ def _check_via_gemma(
     config: Config,
 ) -> list[dict]:
     scenarios_text = "\n".join(
-        f"- {key}: {info.get('sub_topic', '')} (keyphrases: {', '.join(info.get('keyphrases', []))})"
+        f"- {key}: {info.get('business_description', '')} (keyphrases: {', '.join(info.get('keyphrases', []))})"
         for key, info in scenario_map.items()
     )
     prompt = PROMPT_STEP0_SIGNAL_CHECK.format(

@@ -36,7 +36,7 @@ def main() -> None:
 
     scenario_keys  = [s["scenario_key"] for s in scenarios]
     scenario_descs = [
-        s["sub_topic"] + " " + " ".join(s.get("keyphrases") or [])
+        s["business_description"] + " " + " ".join(s.get("keyphrases") or [])
         for s in scenarios
     ]
     print(f"Loaded {len(scenarios)} scenario(s): {scenario_keys}")

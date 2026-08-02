@@ -17,14 +17,20 @@ def identify_scenarios(transcripts_text: str, config: Config) -> list[dict]:
 
 
 def store_scenarios(scenarios: list[dict], conn: psycopg.Connection) -> dict[str, dict]:
-    """Upsert scenarios to DB — no Gemma. Returns scenario_map keyed by scenario_key."""
+    """Upsert scenarios to DB — no Gemma. Returns scenario_map keyed by scenario_key.
+
+    Gemma's PROMPT_LAYER_A_V1 output still uses the "sub_topic" JSON key (an
+    LLM-facing contract, left alone) -- mapped to business_description here
+    since storage.upsert_scenario now writes that column, not sub_topic.
+    """
     scenario_map: dict[str, dict] = {}
     for s in scenarios:
-        scenario_id = storage.upsert_scenario(conn, s)
+        row = {**s, "business_description": s.get("sub_topic", "")}
+        scenario_id = storage.upsert_scenario(conn, row)
         scenario_map[s["scenario_key"]] = {
             "scenario_id": scenario_id,
             "keyphrases": s.get("keyphrases", []),
-            "sub_topic": s.get("sub_topic", ""),
+            "business_description": row["business_description"],
             "primary_topic": s.get("primary_topic", ""),
         }
         print(f"  v {s['scenario_key']} -> scenario_id={scenario_id}")

@@ -44,11 +44,11 @@ def fake_embeddings(monkeypatch):
 
 def _scenario_map():
     return {
-        "pricing": {"scenario_id": 1, "sub_topic": "pricing", "keyphrases": [],
+        "pricing": {"scenario_id": 1, "business_description": "pricing", "keyphrases": [],
                     "is_coachable": True},
-        "quality": {"scenario_id": 2, "sub_topic": "quality", "keyphrases": [],
+        "quality": {"scenario_id": 2, "business_description": "quality", "keyphrases": [],
                     "is_coachable": True},
-        "ack": {"scenario_id": 3, "sub_topic": "ack", "keyphrases": [],
+        "ack": {"scenario_id": 3, "business_description": "ack", "keyphrases": [],
                 "is_coachable": False},
     }
 
@@ -104,7 +104,7 @@ def test_assignment_never_exceeds_the_cap(fake_embeddings):
     """Even with everything tied, no pair may match more than the configured cap."""
     cap = load_tuning().layer_b.max_scenarios_per_pair
     smap = {
-        f"s{i}": {"scenario_id": i, "sub_topic": "pricing", "keyphrases": [],
+        f"s{i}": {"scenario_id": i, "business_description": "pricing", "keyphrases": [],
                   "is_coachable": True}
         for i in range(cap + 3)
     }

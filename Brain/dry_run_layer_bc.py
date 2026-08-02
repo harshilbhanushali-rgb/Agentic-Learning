@@ -6,7 +6,7 @@ faithful dry run is unreachable without paying for Layer A first. Two moves get
 around that:
 
   1. Pseudo-scenarios. A cluster's top c-TF-IDF keywords stand in for the
-     LLM-written "sub_topic + keyphrases", embedded through the SAME
+     LLM-written "business_description + keyphrases", embedded through the SAME
      shared.scenario_vectors path production uses. Structurally identical, same
      embedding space -- so relative similarity behaviour is representative even
      though the wording is not what Gemma would write.
@@ -91,7 +91,7 @@ def _load_calls(recordings: str, limit: int, config):
 def _build_pseudo_taxonomy(clusters, total_calls, tuning_a, review_as):
     """Turn merged clusters into a scenario_map shaped exactly like Layer A's output.
 
-    The keyword string plays the role of sub_topic + keyphrases. It goes through
+    The keyword string plays the role of business_description + keyphrases. It goes through
     shared.scenario_vectors like a real description, so Layer B sees the same
     geometry it will see in production.
     """
@@ -111,7 +111,7 @@ def _build_pseudo_taxonomy(clusters, total_calls, tuning_a, review_as):
         coachable = verdict == cluster_evidence.SCENARIO_CANDIDATE or review_as == "scenario"
         scenario_map[key] = {
             "scenario_id": i + 1,
-            "sub_topic": " ".join(words),
+            "business_description": " ".join(words),
             "primary_topic": words[0] if words else "unknown",
             "keyphrases": words,
             "soft_skills": [],

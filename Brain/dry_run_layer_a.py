@@ -25,7 +25,7 @@ import numpy as np
 from config import load_config
 from preprocessing import embedder
 from preprocessing.transcript_parser import parse_transcript, load_roster
-from shared import cluster_evidence
+from shared import cluster_evidence, topic_grouping
 from shared.tuning import load_tuning
 from v2.layer_a import build_client_clause_pool, fit_topic_model
 
@@ -36,6 +36,8 @@ _SWEEP_MERGE = [0.70, 0.75, 0.80, 0.85, 0.88]
 _SWEEP_FRACTION = [0.02, 0.05]
 _SWEEP_UBIQUITY = [0.10, 0.15, 0.25, 0.40]
 
+_GROUPING_COMPARE_THRESHOLDS = [0.55, 0.60, 0.65, 0.70, 0.75, 0.80]
+
 
 def _parse_args():
     p = argparse.ArgumentParser(description=__doc__)
@@ -44,6 +46,20 @@ def _parse_args():
     p.add_argument("--sweep", action="store_true", help="compare threshold combinations")
     p.add_argument("--merge-detail", default="",
                    help="comma-separated merge thresholds; print what each one collapses")
+    p.add_argument("--grouping-compare", action="store_true",
+                   help="compare post_hoc vs nested primary-topic grouping across loose thresholds")
+    p.add_argument("--grouping-thresholds", default="",
+                   help="comma-separated loose thresholds for --grouping-compare "
+                        f"(default: {_GROUPING_COMPARE_THRESHOLDS})")
+    p.add_argument("--exclude-sinks", action="store_true",
+                   help="with --grouping-compare: apply a zero-Gemma coachability proxy "
+                        "(cluster_evidence.triage on the subtopic level) and exclude sink/thin "
+                        "subtopics before grouping, to see whether they were dragging real "
+                        "topics into incoherent groups")
+    p.add_argument("--review-as", choices=["sink", "scenario"], default="sink",
+                   help="with --exclude-sinks: treat needs_review subtopics as sink (default, "
+                        "matches dry_run_layer_bc.py's default) or scenario -- Gemma decides "
+                        "these for real, this can only approximate")
     p.add_argument("--merge-threshold", type=float, default=None)
     p.add_argument("--support-fraction", type=float, default=None)
     p.add_argument("--ubiquity-ceiling", type=float, default=None)
@@ -144,6 +160,128 @@ def _merge_detail(thresholds, centroids, members, raw_ids, raw_calls, clauses,
             print(f"  ... {len(multi) - show} more multi-member groups (use --show all)")
 
 
+def _group_detail(groups, title, show):
+    """Print group count/size distribution/member keyword lists for one method+threshold.
+
+    Mirrors _merge_detail's judge-by-reading-keywords approach: a group count
+    alone cannot distinguish a threshold that unifies related subtopics under a
+    coherent umbrella from one that dumps unrelated business topics together.
+    """
+    sizes = sorted((len(g) for g in groups), reverse=True)
+    print(f"\n{title}: {len(groups)} group(s), sizes {sizes[:show]}"
+          + (" ..." if len(sizes) > show else ""))
+    multi = [g for g in groups if len(g) > 1]
+    for g in multi[:show]:
+        print(f"  [{len(g)} member(s)]")
+        for kw in g[:5]:
+            print(f"      - {kw}")
+        if len(g) > 5:
+            print(f"      ... {len(g) - 5} more")
+
+
+def _subtopic_verdicts(subtopic_groups, raw_calls, total_calls, ta):
+    """Zero-Gemma coachability proxy per subtopic group: the same evidence-only
+    rule (cluster_evidence.triage) production applies before ever calling Gemma.
+    Approximates, does not replace, the real per-cluster Gemma adjudication --
+    same caveat dry_run_layer_bc.py's pseudo-taxonomy already documents.
+    """
+    min_support = cluster_evidence.required_call_support(
+        total_calls, ta.min_call_support_fraction, ta.min_call_support_floor
+    )
+    verdicts = []
+    for group in subtopic_groups:
+        calls = set()
+        for i in group:
+            calls |= raw_calls[i]
+        distinct = len(calls)
+        if distinct < min_support:
+            verdicts.append(cluster_evidence.INSUFFICIENT_EVIDENCE)
+        elif distinct / total_calls > ta.ubiquity_ceiling:
+            verdicts.append(cluster_evidence.NEEDS_REVIEW)
+        else:
+            verdicts.append(cluster_evidence.SCENARIO_CANDIDATE)
+    return verdicts
+
+
+def _grouping_compare(centroids, members, raw_ids, topic_model, total_calls,
+                       merge_threshold, thresholds, show, raw_calls=None, ta=None,
+                       exclude_sinks=False, review_as="sink"):
+    """Compare group_post_hoc vs group_nested across candidate loose thresholds.
+
+    Zero Gemma calls, consistent with every dry run in this codebase: judged by
+    reading each group's members' actual c-TF-IDF keywords, not by counting
+    groups. post_hoc groups subtopic clusters that already exist at today's
+    merge_cosine_threshold (the same "clean" cluster set adjudication would see);
+    nested groups the RAW topic centroids directly, before any subtopic merge.
+
+    With exclude_sinks: subtopics whose evidence-only proxy verdict isn't
+    SCENARIO_CANDIDATE (or NEEDS_REVIEW when review_as="scenario") are dropped
+    from BOTH methods' input before grouping, using the SAME subtopic-level
+    definition of "sink" for an apples-to-apples comparison -- for post_hoc this
+    is exact (it already operates at the subtopic level); for nested this
+    restricts which RAW topics are even eligible for the macro-merge, since
+    nested has no fixed subtopic level independent of its own loose threshold.
+    """
+    print(f"\n{_BAR}\nGROUPING COMPARE: post_hoc vs nested primary-topic grouping\n{_BAR}")
+
+    subtopic_groups = cluster_evidence.merge_by_similarity(centroids, merge_threshold)
+    subtopic_keywords = []
+    subtopic_centroids = []
+    for group in subtopic_groups:
+        tids = [raw_ids[g] for g in group]
+        lead = max(tids, key=lambda t: len(members[t]))
+        subtopic_keywords.append(", ".join(w for w, _ in topic_model.get_topic(lead)[:6]))
+        sub_centroid = centroids[group].mean(axis=0)
+        subtopic_centroids.append(sub_centroid / (np.linalg.norm(sub_centroid) + 1e-10))
+    subtopic_centroids = np.stack(subtopic_centroids)
+    print(f"Subtopic-level input for post_hoc: {len(raw_ids)} raw -> "
+          f"{len(subtopic_groups)} subtopic cluster(s) at merge_cosine_threshold={merge_threshold}.")
+
+    keep_raw = list(range(len(raw_ids)))
+    if exclude_sinks:
+        verdicts = _subtopic_verdicts(subtopic_groups, raw_calls, total_calls, ta)
+        coachable_mask = [
+            v == cluster_evidence.SCENARIO_CANDIDATE
+            or (v == cluster_evidence.NEEDS_REVIEW and review_as == "scenario")
+            for v in verdicts
+        ]
+        n_kept = sum(coachable_mask)
+        subtopic_keywords = [kw for kw, keep in zip(subtopic_keywords, coachable_mask) if keep]
+        subtopic_centroids = subtopic_centroids[coachable_mask] if n_kept else subtopic_centroids[:0]
+        keep_raw = sorted({i for group, keep in zip(subtopic_groups, coachable_mask) if keep for i in group})
+        print(f"--exclude-sinks (review_as={review_as}): kept {n_kept}/{len(subtopic_groups)} subtopic(s) "
+              f"as coachable-proxy, {len(keep_raw)}/{len(raw_ids)} raw topic(s) survive into grouping.")
+        if not n_kept:
+            print("Nothing survived the coachability proxy -- skipping.")
+            return
+
+    centroids_for_nested = centroids[keep_raw]
+
+    for threshold in thresholds:
+        post_hoc_idx = cluster_evidence.merge_by_similarity(subtopic_centroids, threshold)
+        post_hoc_idx.sort(key=len, reverse=True)
+        post_hoc_groups = [[subtopic_keywords[i] for i in g] for g in post_hoc_idx]
+
+        nested = topic_grouping.group_nested(centroids_for_nested, threshold, merge_threshold)
+        nested_groups = []
+        for macro in nested:
+            kws = []
+            for sub in macro:
+                tids = [raw_ids[keep_raw[g]] for g in sub]
+                lead = max(tids, key=lambda t: len(members[t]))
+                kws.append(", ".join(w for w, _ in topic_model.get_topic(lead)[:6]))
+            nested_groups.append(kws)
+
+        _group_detail(post_hoc_groups, f"POST_HOC  loose={threshold:.2f}", show)
+        _group_detail(nested_groups, f"NESTED    loose={threshold:.2f} (tight={merge_threshold})", show)
+
+    print(f"\n{_BAR}\nNo Gemma calls made. No database writes. Nothing persisted.")
+    print("Pick the (method, threshold) whose groups look coherent by eye -- a group that "
+          "fuses unrelated business topics is over-merging; one where every group has 1 "
+          "member is under-merging -- then set layer_a.grouping_method / "
+          "primary_topic_merge_threshold in tuning.yaml.")
+
+
 def main() -> None:
     args = _parse_args()
     ta = load_tuning().layer_a
@@ -188,6 +326,14 @@ def main() -> None:
 
     if args.sweep:
         _run_sweep(centroids, raw_calls, total_calls)
+        return
+
+    if args.grouping_compare:
+        thresholds = ([float(t) for t in args.grouping_thresholds.split(",")]
+                      if args.grouping_thresholds else _GROUPING_COMPARE_THRESHOLDS)
+        _grouping_compare(centroids, members, raw_ids, topic_model, total_calls,
+                          merge_threshold, thresholds, show, raw_calls=raw_calls, ta=ta,
+                          exclude_sinks=args.exclude_sinks, review_as=args.review_as)
         return
 
     if args.merge_detail:

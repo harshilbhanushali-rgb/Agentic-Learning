@@ -10,9 +10,15 @@ layer_a:
   ubiquity_ceiling: 0.4
   merge_cosine_threshold: 0.88
   min_content_words: 5
+  grouping_method: post_hoc
+  primary_topic_merge_threshold: 0.70
 layer_b:
   relative_margin: 0.85
   max_scenarios_per_pair: 3
+  matching_strategy: flat
+  primary_topic_relative_margin: 0.95
+  max_primary_topics_per_pair: 2
+  two_stage_fallback_floor: 0.50
 layer_c:
   milestone_relevance_percentile: 60
   min_milestone_call_fraction: 0.15
@@ -38,6 +44,7 @@ def _write(tmp_path, text):
 def test_loads_valid_file(tmp_path):
     t = load_tuning(_write(tmp_path, _GOOD))
     assert t.layer_a.min_call_support_floor == 4
+    assert t.layer_a.grouping_method == "post_hoc"
     assert t.layer_c.milestone_hard_cap == 10
     assert t.embedding.cache_enabled is True
 
@@ -47,7 +54,10 @@ def test_shipped_tuning_yaml_is_valid():
     t = load_tuning()
     assert 0.0 < t.layer_a.ubiquity_ceiling <= 1.0
     assert 0.0 < t.layer_a.merge_cosine_threshold <= 1.0
+    assert t.layer_a.grouping_method in ("post_hoc", "nested")
+    assert 0.0 < t.layer_a.primary_topic_merge_threshold <= 1.0
     assert t.layer_c.min_milestone_calls_floor >= 1
+    assert t.layer_b.matching_strategy in ("flat", "strict", "soft", "fallback")
 
 
 def test_typo_in_key_raises_rather_than_defaulting(tmp_path):

@@ -17,10 +17,10 @@ from preprocessing import embedder
 def scenario_text(info: dict) -> str:
     """The canonical text standing in for a scenario.
 
-    sub_topic carries the situation; keyphrases pull in the client's own wording,
-    which is what triggers actually resemble.
+    business_description carries the situation; keyphrases pull in the client's
+    own wording, which is what triggers actually resemble.
     """
-    return info.get("sub_topic", "") + " " + " ".join(info.get("keyphrases", []) or [])
+    return info.get("business_description", "") + " " + " ".join(info.get("keyphrases", []) or [])
 
 
 def build_scenario_vecs(scenario_map: dict) -> tuple[list[str], list[list[float]]]:
@@ -35,3 +35,17 @@ def build_scenario_vecs(scenario_map: dict) -> tuple[list[str], list[list[float]
 def scenario_vec(info: dict) -> list[float]:
     """Vector for a single scenario, embedded the same way as in the batch path."""
     return embedder.embed_document([scenario_text(info)])[0]
+
+
+def primary_topic_text(info: dict) -> str:
+    """Canonical text for a primary_topic, mirroring scenario_text()."""
+    return info.get("description", "") + " " + " ".join(info.get("keyphrases", []) or [])
+
+
+def build_primary_topic_vecs(primary_topic_map: dict) -> tuple[list[str], list[list[float]]]:
+    """Parallel (keys, vectors) over a primary_topic map, mirroring build_scenario_vecs()."""
+    keys = list(primary_topic_map.keys())
+    if not keys:
+        return [], []
+    vecs = embedder.embed_document([primary_topic_text(primary_topic_map[k]) for k in keys])
+    return keys, vecs

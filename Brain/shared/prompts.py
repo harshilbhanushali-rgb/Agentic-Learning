@@ -361,7 +361,6 @@ Respond ONLY with valid JSON:
   "merge_into_key": null,
   "reason": "one sentence justifying the decision",
   "scenario_key": "snake_case_identifier",
-  "primary_topic": "High-level category",
   "sub_topic": "Specific client situation (1 sentence)",
   "keyphrases": ["2-4 word phrase", "another phrase"],
   "soft_skills": ["empathy"],
@@ -369,6 +368,44 @@ Respond ONLY with valid JSON:
 }}
 
 For "merge_into", set merge_into_key and reason; the remaining fields may be null.
-For "mechanics" and "not_coachable", still supply scenario_key, primary_topic and sub_topic
-so the cluster can be recorded and used as a sink for unmatched pairs.
+For "mechanics" and "not_coachable", still supply scenario_key and sub_topic so the
+cluster can be recorded and used as a sink for unmatched pairs.
+
+Note: this prompt does NOT ask for a primary_topic. Grouping into primary topics is a
+separate, structural step run once over the whole taxonomy after adjudication (see
+shared/topic_grouping.py) -- inventing one per cluster here is exactly what produced three
+different primary_topic strings ("Discovery", "Discovery & Qualification", "Client
+Environment") for scenarios that are clearly siblings under one umbrella.
+"""
+
+# Batched primary-topic labelling. Runs once per macro-group AFTER the per-subtopic
+# adjudication loop above finishes and shared/topic_grouping.py has decided which
+# subtopics belong together -- this prompt only names the umbrella category a group of
+# already-adjudicated (or already-clustered, for the nested mechanism) subtopics share.
+# Batched (up to 5 groups per call) because macro-groups are few -- ~15-25 expected, per
+# the 0.70-threshold raw-topic measurement on record above for merge_cosine_threshold --
+# mirroring PROMPT_LAYER_C_MILESTONE_DESCRIBE_BATCH's rationale for small, numerous items.
+PROMPT_LAYER_A_PRIMARY_TOPIC_LABEL_BATCH = """\
+You are naming broad primary-topic categories that group related client scenarios from
+Joveo sales call transcripts. Each group below already contains several related subtopic
+clusters -- your job is to name the UMBRELLA category they share, not re-describe any one
+member.
+
+Each item below has a unique "id". Name EACH group independently -- do not let one group's
+members influence another's label.
+
+GROUPS:
+{items_block}
+
+Respond ONLY with valid JSON -- a single array with exactly one object per group, in this
+shape:
+[
+  {{
+    "id": "<id>",
+    "primary_topic_key": "snake_case_identifier",
+    "label": "2-4 word category name",
+    "description": "1 sentence describing what unifies this group's members",
+    "keyphrases": ["2-4 word phrase", "another phrase"]
+  }}
+]
 """

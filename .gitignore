@@ -15,3 +15,7 @@ embed_cache.db
 Brain/embed_cache.db
 checkpoints.db
 Brain/checkpoints.db
+
+# Calibration run byproducts: transcript subsets and run logs, not source
+Brain/recordings_subset*/
+Brain/*.log

@@ -273,7 +273,7 @@ def _judge_flagged_milestones(flagged: list[dict], config: Config) -> dict[str, 
         chunk = flagged[i:i + _TRIAGE_BATCH_SIZE]
         items_block = "\n\n".join(
             f"- id: {item['id']}\n"
-            f"  SCENARIO: {item['scenario_key']} ({item['sub_topic']})\n"
+            f"  SCENARIO: {item['scenario_key']} ({item['business_description']})\n"
             f"  NEAREST SINK: {item['nearest_sink']}\n"
             f"  SAMPLE CLAUSES:\n" + "\n".join(f"    - {c}" for c in item["sample_clauses"])
             for item in chunk
@@ -395,7 +395,7 @@ def _finish_rubric(
     rubric_result = call_gemma(
         PROMPT_LAYER_C_V1.format(
             scenario_key=scenario_key,
-            sub_topic=info["sub_topic"],
+            sub_topic=info["business_description"],
             primary_topic=info["primary_topic"],
             n_instances=len(sample_responses),
             responses_text=responses_text,
@@ -479,7 +479,7 @@ def run_layer_c_v2(
                     flagged.append({
                         "id": f"{scenario_key}::{cand['cluster_id']}",
                         "scenario_key": scenario_key,
-                        "sub_topic": result["info"].get("sub_topic", ""),
+                        "business_description": result["info"].get("business_description", ""),
                         "nearest_sink": cand["nearest_sink"],
                         "sample_clauses": cand["clauses"][:5],
                     })

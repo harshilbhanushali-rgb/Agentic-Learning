@@ -36,6 +36,7 @@ def _call_once(
     max_retries: int,
     escalate: bool,
 ) -> dict:
+    import httpx
     from google import genai
     from google.genai import types
 
@@ -62,7 +63,17 @@ def _call_once(
         except Exception as e:
             err_str = str(e).lower()
             is_limit = any(code in err_str for code in _LIMIT_MARKERS)
-            is_transient = any(code in err_str for code in _TRANSIENT_MARKERS)
+            # Raw network-transport drops (SSL read errors, connect timeouts,
+            # protocol resets) surface with all sorts of wording depending on
+            # the OS/socket layer -- "_ssl.c:2580" told us nothing string
+            # matching could reliably anticipate. httpx.TransportError is the
+            # base class for every one of those (ReadError, ConnectError,
+            # ConnectTimeout, RemoteProtocolError, ...), so check the type
+            # directly instead of extending the marker list forever.
+            is_transient = (
+                any(code in err_str for code in _TRANSIENT_MARKERS)
+                or isinstance(e, httpx.TransportError)
+            )
 
             if escalate and is_limit:
                 print(f"[gemma] {model} hit a rate/quota limit. Escalating to next model/key...")

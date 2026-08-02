@@ -80,6 +80,56 @@ layer_a:
   # the primary defence against generic text.
   min_content_words: 5
 
+  # MEASURED 2026-07-30 (python dry_run_layer_a.py --grouping-compare, full
+  # 416-call corpus, zero Gemma calls -- judged by reading actual c-TF-IDF
+  # keyword groups, not by counting groups, same convention as merge_detail
+  # above). 'post_hoc' merges already-adjudicated subtopic centroids after the
+  # main loop finishes; 'nested' merges RAW topic centroids into macro-groups
+  # FIRST, then subtopic-merges within each one (see shared/topic_grouping.py).
+  #
+  #   loose   post_hoc groups (top size)   nested groups (top size)
+  #   0.55        2  (170)                     3  (168)
+  #   0.60        6  (153)                      8  (147)
+  #   0.65       13  (125)                     17  (121)
+  #   0.70       29   (93)                     31   (92)
+  #   0.75       56   (26)                     68   (21)
+  #   0.80      101   (13)                    118    (5)
+  #
+  # Below ~0.70 BOTH methods collapse into one indiscriminate mega-group fusing
+  # budget/spend, Joveo-brand mentions, sales-role mentions, and calendar dates
+  # into a single "primary topic" -- the same centroids-converge-toward-a-
+  # generic-direction failure merge_cosine_threshold's own calibration already
+  # documents below 0.85, reappearing one level up the hierarchy. Above ~0.80
+  # both start FRAGMENTING families that clearly belong together (okay/yeah/
+  # appreciate/thanks/dont-know backchannel splits into isolated 2-member pairs
+  # instead of staying one umbrella).
+  #
+  # 0.75 is the sweet spot for both: the residual mixed-topic blob shrinks to a
+  # plausible "recruitment/product-domain terminology" umbrella (26 / 21
+  # members) while scheduling, AI/automation, communication-logistics,
+  # positive-sentiment and difficulty/concern all separate into coherent,
+  # individually-nameable groups. nested wins over post_hoc at that threshold:
+  # its residual blob is smaller (21 vs 26 members), and it recovers real
+  # distinctions post_hoc's two-step process misses -- e.g. a clean 5-member
+  # scheduling/timezone group, and an AI+automation group that captures
+  # "programmatic advertising" (a real Joveo product term) where post_hoc's
+  # version does not.
+  #
+  # CAVEAT: this compares c-TF-IDF keyword clusters BEFORE Gemma adjudication,
+  # the same limitation dry_run_layer_bc.py's pseudo-taxonomy already documents
+  # for Layer B/C -- coachable/sink triage will remove much of the backchannel
+  # currently padding these group sizes. Re-run --grouping-compare after the
+  # next full pipeline run and re-check this call, same as any other threshold
+  # in this file.
+  grouping_method: nested
+
+  # See grouping_method above for the full comparison table and rationale.
+  # 0.75 chosen for both methods: below it, real business topics fuse into one
+  # indiscriminate blob; above it, families that belong together (backchannel,
+  # affirmation) fragment into isolated pairs. For 'nested' this is the LOOSE
+  # threshold paired with merge_cosine_threshold (0.85) as the tight threshold.
+  primary_topic_merge_threshold: 0.75
+
 layer_b:
   # Keep every scenario scoring at least this fraction of the best match for a
   # given trigger. Replaces the absolute 0.30 cosine threshold, which did not
@@ -100,6 +150,45 @@ layer_b:
 
   # Hard ceiling on how many scenarios one pair may be assigned to.
   max_scenarios_per_pair: 3
+
+  # Which assign_scenarios implementation runs in production. 'flat' (today's
+  # single-stage search over every subtopic) is the only calibrated option.
+  #
+  # UNCALIBRATED as of 2026-07-30 -- see
+  # docs/superpowers/specs/2026-07-30-layer-b-two-stage-matching-design.md.
+  # 'strict' / 'soft' / 'fallback' are built and unit-tested against synthetic
+  # vectors (tests/test_two_stage_matching.py) but have never been measured
+  # against real primary_topics data, because primary_topics is still empty --
+  # no production pipeline run has populated it yet. Do not switch this away
+  # from 'flat' until dry_run_layer_bc.py's --matching-compare tool (not yet
+  # built) has measured the recall-loss rate on real data.
+  matching_strategy: flat
+
+  # Stage-1 cutoff: keep a trigger's primary_topic(s) within this fraction of
+  # its own best primary_topic match, mirroring relative_margin's shape one
+  # level up the hierarchy.
+  #
+  # UNCALIBRATED placeholder. Set equal to relative_margin as a starting
+  # guess -- both operate on the same kind of narrow, low-margin cosine band
+  # this corpus already exhibits (see relative_margin's own measurement
+  # above), so there is no reason to guess a different number until real
+  # primary_topic vectors exist to sweep against.
+  primary_topic_relative_margin: 0.95
+
+  # Hard ceiling on how many primary_topics one pair's stage-1 may keep.
+  #
+  # UNCALIBRATED placeholder, mirroring max_scenarios_per_pair's shape.
+  max_primary_topics_per_pair: 2
+
+  # Fallback-strategy only: if two-stage's chosen top-1 subtopic's RAW cosine
+  # similarity to the trigger falls below this floor, discard the two-stage
+  # result for that pair and use flat matching instead.
+  #
+  # UNCALIBRATED placeholder. Set near the p25 mark of the flat best-match
+  # band already measured for relative_margin above (p10=0.496, p50=0.550) --
+  # a principled starting guess, not a measured value: a two-stage pick this
+  # weak is more likely a stage-1 misroute than a genuine match.
+  two_stage_fallback_floor: 0.50
 
 layer_c:
   # Keep only response clauses above this percentile of relevance to their own
