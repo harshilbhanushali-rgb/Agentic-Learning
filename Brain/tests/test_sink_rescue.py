@@ -115,6 +115,54 @@ class TestResponseOnly:
         assert len(response_vecs) == 2
 
 
+class TestOrRule:
+    _WEAK_TRIGGER = "quality:1.0 pricing:0.99 noise:1.5"
+    # "noise" dilutes the vector's norm without corresponding to any scenario, so
+    # the trigger's own best match (quality, cosine ~0.486) stays non-sink but
+    # lands below the 0.50 floor -- unlike a plain "ack:1.5" component, which
+    # would just make the sink itself the argmax and test a different case.
+
+    def test_overrides_a_weak_non_sink_trigger_with_a_confident_response(self, fake_embeddings):
+        """Trigger's own top1 ('quality', by a hair over 'pricing') sits below
+        sink_rescue_min_similarity even though it's non-sink -- or_rule must let
+        the response's confident, different pick ('pricing') override it."""
+        floor = load_tuning().layer_b.sink_rescue_min_similarity
+        assert floor > 0.0, "test assumes a positive floor to demonstrate an override"
+
+        from v1.layer_b import assign_scenarios
+        flat_pairs = [{"trigger_text": self._WEAK_TRIGGER, "response_text": "r",
+                       "scenario_key": None, "scenario_id": None}]
+        assign_scenarios(flat_pairs, _scenario_map(), config=None)
+        assert flat_pairs[0]["scenario_key"] == "quality", (
+            "sanity check: flat matching's own top-1 pick for this trigger is 'quality'"
+        )
+
+        pairs = [_pair(self._WEAK_TRIGGER, "pricing:1.0")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="or_rule",
+        )
+        assert pairs[0]["scenario_keys"] == ["pricing"]
+
+    def test_leaves_a_confident_trigger_pick_unchanged(self, fake_embeddings):
+        """Trigger's top1 ('pricing') is a clean, confident match -- or_rule must
+        not second-guess it even though the response disagrees."""
+        pairs = [_pair("pricing:1.0", "quality:1.0")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="or_rule",
+        )
+        assert pairs[0]["scenario_keys"] == ["pricing"]
+
+    def test_falls_back_to_flat_when_response_cannot_rescue_either(self, fake_embeddings):
+        """Trigger's top1 is weak AND the response's own best match is also weak
+        -- or_rule must fall back to today's flat behaviour rather than leaving
+        the pair unassigned."""
+        pairs = [_pair(self._WEAK_TRIGGER, "ack:1.0 pricing:0.05")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="or_rule",
+        )
+        assert pairs[0]["scenario_key"] is not None
+
+
 class TestUnknownSinkRescueStrategy:
     def test_raises_on_unrecognised_strategy(self, fake_embeddings):
         pairs = [_pair("pricing:1.0", "quality:1.0")]

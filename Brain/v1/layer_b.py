@@ -370,6 +370,16 @@ def assign_scenarios_with_sink_rescue(
                     t_sims, scenario_keys, is_sink,
                     tuning.max_scenarios_per_pair, tuning.relative_margin,
                 ))
+        elif strategy == "or_rule":
+            if float(t_sims[t_best_j]) < tuning.sink_rescue_min_similarity:
+                rescued = _response_rescue(i)
+                if rescued is not None:
+                    _assign(pair, rescued)
+                    continue
+            _assign(pair, _flat_pick(
+                t_sims, scenario_keys, is_sink,
+                tuning.max_scenarios_per_pair, tuning.relative_margin,
+            ))
         else:
             raise ValueError(f"unknown sink-rescue strategy: {strategy!r}")
 
