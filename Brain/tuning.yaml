@@ -216,12 +216,31 @@ layer_b:
   # relative check could rescue a pair whose response is only relatively-better-
   # matched than the sink, without being an absolutely good match to anything real.
   #
-  # UNCALIBRATED placeholder. Set near two_stage_fallback_floor's own starting
-  # value (0.50) for the same reason that one was: a principled starting guess
-  # near the p25 mark of the already-measured trigger-vs-scenario band, not a
-  # measured value for THIS (response-vs-scenario) band -- compare_sink_rescue.py
-  # must print that band's real percentiles before this number is trusted.
-  sink_rescue_min_similarity: 0.50
+  # This is the RESPONSE-vs-scenario (document-vs-document) band -- both the
+  # response text and scenario descriptions are embedded via embed_document, so
+  # this is NOT the same band relative_margin/two_stage_fallback_floor were
+  # calibrated against (that's the query-vs-document trigger band, see
+  # sink_rescue_trigger_weak_floor below). Measured 2026-08-04 via
+  # compare_sink_rescue.py against the real `public` schema: p10=0.552,
+  # p25=0.598, p50=0.635, p75=0.664, p90=0.688 -- every percentile clears this
+  # 0.50 placeholder, so today it filters nothing at all.
+  #
+  # UNCALIBRATED placeholder still -- 0.50 needs to move toward the measured
+  # band (p50=0.635 / p75=0.664), not stay near two_stage_fallback_floor's
+  # value, which belongs to the other (trigger) band entirely.
+  sink_rescue_response_min_similarity: 0.50
+
+  # Absolute floor deciding whether the TRIGGER's own top1 match is "weak"
+  # enough for or_rule to let the response attempt an override. This is the
+  # TRIGGER-vs-scenario (query-vs-document) band -- the SAME band
+  # relative_margin was calibrated against (p10=0.496, p50=0.550, p90=0.613),
+  # NOT the response band above. Do not tune this off the response
+  # percentiles printed by compare_sink_rescue.py; it is a different
+  # comparison entirely.
+  #
+  # UNCALIBRATED placeholder. Set near the p25 mark of that trigger band, same
+  # starting-guess rationale as two_stage_fallback_floor's own 0.50.
+  sink_rescue_trigger_weak_floor: 0.50
 
   # blended strategy only: weight on the trigger vector when blending
   # trigger+response into one matching vector (1 - this = response's weight).

@@ -308,10 +308,16 @@ def assign_scenarios_with_sink_rescue(
     this solves (sink absorption discarding real content whose RESPONSE, not trigger,
     carries the value) and why each strategy is shaped this way.
 
-    UNCALIBRATED as of 2026-08-04 -- sink_rescue_relative_margin, sink_rescue_min_similarity,
-    and sink_rescue_blend_alpha are all placeholders until compare_sink_rescue.py measures
-    real response-vs-scenario similarity. Kept fully separate from assign_scenarios (flat)
-    -- that function's own calibration (relative_margin=0.95, etc.) is untouched by this code.
+    UNCALIBRATED as of 2026-08-04 -- sink_rescue_relative_margin, sink_rescue_response_min_similarity,
+    sink_rescue_trigger_weak_floor, and sink_rescue_blend_alpha are all placeholders until
+    compare_sink_rescue.py measures real response-vs-scenario similarity. Kept fully separate
+    from assign_scenarios (flat) -- that function's own calibration (relative_margin=0.95, etc.)
+    is untouched by this code.
+
+    sink_rescue_response_min_similarity and sink_rescue_trigger_weak_floor are deliberately
+    separate tuning keys, not one shared value: the former gates a RESPONSE-vs-scenario
+    (document-vs-document) similarity, the latter a TRIGGER-vs-scenario (query-vs-document)
+    similarity -- measured, non-comparable bands (see tuning.yaml's comments on each key).
 
     Returns (trigger_vecs, response_vecs) so a future wired-in caller could reuse both,
     mirroring assign_scenarios's existing trigger_vecs reuse into embed_and_store_pairs.
@@ -353,7 +359,7 @@ def assign_scenarios_with_sink_rescue(
         if r_kept is None:
             return None
         r_best_sim = float(response_sims[i][scenario_keys.index(r_kept[0])])
-        if r_best_sim < tuning.sink_rescue_min_similarity:
+        if r_best_sim < tuning.sink_rescue_response_min_similarity:
             return None
         return r_kept
 
@@ -371,7 +377,7 @@ def assign_scenarios_with_sink_rescue(
                     tuning.max_scenarios_per_pair, tuning.relative_margin,
                 ))
         elif strategy == "or_rule":
-            if float(t_sims[t_best_j]) < tuning.sink_rescue_min_similarity:
+            if float(t_sims[t_best_j]) < tuning.sink_rescue_trigger_weak_floor:
                 rescued = _response_rescue(i)
                 if rescued is not None:
                     _assign(pair, rescued)

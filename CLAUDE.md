@@ -301,6 +301,67 @@ Problem: `scenarios.primary_topic` was never a real grouping — free text Gemma
 - `two_stage_fallback_floor` sweep (857 non-sink pairs): floor 0.30–0.40 barely reroutes anything (reroute% <0.5%, agreement ~79.6-79.8%); floor 0.50 reroutes 9.6% and lifts agreement to 86.6%; floor 0.60+ reroutes 42%+ and pushes agreement past 99% (at which point it's converging back toward flat matching, so the floor is trading away whatever benefit two-stage was supposed to add). **No floor has been chosen for production** — this sweep is input to that decision, not a decision itself.
 - This was subset-scale only. Every other threshold in this codebase shifted between subset and full-corpus calibration before (`relative_margin`, `merge_cosine_threshold`) — the equivalent full-416-call validation is the next real step before treating any of these numbers as calibrated.
 
+### Layer B sink-rescue: response_only / or_rule / blended (2026-08-04)
+
+Design: `docs/superpowers/specs/2026-08-04-layer-b-sink-rescue-design.md`.
+
+Problem: `assign_scenarios` decides sink-vs-real using only the trigger's embedding — if the
+trigger's own best match is a non-coachable sink (mechanics/backchannel/logistics), the pair is
+filed there alone and permanently excluded from every rubric, even when the trigger is filler
+("I'm fine with whatever you guys think") but the response that follows is long and substantive (an
+entire analytics-dashboard walkthrough). Reading real sink-filed pairs found this discards real
+content at a materially high rate (39.7%–45.8% of pairs across the two production runs, roughly
+half of a 30-pair manual sample judged genuinely coachable). `assign_scenarios_with_sink_rescue`
+(`v1/layer_b.py`) adds a second, already-computed signal — the response's own embedding — that flat
+matching ignores, via three strategies selected by a `strategy` argument exactly like
+`assign_scenarios_two_stage`'s: `response_only` (only reconsiders pairs that are sink-bound today,
+via the response's own top-K match), `or_rule` (also reconsiders any pair, sink or not, whose
+trigger's own top-1 similarity is below a floor), and `blended` (replaces the matching vector for
+*every* pair with a weighted trigger+response average, so it can flip the sink decision itself).
+**NOT production** — `assign_scenarios` (flat) is unchanged; the only caller of the new function is
+`compare_sink_rescue.py`, a new standalone calibration script (added alongside
+`compare_matching_subset.py` in the Utility scripts list below) that re-runs all three strategies
+against the real, already-embedded `kb_pairs`/`scenarios` and prints rescue rates plus verbatim
+sample pairs for manual reading.
+
+**Measured 2026-08-04 against the live `public` schema** (157 scenarios, 4,605 pairs, 1,865
+sink-bound; full output `Brain/compare_sink_rescue_20260804.log`):
+
+- **Response-vs-scenario similarity is a genuinely different, higher band than the trigger-vs-
+  scenario band `relative_margin` was calibrated against** — p10=0.552, p25=0.598, p50=0.635,
+  p75=0.664, p90=0.688, vs. the trigger band's p10=0.496, p50=0.550, p90=0.613. This is why the two
+  floors this design needs are two separate tuning keys, not one: `sink_rescue_response_min_similarity`
+  (response-vs-scenario, document-vs-document) and `sink_rescue_trigger_weak_floor`
+  (trigger-vs-scenario, query-vs-document, the same band `relative_margin` uses) — sharing one value
+  between them silently breaks whichever wasn't the one being tuned.
+- **`response_only` over-rescues badly at the 0.50 placeholder** — 95.2% of sink-bound pairs
+  (1,775/1,865) get rescued, and reading the 20 samples confirms most are wrong (goodbyes filed as
+  `client_direct_denial`, a "can you hear me?" check filed as `feasibility_and_implementation_request`).
+  Absorption concentrates hard in 3 scenarios (798 of 1,775 rescues, nearly half) — the same
+  "gravity well" category-collapse pattern already seen at the primary-topic and duplicate-scenario
+  levels of this pipeline. Needs `sink_rescue_response_min_similarity` raised toward the measured
+  band (p50/p75, not the current 0.50) before this rate means anything.
+- **`or_rule` is the only one that isn't obviously broken, but its low 8.5% rescue rate (159/1,865)
+  is largely a gating artifact, not evidence of better precision.** ~1,616 of the 1,865 sink-bound
+  pairs never reach the response check at all — their trigger's own similarity to the sink is
+  already ≥ `sink_rescue_trigger_weak_floor` (0.50), so the trigger-weak gate excludes them before
+  the response is ever looked at. That means `or_rule` **structurally cannot address this design's
+  own headline motivating case** — a trigger that CONFIDENTLY matches a sink while its response
+  carries real content — it only ever helps the narrower, different case of a trigger that is itself
+  weak. Also touches 4.7% of already-non-sink pairs (the risk surface the design named). Of the 20
+  rescued samples, ~8-9 read as genuinely correct, including recovering the exact case the original
+  sink-absorption audit flagged as real lost content.
+- **`blended` is not viable at `alpha=0.6`** — rescues 22.4% of sink-bound pairs but destabilizes
+  47.6% of pairs that were already matching correctly under flat matching, with no evidence the new
+  answers are better.
+- **Bottom line: none of the three is wired into production.** `matching_strategy` and
+  `sink_rescue_strategy` both stay at their non-adopting defaults (`flat` / `none`) in `tuning.yaml`.
+  `or_rule` is the only one worth a second calibration pass — and that pass must move its two floors
+  independently: `sink_rescue_response_min_similarity` toward the response band (p50=0.635/p75=0.664),
+  while `sink_rescue_trigger_weak_floor` is tuned against the trigger band (p10=0.496/p50=0.550) and
+  raising it further would only shrink `or_rule`'s already-narrow qualifying population, not fix its
+  precision on the population it does touch.
+
 ### Brain Architecture Notes
 
 - `run_id` is a stable sha1 hash of sorted transcript stems — same transcript files across re-runs reuse checkpoints automatically; adding/removing a transcript generates a new run_id
@@ -308,7 +369,7 @@ Problem: `scenarios.primary_topic` was never a real grouping — free text Gemma
 - `v1/layer_a.py` splits into `identify_scenarios()` (Gemma only, no DB) and `store_scenarios()` (DB only); pipeline closes the Postgres connection before the Gemma call and opens a fresh one after — prevents idle SSL drops
 - `storage.get_connection()` uses TCP keepalives (idle=30s, interval=10s, count=5) to survive long LLM calls
 - `gemma.py` retries (max 5, exponential backoff) on 429/500/503/504/internal/deadline errors; 3-min HTTP timeout. **Fixed 2026-07-31 (uncommitted):** raw `httpx.TransportError` subclasses (SSL read drops, connect timeouts, protocol resets) were falling through the string-marker check and raising immediately instead of retrying — string-matching error text couldn't keep up with how many ways a socket layer phrases a drop (`"_ssl.c:2580"` etc.). Now checked by type (`isinstance(e, httpx.TransportError)`) alongside the marker list.
-- Utility scripts (2026-07-30/31): `run_v2_subset.py <dir>` — non-interactive V2 pipeline runner against an arbitrary recordings directory, for calibration on a call subset; use this instead of `main.py` for scripted/unattended runs since `main.py` blocks on an interactive V1-vs-V2 prompt. `compare_matching_subset.py` — zero-Gemma harness comparing flat matching against `assign_scenarios_two_stage`'s strict/soft/fallback strategies on an already-populated DB; `--sweep-floor` sweeps `two_stage_fallback_floor` and reports agreement/recall-proxy/Jaccard against flat per floor value.
+- Utility scripts (2026-07-30/31): `run_v2_subset.py <dir>` — non-interactive V2 pipeline runner against an arbitrary recordings directory, for calibration on a call subset; use this instead of `main.py` for scripted/unattended runs since `main.py` blocks on an interactive V1-vs-V2 prompt. `compare_matching_subset.py` — zero-Gemma harness comparing flat matching against `assign_scenarios_two_stage`'s strict/soft/fallback strategies on an already-populated DB; `--sweep-floor` sweeps `two_stage_fallback_floor` and reports agreement/recall-proxy/Jaccard against flat per floor value. `compare_sink_rescue.py` — zero-Gemma harness comparing flat matching against `assign_scenarios_with_sink_rescue`'s response_only/or_rule/blended strategies on an already-populated DB; prints the response-vs-scenario similarity percentiles plus rescue rates and verbatim sample pairs per strategy (see the sink-rescue section above).
 - Utility scripts: `backfill_scenarios.py` (reassign scenario_keys on existing pairs), `rerun_layer_c.py` (re-run Layer C for specific scenarios)
 - Real CSM call recordings (`csm_recordings/*.txt`) have no timestamps or role tags — same plain blank-line-separated `Name`/`Utterance` format as `recordings/`, not the `[HH:MM:SS] Name (ROLE):` format `Ego_trap.md` specs; `ego_trap/transcript_parser.py` resolves CSM vs OTHER_JOVEO vs CLIENT via `csm_recordings/mapping.csv`'s `csm_name` (must match the transcript speaker line) plus `JOVEO_SPEAKER_NAMES`
 - `preprocessing/embedder.py` batches at 96 inputs per call — Pinecone's hard limit for `llama-text-embed-v2`; a single long call transcript (100+ turns) will 400 without it

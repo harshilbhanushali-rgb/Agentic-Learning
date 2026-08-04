@@ -174,10 +174,12 @@ runs and its samples are read — not part of this deliverable.
 ## Status update (2026-08-04): harness run against the real `public` schema — none of the three strategies is ready as configured
 
 `compare_sink_rescue.py` ran against the live corpus (157 scenarios, 4,605 pairs, 1,865 of them
-sink-bound today). Full output: `Brain/compare_sink_rescue_20260804.log`.
+sink-bound today). This is the Postgres `public` schema — the current live schema, confirmed by
+these counts matching `CLAUDE.md`'s documented "First full-corpus production run" numbers (157
+scenarios, 4605 kb_pairs). Full output: `Brain/compare_sink_rescue_20260804.log`.
 
 **The response-vs-scenario similarity band sits higher than the trigger-vs-scenario band, as
-predicted, and today's `sink_rescue_min_similarity: 0.50` placeholder is far too loose for it.**
+predicted, and today's `sink_rescue_response_min_similarity: 0.50` placeholder is far too loose for it.**
 Measured: p10=0.552, p25=0.598, p50=0.635, p75=0.664, p90=0.688 — every percentile clears 0.50, so
 that floor currently filters nothing at all. (For comparison, `relative_margin`'s own trigger-vs-
 scenario band was p10=0.496, p50=0.550, p90=0.613 — confirming these are genuinely different,
@@ -190,7 +192,7 @@ majority are wrong matches, not real content. Goodbyes get filed as `client_dire
 clarification plus a self-introduction gets filed as `client_requests_operational_visualization`.
 Absorption concentrates hard in a handful of scenarios — `client_requests_operational_visualization`
 (278), `implementation_timeline_feasibility` (262), and `feasibility_and_implementation_request`
-(258) alone take over half of all 1,775 rescues — the same "gravity well" category-collapse pattern
+(258) — 798 pairs, nearly half (45.0%) of all 1,775 rescues — the same "gravity well" category-collapse pattern
 already documented at other levels of this pipeline (the primary-topic mega-blob, duplicate-scenario
 families), now reappearing at the rescue-matching level. The 10 near-miss samples (still correctly
 in a sink) do look like genuine filler (weekend well-wishes, movie small talk, greetings), so the
@@ -209,6 +211,20 @@ talk about snow rescued to `client_reacts_to_anomaly`; a name-origin chat rescue
 possibly a tighter margin) before it's a real candidate — not ready to wire in today, but the only
 one of the three that isn't obviously broken.**
 
+**Caveat: `or_rule`'s low 8.5% rescue rate is largely a gating artifact, not evidence of better
+precision.** Of the 1,865 sink-bound pairs, roughly 1,616 never reach the response check at all —
+their trigger's own top-1 similarity to the sink is already ≥ `sink_rescue_trigger_weak_floor`
+(0.50), so `or_rule`'s trigger-weak gate excludes them before the response is even looked at. That
+means `or_rule` is being measured against a much narrower, easier population than `response_only`
+(which checks every sink-bound pair's response, no gate). As a direct consequence, `or_rule`
+structurally cannot address the design's own headline motivating failure — Problem section's
+failure shape #1: a filler-sounding trigger that CONFIDENTLY matches a sink while its response
+carries real content (e.g. "I'm fine with whatever you guys think" / an entire dashboard
+walkthrough). A confident sink match, by definition, has a high trigger-vs-sink similarity, so it
+never clears the weak-floor gate and `or_rule` never even considers rescuing it. `or_rule` only
+ever helps failure shape #2 (a trigger that is itself weak) — a narrower, different population than
+what motivated this design in the first place.
+
 **`blended` is not viable at `alpha=0.6` — it destabilizes matches that already work.** It rescues
 22.4% of sink-bound pairs (418/1,865), but at the cost of also changing 1,305 of 2,740 (47.6%!)
 pairs that were **already matching a real, non-sink scenario correctly under flat matching**. This
@@ -219,11 +235,17 @@ on `ats_compatibility_and_migration_discovery`), but the collateral damage to th
 non-sink population makes this strategy a net risk, not a net improvement, at this alpha.
 
 **Recommendation: do not wire any of the three into production yet.** `or_rule` is the only
-candidate worth a second calibration round — its floor and margin need to be re-measured against
-the real band above (not the current placeholders) before it's evaluated again. `response_only`
+candidate worth a second calibration round, and the two floors it depends on need to move in
+different directions for different reasons, not as one number: `sink_rescue_response_min_similarity`
+(the RESPONSE-side floor `_response_rescue` applies) should move toward the response band measured
+above (p50=0.635 / p75=0.664, not the current 0.50 placeholder), while `sink_rescue_trigger_weak_floor`
+(the gate deciding whether `or_rule` even looks at the response) is a different knob entirely,
+against the trigger band (p10=0.496, p50=0.550) `relative_margin` itself was calibrated against —
+and, per the caveat above, raising it further would only shrink `or_rule`'s already-narrow
+qualifying population further, not fix its precision on the population it does touch. `response_only`
 and `blended` both have a structural failure mode, not just a mistuned number: `response_only`'s
-floor needs to move by roughly half the observed range, and `blended` may need `alpha` pushed much
-closer to 1.0 (trusting the trigger far more) or abandoning outright, since even a well-chosen floor
-doesn't address 47.6% collateral churn on pairs the strategy was never supposed to touch.
-`matching_strategy` and `sink_rescue_strategy` both stay at their non-adopting defaults (`flat` /
-`none`) in `tuning.yaml` — nothing here changes production behavior.
+response floor needs to move by roughly half the observed range, and `blended` may need `alpha`
+pushed much closer to 1.0 (trusting the trigger far more) or abandoning outright, since even a
+well-chosen floor doesn't address 47.6% collateral churn on pairs the strategy was never supposed
+to touch. `matching_strategy` and `sink_rescue_strategy` both stay at their non-adopting defaults
+(`flat` / `none`) in `tuning.yaml` — nothing here changes production behavior.

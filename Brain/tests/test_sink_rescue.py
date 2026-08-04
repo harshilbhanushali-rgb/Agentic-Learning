@@ -1,10 +1,10 @@
 """Layer B sink-rescue: response_only / or_rule / blended.
 
 See docs/superpowers/specs/2026-08-04-layer-b-sink-rescue-design.md.
-UNCALIBRATED as of 2026-08-04 -- sink_rescue_relative_margin, sink_rescue_min_similarity,
-and sink_rescue_blend_alpha are all placeholders. Like test_layer_b_assignment.py, vectors
-here are hand-built orthogonal unit axes so cosine similarities are exact and the assertions
-test the RULE, not the embedding model.
+UNCALIBRATED as of 2026-08-04 -- sink_rescue_relative_margin, sink_rescue_response_min_similarity,
+sink_rescue_trigger_weak_floor, and sink_rescue_blend_alpha are all placeholders. Like
+test_layer_b_assignment.py, vectors here are hand-built orthogonal unit axes so cosine
+similarities are exact and the assertions test the RULE, not the embedding model.
 
 Unlike test_layer_b_assignment.py's _pair(), every pair here needs a real response_text
 because assign_scenarios_with_sink_rescue embeds and matches on it -- there is no harmless
@@ -77,7 +77,7 @@ class TestResponseOnly:
 
     def test_stays_in_sink_when_response_is_also_weak(self, fake_embeddings):
         """Trigger matches 'ack'; response's own best non-sink match ('pricing')
-        is far too weak to clear sink_rescue_min_similarity -- must stay in the sink."""
+        is far too weak to clear sink_rescue_response_min_similarity -- must stay in the sink."""
         pairs = [_pair("ack:1.0", "ack:1.0 pricing:0.05")]
         layer_b.assign_scenarios_with_sink_rescue(
             pairs, _scenario_map(), config=None, strategy="response_only",
@@ -124,10 +124,19 @@ class TestOrRule:
 
     def test_overrides_a_weak_non_sink_trigger_with_a_confident_response(self, fake_embeddings):
         """Trigger's own top1 ('quality', by a hair over 'pricing') sits below
-        sink_rescue_min_similarity even though it's non-sink -- or_rule must let
+        sink_rescue_trigger_weak_floor even though it's non-sink -- or_rule must let
         the response's confident, different pick ('pricing') override it."""
-        floor = load_tuning().layer_b.sink_rescue_min_similarity
-        assert floor > 0.0, "test assumes a positive floor to demonstrate an override"
+        floor = load_tuning().layer_b.sink_rescue_trigger_weak_floor
+        # This fixture's fixed _WEAK_TRIGGER vector cosines to ~0.486 against its own
+        # best-matching scenario ("quality") -- hand-verified, see _WEAK_TRIGGER's own
+        # comment above. The floor must stay strictly above that value for this test to
+        # demonstrate an override at all; a retune outside this range needs the fixed
+        # vectors re-checked (mirrors TestBlended.test_can_flip_the_sink_decision_itself's
+        # own alpha-range guard below).
+        assert 0.486 < floor < 1.0, (
+            "sink_rescue_trigger_weak_floor moved outside the range this test's fixed "
+            "_WEAK_TRIGGER vector (cosine ~0.486 to its own best match) was verified against"
+        )
 
         from v1.layer_b import assign_scenarios
         flat_pairs = [{"trigger_text": self._WEAK_TRIGGER, "response_text": "r",

@@ -36,7 +36,8 @@ class LayerBTuning:
     two_stage_fallback_floor: float
     sink_rescue_strategy: str
     sink_rescue_relative_margin: float
-    sink_rescue_min_similarity: float
+    sink_rescue_response_min_similarity: float
+    sink_rescue_trigger_weak_floor: float
     sink_rescue_blend_alpha: float
 
 

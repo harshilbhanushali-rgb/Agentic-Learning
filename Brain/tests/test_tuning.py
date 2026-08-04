@@ -21,7 +21,8 @@ layer_b:
   two_stage_fallback_floor: 0.50
   sink_rescue_strategy: none
   sink_rescue_relative_margin: 0.95
-  sink_rescue_min_similarity: 0.50
+  sink_rescue_response_min_similarity: 0.50
+  sink_rescue_trigger_weak_floor: 0.50
   sink_rescue_blend_alpha: 0.6
 layer_c:
   milestone_relevance_percentile: 60
@@ -64,7 +65,8 @@ def test_shipped_tuning_yaml_is_valid():
     assert t.layer_b.matching_strategy in ("flat", "strict", "soft", "fallback")
     assert t.layer_b.sink_rescue_strategy in ("none", "response_only", "or_rule", "blended")
     assert 0.0 < t.layer_b.sink_rescue_relative_margin <= 1.0
-    assert 0.0 < t.layer_b.sink_rescue_min_similarity <= 1.0
+    assert 0.0 < t.layer_b.sink_rescue_response_min_similarity <= 1.0
+    assert 0.0 < t.layer_b.sink_rescue_trigger_weak_floor <= 1.0
     assert 0.0 < t.layer_b.sink_rescue_blend_alpha < 1.0
 
 

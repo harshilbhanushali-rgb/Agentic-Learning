@@ -1,0 +1,336 @@
+Loaded 157 scenario(s), 4605 pair(s).
+[embedder] Loading local model BAAI/bge-base-en-v1.5 on cuda...
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 3518.64it/s]
+
+Response-vs-scenario best-match similarity, non-sink candidates only (4605 pairs):
+  p10=0.552  p25=0.598  p50=0.635  p75=0.664  p90=0.688
+
+=== response_only ===
+  sink-bound pairs today      : 1865
+  rescued to a real scenario  : 1775 (95.2%)
+  top scenarios absorbing rescued pairs:
+    client_requests_operational_visualization: 278
+    implementation_timeline_feasibility: 262
+    feasibility_and_implementation_request: 258
+    client_reacts_to_anomaly: 108
+    client_expresses_curiosity_or_interest: 67
+    media_channel_and_retargeting_discovery: 55
+    application_conversion_flow_discovery: 51
+    tracking_tag_implementation_friction: 45
+    client_requests_configuration_change: 36
+    ai_capability_discovery: 31
+  non-sink pairs also changed : 0 / 2740
+
+  20 random rescued pairs:
+    [27372] trigger : "Yeah. We've got a note taker on, Tasman."
+        response: "I can I can. I can call it on Zoom as well if that's easier? No. We we have a note taker, but, Paul, you can call it on Zoom as well if if needed."
+        -> location_targeting_configuration (was sink: client_note_taking_logistics)
+    [25095] trigger : 'Okay, and then for marketing insights, that was the one where, it it looked great. Like, I like the '
+        response: "Yeah. So we can construction laborers. Yeah. I I can specifically look at the title. So what we're doing is we're standardizing some of these titles, "
+        -> client_requests_operational_visualization (was sink: client_positive_acknowledgment)
+    [26956] trigger : "Sorry. I'm gonna ask Shannon to update it. But."
+        response: "No worries. Because if that is our driver, US tier two, I would definitely take it. But I know the last time it was edited, it's 751. I don't think it"
+        -> client_reacts_to_anomaly (was sink: client_conversational_apologies)
+    [25296] trigger : "No. Yeah to my knowledge, I think Panda has literally taken all of that off of our plate, and I don'"
+        response: "Got it, and and and maybe a quick question to that, Blake, is is how much of it it sounds like one of the things is they're not super proactive about,"
+        -> client_requests_operational_visualization (was sink: conversational_confirmation_and_fillers)
+    [23124] trigger : 'Yeah. Cool. We can get started. Grace will either join or not. She might have just let me take it si'
+        response: 'Okay. Awesome. So I will just go ahead and share my screen. Heidi, so two parts that I wanted to just talk about and and cover. Right? The the first p'
+        -> application_conversion_flow_discovery (was sink: client_directive_agreement)
+    [24321] trigger : 'So in your data, just to confirm, you have seen that conversational apply? Like Correct. Do you okay'
+        response: 'There are ways actually why you can also edit anything that you that you type in as well. So Yeah. It should make it a much easier process, where all '
+        -> client_segments_requirements (was sink: conversational_confirmation_and_fillers)
+    [25725] trigger : 'So go to, yeah, meet the team, then scroll down to, go, yeah, go to meet the team. Sorry, then scrol'
+        response: "Yeah. So I I think it'll add another step, Heidi. But honestly, to your point, what we need to check is, you know, how the mapping is happening. Becau"
+        -> client_reacts_to_anomaly (was sink: client_directive_agreement)
+    [25620] trigger : "Okay. I'm totally in agreement. You know, I I will do some additional work on the, my side to your p"
+        response: "Thank you so much again for your time. That's it. Thanks so much. Thank you. Take care. Have a good one. Okay. Bye."
+        -> client_direct_denial (was sink: client_expresses_agreement)
+    [25216] trigger : "Hello? Can you hear me? Hi, Natalie. Hi. Can you hear me? Yes. Sorry. I'm dealing with a client call"
+        response: 'No. No. No problem at all. Completely, you know, understand with client calls. So. Highest come first. Right?'
+        -> feasibility_and_implementation_request (was sink: client_conversational_apologies)
+    [27081] trigger : "Some of ours do. We are in the process of coming over completely to Hailey's job board. Okay. It the"
+        response: "Okay. Awesome, and and maybe one of the things that would be helpful as a takeaway, and we'll summarize this and recap this on an email as well, Travi"
+        -> client_requests_operational_visualization (was sink: participant_arrival_logistics)
+    [27311] trigger : "Yeah, and then the Canada, October spend, I'm all good there. Thanks so much for."
+        response: 'Yeah. Adding it in. I also added something about the efficiency note, Cindy. So, it is definitely room for improvement. The last couple of weeks, our '
+        -> client_requests_operational_visualization (was sink: client_closing_thanks)
+    [24588] trigger : 'Yeah. So the two actions because note taker is also there. One is going and having a level setting c'
+        response: 'I think this entire conversation has to be done best. You can be on the call on the side nights. It is it is it is not you guys conversation. Since he'
+        -> client_direct_denial (was sink: conversational_fillers_task_completion)
+    [25581] trigger : "Let me know if you need anything. I think I've given."
+        response: "Some We have all we need. Yeah. We we have everything. Yeah. So I think the the focus is, like, he's already made, we had an internal chat as well on "
+        -> feasibility_and_implementation_request (was sink: client_logistics_and_fillers)
+    [24909] trigger : 'Good to meet you too, and was great, by the way. I mean, wonderful team member on our team.'
+        response: 'Thank you. Yep. But, yeah. Are are we I I did see that, you know, Tracy was added as well. Do do you wanna give a few minutes, for Tracy to join as we'
+        -> client_reacts_to_anomaly (was sink: initial_greetings)
+    [26071] trigger : 'Yeah. The the fuzzy name matching was just something I, like, read up on when I was putting this tog'
+        response: "Okay. Understood, and and the audit trail as well, Deborsi, is when you're looking at it, is this more from not what the recruiter or the day to day u"
+        -> client_reacts_to_anomaly (was sink: addressing_rep_by_name)
+    [24096] trigger : "Yep. Okay. Thank you. Sorry. I'm a it's a long day for me, and it's pretty late. So I was. I'm not s"
+        response: "Taking the time. I I know it's you you're probably getting to 3AM there."
+        -> time_constraint_management (was sink: meeting_start_tardiness)
+    [25701] trigger : 'Company than jobs.ac.uk. They should be. They are part of The Times newspaper group, and they are wo'
+        response: 'Jenny. So, yep, we we will come back to you with a bit of planning on this. Brilliant. Awesome. Thank you.'
+        -> feasibility_and_implementation_request (was sink: client_location_disclosure)
+    [23669] trigger : 'And then we can maybe talk about it, like, Tuesday, you know, in our Tuesday meeting a little bit mo'
+        response: 'Yes. So the the documentation and and then two on on just, you know, the the the the integration cost, intimate as well. Yeah. We we can get those two'
+        -> ats_integration_requirement (was sink: scheduling_and_timing_chatter)
+    [24460] trigger : "Yeah. I think that's it. Cool. So, yeah, let me know if, there's any other input you have on that, a"
+        response: "Yes. Sounds good. Do do you mind if I add, our our head of supply to this document as well? Like, can I give Axel? Please do. Yeah. Okay. Okay. I'm ju"
+        -> client_requests_operational_visualization (was sink: client_generic_confirmation)
+    [23671] trigger : "Uh, Alejandro or Alex, either one. You can Alex is easier, so just let's just go with that. Okay."
+        response: 'Uh, Alex, pleasure to e meet you. My name is Niren Shankar. I head the onboarding and solutions team here at Jovio. What that means is meeting, you kn'
+        -> client_requests_operational_visualization (was sink: conversational_acknowledgments)
+
+  10 random pairs still in a sink (near-miss check):
+    [23570] trigger : "Good. Well, enjoy your leave. Thank you. Alright. Well, thanks, everyone. I'll send follow up notes "
+        response: 'Right. Awesome. Right. Thank you very much. Thanks, everyone.'
+        -> stays in client_closing_thanks
+    [27016] trigger : "I I always watch trash. I'm really like, actually, I only stick to trash."
+        response: "Are you guys talking about the summer I turned pretty? Yes. Oh my god. I can't wait for the movie to come out."
+        -> stays in client_conversational_filler_check
+    [24647] trigger : 'Yeah. Lovely. Thank you. It was it was it was a family time in London, but based around AAA big spor'
+        response: "Nice. Nice. I I would love to know what what sport it is. Is this for you know, is is it like Women's rugby?"
+        -> stays in client_closing_thanks
+    [26471] trigger : "Awesome. So I think, I'll just stop sharing and let, this group, maybe ask if there are any question"
+        response: "Nope. I think we're good, Patrick. Awesome. Thank you, everyone."
+        -> stays in client_yields_floor
+    [26988] trigger : "Yeah. No. I totally get it. Agreed. Like, it's that's why I'm like, I wanna hear the emotional respo"
+        response: "I think we're yep. Okay. Cool. We're all the same people, I think."
+        -> stays in client_expresses_general_positive_sentiment
+    [23767] trigger : 'Yeah. He was an English guy. Right? I think he was a Russian guy.'
+        response: 'Yeah. Yeah. Yeah, and then and of course, for Carrie Fisher, Mark Hamill, and Harrison Ford, the rest is bank account.'
+        -> stays in casual_greetings_and_acknowledgments
+    [25117] trigger : 'Thank you. Thank you. Have a wonderful weekend too. Bye now. Bye bye.'
+        response: 'Have a wonderful weekend, Noland. Bye bye.'
+        -> stays in client_expressions_of_gratitude
+    [23338] trigger : 'Now are candidates using this? Like, this seems a little, like, more clicks and more types and more '
+        response: "Yeah. I I can look internally. We that's that. Yep. Okay."
+        -> stays in client_filler_thinking
+    [27369] trigger : 'Of course. Yeah. Yeah. This is kind of like the first, yeah, the first the first, step in this whole'
+        response: "And so on. Yeah. Yeah. Yeah. Yeah. That's all that's all good. That's all good."
+        -> stays in call_initiation_and_transitions
+    [25277] trigger : 'Hi, Kashree. Hi, everyone. Hi, everyone. Good morning. Hi. Good morning. Hello.'
+        response: 'Hello, everyone. Everyone. Morning, and good evening to you, Kansha and Suraj.'
+        -> stays in conversational_greetings_and_introductions
+
+=== or_rule ===
+  sink-bound pairs today      : 1865
+  rescued to a real scenario  : 159 (8.5%)
+  top scenarios absorbing rescued pairs:
+    feasibility_and_implementation_request: 25
+    implementation_timeline_feasibility: 22
+    client_requests_operational_visualization: 17
+    client_reacts_to_anomaly: 15
+    client_expresses_curiosity_or_interest: 7
+    location_targeting_configuration: 4
+    application_conversion_flow_discovery: 4
+    client_expresses_uncertainty: 4
+    ai_capability_discovery: 4
+    candidate_screening_capability_discovery: 4
+  non-sink pairs also changed : 130 / 2740
+
+  20 random rescued pairs:
+    [25701] trigger : 'Company than jobs.ac.uk. They should be. They are part of The Times newspaper group, and they are wo'
+        response: 'Jenny. So, yep, we we will come back to you with a bit of planning on this. Brilliant. Awesome. Thank you.'
+        -> feasibility_and_implementation_request (was sink: client_location_disclosure)
+    [25981] trigger : "Even based or what's happening back over there from start listing all the way to higher?"
+        response: "Yeah. No. That's a great question, Deva. So we typically, at the time of an application, right, we capture an anonymous ID. Right? Think of it as the "
+        -> candidate_identity_mapping_discovery (was sink: client_acknowledges_understanding)
+    [23231] trigger : "10 inches of snow on the ground that won't melt. It's 11 degrees, and there's flurries. Right? Yeah."
+        response: "Yeah. It's crazy. I think and and it's not just the east or or parts of your like like, it's it's happening pretty much everywhere. So yeah."
+        -> client_reacts_to_anomaly (was sink: client_small_talk_weather)
+    [24716] trigger : "I think I did. I was just wondering if you had insight into, Rocket now. I think it's a new competit"
+        response: "Yeah. I can I actually we we did speak to Galloway last week? I do have some insights on, they were they were telling us, you know, there's something "
+        -> feasibility_and_implementation_request (was sink: conversational_confirmation_and_fillers)
+    [26715] trigger : "Who's in You have a friend. Yeah. Yeah. It's, it's like an Algerian name, you know, so in that area,"
+        response: 'Yep. Yep. Awesome. So thank you so much, for your time, here. So so where are you based out of?'
+        -> timezone_operational_alignment (was sink: client_conversational_acknowledgment)
+    [26499] trigger : 'Yeah. We only have I think we have, like, 30 languages peridots, but only we only use, like, 3 or 4 '
+        response: 'Yep. Yep, and and and the the other thing about it is that the AI comes with, of course, a lot of guardrailing as well. Right? I I was mentioning on t'
+        -> ai_capability_discovery (was sink: conversational_confirmation_and_fillers)
+    [25848] trigger : "But if we need to go a bit longer, we're fine. Yeah. You are. Yeah. As long as you guys are."
+        response: 'Yes. Yes. We are. So, yeah, that way, I I just wanted to get a sense of, you know, how quickly do I need to go and and you know? Because I also wanna '
+        -> feasibility_and_implementation_request (was sink: client_directive_agreement)
+    [25050] trigger : "It's like, it makes Linkedin look cheap. Right? Right. The company."
+        response: "Yeah, and then they're not easy to work with, right Yes. By means. So we we actually have interesting partnerships of providers in Japan that that can"
+        -> client_requests_operational_visualization (was sink: client_brief_confirmation)
+    [26452] trigger : 'I know everybody distributes, so it makes it a little trickier. Right? Because Zip Ziprecruiter is p'
+        response: "Yep. Yep. Makes sense. Okay. So we'll probably let you know if there are some of these job boards that do say that they can't take. You know, these jo"
+        -> client_reacts_to_anomaly (was sink: client_location_disclosure)
+    [25481] trigger : "We can't necessarily do it the exact way they do just because Our reward is much less than what thei"
+        response: 'Yeah. No. III was just just to draw, you know, this just like a comparison in the sense of, you know, again, just a cohort of performing and nonperfor'
+        -> feasibility_and_implementation_request (was sink: client_general_comparisons)
+    [27299] trigger : "That that was 6. That's something from 3 to 4, and now so I just have to drive there. So that's why "
+        response: "Perfect. So that's so let me just set up that call, file and you know, because I I do I don't wanna rush this as well because, you know, this is great"
+        -> candidate_screening_capability_discovery (was sink: client_logistics_and_fillers)
+    [24593] trigger : 'So unified analytics, I think everybody who sees it, they love it. One, the other.'
+        response: 'Go forward. Go ahead. Go forward. If I give you the best bet, hi, and you have to eat food at my restaurant every day, that food is not at all there. '
+        -> client_requests_definition (was sink: client_expresses_general_positive_sentiment)
+    [26709] trigger : "Yeah, and then here's Brandon and Chad. The intro for Vivian."
+        response: "So you you can again, this this group, we we to make it easy for you, Lindsay, we can give you an email alias, that we can just set up. So we'll just "
+        -> client_requests_operational_visualization (was sink: call_initiation_and_transitions)
+    [23797] trigger : "Yeah. Yeah. Yeah. Exactly, and then it then like I said, it's the Ascension man."
+        response: "Yeah, and I think the thing to point out there is what I hear on a lot it it's clients think that the only way they can get an easy apply is through I"
+        -> client_emphasizes_simplicity (was sink: client_generic_confirmation)
+    [24903] trigger : 'Yep. Saltilla and yeah. Saltilla, Ecru. Ecru. Yeah. Saltilla, Ecru.'
+        response: 'Mike, this is certainly not 10 years ago, but, you know, right now as as probably a a few months before, you know, actually, furniture actually migrat'
+        -> ats_integration_strategy_discussion (was sink: client_expresses_agreement)
+    [23577] trigger : 'And then there are serve like, not service fees, platform fees about that.'
+        response: "No. So we we have, like, a onetime integration fees that we typically charge. This, like Right, and yeah. That that's that's close to nothing. Right, "
+        -> implementation_timeline_feasibility (was sink: participant_arrival_logistics)
+    [27477] trigger : 'The report that Jovio gets is already updated daily.'
+        response: "Yeah. So it's just how we report, Cindy. So it's, again, not it's not through the platform. Right? So we're still using an offline report for that. So"
+        -> tracking_tag_implementation_friction (was sink: client_status_update_chatter)
+    [24668] trigger : "So That's fine. You know, as long as we don't pay, you know, for something that we don't really need"
+        response: "Yep. Yep. Understood. Yep. Okay. Awesome, and and and you know, on the lecturer roles, Anna Maria, we we will certainly get back. Right? Like, we'll a"
+        -> feasibility_and_implementation_request (was sink: conversational_acknowledgments)
+    [26953] trigger : "Yeah. Cindy, she's Angelina's pretty much just worried that when we, like, did all that national cam"
+        response: 'I I also pulled out a list of all the markets with city IDs and country IDs that we have being given against it. So I can send that over, and in in ca'
+        -> client_requests_configuration_change (was sink: conversational_acknowledgments)
+    [27433] trigger : 'Earlier. I need to check whether this is a phenom form or something else.'
+        response: "Can you This is a phenom this is a phenom form only. Let me just paste the link here quickly. Yeah. Right. So just trying to figure out if there's a w"
+        -> talent_platform_ecosystem_disclosure (was sink: meeting_start_tardiness)
+
+  10 random pairs still in a sink (near-miss check):
+    [23744] trigger : "I think we can probably get going. I can ping Mike and see if he's joining."
+        response: 'Okay. No worries. Yeah. We can get started. So I think the the one of the main things we wanted to talk about and and Krishna, probably this is more o'
+        -> stays in client_directive_agreement
+    [24720] trigger : 'And then leave the Spanish, and then then I have to, like, have a separate ticket, and then once you'
+        response: "Yeah. I'm I'm okay. Even if, let's say, we get English approved by end of next week, then I think, anyway, this looks like a realistic October launch."
+        -> stays in conversational_fillers_task_completion
+    [23461] trigger : "Okay. So let's a conscious is probably quite a lot to go through, so let's crack on."
+        response: "Yeah. I'm just let me or or you can just pull out the agenda and just put it in a a Google Sheet. Yeah. Let let me do this. I I have it. Yeah. I just "
+        -> stays in client_directive_agreement
+    [26958] trigger : "Contract, it was signed. I think no more action needed. I think it'll just."
+        response: "Okay. Are you able to, check with Mario, like, confirm on that email, sir, because we need to get a signed copy of the contracts. I'm not sure if. Oh,"
+        -> stays in client_directive_agreement
+    [23337] trigger : "Sounds good. I think we have all of our follow ups. We'll have I think Noren has to hop, so go ahead"
+        response: "That would and and we'll start preparing the deck as well. I think we have have some of the information already. I think we'll just tailor it a little"
+        -> stays in client_directive_agreement
+    [26743] trigger : 'Perfect. Yeah. But what do you guys think of kind of bucking buck kick buck way. Bucking. Bucking. B'
+        response: "Perfect. Yeah. We can we can do that, Marie. Okay. So so we'll we'll exactly bucket it that way, and do do you think that the brand safety aspect of i"
+        -> stays in client_acknowledgment_cool
+    [24850] trigger : 'Yeah. My idea so where do you wanna start, Niran? My ideas that I, like, jotted down in the survey.'
+        response: "Yeah. Yeah. Absolutely. I I actually would I think since you already got into the the ORC apply, that that's one of the main things when Prateek, and "
+        -> stays in call_initiation_and_transitions
+    [25659] trigger : "Right. So then but so the thing is in the chatbot, if we're having people apply through the chatbot,"
+        response: "Correct. But but, again, as part of phase one, Philip, like, you know, we're we're not gonna have the apply flow as part of the chatbot."
+        -> stays in meeting_chat_logistics
+    [26077] trigger : "Yeah, and then and this one is, like it helps her then say, like, I'm only spending advertising doll"
+        response: "Got it. Okay. But so while while that that's a nice to have, rate. I I did see on row 19, right, like, where it says it's a must have, but comes more "
+        -> stays in client_conversational_fillers
+    [23467] trigger : "I mean, that is good news. But can you understand that I am somewhat distressed that it's taken me a"
+        response: 'Yeah. No. Completely understand, Jenny, and I I apologize for that, and and we did ask as as you you were aware, like, Indeed in Linkedin, we we sent '
+        -> stays in client_expresses_enthusiasm
+
+=== blended ===
+  sink-bound pairs today      : 1865
+  rescued to a real scenario  : 418 (22.4%)
+  top scenarios absorbing rescued pairs:
+    feasibility_and_implementation_request: 99
+    client_requests_operational_visualization: 96
+    implementation_timeline_feasibility: 70
+    client_reacts_to_anomaly: 18
+    application_conversion_flow_discovery: 12
+    media_channel_and_retargeting_discovery: 10
+    client_expresses_curiosity_or_interest: 10
+    client_requests_configuration_change: 7
+    ai_capability_discovery: 6
+    client_validates_proposed_scenario: 6
+  non-sink pairs also changed : 1305 / 2740
+
+  20 random rescued pairs:
+    [25243] trigger : 'You guys have the agents already working for you from a the that kind of standpoint?'
+        response: "Yeah. Yeah. It's it's agents. So we've think of it as we're we're definitely looking to graduate to the agents level, but today, we already have a lot"
+        -> ai_capability_discovery (was sink: conversational_confirmation_and_fillers)
+    [27089] trigger : 'Let them go do what they do. So okay. The next part I need to communicate discussing community, you '
+        response: 'Yeah. So when we set up these campaigns on our platform, Travis, we can still allocate specific budgets to your regions. Right? So in in our follow up'
+        -> client_requests_operational_visualization (was sink: client_yields_floor)
+    [25366] trigger : 'Okay. So, James, in terms of advanced preparation from our side, what can we start do you have a kin'
+        response: 'Yes. I I can take that, Jenny. Yes. Okay. So we will have what we call as a project plan. Right, we can provide access to, you know, all all the team '
+        -> feasibility_and_implementation_request (was sink: client_checks_for_remaining_questions)
+    [23159] trigger : 'So if I if I post, if I post any job and that is interface through to Jovio, so you are saying that,'
+        response: "That that's what I'm saying. They have a they have access to a dashboard. Right? So the integration for us."
+        -> ats_compatibility_and_migration_discovery (was sink: screen_sharing_checks)
+    [24438] trigger : "The first question is right. If the client is saying, like, we're not getting enough qualified leads"
+        response: "Got it, and then how involved were you in those discussions with, like, let's say, ATSs and integrations? Like, what was your role and and involvement"
+        -> pixel_implementation_discovery (was sink: conversational_question_signaling)
+    [25814] trigger : 'Cool. Thanks for arranging this festival. Appreciate that. We had that call in on Friday, but I just'
+        response: "No. We're we're so we double checked it. It looks like the so just to, clarify, Lucy, you're referring to the point where Keith was not able to like, "
+        -> client_requests_operational_visualization (was sink: scheduling_and_timing_chatter)
+    [25633] trigger : 'Okay. So follow up there. Follow up on the titles. We would just need that, and then k. I think thos'
+        response: 'Yeah. The ideal way, Cindy, is is I I understand they probably wanna test this out and see how it works with Jovio. Right? The ideal way is that they '
+        -> client_requests_operational_visualization (was sink: participant_arrival_logistics)
+    [25303] trigger : "And then what's the best process to reading this data? Like, should I be clicking like, how should I"
+        response: "When you're looking at this data, Chris, so number one is we're gonna be this is this is already being managed on our end. Right? Like and and we're g"
+        -> client_requests_operational_visualization (was sink: client_filler_thinking)
+    [27271] trigger : "Yes. So given that they're given that most of their language requirements would be English, it would"
+        response: 'Okay. Understood. Okay, and and would this be for a particular skill intersection? Ishraj, is this gonna be, like, math experts? Would be for domains.'
+        -> feasibility_and_implementation_request (was sink: client_general_comparisons)
+    [24723] trigger : "Doc. Doc, and then we'll make a new one, hopefully, for next quarter."
+        response: 'Next quarter. Sounds good. Yeah. Lovely. Next one was to drive our UK market level performance. I did it here. Also clarified on our chat that, we run'
+        -> implementation_timeline_feasibility (was sink: scheduling_and_followup_chatter)
+    [25603] trigger : 'Yeah. I mean, and the way this would work, Narayan, is that if this performance continues, the budge'
+        response: 'Sounds good. Awesome. Perfect. Yeah, and obviously, as we add more budget, Israj, like, we will obviously see the cost per activation go up even if it'
+        -> client_requests_operational_visualization (was sink: joveo_entity_reference)
+    [25100] trigger : "Which we can also Like, if we have a company, it's like, hey. I wanna do a brand campaign. Yes to ge"
+        response: "It could be both. It's it's usually tailored towards candidate attraction. Right? Like, where we could even build a landing page, right, that is actua"
+        -> media_channel_and_retargeting_discovery (was sink: client_directive_agreement)
+    [26170] trigger : "I'm more than happy to share them and if you would like to talk to them also. As a fellow TO leader,"
+        response: "Yeah. Yeah. Absolutely. So I think, Neha and Philip, you've probably had a chance to read through it. So maybe what we can do is get into two question"
+        -> feasibility_and_implementation_request (was sink: client_yields_floor)
+    [24202] trigger : 'That was the intent to get get started with, and at some point, once we have clarity on how, the soc'
+        response: "Yes. That's correct. So this is Stefan and Max. Just backing up to our conversation that we had in our kickoff. Right? This of course, to start with, "
+        -> feasibility_and_implementation_request (was sink: client_directive_agreement)
+    [25789] trigger : "And then from outside so, technically, we've shifted over the order type to Jovio. So if I'm still c"
+        response: "Yeah. So I I think it's pretty much, you know, what their existing issues and and things have been, Bavin, right, with respect to their ATS and and so"
+        -> implementation_timeline_feasibility (was sink: joveo_entity_reference)
+    [23726] trigger : 'Yeah. That was the original conversation that we had had when we were implementing champions group b'
+        response: "Okay. So I believe that must have the Adnan, correct me if I'm wrong, but that's not the case. At least, I know I know that when we're doing an easy a"
+        -> implementation_timeline_feasibility (was sink: call_initiation_and_transitions)
+    [24565] trigger : "Do you mind filling in, Chris, on just where we're at? Because there were some, Chris, there were so"
+        response: 'Yeah. I can take that one with us. Yeah. Sure. Two main issues causing a difference. Right? Like, one is if you remember, we spoke about a portion of '
+        -> tracking_tag_implementation_friction (was sink: joveo_entity_reference)
+    [27081] trigger : "Some of ours do. We are in the process of coming over completely to Hailey's job board. Okay. It the"
+        response: "Okay. Awesome, and and maybe one of the things that would be helpful as a takeaway, and we'll summarize this and recap this on an email as well, Travi"
+        -> client_requests_operational_visualization (was sink: participant_arrival_logistics)
+    [23468] trigger : "I I get all that, but equally, you have one person, and when that one person's on leave, your entire"
+        response: "Yeah. No. That so I I think one person on leave is is probably not the wrong way to look at it, Jenny. That that's not the."
+        -> client_capacity_seasonal_constraints (was sink: participant_arrival_logistics)
+    [26368] trigger : "All well. Awesome. Amazing. I don't know. I think the output is in the last field, so we're good her"
+        response: "Yep. That's totally fine, Suraj. I think my main objective was I know you and I were chatting. So Yeah. I think just getting on the call helps as well"
+        -> feasibility_and_implementation_request (was sink: client_expresses_enthusiasm)
+
+  10 random pairs still in a sink (near-miss check):
+    [24597] trigger : 'One We we replicate the individual. Yeah. One campaign. One one campaign.'
+        response: "So either one of those completely automated fashion, and there's nothing else we do from them. But even then it's $2,000. Right? 2,000 platform fee?"
+        -> stays in client_directive_agreement
+    [26471] trigger : "Awesome. So I think, I'll just stop sharing and let, this group, maybe ask if there are any question"
+        response: "Nope. I think we're good, Patrick. Awesome. Thank you, everyone."
+        -> stays in client_yields_floor
+    [27491] trigger : "Yeah, and I I I'll I'll say this to the to Heidi's point. I think right now, we need to be putting t"
+        response: "Yep. Yep. Sounds good. Okay. So I think actions just to I I know because we're we're a little over time as well. Yeah. Edwin is one is you you will se"
+        -> stays in call_initiation_and_transitions
+    [26898] trigger : "I've never used Slack before, but it can't be that different than any other channel that we've used "
+        response: "Okay. Got it. Yeah. So so we can definitely do, we we can set up a Slack instance. So the way we'll set it up is we'll have a shared channel, between "
+        -> stays in meeting_chat_logistics
+    [23870] trigger : 'Even if, like, your thank you for submitting is a pop up and then it, like, it leaves. So, like, if '
+        response: "Yeah. Just one quick update. Just speaking of, you know, just the the forms and and just submissions. Chris and Heidi is we've been making good progre"
+        -> stays in client_feedback_mentions
+    [25050] trigger : "It's like, it makes Linkedin look cheap. Right? Right. The company."
+        response: "Yeah, and then they're not easy to work with, right Yes. By means. So we we actually have interesting partnerships of providers in Japan that that can"
+        -> stays in client_brief_confirmation
+    [23550] trigger : "It's definitely that's definitely for the larger team call for sure where Steven and Ian and Eric ar"
+        response: 'Okay. Yeah. Alright. So I think what might be good maybe that we can take away as an action item, Allison, on our end as well is is probably aligned w'
+        -> stays in participant_arrival_logistics
+    [23410] trigger : "Yeah. Period. Exactly. That's what I've seen all over Tiktok where, like, second time parents are li"
+        response: "Yeah, and I but there's also this trending. Right? Like, why is your first baby is, like, your angel baby and the second one's, like, a wild one? Oh m"
+        -> stays in client_logistics_and_fillers
+    [27343] trigger : "It. Till he joins, can you just also give me some context on what exactly you're running right now i"
+        response: "So currently, it's combined with The US campaign, Pram. We used to run more stand alone campaigns in India, like Hyperion and the front end coders and"
+        -> stays in participant_arrival_logistics
+    [25215] trigger : "Guys, you know, let's get let and that way, I can also get a commitment that for the next 3 weeks, I"
+        response: 'You know, this, like, in a more cleaner fashion. Right? Exactly.'
+        -> stays in client_directive_agreement
