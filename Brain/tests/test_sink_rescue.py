@@ -163,6 +163,57 @@ class TestOrRule:
         assert pairs[0]["scenario_key"] is not None
 
 
+class TestBlended:
+    def test_can_flip_the_sink_decision_itself(self, fake_embeddings):
+        """Trigger alone ('ack' 1.0, 'pricing' 0.6) would flat-match the sink
+        'ack' -- sanity-checked below via the real assign_scenarios. A strongly
+        agreeing response ('pricing' 1.0) blended in at sink_rescue_blend_alpha's
+        current placeholder (0.6) is enough to flip the best match to 'pricing'.
+        This is the one behaviour unique to 'blended': the other two strategies
+        can only ever move a pair OUT of a sink after the fact, never change
+        which scenario the trigger alone would have picked."""
+        alpha = load_tuning().layer_b.sink_rescue_blend_alpha
+        assert 0.5 < alpha < 1.0, (
+            "this test's fixed vectors were hand-verified to flip at alpha=0.6; "
+            "a retune outside this range needs the vectors re-checked"
+        )
+        trigger = "ack:1.0 pricing:0.6"
+
+        from v1.layer_b import assign_scenarios
+        flat_pairs = [{"trigger_text": trigger, "response_text": "r",
+                       "scenario_key": None, "scenario_id": None}]
+        assign_scenarios(flat_pairs, _scenario_map(), config=None)
+        assert flat_pairs[0]["scenario_keys"] == ["ack"], (
+            "sanity check: trigger alone must flat-match the sink"
+        )
+
+        pairs = [_pair(trigger, "pricing:1.0")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="blended",
+        )
+        assert pairs[0]["scenario_keys"] == ["pricing"]
+
+    def test_does_not_flip_when_response_is_irrelevant(self, fake_embeddings):
+        """Same trigger as above, but the response doesn't reinforce a real
+        scenario -- the blend must still land on the sink."""
+        pairs = [_pair("ack:1.0 pricing:0.6", "quality:1.0")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="blended",
+        )
+        assert pairs[0]["scenario_keys"] == ["ack"]
+
+    def test_every_pair_is_always_assigned(self, fake_embeddings):
+        pairs = [
+            _pair("pricing:1.0", "quality:1.0"),
+            _pair("ack:1.0 pricing:0.6", "pricing:1.0"),
+            _pair("ack:1.0", "ack:1.0"),
+        ]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="blended",
+        )
+        assert all(p["scenario_key"] is not None for p in pairs)
+
+
 class TestUnknownSinkRescueStrategy:
     def test_raises_on_unrecognised_strategy(self, fake_embeddings):
         pairs = [_pair("pricing:1.0", "quality:1.0")]

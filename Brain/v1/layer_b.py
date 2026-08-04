@@ -380,6 +380,15 @@ def assign_scenarios_with_sink_rescue(
                 t_sims, scenario_keys, is_sink,
                 tuning.max_scenarios_per_pair, tuning.relative_margin,
             ))
+        elif strategy == "blended":
+            alpha = tuning.sink_rescue_blend_alpha
+            blend = alpha * T_norm[i] + (1.0 - alpha) * R_norm[i]
+            blend = blend / (np.linalg.norm(blend) + 1e-10)
+            blend_sims = S_norm @ blend
+            _assign(pair, _flat_pick(
+                blend_sims, scenario_keys, is_sink,
+                tuning.max_scenarios_per_pair, tuning.relative_margin,
+            ))
         else:
             raise ValueError(f"unknown sink-rescue strategy: {strategy!r}")
 
