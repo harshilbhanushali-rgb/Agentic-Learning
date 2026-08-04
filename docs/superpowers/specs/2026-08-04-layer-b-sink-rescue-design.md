@@ -170,3 +170,60 @@ Whether to adopt a strategy, which one, what its calibrated numbers should be, w
 `kb_pairs` get backfilled via `backfill_scenarios.py`, and how it gets wired into
 `v1/pipeline.py` / `v2/pipeline.py` are all explicit follow-up decisions made **after** the harness
 runs and its samples are read — not part of this deliverable.
+
+## Status update (2026-08-04): harness run against the real `public` schema — none of the three strategies is ready as configured
+
+`compare_sink_rescue.py` ran against the live corpus (157 scenarios, 4,605 pairs, 1,865 of them
+sink-bound today). Full output: `Brain/compare_sink_rescue_20260804.log`.
+
+**The response-vs-scenario similarity band sits higher than the trigger-vs-scenario band, as
+predicted, and today's `sink_rescue_min_similarity: 0.50` placeholder is far too loose for it.**
+Measured: p10=0.552, p25=0.598, p50=0.635, p75=0.664, p90=0.688 — every percentile clears 0.50, so
+that floor currently filters nothing at all. (For comparison, `relative_margin`'s own trigger-vs-
+scenario band was p10=0.496, p50=0.550, p90=0.613 — confirming these are genuinely different,
+higher-baseline comparisons, exactly as the design predicted.)
+
+**`response_only` over-rescues badly at these placeholders.** 95.2% of sink-bound pairs (1,775 of
+1,865) get rescued — implausibly high, and reading the 20 printed samples confirms it: a clear
+majority are wrong matches, not real content. Goodbyes get filed as `client_direct_denial`; a
+"can you hear me?" connection check gets filed as `feasibility_and_implementation_request`; a name
+clarification plus a self-introduction gets filed as `client_requests_operational_visualization`.
+Absorption concentrates hard in a handful of scenarios — `client_requests_operational_visualization`
+(278), `implementation_timeline_feasibility` (262), and `feasibility_and_implementation_request`
+(258) alone take over half of all 1,775 rescues — the same "gravity well" category-collapse pattern
+already documented at other levels of this pipeline (the primary-topic mega-blob, duplicate-scenario
+families), now reappearing at the rescue-matching level. The 10 near-miss samples (still correctly
+in a sink) do look like genuine filler (weekend well-wishes, movie small talk, greetings), so the
+floor isn't broken in principle — it's just calibrated at essentially zero effect. **Not usable as
+configured; needs the floor raised toward the measured band (p50/p75, not p10) before this rate
+means anything, and the gravity-well absorption needs a fresh look even after that.**
+
+**`or_rule` is the most promising of the three, but still noisy.** Only 8.5% of sink-bound pairs
+(159/1,865) get rescued, and it also touches 130 of 2,740 (4.7%) already-non-sink pairs — the risk
+surface the design called out by name. Reading the 20 samples: roughly 8-9 read as genuinely
+correct — including recovering the *exact* case the original sink-absorption audit in
+`PROBLEMS_AND_FIXES.md` flagged as real lost content ("we only have, like, 30 languages... but we
+only use 3 or 4" rescued to `ai_capability_discovery`) — while the rest are weak or wrong (small
+talk about snow rescued to `client_reacts_to_anomaly`; a name-origin chat rescued to
+`timezone_operational_alignment`). **Worth a further calibration pass (a properly-measured floor,
+possibly a tighter margin) before it's a real candidate — not ready to wire in today, but the only
+one of the three that isn't obviously broken.**
+
+**`blended` is not viable at `alpha=0.6` — it destabilizes matches that already work.** It rescues
+22.4% of sink-bound pairs (418/1,865), but at the cost of also changing 1,305 of 2,740 (47.6%!)
+pairs that were **already matching a real, non-sink scenario correctly under flat matching**. This
+is the design's own stated biggest risk for this strategy, now confirmed at the worst possible
+magnitude — nearly half of all previously-good matches get churned, with no evidence the new
+answers are better. Some rescued samples read fine (an ATS-integration discussion correctly landing
+on `ats_compatibility_and_migration_discovery`), but the collateral damage to the untouched-by-design
+non-sink population makes this strategy a net risk, not a net improvement, at this alpha.
+
+**Recommendation: do not wire any of the three into production yet.** `or_rule` is the only
+candidate worth a second calibration round — its floor and margin need to be re-measured against
+the real band above (not the current placeholders) before it's evaluated again. `response_only`
+and `blended` both have a structural failure mode, not just a mistuned number: `response_only`'s
+floor needs to move by roughly half the observed range, and `blended` may need `alpha` pushed much
+closer to 1.0 (trusting the trigger far more) or abandoning outright, since even a well-chosen floor
+doesn't address 47.6% collateral churn on pairs the strategy was never supposed to touch.
+`matching_strategy` and `sink_rescue_strategy` both stay at their non-adopting defaults (`flat` /
+`none`) in `tuning.yaml` — nothing here changes production behavior.
