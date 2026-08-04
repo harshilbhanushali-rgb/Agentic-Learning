@@ -19,6 +19,10 @@ layer_b:
   primary_topic_relative_margin: 0.95
   max_primary_topics_per_pair: 2
   two_stage_fallback_floor: 0.50
+  sink_rescue_strategy: none
+  sink_rescue_relative_margin: 0.95
+  sink_rescue_min_similarity: 0.50
+  sink_rescue_blend_alpha: 0.6
 layer_c:
   milestone_relevance_percentile: 60
   min_milestone_call_fraction: 0.15
@@ -58,6 +62,10 @@ def test_shipped_tuning_yaml_is_valid():
     assert 0.0 < t.layer_a.primary_topic_merge_threshold <= 1.0
     assert t.layer_c.min_milestone_calls_floor >= 1
     assert t.layer_b.matching_strategy in ("flat", "strict", "soft", "fallback")
+    assert t.layer_b.sink_rescue_strategy in ("none", "response_only", "or_rule", "blended")
+    assert 0.0 < t.layer_b.sink_rescue_relative_margin <= 1.0
+    assert 0.0 < t.layer_b.sink_rescue_min_similarity <= 1.0
+    assert 0.0 < t.layer_b.sink_rescue_blend_alpha < 1.0
 
 
 def test_typo_in_key_raises_rather_than_defaulting(tmp_path):

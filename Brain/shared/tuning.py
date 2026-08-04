@@ -34,6 +34,10 @@ class LayerBTuning:
     primary_topic_relative_margin: float
     max_primary_topics_per_pair: int
     two_stage_fallback_floor: float
+    sink_rescue_strategy: str
+    sink_rescue_relative_margin: float
+    sink_rescue_min_similarity: float
+    sink_rescue_blend_alpha: float
 
 
 @dataclass(frozen=True)

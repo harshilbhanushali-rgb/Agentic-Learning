@@ -190,6 +190,48 @@ layer_b:
   # weak is more likely a stage-1 misroute than a genuine match.
   two_stage_fallback_floor: 0.50
 
+  # Layer B sink-rescue (see docs/superpowers/specs/2026-08-04-layer-b-sink-rescue-design.md).
+  # Selects which not-yet-wired assign_scenarios_with_sink_rescue strategy a future
+  # pipeline wiring decision would use. 'none' means nothing here is live -- mirrors
+  # how matching_strategy started at 'flat' before two-stage existed. No pipeline
+  # code reads this yet; compare_sink_rescue.py loops over all three strategies
+  # directly rather than reading this key.
+  sink_rescue_strategy: none
+
+  # Stage cutoff for the response-side rescue check: keep a response's own
+  # best-matching non-sink scenario(s) within this fraction of ITS best match,
+  # mirroring relative_margin's shape for the response signal instead of the
+  # trigger signal.
+  #
+  # UNCALIBRATED placeholder, mirroring primary_topic_relative_margin's own
+  # placeholder rationale: set equal to relative_margin as a starting guess until
+  # compare_sink_rescue.py measures the real response-vs-scenario similarity band
+  # -- a different, so-far-unmeasured comparison, since response and scenario
+  # descriptions are both embedded via embed_document (a document-vs-document
+  # band), not the query-vs-document band relative_margin was calibrated against.
+  sink_rescue_relative_margin: 0.95
+
+  # Absolute floor: a response-side rescue match must clear this raw cosine
+  # similarity, not just the relative margin above. Necessary because a purely
+  # relative check could rescue a pair whose response is only relatively-better-
+  # matched than the sink, without being an absolutely good match to anything real.
+  #
+  # UNCALIBRATED placeholder. Set near two_stage_fallback_floor's own starting
+  # value (0.50) for the same reason that one was: a principled starting guess
+  # near the p25 mark of the already-measured trigger-vs-scenario band, not a
+  # measured value for THIS (response-vs-scenario) band -- compare_sink_rescue.py
+  # must print that band's real percentiles before this number is trusted.
+  sink_rescue_min_similarity: 0.50
+
+  # blended strategy only: weight on the trigger vector when blending
+  # trigger+response into one matching vector (1 - this = response's weight).
+  #
+  # UNCALIBRATED placeholder. 0.6 weights the trigger higher since the rest of
+  # this file's thresholds (relative_margin, etc.) are calibrated against
+  # trigger-only similarity -- a starting guess that keeps the blend closer to
+  # today's known-good behavior by default, not a measured value.
+  sink_rescue_blend_alpha: 0.6
+
 layer_c:
   # Keep only response clauses above this percentile of relevance to their own
   # scenario vector. Removes generic cross-topic moves such as "Expressing
