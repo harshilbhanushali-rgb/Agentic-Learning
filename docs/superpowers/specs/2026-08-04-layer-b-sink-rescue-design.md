@@ -41,6 +41,8 @@ when a second, already-computed signal (the response's embedding) is available a
 
 ## The three strategies
 
+> **Superseded by [Status update 3](#status-update-3-2026-08-05-pivot-to-content-signal-gating) below.** All three are cosine-floor-gated, and round 2 (see that status update's predecessor) found the floor-based gate — not any one strategy's specific mechanics — is what can't be tuned to separate real content from wrong-but-similar content. `response_only` and `or_rule` are kept below for the historical record (the round-1/round-2 measurements are real and instructive); `blended` is retired outright, not carried forward — see Status update 3 for why. Do not treat any of the three as a live candidate.
+
 All three reuse the existing `_topk_pick` relative-margin helper unchanged — no new matching
 *rule*, only a new *input* to the existing rule (the response's own similarity to each scenario,
 computed the same way the trigger's already is). Response text is embedded via `embed_document`
@@ -287,3 +289,156 @@ samples). Not attempted in this session. `sink_rescue_response_min_similarity` a
 `sink_rescue_trigger_weak_floor` are left at their round-2 values (0.635 / 0.65) in `tuning.yaml` as
 the most-recently-measured data point, not because they're recommended for adoption —
 `sink_rescue_strategy` and `matching_strategy` remain at their non-adopting defaults throughout.
+
+## Status update 3 (2026-08-05): pivot to content-signal gating
+
+Acting on status update 2's own conclusion — this is a signal problem, not a threshold-tuning
+problem — the gate deciding *whether* to rescue a sink-bound pair is replaced with two non-embedding
+signals, both drawn from `shared/trigger_quality.py` (a new module, shared with the sibling
+[trigger-quality-gate design](2026-08-04-layer-b-trigger-quality-gate-design.md), which independently
+needs the same two functions for an unrelated decision — see "Shared module" below for how the two
+designs stay in sync without duplicating the implementation). **Routing is not touched**: once a pair
+is gated in for rescue, the existing `_topk_pick` restricted to non-sink candidates, on the response's
+own embedding, still decides which real scenario absorbs it — nothing about status updates 1-2
+showed that part was broken, only the gate deciding whether to look was.
+
+### Why an embedding floor can't do this job, restated precisely
+
+Status update 2's finding, restated as the actual mechanism: a response's cosine similarity to a
+scenario centroid measures *topical resemblance*, not *content specificity*. "My daughter's literally
+named Lennon" and a real analytics-dashboard walkthrough can sit at comparable similarity to the same
+generic business-adjacent scenario, because centroid similarity has no way to distinguish a sentence
+that carries specific, checkable content from one that merely uses similar vocabulary. Raising the
+floor moves the operating point along a curve where precision and recall trade off in lockstep — it
+never finds a corner where one improves without the other degrading, because the measurement itself
+can't see the property that actually distinguishes the two cases. A signal has to look at *what's
+literally in the text* (concrete entities, numbers, names — content a topic-similarity score is blind
+to) or at *conversational structure* (was this actually answering something) to make that distinction.
+
+### Shared module: `shared/trigger_quality.py`
+
+Respecified here for standalone readability, using the exact signatures already committed to in the
+trigger-quality-gate design — **whichever design is implemented first creates the real module; the
+second imports it, it does not re-author it.** This design consumes only the first two functions
+directly; the other two are specified for module completeness and because the sibling design depends
+on them.
+
+```python
+def concrete_entity_density(text: str) -> float:
+    """Named-entity count (spaCy NER) normalized by content-word count.
+    Requires an NER-enabled spaCy pass -- layer_b.py's _nlp disables NER for
+    speed in _is_substantive; that path stays untouched, this is an
+    additional narrow pass. Parser stays disabled (cost)."""
+
+def preceding_turn_is_question(turns: list[dict], turn_index: int) -> bool:
+    """True if turns[turn_index - 1] is a NAREN turn ending in '?' or opening
+    with a closed-class interrogative word (a grammatical category, not a
+    curated content list). False/neutral if the prior turn isn't NAREN.
+    Trigger-side only -- irrelevant to the response."""
+
+def sink_real_margin(trigger_vec, sink_centroids, real_centroids) -> float:
+    """max(cos(trigger, sink)) - max(cos(trigger, real)). Not consumed by
+    this design's gate -- specified here for module completeness; the
+    trigger-quality-gate design's own drop decision depends on it."""
+
+def trigger_response_coupling(trigger_vec, response_vec) -> float:
+    """Plain cosine between the pair's own two embeddings. Not consumed by
+    this design's gate -- available for the trigger-quality-gate design's
+    combining logic."""
+```
+
+### The gate: density is primary, question is a borderline tie-break only
+
+```python
+if concrete_entity_density(response) >= τ_density:
+    rescue = True                                    # response clearly carries content
+elif concrete_entity_density(response) < τ_low:
+    rescue = False                                    # response clearly doesn't
+else:
+    rescue = preceding_turn_is_question(turns, trigger_turn_index)   # borderline: tie-break
+```
+
+`preceding_turn_is_question` is deliberately **not** a hard AND-gate. A hard AND would risk
+reproducing `or_rule` round 1's exact trap — the design's own headline motivating case ("I'm fine
+with whatever you guys think" followed by a full dashboard walkthrough) has no guarantee the prior
+Naren turn was phrased as a question, and a hard gate that happens to exclude it would silently fail
+the one case this whole effort exists to fix. Question-context is real but weaker evidence than
+"the response itself demonstrably contains concrete content" — it describes the trigger's
+conversational position, not what the response actually says — so it only breaks ties inside a
+measured borderline band, never overrides a clear density read in either direction.
+
+**Neither `τ_density` nor `τ_low` is chosen here.** Per this codebase's own repeated rule (a
+threshold is only trustworthy after you've seen what it separates — `relative_margin`,
+`merge_cosine_threshold`, and the Layer C percentile/fraction grid were all calibrated this way, never
+guessed), both come from reading `concrete_entity_density(response)`'s distribution split by
+ground-truth label, per the next section.
+
+### Two variants, same gate, different eligible population
+
+- **`content_gate_narrow`** — only pairs that are sink-bound *today* are eligible for the gate,
+  mirroring `response_only`'s blast radius. Smallest-risk variant: can only ever change a pair that
+  is currently discarded.
+- **`content_gate_broad`** — any pair is eligible, sink-bound or not, mirroring `or_rule`'s blast
+  radius. The harness reports sink-rescue-rate and non-sink-pairs-touched as two separate numbers,
+  exactly as it does today for `or_rule` — so the collateral-damage number that broke `or_rule` round
+  2 (41.9% of already-correct non-sink pairs touched) is visible again here, against a genuinely
+  different gating mechanism, not assumed away.
+
+`blended` is **not** carried forward as a third variant. Its defect — replacing the matching vector
+for every pair, which is what let it move the sink decision itself and also what caused 47.6%
+collateral churn — is orthogonal to what gates a decision; it is a "redefine the matching vector"
+design, not a "gate" design, and status update 1 already showed it's a net-negative mechanism on its
+own terms regardless of what triggers it. Swapping its trigger for a content signal doesn't address
+why it caused damage, so it's dropped rather than re-tested a third time.
+
+### Calibration: reuse the trigger-quality-gate design's labeled sample, don't re-label
+
+The trigger-quality-gate design's `label_trigger_quality_sample.py` already plans a stratified
+~120-150 sample of **currently sink-bound pairs**, Gemma-judged coachable yes/no — which is exactly
+the population `content_gate_narrow` needs to derive `τ_density`/`τ_low` against. This design reuses
+that labeled sample rather than commissioning a second Gemma-labeling pass over the same pairs.
+
+`content_gate_broad`'s extra population — pairs already matched to a real scenario whose trigger is
+weak — is **not** covered by that sample and needs its own smaller stratified labeled set before its
+threshold can be trusted; this is an explicit added labeling cost `content_gate_broad` carries that
+`content_gate_narrow` does not, and should be weighed when deciding which variant to calibrate first.
+
+**A harness change this pivot requires, not previously needed:** `compare_sink_rescue.py` today reads
+only `trigger_text`/`response_text`/`scenario_key` off `kb_pairs` — it never needed the surrounding
+transcript. `preceding_turn_is_question` needs `turns[turn_index - 1]`, and `kb_pairs` only stores
+`call_id` + `turn_index` (see `db/schema.sql`), not the turn list itself. The harness must additionally
+join `kb_pairs.call_id -> calls.filename`, locate the source transcript file, and re-run the same
+`transcript_parser` used at extraction time to reconstruct `turns` for that call — a real, new
+dependency (filesystem + parser, not pure-DB) the harness didn't carry before. Call this out plainly
+in the implementation plan; it is not a one-line addition to the existing DB-only script.
+
+`compare_sink_rescue.py` gets updated to print `concrete_entity_density(response)` percentiles split
+by ground-truth label (coachable vs not) from the labeled sample, in the same place and style the
+existing response-similarity percentile print appears — before any rescue-rate number, per this
+design's own inherited discipline that the printed samples, not the rate, are the deciding artifact.
+
+### Testing updates for this pivot
+
+`tests/test_sink_rescue.py` is updated, not replaced, with cases for both new variants (hand-built
+inputs, same style as the existing suite): a response with density clearly above `τ_density` rescues
+regardless of `preceding_turn_is_question`; a response in the borderline band rescues only when the
+preceding turn is a question; a response with density clearly below `τ_low` never rescues regardless
+of question status. `tests/test_trigger_quality.py` (net-new, shared with the trigger-quality-gate
+design) covers the two consumed functions directly — this design adds its own call-site test cases on
+top, it does not duplicate the module's own unit tests.
+
+### Rollout updates for this pivot
+
+Unchanged posture: nothing wired into `assign_scenarios` or any pipeline module in this pass.
+`sink_rescue_strategy` gains two new enum values, `content_gate_narrow` / `content_gate_broad`;
+`response_only`/`or_rule`/`blended` remain valid enum values for historical reproducibility of the
+round-1/round-2 runs but are marked superseded, not deleted. `sink_rescue_response_min_similarity` and
+`sink_rescue_trigger_weak_floor` are retired (the floors this pivot replaces). New keys
+`sink_rescue_density_threshold` (`τ_density`) and `sink_rescue_density_borderline_floor` (`τ_low`),
+both `UNCALIBRATED placeholder` until the labeled-sample read happens — present so the gate has
+somewhere to read its numbers from, not because either value is trusted yet.
+`sink_rescue_relative_margin` is unaffected and stays live — it governs routing (`_topk_pick` picking
+*where* a rescued pair lands), which this pivot does not change. `sink_rescue_blend_alpha` becomes
+purely historical alongside `blended`. `matching_strategy` and `sink_rescue_strategy` both remain at
+their non-adopting defaults (`flat` / `none`) in `tuning.yaml` — nothing in this status update changes
+production behavior.
