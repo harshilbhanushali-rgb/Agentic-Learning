@@ -225,10 +225,10 @@ layer_b:
   # p25=0.598, p50=0.635, p75=0.664, p90=0.688 -- every percentile clears this
   # 0.50 placeholder, so today it filters nothing at all.
   #
-  # UNCALIBRATED placeholder still -- 0.50 needs to move toward the measured
-  # band (p50=0.635 / p75=0.664), not stay near two_stage_fallback_floor's
-  # value, which belongs to the other (trigger) band entirely.
-  sink_rescue_response_min_similarity: 0.50
+  # Recalibration round 2 (2026-08-04): moved to the measured p50 (0.635) as
+  # the first real data point off the 0.50 placeholder -- see the "or_rule
+  # recalibration" status update below for what this produced.
+  sink_rescue_response_min_similarity: 0.635
 
   # Absolute floor deciding whether the TRIGGER's own top1 match is "weak"
   # enough for or_rule to let the response attempt an override. This is the
@@ -238,9 +238,19 @@ layer_b:
   # percentiles printed by compare_sink_rescue.py; it is a different
   # comparison entirely.
   #
-  # UNCALIBRATED placeholder. Set near the p25 mark of that trigger band, same
-  # starting-guess rationale as two_stage_fallback_floor's own 0.50.
-  sink_rescue_trigger_weak_floor: 0.50
+  # DIRECTION, corrected 2026-08-04 (the first round's CLAUDE.md writeup had
+  # this backwards): the comparison is `t_sims[best] < floor` -- RAISING this
+  # value makes MORE pairs count as "weak" and reach the response check, it
+  # does not shrink the population. At 0.50, 1616/1865 (87%) of sink-bound
+  # pairs never reached the check at all because their trigger's own match to
+  # the sink was already >= 0.50 (sink/backchannel clusters are lexically
+  # tight, so a confident sink match is common, not rare). Round 2: raised to
+  # 0.65, comfortably above the trigger band's own p90 (0.613), specifically
+  # to pull in most of those confidently-sink-matched pairs too -- since that
+  # confident-sink-trigger-but-substantive-response case is this whole
+  # design's original motivating failure shape, which round 1 (floor=0.50)
+  # structurally could not reach.
+  sink_rescue_trigger_weak_floor: 0.65
 
   # blended strategy only: weight on the trigger vector when blending
   # trigger+response into one matching vector (1 - this = response's weight).

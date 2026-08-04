@@ -235,3 +235,48 @@ after a winner is picked, rather than deleting the losing implementations. This 
 precedent is that thresholds get re-swept as the corpus grows (416 calls today, more later), so
 keeping every variant selectable is cheap insurance against needing this exact comparison again
 at a larger corpus size, rather than re-deriving it from scratch.
+
+## Status update 4 (2026-08-03) — full 416-call corpus comparison: the subset numbers did not hold
+
+The dependency this spec always flagged as open — real `primary_topics` at full corpus scale, not
+a subset — landed via the first full production run (2026-08-02: 416 calls, 157 scenarios, 80
+primary_topics, 4605 kb_pairs; see `CLAUDE.md`'s "First full-corpus production run" entry). Ran
+`compare_matching_subset.py --sweep-floor` unmodified against the live `public` schema (it has no
+hardcoded subset filter despite its docstring/filename — it just reads whatever `kb_pairs` /
+`scenarios` / `primary_topics` are currently in the connected DB). Zero Gemma calls, zero DB
+writes, effectively instant — every trigger text was already embedded during the real production
+Layer B run, so this hits the embedding cache.
+
+| Strategy | 150-call subset recall-proxy (`subset150_nested_20260731`) | **416-call full corpus recall-proxy** |
+|---|---|---|
+| Strict | 69.9% | **61.3%** |
+| Soft | 83.6% | **77.0%** |
+| Fallback (floor 0.50) | 82.1% | **71.4%** |
+
+**Every strategy diverges from flat matching MORE at full scale, not less.** This is the opposite
+of what you'd hope for (more data usually stabilizes a signal) but is mechanically consistent with
+the design's own stated "central risk": going from 69 scenarios / 28 primary_topics (subset) to 157
+scenarios / 80 primary_topics (full corpus) gives the coarse first stage far more ways to select the
+wrong parent category for a trigger, and a wrong stage-1 pick is unrecoverable by construction for
+Strict, and degrades Soft's blended ranking too. The subset numbers were not conservative
+under-estimates of a real effect — they were optimistic, exactly the risk this spec flagged when it
+deferred building the permanent `--matching-compare` tool against subset-only data.
+
+The floor-sweep pathology also reproduces cleanly at full scale, confirming it is not a subset-size
+artifact: floor 0.50 (current `tuning.yaml` placeholder) → 11.5% reroute / 71.4% agreement; floor
+0.55 → 30.5% reroute / 86.0% agreement; floor 0.60 → 49.3% reroute / 97.6% agreement; floor 0.70 →
+59.3% reroute / 100.0% agreement. As before, raising the floor doesn't make Fallback more accurate —
+it just discards more of the two-stage result and substitutes flat's own answer, which trivially
+"agrees" with flat. The metric still cannot be swept to a value; this was never a small-corpus
+limitation.
+
+**Revised conclusion:** Soft remains the best-performing of the three variants, exactly as at
+subset scale, but its own full-scale numbers are markedly worse than the subset run suggested
+(83.6% → 77.0%). Combined with the still-unresolved absence of any ground-truth accuracy signal
+(these numbers measure divergence from flat, never correctness), full-scale data makes the case for
+shipping two-stage matching **weaker**, not stronger. `matching_strategy` stays `flat` in
+production. This is not a "wait for more data" situation — the data this spec was waiting for has
+now arrived, and it argues against adoption rather than for it. Any future case for reviving this
+would need either a real ground-truth labeling effort (a sample of pairs hand-annotated with the
+"correct" scenario_key) or a fundamentally different narrowing signal than the current
+primary_topic vectors, not a larger corpus.

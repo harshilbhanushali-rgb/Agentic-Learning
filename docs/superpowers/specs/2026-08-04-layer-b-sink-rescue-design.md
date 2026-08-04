@@ -240,12 +240,50 @@ different directions for different reasons, not as one number: `sink_rescue_resp
 (the RESPONSE-side floor `_response_rescue` applies) should move toward the response band measured
 above (p50=0.635 / p75=0.664, not the current 0.50 placeholder), while `sink_rescue_trigger_weak_floor`
 (the gate deciding whether `or_rule` even looks at the response) is a different knob entirely,
-against the trigger band (p10=0.496, p50=0.550) `relative_margin` itself was calibrated against —
-and, per the caveat above, raising it further would only shrink `or_rule`'s already-narrow
-qualifying population further, not fix its precision on the population it does touch. `response_only`
+against the trigger band (p10=0.496, p50=0.550) `relative_margin` itself was calibrated against.
+**Correction:** the sentence in the original version of this paragraph said raising
+`sink_rescue_trigger_weak_floor` would "shrink" `or_rule`'s qualifying population — that was
+backwards. The gate is `t_sims[best] < floor`, so *raising* the floor makes *more* pairs count as
+weak and reach the response check; it grows the population, it does not shrink it. `response_only`
 and `blended` both have a structural failure mode, not just a mistuned number: `response_only`'s
 response floor needs to move by roughly half the observed range, and `blended` may need `alpha`
 pushed much closer to 1.0 (trusting the trigger far more) or abandoning outright, since even a
 well-chosen floor doesn't address 47.6% collateral churn on pairs the strategy was never supposed
 to touch. `matching_strategy` and `sink_rescue_strategy` both stay at their non-adopting defaults
 (`flat` / `none`) in `tuning.yaml` — nothing here changes production behavior.
+
+## Status update 2 (2026-08-04): or_rule recalibration round 2 — reproduces blended's exact fatal flaw
+
+Acting on the recommendation above, `sink_rescue_response_min_similarity` was raised to the
+measured p50 (0.635) and `sink_rescue_trigger_weak_floor` was raised to 0.65 (comfortably above the
+trigger band's own p90 of 0.613) specifically to pull in the confidently-sink-matched pairs that
+round 1's 0.50 floor structurally excluded — i.e., to finally let `or_rule` reach failure shape #1,
+the design's original motivating case. Full output: `Brain/compare_sink_rescue_round2_20260804.log`.
+
+**It worked, in the sense that it moved the population — and that's exactly the problem.**
+`or_rule`'s rescue rate rose from 8.5% (159/1,865) to 39.5% (736/1,865), confirming the population
+really was gated by trigger confidence, not precision. But `or_rule`'s non-sink collateral damage
+rose from 4.7% (130/2,740) to **41.9% (1,147/2,740)** — reproducing `blended`'s round-1 fatal flaw
+(47.6% churn) almost exactly, for the same underlying reason: once the trigger-side gate is loosened
+enough to reach genuinely confident matches, it can no longer distinguish "confidently matches a
+sink" from "confidently matches a real scenario weakly relative to some other candidate," and starts
+overriding good matches too. Reading the newly-rescued samples found the same quality ceiling as
+round 1 — personal small talk ("my daughter's literally named Lennon"), a 2.5-months-on-the-job
+self-introduction, and note-taking asides all get filed into the same handful of generic scenarios
+(`feasibility_and_implementation_request`, `client_requests_operational_visualization`) — no
+meaningfully better than round 1's already-poor precision. `response_only` alone also moved (raising
+just its response floor to 0.635 cut its over-rescue from 95.2% to 41.0%), but the same gravity-well
+absorption and wrong-match pattern persisted at the new rate too.
+
+**Revised bottom line: this isn't a threshold-tuning problem, it's a signal problem.** Three
+different strategies, at multiple tested settings, all converge on the same trade: any setting loose
+enough to catch real rescued content is also loose enough to catch wrong content in comparable
+volume, because trigger/response embedding similarity alone doesn't cleanly separate "real content
+phrased in generic business language" from "junk that happens to phrase itself similarly." Further
+sweeps of these same two floors are unlikely to find a clean operating point — a real next step would
+need a different signal entirely (e.g. response length/substantiveness as a cheap pre-filter, or a
+small hand-labeled validation set to actually measure precision/recall instead of reading unlabeled
+samples). Not attempted in this session. `sink_rescue_response_min_similarity` and
+`sink_rescue_trigger_weak_floor` are left at their round-2 values (0.635 / 0.65) in `tuning.yaml` as
+the most-recently-measured data point, not because they're recommended for adoption —
+`sink_rescue_strategy` and `matching_strategy` remain at their non-adopting defaults throughout.
