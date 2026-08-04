@@ -271,6 +271,111 @@ def assign_scenarios_two_stage(
     return trigger_vecs
 
 
+def _flat_pick(
+    sims: np.ndarray,
+    keys: list[str],
+    is_sink_arr: list[bool],
+    cap: int,
+    margin: float,
+) -> list[str]:
+    """Reproduces assign_scenarios's own per-pair sink-short-circuit + relative-margin
+    logic on an arbitrary similarity vector, so assign_scenarios_with_sink_rescue can
+    apply it to a trigger, response, or blended vector without duplicating the loop
+    body per strategy. assign_scenarios itself is left untouched -- this is a new
+    helper for the new function, not a refactor of the calibrated one.
+    """
+    order = np.argsort(sims)[::-1]
+    best_j = int(order[0])
+    if is_sink_arr[best_j]:
+        return [keys[best_j]]
+    cutoff = margin * float(sims[best_j])
+    kept = [
+        keys[int(j)] for j in order[:cap]
+        if float(sims[int(j)]) >= cutoff and not is_sink_arr[int(j)]
+    ]
+    return kept or [keys[best_j]]
+
+
+def assign_scenarios_with_sink_rescue(
+    pairs: list[dict],
+    scenario_map: dict[str, dict],
+    config: Config,
+    strategy: str,
+) -> tuple[list[list[float]], list[list[float]]]:
+    """Sink-rescue variant of assign_scenarios: response_only / or_rule / blended.
+
+    See docs/superpowers/specs/2026-08-04-layer-b-sink-rescue-design.md for the problem
+    this solves (sink absorption discarding real content whose RESPONSE, not trigger,
+    carries the value) and why each strategy is shaped this way.
+
+    UNCALIBRATED as of 2026-08-04 -- sink_rescue_relative_margin, sink_rescue_min_similarity,
+    and sink_rescue_blend_alpha are all placeholders until compare_sink_rescue.py measures
+    real response-vs-scenario similarity. Kept fully separate from assign_scenarios (flat)
+    -- that function's own calibration (relative_margin=0.95, etc.) is untouched by this code.
+
+    Returns (trigger_vecs, response_vecs) so a future wired-in caller could reuse both,
+    mirroring assign_scenarios's existing trigger_vecs reuse into embed_and_store_pairs.
+    """
+    if not pairs:
+        return [], []
+
+    trigger_texts = [p["trigger_text"] for p in pairs]
+    response_texts = [p["response_text"] for p in pairs]
+    trigger_vecs = embedder.embed_query(trigger_texts)
+    response_vecs = embedder.embed_document(response_texts)
+
+    if not scenario_map:
+        return trigger_vecs, response_vecs
+
+    tuning = load_tuning().layer_b
+    scenario_keys, scenario_vecs = _build_scenario_vecs(scenario_map)
+    is_sink = [not scenario_map[k].get("is_coachable", True) for k in scenario_keys]
+
+    T = np.array(trigger_vecs)
+    R = np.array(response_vecs)
+    S = np.array(scenario_vecs)
+    T_norm = T / (np.linalg.norm(T, axis=1, keepdims=True) + 1e-10)
+    R_norm = R / (np.linalg.norm(R, axis=1, keepdims=True) + 1e-10)
+    S_norm = S / (np.linalg.norm(S, axis=1, keepdims=True) + 1e-10)
+    trigger_sims = T_norm @ S_norm.T
+    response_sims = R_norm @ S_norm.T
+
+    def _assign(pair, keys):
+        pair["scenario_keys"] = keys
+        pair["scenario_key"] = keys[0]
+        pair["scenario_id"] = scenario_map[keys[0]]["scenario_id"]
+
+    def _response_rescue(i):
+        r_kept = _topk_pick(
+            response_sims[i], scenario_keys, is_sink,
+            tuning.max_scenarios_per_pair, tuning.sink_rescue_relative_margin,
+        )
+        if r_kept is None:
+            return None
+        r_best_sim = float(response_sims[i][scenario_keys.index(r_kept[0])])
+        if r_best_sim < tuning.sink_rescue_min_similarity:
+            return None
+        return r_kept
+
+    for i, pair in enumerate(pairs):
+        t_sims = trigger_sims[i]
+        t_best_j = int(np.argsort(t_sims)[::-1][0])
+
+        if strategy == "response_only":
+            if is_sink[t_best_j]:
+                rescued = _response_rescue(i)
+                _assign(pair, rescued or [scenario_keys[t_best_j]])
+            else:
+                _assign(pair, _flat_pick(
+                    t_sims, scenario_keys, is_sink,
+                    tuning.max_scenarios_per_pair, tuning.relative_margin,
+                ))
+        else:
+            raise ValueError(f"unknown sink-rescue strategy: {strategy!r}")
+
+    return trigger_vecs, response_vecs
+
+
 def embed_and_store_pairs(
     pairs: list[dict],
     conn: psycopg.Connection,
