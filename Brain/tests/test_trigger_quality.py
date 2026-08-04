@@ -5,8 +5,15 @@ and the trigger-quality-gate design
 Real spaCy runs here (these are structural/linguistic properties, not embeddings) --
 this tests the signal functions themselves, not their callers.
 """
+import pytest
+
 from preprocessing.transcript_parser import Turn, SpeakerRole
-from shared.trigger_quality import concrete_entity_density, preceding_turn_is_question
+from shared.trigger_quality import (
+    concrete_entity_density,
+    preceding_turn_is_question,
+    sink_real_margin,
+    trigger_response_coupling,
+)
 
 
 def test_concrete_entity_density_high_for_specific_text():
@@ -58,3 +65,26 @@ def test_preceding_turn_is_question_false_when_prior_turn_is_not_naren():
 def test_preceding_turn_is_question_false_at_index_zero():
     turns = [_turn(0, SpeakerRole.CLIENT, "Hello")]
     assert preceding_turn_is_question(turns, 0) is False
+
+
+def test_sink_real_margin_identical_to_sink_orthogonal_to_real():
+    trigger = [1.0, 0.0, 0.0]
+    sink_centroids = [[1.0, 0.0, 0.0]]      # cos == 1.0
+    real_centroids = [[0.0, 1.0, 0.0]]      # cos == 0.0
+    assert sink_real_margin(trigger, sink_centroids, real_centroids) == pytest.approx(1.0)
+
+
+def test_sink_real_margin_negative_when_real_dominates():
+    trigger = [0.0, 1.0, 0.0]
+    sink_centroids = [[1.0, 0.0, 0.0]]      # cos == 0.0
+    real_centroids = [[0.0, 1.0, 0.0]]      # cos == 1.0
+    assert sink_real_margin(trigger, sink_centroids, real_centroids) == pytest.approx(-1.0)
+
+
+def test_trigger_response_coupling_identical_vectors():
+    v = [1.0, 2.0, 3.0]
+    assert trigger_response_coupling(v, v) == pytest.approx(1.0)
+
+
+def test_trigger_response_coupling_orthogonal_vectors():
+    assert trigger_response_coupling([1.0, 0.0], [0.0, 1.0]) == pytest.approx(0.0)

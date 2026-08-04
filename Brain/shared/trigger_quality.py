@@ -53,3 +53,28 @@ def preceding_turn_is_question(turns: list[Turn], turn_index: int) -> bool:
         return False
     first = doc[0]
     return first.tag_ in _WH_TAGS or first.pos_ == "AUX"
+
+
+def _unit(v: np.ndarray) -> np.ndarray:
+    return v / (np.linalg.norm(v) + 1e-10)
+
+
+def sink_real_margin(
+    trigger_vec: list[float],
+    sink_centroids: list[list[float]],
+    real_centroids: list[list[float]],
+) -> float:
+    """max(cos(trigger, sink)) - max(cos(trigger, real)). Higher = more
+    filler-like. Not consumed by the sink-rescue gate -- specified here for
+    module completeness; the trigger-quality-gate design's drop decision uses it."""
+    t = _unit(np.array(trigger_vec))
+    sink_sims = [float(t @ _unit(np.array(c))) for c in sink_centroids]
+    real_sims = [float(t @ _unit(np.array(c))) for c in real_centroids]
+    return max(sink_sims) - max(real_sims)
+
+
+def trigger_response_coupling(trigger_vec: list[float], response_vec: list[float]) -> float:
+    """Plain cosine between a pair's own trigger and response embeddings.
+    Not consumed by the sink-rescue gate -- available for the
+    trigger-quality-gate design's combining logic."""
+    return float(_unit(np.array(trigger_vec)) @ _unit(np.array(response_vec)))
