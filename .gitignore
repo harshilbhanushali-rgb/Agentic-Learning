@@ -19,3 +19,4 @@ Brain/checkpoints.db
 # Calibration run byproducts: transcript subsets and run logs, not source
 Brain/recordings_subset*/
 Brain/*.log
+Brain/trigger_quality_labels.json
