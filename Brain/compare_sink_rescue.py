@@ -1,12 +1,23 @@
 #!/usr/bin/env python3
-"""Zero-Gemma comparison of the three sink-rescue strategies (response_only /
-or_rule / blended) from docs/superpowers/specs/2026-08-04-layer-b-sink-rescue-design.md
-against the real, already-populated corpus.
+"""Zero-Gemma comparison of the sink-rescue strategies from
+docs/superpowers/specs/2026-08-04-layer-b-sink-rescue-design.md against the
+real, already-populated corpus: response_only / or_rule / blended (rounds
+1-2, cosine-floor-gated, kept for historical reproducibility) plus
+content_gate_narrow (Status update 3's pivot).
 
 Read-only against Postgres: trigger_text and response_text are real columns on
 kb_pairs, so no Pinecone read is needed. Re-runs assign_scenarios_with_sink_rescue
 in memory for each strategy over the same real texts. No DB writes, no Gemma calls
 -- embedder calls go through the disk cache, which is warm for this corpus.
+
+content_gate_narrow runs here with turns=None -- its borderline-density
+tie-break (preceding_turn_is_question) always resolves to "no rescue" without a
+reconstructed transcript, so this run under-counts rescues in that narrow band.
+Wiring real transcript reconstruction (join calls.filename, re-run
+transcript_parser) is real, separate work the design itself flags as such --
+deferred until label_trigger_quality_sample.py's real run has calibrated
+sink_rescue_density_threshold/_borderline_floor/_min_words off placeholder
+values, at which point this harness is worth extending to match.
 """
 from __future__ import annotations
 import random
@@ -21,6 +32,7 @@ import numpy as np
 from config import load_config
 from preprocessing import embedder
 from shared import storage
+from shared import trigger_quality as tq
 from shared.scenario_vectors import build_scenario_vecs
 from v1 import layer_b
 
@@ -63,6 +75,25 @@ def _print_response_similarity_percentiles(real_pairs: list[dict], scenario_map:
           f"({len(real_pairs)} pairs):")
     print("  " + "  ".join(
         f"p{p}={np.percentile(best_non_sink, p):.3f}" for p in (10, 25, 50, 75, 90)
+    ))
+
+
+def _print_density_percentiles(real_pairs: list[dict], scenario_map: dict) -> None:
+    """Unlabeled density percentiles across all sink-bound pairs -- a cheap
+    signal even without ground truth, but not a substitute for
+    label_trigger_quality_sample.py's split-by-label read, which is what
+    actually calibrates sink_rescue_density_threshold/_borderline_floor.
+    """
+    sink_bound = [p for p in real_pairs if not scenario_map[p["flat_key"]]["is_coachable"]]
+    if not sink_bound:
+        print("\nNo sink-bound pairs today -- nothing to compute density percentiles over.")
+        return
+    densities = [tq.concrete_content_density(p["response_text"]) for p in sink_bound]
+    print(f"\nconcrete_content_density(response) across all {len(sink_bound)} sink-bound "
+          f"pair(s) today (unlabeled -- see label_trigger_quality_sample.py for the real, "
+          f"ground-truth-split calibration read):")
+    print("  " + "  ".join(
+        f"p{p}={np.percentile(densities, p):.3f}" for p in (10, 25, 50, 75, 90)
     ))
 
 
@@ -124,10 +155,13 @@ def main() -> None:
         sys.exit(1)
 
     _print_response_similarity_percentiles(real_pairs, scenario_map)
+    _print_density_percentiles(real_pairs, scenario_map)
 
-    for strategy in ("response_only", "or_rule", "blended"):
+    for strategy in ("response_only", "or_rule", "blended", "content_gate_narrow"):
         pairs = _fresh_pairs(real_pairs)
-        layer_b.assign_scenarios_with_sink_rescue(pairs, scenario_map, config=None, strategy=strategy)
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, scenario_map, config=None, strategy=strategy, turns=None,
+        )
         _report(strategy, real_pairs, scenario_map, pairs)
 
 

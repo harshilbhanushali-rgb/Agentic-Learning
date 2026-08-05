@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 
 from preprocessing import embedder
+from preprocessing.transcript_parser import SpeakerRole, Turn
 from shared.tuning import load_tuning
 from v1 import layer_b
 
@@ -59,9 +60,13 @@ def _scenario_map():
     }
 
 
-def _pair(trigger, response):
+def _pair(trigger, response, turn_index=1):
     return {"trigger_text": trigger, "response_text": response,
-            "scenario_key": None, "scenario_id": None}
+            "scenario_key": None, "scenario_id": None, "turn_index": turn_index}
+
+
+def _turn(index, role, text):
+    return Turn(index=index, speaker_raw=role.value, role=role, text=text, call_id="c1")
 
 
 class TestResponseOnly:
@@ -219,6 +224,107 @@ class TestBlended:
         ]
         layer_b.assign_scenarios_with_sink_rescue(
             pairs, _scenario_map(), config=None, strategy="blended",
+        )
+        assert all(p["scenario_key"] is not None for p in pairs)
+
+
+class TestContentGateNarrow:
+    """Status update 3's pivot: the gate deciding whether to look at the
+    response is concrete_content_density (+ preceding_turn_is_question as a
+    borderline tie-break only), not a cosine floor. Routing once gated in is
+    untouched -- still _topk_pick on the response embedding.
+
+    The three signal functions are monkeypatched to fixed values so these
+    tests check the GATE's rule, not shared/trigger_quality.py's own NLP
+    behaviour (that module has its own tests) or today's UNCALIBRATED
+    placeholder threshold values -- mirrors how test_layer_b_assignment.py
+    mocks the embedder instead of testing a real embedding model.
+    """
+
+    def _patch(self, monkeypatch, *, word_count, density, is_question=None):
+        def _boom(*a, **k):
+            raise AssertionError("preceding_turn_is_question must not be called here")
+
+        monkeypatch.setattr(layer_b.tq, "content_word_count", lambda text: word_count)
+        monkeypatch.setattr(layer_b.tq, "concrete_content_density", lambda text: density)
+        monkeypatch.setattr(
+            layer_b.tq, "preceding_turn_is_question",
+            (lambda turns, idx: is_question) if is_question is not None else _boom,
+        )
+
+    def test_high_density_rescues_without_consulting_question_signal(self, fake_embeddings, monkeypatch):
+        tuning = load_tuning().layer_b
+        self._patch(monkeypatch, word_count=tuning.sink_rescue_density_min_words + 5,
+                    density=tuning.sink_rescue_density_threshold + 0.1)
+        pairs = [_pair("ack:1.0", "pricing:1.0")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_narrow", turns=None,
+        )
+        assert pairs[0]["scenario_keys"] == ["pricing"]
+
+    def test_low_density_never_rescues_without_consulting_question_signal(self, fake_embeddings, monkeypatch):
+        tuning = load_tuning().layer_b
+        self._patch(monkeypatch, word_count=tuning.sink_rescue_density_min_words + 5,
+                    density=tuning.sink_rescue_density_borderline_floor - 0.05)
+        pairs = [_pair("ack:1.0", "pricing:1.0")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_narrow", turns=None,
+        )
+        assert pairs[0]["scenario_keys"] == ["ack"]
+
+    def test_borderline_density_rescues_only_when_preceding_turn_is_a_question(self, fake_embeddings, monkeypatch):
+        tuning = load_tuning().layer_b
+        midpoint = (tuning.sink_rescue_density_threshold + tuning.sink_rescue_density_borderline_floor) / 2.0
+        turns = [_turn(0, SpeakerRole.NAREN, "What do you think?"), _turn(1, SpeakerRole.CLIENT, "ack")]
+
+        self._patch(monkeypatch, word_count=tuning.sink_rescue_density_min_words + 5,
+                    density=midpoint, is_question=True)
+        pairs = [_pair("ack:1.0", "pricing:1.0", turn_index=1)]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_narrow", turns=turns,
+        )
+        assert pairs[0]["scenario_keys"] == ["pricing"]
+
+        self._patch(monkeypatch, word_count=tuning.sink_rescue_density_min_words + 5,
+                    density=midpoint, is_question=False)
+        pairs = [_pair("ack:1.0", "pricing:1.0", turn_index=1)]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_narrow", turns=turns,
+        )
+        assert pairs[0]["scenario_keys"] == ["ack"]
+
+    def test_too_short_a_response_never_rescues_regardless_of_density(self, fake_embeddings, monkeypatch):
+        tuning = load_tuning().layer_b
+        # density is set to a clearly-rescuing value on purpose -- the length
+        # guard must short-circuit before density is ever consulted.
+        self._patch(monkeypatch, word_count=max(tuning.sink_rescue_density_min_words - 1, 0),
+                    density=tuning.sink_rescue_density_threshold + 0.5, is_question=True)
+        pairs = [_pair("ack:1.0", "pricing:1.0")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_narrow", turns=None,
+        )
+        assert pairs[0]["scenario_keys"] == ["ack"]
+
+    def test_non_sink_pair_is_unaffected(self, fake_embeddings, monkeypatch):
+        tuning = load_tuning().layer_b
+        self._patch(monkeypatch, word_count=0, density=0.0)
+        pairs = [_pair("pricing:1.0", "quality:1.0")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_narrow", turns=None,
+        )
+        assert pairs[0]["scenario_keys"] == ["pricing"]
+
+    def test_every_pair_is_always_assigned(self, fake_embeddings, monkeypatch):
+        tuning = load_tuning().layer_b
+        self._patch(monkeypatch, word_count=tuning.sink_rescue_density_min_words + 5,
+                    density=tuning.sink_rescue_density_threshold + 0.1)
+        pairs = [
+            _pair("pricing:1.0", "quality:1.0"),
+            _pair("ack:1.0", "pricing:1.0"),
+            _pair("ack:1.0", "ack:1.0"),
+        ]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_narrow", turns=None,
         )
         assert all(p["scenario_key"] is not None for p in pairs)
 

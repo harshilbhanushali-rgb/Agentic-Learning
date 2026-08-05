@@ -10,6 +10,7 @@ from shared import pinecone_store
 from shared.scenario_vectors import build_scenario_vecs as _build_scenario_vecs
 from shared.scenario_vectors import build_primary_topic_vecs as _build_primary_topic_vecs
 from shared.tuning import load_tuning
+from shared import trigger_quality as tq
 
 _MIN_CONTENT_WORDS = 5
 
@@ -301,18 +302,29 @@ def assign_scenarios_with_sink_rescue(
     scenario_map: dict[str, dict],
     config: Config,
     strategy: str,
+    turns: list[Turn] | None = None,
 ) -> tuple[list[list[float]], list[list[float]]]:
-    """Sink-rescue variant of assign_scenarios: response_only / or_rule / blended.
+    """Sink-rescue variant of assign_scenarios: response_only / or_rule / blended /
+    content_gate_narrow.
 
     See docs/superpowers/specs/2026-08-04-layer-b-sink-rescue-design.md for the problem
     this solves (sink absorption discarding real content whose RESPONSE, not trigger,
     carries the value) and why each strategy is shaped this way.
 
-    UNCALIBRATED as of 2026-08-04 -- sink_rescue_relative_margin, sink_rescue_response_min_similarity,
-    sink_rescue_trigger_weak_floor, and sink_rescue_blend_alpha are all placeholders until
-    compare_sink_rescue.py measures real response-vs-scenario similarity. Kept fully separate
-    from assign_scenarios (flat) -- that function's own calibration (relative_margin=0.95, etc.)
-    is untouched by this code.
+    response_only/or_rule/blended are the original cosine-floor-gated strategies (rounds
+    1-2, both measured and found not to separate real content from junk -- kept for
+    historical reproducibility, not recommended). content_gate_narrow is Status update 3's
+    pivot: the gate deciding WHETHER to look at a sink-bound pair's response is
+    concrete_content_density + preceding_turn_is_question (a borderline tie-break only),
+    not a cosine floor -- routing once gated in is untouched, still _topk_pick on the
+    response embedding. `turns` (the full per-call turn list, in the same order
+    extract_pairs consumed) is required for content_gate_narrow/content_gate_broad's
+    preceding_turn_is_question check; every other strategy ignores it.
+
+    UNCALIBRATED as of 2026-08-04/05 -- every sink_rescue_* tuning key here is a
+    placeholder until compare_sink_rescue.py / label_trigger_quality_sample.py measure
+    the real bands. Kept fully separate from assign_scenarios (flat) -- that function's
+    own calibration (relative_margin=0.95, etc.) is untouched by this code.
 
     sink_rescue_response_min_similarity and sink_rescue_trigger_weak_floor are deliberately
     separate tuning keys, not one shared value: the former gates a RESPONSE-vs-scenario
@@ -395,6 +407,34 @@ def assign_scenarios_with_sink_rescue(
                 blend_sims, scenario_keys, is_sink,
                 tuning.max_scenarios_per_pair, tuning.relative_margin,
             ))
+        elif strategy == "content_gate_narrow":
+            if not is_sink[t_best_j]:
+                _assign(pair, _flat_pick(
+                    t_sims, scenario_keys, is_sink,
+                    tuning.max_scenarios_per_pair, tuning.relative_margin,
+                ))
+                continue
+            response = pair["response_text"]
+            if tq.content_word_count(response) < tuning.sink_rescue_density_min_words:
+                rescue = False
+            else:
+                density = tq.concrete_content_density(response)
+                if density >= tuning.sink_rescue_density_threshold:
+                    rescue = True
+                elif density < tuning.sink_rescue_density_borderline_floor:
+                    rescue = False
+                else:
+                    rescue = turns is not None and tq.preceding_turn_is_question(
+                        turns, pair["turn_index"],
+                    )
+            if rescue:
+                r_kept = _topk_pick(
+                    response_sims[i], scenario_keys, is_sink,
+                    tuning.max_scenarios_per_pair, tuning.sink_rescue_relative_margin,
+                )
+                _assign(pair, r_kept or [scenario_keys[t_best_j]])
+            else:
+                _assign(pair, [scenario_keys[t_best_j]])
         else:
             raise ValueError(f"unknown sink-rescue strategy: {strategy!r}")
 

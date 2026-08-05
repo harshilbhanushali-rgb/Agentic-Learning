@@ -184,6 +184,39 @@ Respond ONLY with valid JSON -- a single array with exactly one object per item,
 ]
 """
 
+# Ground-truth labeling for shared/trigger_quality.py's calibration
+# (label_trigger_quality_sample.py). Judges a sink-bound pair's RESPONSE for
+# genuine coachability regardless of how filler-like its trigger sounds --
+# the exact judgment call assign_scenarios's trigger-only sink decision
+# cannot make. See docs/superpowers/specs/2026-08-04-layer-b-trigger-quality-gate-design.md
+# ("Ground-truth labeling") and the sink-rescue design's Status update 3
+# ("Calibration"), which both consume this script's output. Batched (5 per
+# call) mirroring PROMPT_LAYER_C_MILESTONE_TRIAGE_BATCH's rationale for
+# small, numerous items.
+PROMPT_TRIGGER_QUALITY_JUDGE = """\
+You are auditing trigger-response pairs from Naren Shankar's sales coaching knowledge base.
+Each pair below was discarded by the pipeline's scenario-matching step because the CLIENT's
+trigger utterance embedded closest to a non-coachable "sink" scenario (mechanics, backchannel,
+or logistics chatter) -- but that decision only ever looked at the trigger, never the response
+that followed. Some of these responses are genuinely substantive coaching content that was
+wrongly discarded; others are correctly discarded junk.
+
+Each item below has a unique "id". Judge EACH item independently using only its own trigger and
+response -- do not let one item influence another.
+
+ITEMS:
+{items_block}
+
+For each item, decide: is the RESPONSE genuinely coachable content -- specific, strategic, or
+substantive enough that a rep should be coached on how Naren handled it -- regardless of how
+generic or filler-like the trigger sounds?
+
+Respond ONLY with valid JSON -- a single array with exactly one object per item, in this shape:
+[
+  {{"id": "<id>", "coachable": true, "reason": "one sentence justifying the decision"}}
+]
+"""
+
 PROMPT_LAYER_B_CLEAN = """\
 Clean the following transcript excerpt. Remove disfluencies (um, uh, filler like/you know/I mean) while preserving content and voice.
 

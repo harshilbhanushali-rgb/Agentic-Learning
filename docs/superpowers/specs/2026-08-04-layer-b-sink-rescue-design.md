@@ -324,17 +324,30 @@ directly; the other two are specified for module completeness and because the si
 on them.
 
 ```python
+def content_word_count(text: str) -> int:
+    """Non-stop, alphabetic token count -- the same content-word definition
+    concrete_content_density divides by. Named but never actually declared
+    in this design's original function list despite the gate pseudocode
+    below calling it directly -- added here as a fifth small utility,
+    closing that gap, found during implementation."""
+
 def concrete_content_density(text: str) -> float:
-    """(named_entity_count + noun_chunk_count) / content_word_count. Requires
-    both NER and the dependency parser enabled -- layer_b.py's _nlp disables
-    both for speed in _is_substantive; that path stays untouched, this is an
-    additional narrow pass run only over already-extracted candidate pairs'
-    text, not the corpus-wide clause pool Layer A/C process, so the added
-    parser cost is bounded and known upfront. Renamed from
-    concrete_entity_density (2026-08-05 revision) after named-entity-only
-    density was found likely to miss specific-but-entity-free content (e.g.
-    a process/strategy description with no proper nouns or numbers) --
-    noun-chunk density is a second term meant to catch that slice."""
+    """(named_entity_count + noun_chunk_count) / content_word_count, where
+    noun_chunk_count EXCLUDES chunks whose root is a bare pronoun (e.g. "I",
+    "that", "me") -- spaCy counts these as noun chunks, but measured directly
+    against real filler text ("Yeah, I think so. Sounds good to me.") they
+    inflated density to 0.5, comparable to genuinely specific content, which
+    would have defeated the whole point of adding this term. Excluding them
+    separates cleanly: that same filler -> 0.0, a specific-but-entity-free
+    response ("We segment bids by device type...") -> 0.33, an entity-rich
+    response -> 1.4+. Requires both NER and the dependency parser enabled --
+    layer_b.py's _nlp disables both for speed in _is_substantive; that path
+    stays untouched, this is an additional narrow pass run only over
+    already-extracted candidate pairs' text, not the corpus-wide clause pool
+    Layer A/C process, so the added parser cost is bounded and known upfront.
+    Renamed from concrete_entity_density (2026-08-05 revision) after
+    named-entity-only density was found likely to miss specific-but-entity-free
+    content -- noun-chunk density is a second term meant to catch that slice."""
 
 def preceding_turn_is_question(turns: list[dict], turn_index: int) -> bool:
     """True if turns[turn_index - 1] is a NAREN turn ending in '?' or opening

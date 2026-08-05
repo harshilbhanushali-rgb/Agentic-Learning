@@ -92,16 +92,21 @@ here; each function returns a continuous (or boolean) score per pair.
 
 - **`concrete_content_density(text) -> float`** *(renamed from `concrete_entity_density`,
   2026-08-05 revision)*
-  `(named_entity_count + noun_chunk_count) / content_word_count`. Requires a second spaCy pass with
-  both NER **and the dependency parser** enabled — `_nlp` in `layer_b.py` currently disables both
-  for speed in `_is_substantive`; that path is untouched, this is an additional narrow pass run only
-  over already-extracted candidate pairs' text, not the corpus-wide clause pool Layer A/C process,
-  so the added parser cost is bounded and known upfront. The noun-chunk term was added because
-  named-entity count alone misses specific-but-entity-free content (e.g. a process/strategy
-  description with no proper nouns or numbers) — caught during the sink-rescue design's pivot review,
-  before any calibration happened. **Computed for both the trigger and the response** — this is the
-  one signal that directly answers "does the response itself carry concrete content," which is what
-  the drop decision actually hinges on.
+  `(named_entity_count + noun_chunk_count) / content_word_count`, where `noun_chunk_count`
+  **excludes chunks whose root is a bare pronoun** (e.g. "I", "that", "me") — spaCy counts these as
+  noun chunks, but measured directly against real filler text ("Yeah, I think so. Sounds good to
+  me.") they inflated density to 0.5, comparable to genuinely specific content, defeating the reason
+  this term was added. Excluding them separates cleanly (same filler → 0.0, a specific-but-entity-free
+  response → 0.33, an entity-rich response → 1.4+). Requires a second spaCy pass with both NER **and
+  the dependency parser** enabled — `_nlp` in `layer_b.py` currently disables both for speed in
+  `_is_substantive`; that path is untouched, this is an additional narrow pass run only over
+  already-extracted candidate pairs' text, not the corpus-wide clause pool Layer A/C process, so the
+  added parser cost is bounded and known upfront. The noun-chunk term was added because named-entity
+  count alone misses specific-but-entity-free content (e.g. a process/strategy description with no
+  proper nouns or numbers) — caught during the sink-rescue design's pivot review, before any
+  calibration happened. **Computed for both the trigger and the response** — this is the one signal
+  that directly answers "does the response itself carry concrete content," which is what the drop
+  decision actually hinges on.
 
 - **`preceding_turn_is_question(turns, turn_index) -> bool`**
   Looks at `turns[turn_index - 1]`. True if it's a NAREN turn ending in `?` or opening with a

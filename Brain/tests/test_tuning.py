@@ -24,6 +24,9 @@ layer_b:
   sink_rescue_response_min_similarity: 0.50
   sink_rescue_trigger_weak_floor: 0.50
   sink_rescue_blend_alpha: 0.6
+  sink_rescue_density_threshold: 0.5
+  sink_rescue_density_borderline_floor: 0.2
+  sink_rescue_density_min_words: 3
 layer_c:
   milestone_relevance_percentile: 60
   min_milestone_call_fraction: 0.15
@@ -63,11 +66,15 @@ def test_shipped_tuning_yaml_is_valid():
     assert 0.0 < t.layer_a.primary_topic_merge_threshold <= 1.0
     assert t.layer_c.min_milestone_calls_floor >= 1
     assert t.layer_b.matching_strategy in ("flat", "strict", "soft", "fallback")
-    assert t.layer_b.sink_rescue_strategy in ("none", "response_only", "or_rule", "blended")
+    assert t.layer_b.sink_rescue_strategy in (
+        "none", "response_only", "or_rule", "blended", "content_gate_narrow",
+    )
     assert 0.0 < t.layer_b.sink_rescue_relative_margin <= 1.0
     assert 0.0 < t.layer_b.sink_rescue_response_min_similarity <= 1.0
     assert 0.0 < t.layer_b.sink_rescue_trigger_weak_floor <= 1.0
     assert 0.0 < t.layer_b.sink_rescue_blend_alpha < 1.0
+    assert 0.0 <= t.layer_b.sink_rescue_density_borderline_floor < t.layer_b.sink_rescue_density_threshold
+    assert t.layer_b.sink_rescue_density_min_words >= 0
 
 
 def test_typo_in_key_raises_rather_than_defaulting(tmp_path):

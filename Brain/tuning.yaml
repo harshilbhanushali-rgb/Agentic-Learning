@@ -261,6 +261,36 @@ layer_b:
   # today's known-good behavior by default, not a measured value.
   sink_rescue_blend_alpha: 0.6
 
+  # content_gate_narrow / content_gate_broad (pivot, Status update 3 in the
+  # sink-rescue design). Primary gate: concrete_content_density(response) >=
+  # this means the response clearly carries content, rescue regardless of
+  # preceding_turn_is_question.
+  #
+  # UNCALIBRATED placeholder -- must come from label_trigger_quality_sample.py's
+  # labeled-sample read (concrete_content_density(response) split by
+  # ground-truth coachable/not label), never guessed, per this file's own
+  # repeated rule. Do not treat this value as trusted until that script has run.
+  sink_rescue_density_threshold: 0.5
+
+  # Below this, the response clearly does NOT carry content -- no rescue,
+  # regardless of preceding_turn_is_question. Between this and
+  # sink_rescue_density_threshold is the borderline band where
+  # preceding_turn_is_question breaks the tie.
+  #
+  # UNCALIBRATED placeholder -- same rule and same source as
+  # sink_rescue_density_threshold above.
+  sink_rescue_density_borderline_floor: 0.2
+
+  # Minimum response content_word_count before the density gate is trusted at
+  # all. concrete_content_density is a ratio, and for a response only a
+  # handful of words long, one incidental named entity or noun chunk swings
+  # that ratio hard enough to be noise, not signal -- below this floor, the
+  # gate defaults to no-rescue rather than trusting it.
+  #
+  # UNCALIBRATED placeholder -- must come from label_trigger_quality_sample.py's
+  # own response-length distribution, never guessed.
+  sink_rescue_density_min_words: 3
+
 layer_c:
   # Keep only response clauses above this percentile of relevance to their own
   # scenario vector. Removes generic cross-topic moves such as "Expressing
