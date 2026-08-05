@@ -39,6 +39,8 @@ class LayerBTuning:
     sink_rescue_response_min_similarity: float
     sink_rescue_trigger_weak_floor: float
     sink_rescue_blend_alpha: float
+    sink_rescue_density_threshold: float
+    sink_rescue_density_borderline_floor: float
 
 
 @dataclass(frozen=True)

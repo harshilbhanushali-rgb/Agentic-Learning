@@ -24,6 +24,8 @@ layer_b:
   sink_rescue_response_min_similarity: 0.50
   sink_rescue_trigger_weak_floor: 0.50
   sink_rescue_blend_alpha: 0.6
+  sink_rescue_density_threshold: 0.15
+  sink_rescue_density_borderline_floor: 0.05
 layer_c:
   milestone_relevance_percentile: 60
   min_milestone_call_fraction: 0.15
@@ -68,6 +70,8 @@ def test_shipped_tuning_yaml_is_valid():
     assert 0.0 < t.layer_b.sink_rescue_response_min_similarity <= 1.0
     assert 0.0 < t.layer_b.sink_rescue_trigger_weak_floor <= 1.0
     assert 0.0 < t.layer_b.sink_rescue_blend_alpha < 1.0
+    assert 0.0 < t.layer_b.sink_rescue_density_threshold <= 1.0
+    assert 0.0 <= t.layer_b.sink_rescue_density_borderline_floor < t.layer_b.sink_rescue_density_threshold
 
 
 def test_typo_in_key_raises_rather_than_defaulting(tmp_path):
@@ -90,3 +94,10 @@ def test_unknown_section_raises(tmp_path):
 def test_missing_file_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         load_tuning(tmp_path / "nope.yaml")
+
+
+def test_layer_b_tuning_has_density_gate_keys():
+    tuning = load_tuning().layer_b
+    assert isinstance(tuning.sink_rescue_density_threshold, float)
+    assert isinstance(tuning.sink_rescue_density_borderline_floor, float)
+    assert tuning.sink_rescue_density_borderline_floor < tuning.sink_rescue_density_threshold

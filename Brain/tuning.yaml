@@ -261,6 +261,19 @@ layer_b:
   # today's known-good behavior by default, not a measured value.
   sink_rescue_blend_alpha: 0.6
 
+  # Content-signal gate replacing the two floors above for content_gate_narrow/
+  # content_gate_broad (see Status update 3 in
+  # docs/superpowers/specs/2026-08-04-layer-b-sink-rescue-design.md).
+  # concrete_entity_density(response) >= this value -> rescue, regardless of
+  # preceding_turn_is_question. UNCALIBRATED placeholder -- set from
+  # label_trigger_quality_sample.py's density-vs-label distribution, not guessed.
+  sink_rescue_density_threshold: 0.15
+
+  # Below this density, never rescue regardless of preceding_turn_is_question.
+  # Between this floor and sink_rescue_density_threshold is the borderline band
+  # where preceding_turn_is_question breaks the tie. UNCALIBRATED placeholder.
+  sink_rescue_density_borderline_floor: 0.05
+
 layer_c:
   # Keep only response clauses above this percentile of relevance to their own
   # scenario vector. Removes generic cross-topic moves such as "Expressing
