@@ -496,3 +496,51 @@ this pivot is reported as a dead end instead.
 purely historical alongside `blended`. `matching_strategy` and `sink_rescue_strategy` both remain at
 their non-adopting defaults (`flat` / `none`) in `tuning.yaml` — nothing in this status update changes
 production behavior.
+
+## Status update 4 (2026-08-05): escape hatch invoked — `concrete_content_density` does not separate coachable from junk either
+
+`label_trigger_quality_sample.py` ran against the live `public` schema: 1,865 sink-bound pairs
+total, a stratified sample of 150 across 74 sink scenarios (round-robin, so no single sink
+dominates), Gemma-labeled 150/150 with no missing verdicts. Full output:
+`Brain/label_trigger_quality_sample_20260805.log`. 62 labeled coachable, 88 not.
+
+**`concrete_content_density(response)` percentiles by label overlap almost entirely** — coachable
+p10=0.301/p25=0.337/**p50=0.406**/p75=0.478/p90=0.511; not coachable p10=0.181/p25=0.303/
+**p50=0.396**/p75=0.461/**p90=0.667**. The medians differ by only 0.01, and the not-coachable
+group's own p90 (0.667) exceeds the coachable group's p90 (0.511) — the opposite of a usable
+threshold, since there is no value of `τ_density` that would land more coachable pairs above it than
+not-coachable pairs. The printed disagreement samples confirm this directly, not just the numbers: a
+"you're on mute" backchannel transition, small talk about actors, and a purely logistical
+scheduling exchange all scored density 0.67-0.92 — as high or higher than genuinely coachable
+content's own p90.
+
+**Per this design's own escape hatch (added during the pivot review, before this data existed):
+this pivot is a dead end, exactly like the cosine floors it replaced.** `sink_rescue_density_threshold`,
+`sink_rescue_density_borderline_floor`, and `sink_rescue_density_min_words` do not get real
+calibrated values from this read and stay `UNCALIBRATED placeholder` in `tuning.yaml`.
+`content_gate_narrow` is **not adopted**. `sink_rescue_strategy` stays at its non-adopting default
+(`none`). Three independent mechanisms — absolute cosine floors (round 1), the same floors
+re-tuned (round 2), and now a non-embedding content signal (this pivot) — have each been measured
+against real data and each failed to separate real content from junk at any tested operating point.
+
+**One signal in the same labeled sample showed a real gap, but it is not this design's own
+hypothesis and is not adopted here either.** Response `content_word_count` (length) split
+cleanly by label: coachable p10=19.1/p25=31/**p50=52.5**/p75=85/p90=137.9; not coachable
+p10=6/p25=10/**p50=16**/p75=28/p90=37 — not-coachable's own p75 sits below coachable's p50, a real
+separation density never showed. This measures response *verbosity*, not *specificity* — the
+distinction `concrete_content_density` was built to capture — and a long rambling non-answer would
+pass a length gate the same as a genuine walkthrough. Whether length is a legitimate signal on its
+own merits, or just an artifact of this particular labeled sample, is unverified and unscoped here;
+noted as a lead for a future session, not built or adopted in this pass.
+
+**Also unmeasured in this same labeled sample: `sink_real_margin` and `trigger_response_coupling`,
+the two other `shared/trigger_quality.py` functions this design specified but never consumed.**
+Both are embedding-based (unlike density), but shaped differently than the rounds-1-2 floors that
+already failed: `sink_real_margin` is a *relative* margin (mirroring `relative_margin`'s own shape)
+rather than an absolute floor, and `trigger_response_coupling` measures the relationship *between*
+a pair's own trigger and response embeddings directly, rather than either one's similarity to a
+scenario centroid — a genuinely different signal shape from anything tested in rounds 1-2 or this
+pivot. **`label_trigger_quality_sample.py` did not persist its labeled sample to disk**, so testing
+either of these against the same ground truth requires re-running the script (a comparable Gemma
+cost to this run) with persistence added first. Left as the explicit next step for a future session,
+not attempted here.
