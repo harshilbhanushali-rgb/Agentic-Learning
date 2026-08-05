@@ -307,6 +307,50 @@ class TestContentGateNarrow:
         assert all(p["scenario_key"] is not None for p in pairs)
 
 
+class TestContentGateBroad:
+    def test_overrides_a_non_sink_pair_when_response_density_clears_threshold(
+        self, fake_embeddings, fake_content_signals,
+    ):
+        """Unlike content_gate_narrow, broad reconsiders a pair whose trigger
+        already matched a real (non-sink) scenario, if the response's density
+        clears the gate and routes somewhere else."""
+        threshold = load_tuning().layer_b.sink_rescue_density_threshold
+        pairs = [_pair("pricing:1.0", f"quality:1.0 density:{threshold + 0.05}")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_broad",
+        )
+        assert pairs[0]["scenario_keys"] == ["quality"]
+
+    def test_leaves_non_sink_pair_alone_when_response_density_is_low(
+        self, fake_embeddings, fake_content_signals,
+    ):
+        floor = load_tuning().layer_b.sink_rescue_density_borderline_floor
+        pairs = [_pair("pricing:1.0", f"quality:1.0 density:{max(floor - 0.02, 0.0)}")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_broad",
+        )
+        assert pairs[0]["scenario_keys"] == ["pricing"]
+
+    def test_rescues_sink_bound_pair_same_as_narrow(self, fake_embeddings, fake_content_signals):
+        threshold = load_tuning().layer_b.sink_rescue_density_threshold
+        pairs = [_pair("ack:1.0", f"pricing:1.0 density:{threshold + 0.05}")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_broad",
+        )
+        assert pairs[0]["scenario_keys"] == ["pricing"]
+
+    def test_every_pair_is_always_assigned(self, fake_embeddings, fake_content_signals):
+        pairs = [
+            _pair("pricing:1.0", "quality:1.0 density:0.9"),
+            _pair("ack:1.0", "pricing:1.0 density:0.9"),
+            _pair("ack:1.0", "ack:1.0 density:0.0"),
+        ]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_broad",
+        )
+        assert all(p["scenario_key"] is not None for p in pairs)
+
+
 class TestUnknownSinkRescueStrategy:
     def test_raises_on_unrecognised_strategy(self, fake_embeddings):
         pairs = [_pair("pricing:1.0", "quality:1.0")]

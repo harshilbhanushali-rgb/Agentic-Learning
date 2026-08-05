@@ -440,6 +440,15 @@ def assign_scenarios_with_sink_rescue(
                     t_sims, scenario_keys, is_sink,
                     tuning.max_scenarios_per_pair, tuning.relative_margin,
                 ))
+        elif strategy == "content_gate_broad":
+            if _content_gate(pair, tuning):
+                rescued = _content_route(i, response_sims, scenario_keys, is_sink, tuning)
+                _assign(pair, rescued or [scenario_keys[t_best_j]])
+            else:
+                _assign(pair, _flat_pick(
+                    t_sims, scenario_keys, is_sink,
+                    tuning.max_scenarios_per_pair, tuning.relative_margin,
+                ))
         else:
             raise ValueError(f"unknown sink-rescue strategy: {strategy!r}")
 
