@@ -26,6 +26,39 @@ STATUS_INSUFFICIENT = "skipped_insufficient_responses"
 STATUS_FAILED = "failed"
 
 
+def build_clause_pool(
+    responses: list[dict],
+) -> tuple[list[str], list[float], list[str]]:
+    """Segment each response into clauses, keeping per-clause position and source call.
+
+    Extracted from _pass1_cluster_scenario (unchanged behaviour) so an offline
+    replay can build a byte-identical pool instead of reimplementing this loop.
+    dry_run_layer_c_clustering.py keeps its own private copy of the relevance
+    filter and that is exactly the drift risk worth avoiding -- a Layer B sweep
+    that reimplemented the sink short-circuit once disagreed with production by
+    99.7% vs 14%.
+
+    clause_calls is the load-bearing return value: without the source call there
+    is no way to tell a move repeated across many calls from two adjacent
+    clauses of a single response, and min_cluster_size=2 accepted both. That was
+    the 95-milestone bug.
+
+    n = max(len(clauses) - 1, 1) normalises position to [0, 1] and keeps a
+    single-clause response at 0.0 rather than dividing by zero.
+    """
+    all_clauses: list[str] = []
+    clause_positions: list[float] = []
+    clause_calls: list[str] = []
+    for resp in responses:
+        clauses = segmenter.segment_into_clauses(resp["response_text"])
+        n = max(len(clauses) - 1, 1)
+        for pos_idx, clause in enumerate(clauses):
+            all_clauses.append(clause)
+            clause_positions.append(pos_idx / n)
+            clause_calls.append(resp["call_filename"])
+    return all_clauses, clause_positions, clause_calls
+
+
 def _relevance_filter(clauses, vecs, positions, calls, info, percentile):
     """Drop response clauses that are not about the scenario they were filed under.
 
@@ -146,19 +179,7 @@ def _pass1_cluster_scenario(
         print(f"  ! Fewer than 2 responses -- will fall back to V1 Gemma approach.")
         return {"kind": "fallback", "info": info, "responses": responses}
 
-    # clause_calls keeps the source call for every clause. Without it there is
-    # no way to tell a move repeated across many calls from two adjacent
-    # clauses of a single response -- and min_cluster_size=2 accepted both.
-    all_clauses: list[str] = []
-    clause_positions: list[float] = []
-    clause_calls: list[str] = []
-    for resp in responses:
-        clauses = segmenter.segment_into_clauses(resp["response_text"])
-        n = max(len(clauses) - 1, 1)
-        for pos_idx, clause in enumerate(clauses):
-            all_clauses.append(clause)
-            clause_positions.append(pos_idx / n)
-            clause_calls.append(resp["call_filename"])
+    all_clauses, clause_positions, clause_calls = build_clause_pool(responses)
 
     if len(all_clauses) < 6:
         print(f"  ! Too few clauses ({len(all_clauses)}) -- will fall back to V1.")

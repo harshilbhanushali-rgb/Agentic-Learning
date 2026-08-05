@@ -411,6 +411,87 @@ different primary_topic strings ("Discovery", "Discovery & Qualification", "Clie
 Environment") for scenarios that are clearly siblings under one umbrella.
 """
 
+# Batched adjudication of clusters drawn from the SINK POOL -- pairs Layer B filed to a
+# non-coachable scenario and thereby excluded from every rubric. See
+# docs/superpowers/specs/2026-08-05-sink-pool-population-diagnostic-design.md.
+#
+# Deliberately three-way, not the coachable/not-coachable binary that eight prior per-pair
+# signals were measured against. The third option (new_coachable_topic) exists because Layer A
+# builds its taxonomy from CLIENT clauses only -- a coaching behaviour whose client-side cues are
+# consistently short or filler-like has no scenario it could ever be routed to, so "junk" and
+# "real content with nowhere to go" are indistinguishable to any binary judge. That distinction
+# is the whole reason this prompt exists.
+#
+# Judges the EXPERT'S RESPONSES, not the triggers. Every trigger in this pool already
+# best-matched a sink; asking about them again would just re-run the decision that lost the
+# content in the first place.
+PROMPT_SINK_POOL_TRIAGE = """\
+You are auditing content that an automated pipeline DISCARDED, to find out whether discarding it
+was correct.
+
+Background: a senior Customer Success expert's call transcripts were mined for
+(client trigger -> expert response) pairs. Each pair was routed to a topic by matching the
+CLIENT's words only. Pairs whose client trigger looked like conversational machinery
+(acknowledgment, filler, scheduling, greetings) were filed to a "sink" and excluded from every
+coaching rubric -- regardless of what the expert actually said in reply. Roughly 40% of all pairs
+ended up there.
+
+Below are CLUSTERS of those discarded pairs, grouped by the similarity of the EXPERT'S RESPONSE.
+For each cluster, judge the responses.
+
+{items_block}
+
+For each cluster choose exactly one verdict:
+
+- "belongs_to_existing"   The responses carry real coachable expertise, and the nearest existing
+                          coachable topic shown for that cluster is a genuinely good home for it.
+                          Set target_scenario_key to that exact key. This means the pipeline made
+                          a ROUTING error: the content had somewhere to go and was dropped anyway.
+
+- "new_coachable_topic"   The responses carry real coachable expertise, but the nearest existing
+                          coachable topic is NOT a good home -- the behaviour shown here is a
+                          distinct thing the taxonomy simply has no entry for. Set proposed_label
+                          and proposed_description. Choose this over forcing a bad fit: a wrong
+                          home is worse than an admitted gap.
+
+- "genuine_sink"          There is no coachable expertise here. The responses are conversational
+                          machinery in their own right: backchannel, acknowledgment, greetings,
+                          sign-offs, audio checks, pure scheduling logistics, or small talk. The
+                          pipeline was RIGHT to discard these.
+
+How to judge:
+
+- Judge what the EXPERT'S RESPONSES demonstrate, not what the client's trigger looked like. A
+  filler trigger followed by a substantive strategic answer is exactly the failure being audited.
+- "Coachable" means a junior colleague could learn a deliberate move from it: a diagnostic
+  question, a reframe, an expectation-setting caveat, a specific recommendation, a tradeoff
+  explained. Length is NOT the test -- a sharp ten-word strategic pivot is coachable; a long
+  rambling non-answer or a detailed scheduling negotiation is not.
+- Judge the cluster as a whole. If the responses are mixed, decide by what the majority
+  demonstrate and say so in the reason.
+- Distinct-call support is evidence of a RECURRING move rather than a one-off. Low support is a
+  reason to look harder, not an automatic rejection.
+
+Respond ONLY with valid JSON, one object per cluster, echoing each id exactly:
+{{
+  "results": [
+    {{
+      "id": "cluster_7",
+      "verdict": "belongs_to_existing",
+      "target_scenario_key": "ats_compatibility_and_migration_discovery",
+      "proposed_label": null,
+      "proposed_description": null,
+      "reason": "one sentence justifying the verdict, citing what the responses actually do"
+    }}
+  ]
+}}
+
+For "new_coachable_topic", set proposed_label (a short human-readable name) and
+proposed_description (one sentence naming the client situation and the expert move), and leave
+target_scenario_key null.
+For "genuine_sink", leave target_scenario_key, proposed_label and proposed_description null.
+"""
+
 # Batched primary-topic labelling. Runs once per macro-group AFTER the per-subtopic
 # adjudication loop above finishes and shared/topic_grouping.py has decided which
 # subtopics belong together -- this prompt only names the umbrella category a group of
