@@ -41,9 +41,14 @@ to *some* scenario, real or sink.
   or a structural/linguistic property (entity count, question-vs-statement) — never a hand-picked
   word list, per this codebase's own repeated lesson (`JOVEO_SPEAKER_NAMES`, the old backchannel
   filter attempts) that curated lists don't survive scale.
-- Replacing the sink-rescue design. The two are independent, parallel experiments answering
-  related but different questions — "fix it at assignment" vs. "don't let it become ambiguous at
-  extraction." Both get measured; adoption of either (or neither) is a later, separate decision.
+- Replacing the sink-rescue design. The two answer related but different questions — "fix it at
+  assignment" vs. "don't let it become ambiguous at extraction" — and adoption of either (or
+  neither) is a later, separate decision. **Revised 2026-08-05:** they are no longer independently
+  *calibrated*, though — the sink-rescue design's `content_gate_narrow` pivot reuses this design's own
+  `label_trigger_quality_sample.py` output, so that script existing and having run is now a real
+  build-order dependency for the sibling design, not a parallel/independent track. See that design's
+  own "Calibration" section for the dependency, and this doc's "Relationship to the sink-rescue
+  design" section below for what stays independent (adoption) versus what doesn't (calibration data).
 - Picking a winning signal or threshold on paper. All four signals get built and measured against
   real, labeled data; this design does not presuppose the outcome.
 - Dropping a pair on trigger-junk alone. A filler trigger with a substantive response must never be
@@ -85,13 +90,18 @@ here; each function returns a continuous (or boolean) score per pair.
   hedge ("yeah, I think so") followed by a topically unrelated, substantive answer should show
   *low* coupling, since the hedge shares no real content with what follows.
 
-- **`concrete_entity_density(text) -> float`**
-  Count of named entities (spaCy NER) normalized by content-word count. Requires a second,
-  NER-enabled spaCy pass — `_nlp` in `layer_b.py` currently disables NER for speed in
-  `_is_substantive`; that path is untouched, this is an additional narrow pass. Parser stays
-  disabled (noun-chunk detection needs it and is out of scope on cost grounds). **Computed for
-  both the trigger and the response** — this is the one signal that directly answers "does the
-  response itself carry concrete content," which is what the drop decision actually hinges on.
+- **`concrete_content_density(text) -> float`** *(renamed from `concrete_entity_density`,
+  2026-08-05 revision)*
+  `(named_entity_count + noun_chunk_count) / content_word_count`. Requires a second spaCy pass with
+  both NER **and the dependency parser** enabled — `_nlp` in `layer_b.py` currently disables both
+  for speed in `_is_substantive`; that path is untouched, this is an additional narrow pass run only
+  over already-extracted candidate pairs' text, not the corpus-wide clause pool Layer A/C process,
+  so the added parser cost is bounded and known upfront. The noun-chunk term was added because
+  named-entity count alone misses specific-but-entity-free content (e.g. a process/strategy
+  description with no proper nouns or numbers) — caught during the sink-rescue design's pivot review,
+  before any calibration happened. **Computed for both the trigger and the response** — this is the
+  one signal that directly answers "does the response itself carry concrete content," which is what
+  the drop decision actually hinges on.
 
 - **`preceding_turn_is_question(turns, turn_index) -> bool`**
   Looks at `turns[turn_index - 1]`. True if it's a NAREN turn ending in `?` or opening with a
@@ -100,12 +110,12 @@ here; each function returns a continuous (or boolean) score per pair.
 
 ### Combining into a drop decision
 
-`sink_real_margin`, `preceding_turn_is_question`, and the trigger's own `concrete_entity_density`
+`sink_real_margin`, `preceding_turn_is_question`, and the trigger's own `concrete_content_density`
 describe the **trigger**. None of them are sufficient on their own to drop a pair — a pair with a
-junk-scoring trigger and a high `concrete_entity_density(response)` must survive, full stop, because
+junk-scoring trigger and a high `concrete_content_density(response)` must survive, full stop, because
 that's precisely the filler-trigger/substantive-response case the original audit found being
 wrongly discarded. A pair is a drop *candidate* only when the trigger scores junky **and** the
-response's own `concrete_entity_density` is also low — i.e. neither side carries content on its
+response's own `concrete_content_density` is also low — i.e. neither side carries content on its
 own. `trigger_response_coupling` is a secondary cross-check on that same pair once both sides
 already look weak, not a substitute for checking the response directly.
 
@@ -127,7 +137,7 @@ calibration script (mirrors `compare_sink_rescue.py`'s DB-reading style):
    this codebase's own rule that "how many survived" is the wrong question and "what got
    separated" is the right one — plus prints verbatim pairs at the disagreement edges so a human
    can sanity-check the Gemma labels, not just trust them. Specifically checks that
-   `concrete_entity_density(response)` is what actually separates "coachable" from "not," since
+   `concrete_content_density(response)` is what actually separates "coachable" from "not," since
    that's the field the drop decision depends on most.
 
 Output of this step is a **decision, not code**: where the combined trigger-AND-response threshold
@@ -158,7 +168,7 @@ that a junk-trigger/substantive-response pair is never dropped by the combined r
 
 ## Relationship to the sink-rescue design
 
-Both designs exist because of the same audit finding, but they now produce genuinely different,
+Both designs exist because of the same audit finding, and they still produce genuinely different,
 non-overlapping outcomes:
 
 | Aspect | Sink-rescue (2026-08-04) | Trigger-quality gate (this doc) |
@@ -166,10 +176,18 @@ non-overlapping outcomes:
 | Intervenes at | scenario assignment, after the pair exists | between extraction and assignment |
 | Outcome | reroutes a pair to a different scenario | removes a pair from `kb_pairs` entirely |
 | Only fires when | the pair's *trigger* best-matches a sink | trigger AND response both score as junk |
+| Calibration data | **depends on this design's `label_trigger_quality_sample.py`** (2026-08-05 pivot) | produces its own labeled sample, consumed by both designs |
 
-They compose freely: a pair that survives this drop filter still flows through sink-rescue's
-rerouting logic unchanged. Composing them is out of scope until both have independently cleared
-their own validation.
+**Revised 2026-08-05:** the two designs are no longer independently calibrated — sink-rescue's
+`content_gate_narrow` variant reuses the labeled sample this design plans, so
+`label_trigger_quality_sample.py` existing and having run is a real prerequisite for calibrating that
+sibling variant, not just a convenience. What stays independent is *adoption*: building and running
+this design's labeling script doesn't obligate adopting either this drop filter or sink-rescue's
+content gate — those remain separate decisions, made after each design's own results are read.
+
+They compose freely at the mechanism level: a pair that survives this drop filter still flows through
+sink-rescue's rerouting logic unchanged. Composing them in production is out of scope until both have
+independently cleared their own validation — independent adoption, not independent calibration.
 
 ## Rollout
 
