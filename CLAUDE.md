@@ -369,6 +369,123 @@ sink-bound; full output `Brain/compare_sink_rescue_20260804.log`):
   raising it further would only shrink `or_rule`'s already-narrow qualifying population, not fix its
   precision on the population it does touch.
 
+**Verdict (2026-08-05, after three more rounds): sink-rescue is exhausted — no gating signal tried
+separates real content from junk at a usable operating point.** Round 2 raised `or_rule`'s two
+floors toward the measured bands and reproduced `blended`'s exact fatal flaw (39.5% rescue rate but
+41.9% collateral churn on already-correct non-sink pairs) — confirming this is a signal problem, not
+a threshold-tuning problem. The design then pivoted to non-embedding content signals in
+`shared/trigger_quality.py`: `concrete_content_density(response)` — measured against a real
+150-pair Gemma-labeled ground-truth sample via `label_trigger_quality_sample.py` — showed almost
+total distribution overlap (coachable/not-coachable medians 0.400/0.400, AUC 0.523, indistinguishable
+from chance). The two remaining functions in that module were then measured against the same
+labeled sample: `sink_real_margin` points the statistically correct direction but is far too weak
+(AUC 0.437) — real/sink scenario centroids both sit too close together in embedding space relative
+to any one trigger to leave a usable margin — and `trigger_response_coupling` (cosine between a
+pair's own trigger and response embeddings) is the best of everything tried, a real and consistent
+signal (AUC 0.617), but still nowhere near a value any threshold elsewhere in this codebase was ever
+adopted at (compare `response_word_count`'s own AUC of 0.853 in the same sample — a real signal, just
+not one that fits this design's content-specificity hypothesis, and not adopted either). Four signal
+families — absolute cosine floors (rounds 1-2), content density, and embedding-relationship signals
+— have now all failed to reach a usable operating point. `sink_rescue_strategy` stays `none`;
+`matching_strategy` stays `flat`; no further signal search is planned. `label_trigger_quality_sample.py`
+now persists its full labeled sample (text, label, reason, every signal, raw embeddings) to
+`labeled_trigger_quality_sample.json` and accepts `--load PATH` to re-report with zero DB/Gemma
+calls — so a future signal idea against this same ground truth is free. Full detail:
+`docs/superpowers/specs/2026-08-04-layer-b-sink-rescue-design.md`'s Status updates 2-5.
+
+**Sibling design also written off, before any code was built (2026-08-05).** A second design,
+`docs/superpowers/specs/2026-08-04-layer-b-trigger-quality-gate-design.md` (drop a junk pair between
+`extract_pairs` and `assign_scenarios` instead of rerouting it), shared the same labeled sample and
+leaned on the same functions — its own combining rule names `concrete_content_density(response)` as
+"what the drop decision actually hinges on." That signal's AUC (0.523) and its trigger-side
+counterpart's AUC (0.519) are both chance-level, so the rule can't be built. `filter_junk_pairs` and
+`compare_trigger_quality_gate.py` were never written — the effort stopped at the design's own
+"read the labeled sample first" checkpoint. Both sink-discarding designs are now closed.
+
+**A third, follow-up design (`2026-08-05-layer-b-combined-signal-analysis-design.md`) tried
+combining the strongest signals instead of searching for a new one — also closed.** Combining
+`response_word_count`, `trigger_response_coupling`, and a new `length_ratio` feature via logistic
+regression scored AUC 0.845, *below* `response_word_count` alone (0.853), despite the two core
+signals being nearly uncorrelated (r=0.087). Adopting length alone was then reconsidered on its
+own merits (its aggregate precision/recall looked decent) and rejected after reading real
+samples: it systematically flags long administrative/logistics/small-talk as coachable, and
+systematically discards short, sharp strategic pivots and discovery questions as junk — actively
+penalizing the terse expert-brevity coaching moves this pipeline exists to capture. Six signal
+shapes total, each measured and each failed for a specific, sample-verified reason.
+
+**Approach B (turn position in the call) found one more real signal, still insufficient.**
+`edge_distance` (distance from the nearest edge of the call) alone scores AUC 0.636 and is
+qualitatively confirmed — pairs right at a call's start/end are predominantly logistics/wrap-up.
+Combined with length (near-zero correlation, r=-0.034) it reaches AUC 0.876, the first
+combination in this whole effort to beat a single signal (0.853) — but reading its false
+negatives found the *same* terse strategic pivots misclassified as before; the aggregate gain
+doesn't fix length's core bias. Eight signal shapes measured total, all either failed outright or
+carry a disqualifying bias found only by reading real samples. Full detail:
+`docs/superpowers/specs/2026-08-05-layer-b-combined-signal-analysis-design.md`.
+
+### Sink-pool population diagnostic — the unit of decision was the bug (2026-08-05)
+
+Design: `docs/superpowers/specs/2026-08-05-sink-pool-population-diagnostic-design.md`. Stopped
+searching for a ninth per-pair signal and changed the **unit of decision** to the cluster — the unit
+Layer A already adjudicates ~200 of instead of judging 74k clauses. Two new read-only scripts
+(`diagnose_sink_pool.py`, `replay_layer_c_admitted.py`), plus
+`v2/layer_c.build_clause_pool` extracted (behaviour-preserving, `tests/test_layer_c_clause_pool.py`)
+so the replay reproduces Pass 1 by **importing** production code rather than copying it.
+**Nothing wired into production**: `sink_rescue_strategy` stays `none`, `matching_strategy` stays
+`flat`, no `tuning.yaml` change, no scenario added, no pair rerouted.
+
+- **Three facts read out of the code reframed the problem, and two of them point away from Layer B.**
+  (1) Sink-filing is *one SQL predicate* — `storage.get_naren_responses_for_scenario`'s
+  `WHERE p.scenario_key = %s`; nothing is deleted, Layer C just never queries those rows, and it never
+  reads the `scenario_keys` array at all. (2) Layer C already has four aggregate junk defenses, and
+  `_relevance_filter`'s own docstring names the exact contamination the sink gate is justified by —
+  the justification is pre-rework, from the `min_cluster_size=2` 95-milestone era. (3) **`v2/layer_a.py`
+  builds the taxonomy from CLIENT clauses only** (line 34 skips every non-CLIENT turn) — responses never
+  vote, so an expert behaviour whose client cues are filler-like has *no scenario it could ever be
+  routed to*. Fact 3 is why all eight signals were asked an unanswerable question.
+- **Half A (cluster the sink pool, three-way Gemma verdict per cluster) separated what eight per-pair
+  signals could not.** 1,865 sink-bound pairs clustered against a **volume-matched control of 1,865
+  coachable-filed pairs**; 9 clusters, 47.3% HDBSCAN noise. `genuine_sink` 2 clusters/609 pairs,
+  `belongs_to_existing` 5/199, `new_coachable_topic` 2/175. Cross-checked against the *independent*
+  150-pair per-pair labeled sample the two verdict families agree in the predicted direction —
+  21% / 71% / 80% labeled-coachable respectively. Junk concentrates: one cluster holds 535 pairs at 9%.
+  Two homeless topics found with real support: `strategic_performance_consulting` (94 pairs/115 calls)
+  and `technical_operational_alignment` (81/113) — **direct confirmation of fact 3**.
+- **`real_minus_sink_margin` has no relationship to the verdict even at CLUSTER level** (best margin
+  +0.036 is `genuine_sink`; −0.015 is `belongs_to_existing`). Cluster-level averaging was the strongest
+  remaining embedding idea. **The embedding-signal search is closed, not merely paused.**
+- **Half B (three-arm Layer C Pass-1 replay, zero Gemma, all arms in ONE process) is the first time
+  this problem was measured against rubrics instead of a per-pair AUC proxy — and it rejected the
+  cheapest fix outright.** Baseline reproduced 385 milestones (inside the documented ~[350,450] band,
+  so the replay is faithful). **Deleting the sink short-circuit destroys 82 of 385 milestones (21%) and
+  its placebo gained MORE than it did (98 vs 84)** — the entire apparent gain is a pool-size clustering
+  artifact. `by_response`: 87 lost. **`by_cluster` (route only clusters judged `belongs_to_existing`) is
+  the only viable method**: 383/385 matched, 1 lost (and read verbatim, that milestone's lead clause
+  reappears in a `gained` cluster at support 6 vs 8 — re-clustered, not destroyed) vs its placebo's 6
+  lost / 0 gained. **The real payoff is evidence thickening, not new milestones** — e.g.
+  `client_requests_operational_visualization` 22→133 / 28→133 / 112→133 calls;
+  `media_channel_and_retargeting_discovery` 6→36 / 7→36 / 8→36.
+- **A placebo arm is mandatory for any future Layer C A/B, and "zero milestones lost" is an
+  unachievable bar.** Perturbing a clause pool *at all* costs ~6 milestones to UMAP/HDBSCAN sensitivity
+  regardless of content quality — so a loss count is only interpretable against a volume-matched
+  placebo. The bar as originally written would have rejected a fix that beats the noise floor.
+- **Reversal worth remembering: recurring per-cluster LLM adjudication in production is now the
+  recommended path, having first been argued against.** The objection was Layer A's ~5-6% per-cluster
+  coachability flip between runs; but both zero-LLM alternatives destroy ~21% of the rubric set, so
+  ~15 batched calls per run is a cost to manage. Blast radius is 4 of 81 scenarios, which bounds it.
+- **The two proposed scenarios are necessary but NOT sufficient, and Half B could not test them.**
+  Routing can only place content into scenarios that exist. And adding them alone captures nothing —
+  Layer B matches on the CLIENT trigger, and these pairs were sunk *because* their triggers look like
+  filler, so a new scenario attracts nothing. They must be paired with cluster-verdict routing, which
+  does not depend on trigger matching at all.
+- **New open finding, unrelated to sinks: Layer C's relevance filter barely discriminates by topic.**
+  Deliberately wrong placebo clauses survived the p40 cut at 53.9-57.2% vs 57.7-63.0% for real rescued
+  content — a ~6-point gap on a filter the pipeline leans on to keep off-topic clauses out of rubrics.
+- Also open: **47.3% of the sink pool is HDBSCAN noise**, capping any cluster-based fix at ~53% of the
+  problem. `min_cluster_size` resolved to 25 **by hitting the `min_cluster_size_ceiling`** (0.02 × 3730
+  = 74.6, clamped), so the clustering is coarse — a finer rerun would likely split the 535-pair junk
+  cluster and cut noise. Untested.
+
 ### Brain Architecture Notes
 
 - `run_id` is a stable sha1 hash of sorted transcript stems — same transcript files across re-runs reuse checkpoints automatically; adding/removing a transcript generates a new run_id

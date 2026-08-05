@@ -304,3 +304,121 @@ Nothing ships. `sink_rescue_strategy` stays `none`; `matching_strategy` stays `f
 `tuning.yaml` value changes. The output is a decision about which of the three architectures the
 data implies, recorded as a status update in this document — and, if the escape hatch fires, a
 documented close of the whole line of inquiry on a quantified basis rather than a sample read.
+
+## Status update (2026-08-05): both halves ran — the reframe worked, and it reversed the recommended fix
+
+Both halves executed against the live `public` schema. Logs: `Brain/diagnose_sink_pool_20260805.log`,
+`Brain/replay_layer_c_admitted_20260805.log`. Artifacts: `Brain/sink_pool_clusters.json`,
+`Brain/layer_c_admitted_replay.json` — both re-reportable with `--load` at zero cost.
+
+### Half A: the cluster unit separates what eight per-pair signals could not
+
+1,865 sink-bound pairs clustered against a volume-matched control of 1,865 coachable-filed pairs
+(3,730 responses). `min_cluster_size` resolved to 25 **by hitting the tuning ceiling** (0.02 × 3730 =
+74.6, clamped). 9 clusters, 983 sink pairs clustered, **882 (47.3%) HDBSCAN noise** — the 60% escape
+hatch did not fire.
+
+| Verdict | Clusters | Sink pairs | Labeled-sample agreement |
+| --- | --- | --- | --- |
+| `genuine_sink` | 2 | 609 | 21% coachable |
+| `belongs_to_existing` | 5 | 199 | 71% coachable |
+| `new_coachable_topic` | 2 | 175 | 80% coachable |
+
+**The agreement column is the result.** It comes from the independent 150-pair per-pair labeled
+sample — different prompt, different run, one pair at a time. Two independently-constructed ground
+truths converge in the predicted direction, which no single per-pair signal ever achieved. The junk
+also concentrates rather than smearing: one cluster holds 535 sink pairs at **9%** coachable
+(verbatim samples: holiday greetings, "you might be on mute", leave-planning chatter).
+
+Two `new_coachable_topic` clusters carry real recurring support — `strategic_performance_consulting`
+(94 pairs / 115 calls / 28% coverage) and `technical_operational_alignment` (81 pairs / 113 calls /
+27%). **This is direct confirmation of fact 3:** Layer A builds the taxonomy from CLIENT clauses
+only, so these expert behaviours never got a scenario and no Layer B matcher could ever have routed
+them.
+
+**`real_minus_sink_margin` has no relationship to the verdict even at cluster level** — the best
+margin of any cluster (+0.036) is `genuine_sink`, and a negative one (−0.015) is
+`belongs_to_existing`. Cluster-level averaging was the strongest remaining embedding idea. It is dead
+too. This closes the embedding-signal search rather than leaving it open.
+
+**Correction to this design's own escape hatch #2.** The `|mix - 0.5| <= 0.10` condition would have
+fired on this data (5/9 clusters in band) and been wrong — the separation was real, just not expressed
+by the mix ratio. Mix does point the right way in aggregate (the junk cluster is the most
+sink-enriched at 0.67; the coachable ones run 0.28–0.48) but misorders `cluster_4` (0.48, judged
+`genuine_sink`) against `cluster_8` (0.36, judged `new_coachable_topic`). **The mix ratio
+underperformed its billing as "the discriminating statistic"; the LLM verdict and the labeled
+cross-check carried the decision.** The control was still worth building — it is what proves the
+clusters are not merely coherent-looking — it just is not the deciding number.
+
+### Half B: two of the three fixes are actively harmful; the third works
+
+Baseline replay reproduced **385 candidate milestones** across 74 clustered scenarios — inside the
+documented ~[350, 450] band and close to production's 398/404, validating that `build_clause_pool`
+plus the imported `_relevance_filter`/`_cluster_milestones` reproduce Pass 1 faithfully.
+
+| Arm | matched | split | lost | gained | thickened | thinned |
+| --- | --- | --- | --- | --- | --- | --- |
+| `by_trigger_nonsink` | 255 | 48 | **82** | 84 | 180 | 22 |
+| `placebo:by_trigger_nonsink` | 249 | 53 | 83 | **98** | 186 | 24 |
+| `by_response` | 264 | 34 | **87** | 71 | 184 | 22 |
+| `placebo:by_response` | 255 | 35 | 95 | 67 | 176 | 31 |
+| `by_cluster` | **383** | 1 | **1** | 4 | 14 | 2 |
+| `placebo:by_cluster` | 378 | 1 | **6** | 0 | 9 | 2 |
+
+**Deleting the sink short-circuit — the cheapest imaginable fix, and the null hypothesis this design
+named as most worth knowing about — destroys 82 of 385 milestones (21% of the working rubric set), and
+its placebo gained MORE than it did (98 vs 84).** Its entire apparent gain is a pool-size clustering
+artifact. `by_response` is the same story at 87 lost. **So the sink gate is doing real work, and the
+eight-round search for a better rescue *score* was optimising a lever that damages what it was meant
+to improve.**
+
+**`by_cluster` is the only viable method, and better than the bar reads.** It touches 4 of 81
+scenarios. Its single `lost` milestone is **not substantively lost** — read verbatim, its lead clause
+reappears in one of the same scenario's `gained` milestones at support 6 instead of 8; it was
+re-clustered, not destroyed. Its placebo lost 6 and gained 0.
+
+**Correction to this design's own adoption bar.** "Zero baseline milestones lost" is unachievable in
+principle: the placebo shows that perturbing a clause pool *at all* costs ~6 milestones through
+UMAP/HDBSCAN sensitivity, independent of content quality. The bar as written would have rejected a fix
+that performs better than the noise floor. **The placebo, not the bar, is what makes a loss count
+interpretable** — that is the methodological finding, and any future Layer C A/B should carry one.
+
+**The real payoff is evidence thickening, not new milestones.**
+`client_requests_operational_visualization` 22 → 133 calls, 28 → 133, 112 → 133, 39 → 63;
+`media_channel_and_retargeting_discovery` 6 → 36, 7 → 36, 8 → 36, 10 → 36, 18 → 36;
+`ai_capability_discovery` 9 → 33, 47 → 68. A milestone that looked like a 6-call fluke is a 36-call
+pattern. That is the same rubric made trustworthy, which matters more than 4 added entries.
+
+**Unplanned side-finding: Layer C's relevance filter barely discriminates by topic.** Deliberately
+wrong placebo clauses survived the p40 cut at 53.9–57.2%, versus 57.7–63.0% for real rescued content —
+a ~6-point gap. A filter the pipeline leans on to keep off-topic clauses out of rubrics is much weaker
+than assumed. Not investigated further; recorded as a separate open finding.
+
+### Decisions taken
+
+- **Nothing is wired into production.** `sink_rescue_strategy` stays `none`, `matching_strategy` stays
+  `flat`, no `tuning.yaml` value changed, no scenario added, no pair rerouted. This pass was
+  measurement and it stayed measurement.
+- **`by_trigger_nonsink` and `by_response` are rejected on measured evidence**, not on principle.
+- **`by_cluster` is the recommended fix**, pending a follow-up design for how cluster adjudication gets
+  wired in.
+- **Reversal, stated explicitly:** this session earlier argued against recurring per-cluster LLM
+  adjudication in production, because Layer A's own per-cluster coachability verdicts flip ~5–6%
+  between runs. Half B overturns that: both zero-LLM alternatives destroy ~21% of the rubric set, so
+  ~15 batched calls per run is a cost to manage rather than a reason to avoid the only method that
+  works. Its blast radius (4 of 81 scenarios) bounds what the variance can damage.
+- **The two proposed scenarios are NOT adopted, and Half B could not test them** — routing can only
+  place content into scenarios that already exist, so their payoff is unmeasured.
+- **Sufficiency, stated plainly:** adding those two scenarios alone would capture nothing. Layer B
+  matches on the CLIENT trigger, and these pairs were sunk precisely because their triggers look like
+  filler, so a new scenario would attract nothing. They are necessary but not sufficient, and Half B
+  identifies the only viable pairing: cluster-verdict routing, which does not depend on trigger
+  matching at all.
+
+### Open, not addressed here
+
+- **47.3% of the sink pool is HDBSCAN noise**, capping any cluster-based fix at ~53% of the problem.
+  `min_cluster_size` hit the tuning ceiling, so this clustering is coarse; a finer rerun would likely
+  split the 535-pair junk cluster and cut noise. Untested.
+- Whether the two proposed scenarios earn their place, which needs a Layer A change plus a rerun.
+- Layer C's weak relevance filter, above.
