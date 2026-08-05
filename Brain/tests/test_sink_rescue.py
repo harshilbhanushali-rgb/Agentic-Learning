@@ -223,6 +223,90 @@ class TestBlended:
         assert all(p["scenario_key"] is not None for p in pairs)
 
 
+@pytest.fixture
+def fake_content_signals(monkeypatch):
+    """Monkeypatches concrete_entity_density to read a 'density:X' marker out of
+    response_text, mirroring fake_embeddings' 'axis:weight' token convention.
+    preceding_turn_is_question is set directly on the pair dict by each test --
+    _content_gate reads it from the pair, it never calls the real signal function."""
+    def density(text):
+        for token in text.split():
+            name, _, weight = token.partition(":")
+            if name == "density":
+                return float(weight)
+        raise AssertionError(f"test response_text has no density: marker: {text!r}")
+
+    monkeypatch.setattr(layer_b.trigger_quality, "concrete_entity_density", density)
+
+
+class TestContentGateNarrow:
+    def test_rescues_sink_bound_pair_when_response_density_clears_threshold(
+        self, fake_embeddings, fake_content_signals,
+    ):
+        """Trigger alone matches sink 'ack'; response density clears
+        sink_rescue_density_threshold -- must rescue regardless of
+        preceding_turn_is_question (unset/False here)."""
+        threshold = load_tuning().layer_b.sink_rescue_density_threshold
+        pairs = [_pair("ack:1.0", f"pricing:1.0 density:{threshold + 0.05}")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_narrow",
+        )
+        assert pairs[0]["scenario_keys"] == ["pricing"]
+
+    def test_stays_in_sink_when_response_density_is_clearly_low(
+        self, fake_embeddings, fake_content_signals,
+    ):
+        floor = load_tuning().layer_b.sink_rescue_density_borderline_floor
+        pairs = [_pair("ack:1.0", f"pricing:1.0 density:{max(floor - 0.02, 0.0)}")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_narrow",
+        )
+        assert pairs[0]["scenario_keys"] == ["ack"]
+
+    def test_borderline_density_rescues_only_when_preceding_turn_is_question(
+        self, fake_embeddings, fake_content_signals,
+    ):
+        threshold = load_tuning().layer_b.sink_rescue_density_threshold
+        floor = load_tuning().layer_b.sink_rescue_density_borderline_floor
+        assert floor < threshold, (
+            "sink_rescue_density_borderline_floor must stay below "
+            "sink_rescue_density_threshold for a real borderline band to exist"
+        )
+        mid = (threshold + floor) / 2
+
+        with_question = _pair("ack:1.0", f"pricing:1.0 density:{mid}")
+        with_question["preceding_turn_is_question"] = True
+        without_question = _pair("ack:1.0", f"pricing:1.0 density:{mid}")
+        without_question["preceding_turn_is_question"] = False
+
+        pairs = [with_question, without_question]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_narrow",
+        )
+        assert pairs[0]["scenario_keys"] == ["pricing"]
+        assert pairs[1]["scenario_keys"] == ["ack"]
+
+    def test_non_sink_pair_is_unaffected_regardless_of_density(
+        self, fake_embeddings, fake_content_signals,
+    ):
+        pairs = [_pair("pricing:1.0", "quality:1.0 density:0.9")]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_narrow",
+        )
+        assert pairs[0]["scenario_keys"] == ["pricing"]
+
+    def test_every_pair_is_always_assigned(self, fake_embeddings, fake_content_signals):
+        pairs = [
+            _pair("pricing:1.0", "quality:1.0 density:0.9"),
+            _pair("ack:1.0", "pricing:1.0 density:0.9"),
+            _pair("ack:1.0", "ack:1.0 density:0.0"),
+        ]
+        layer_b.assign_scenarios_with_sink_rescue(
+            pairs, _scenario_map(), config=None, strategy="content_gate_narrow",
+        )
+        assert all(p["scenario_key"] is not None for p in pairs)
+
+
 class TestUnknownSinkRescueStrategy:
     def test_raises_on_unrecognised_strategy(self, fake_embeddings):
         pairs = [_pair("pricing:1.0", "quality:1.0")]

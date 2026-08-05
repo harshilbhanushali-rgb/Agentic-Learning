@@ -10,6 +10,7 @@ from shared import pinecone_store
 from shared.scenario_vectors import build_scenario_vecs as _build_scenario_vecs
 from shared.scenario_vectors import build_primary_topic_vecs as _build_primary_topic_vecs
 from shared.tuning import load_tuning
+from shared import trigger_quality
 
 _MIN_CONTENT_WORDS = 5
 
@@ -296,17 +297,52 @@ def _flat_pick(
     return kept or [keys[best_j]]
 
 
+def _content_gate(pair: dict, tuning) -> bool:
+    """Content-signal rescue gate (Status update 3 in
+    docs/superpowers/specs/2026-08-04-layer-b-sink-rescue-design.md):
+    concrete_entity_density(response) is the primary signal; preceding_turn_is_question
+    (precomputed by the caller onto pair["preceding_turn_is_question"] -- this function
+    has no access to the transcript's turns list) only breaks ties in the borderline band.
+    """
+    density = trigger_quality.concrete_entity_density(pair["response_text"])
+    if density >= tuning.sink_rescue_density_threshold:
+        return True
+    if density < tuning.sink_rescue_density_borderline_floor:
+        return False
+    return bool(pair.get("preceding_turn_is_question", False))
+
+
+def _content_route(i, response_sims, scenario_keys, is_sink, tuning):
+    """Routing is unchanged from response_only/or_rule -- relative top-K on the
+    response's own similarity, restricted to non-sink candidates. No absolute
+    floor: that job now belongs to _content_gate, not this function."""
+    return _topk_pick(
+        response_sims[i], scenario_keys, is_sink,
+        tuning.max_scenarios_per_pair, tuning.sink_rescue_relative_margin,
+    )
+
+
 def assign_scenarios_with_sink_rescue(
     pairs: list[dict],
     scenario_map: dict[str, dict],
     config: Config,
     strategy: str,
 ) -> tuple[list[list[float]], list[list[float]]]:
-    """Sink-rescue variant of assign_scenarios: response_only / or_rule / blended.
+    """Sink-rescue variant of assign_scenarios: response_only / or_rule / blended /
+    content_gate_narrow / content_gate_broad.
 
     See docs/superpowers/specs/2026-08-04-layer-b-sink-rescue-design.md for the problem
     this solves (sink absorption discarding real content whose RESPONSE, not trigger,
     carries the value) and why each strategy is shaped this way.
+
+    content_gate_narrow/content_gate_broad (Status update 3) replace the cosine floors
+    with a content-signal gate (see _content_gate) -- concrete_entity_density(response) is
+    primary, preceding_turn_is_question is a borderline tie-break only. This function has
+    no access to the transcript's turns list, so preceding_turn_is_question must be
+    precomputed by the caller and attached as pair["preceding_turn_is_question"] (bool);
+    if absent, it defaults to False (never tips a borderline case toward rescue).
+    content_gate_narrow only gates sink-bound pairs (mirrors response_only's blast radius);
+    content_gate_broad gates every pair regardless of sink status (mirrors or_rule's).
 
     UNCALIBRATED as of 2026-08-04 -- sink_rescue_relative_margin, sink_rescue_response_min_similarity,
     sink_rescue_trigger_weak_floor, and sink_rescue_blend_alpha are all placeholders until
@@ -395,6 +431,15 @@ def assign_scenarios_with_sink_rescue(
                 blend_sims, scenario_keys, is_sink,
                 tuning.max_scenarios_per_pair, tuning.relative_margin,
             ))
+        elif strategy == "content_gate_narrow":
+            if is_sink[t_best_j] and _content_gate(pair, tuning):
+                rescued = _content_route(i, response_sims, scenario_keys, is_sink, tuning)
+                _assign(pair, rescued or [scenario_keys[t_best_j]])
+            else:
+                _assign(pair, _flat_pick(
+                    t_sims, scenario_keys, is_sink,
+                    tuning.max_scenarios_per_pair, tuning.relative_margin,
+                ))
         else:
             raise ValueError(f"unknown sink-rescue strategy: {strategy!r}")
 
