@@ -442,3 +442,57 @@ somewhere to read its numbers from, not because either value is trusted yet.
 purely historical alongside `blended`. `matching_strategy` and `sink_rescue_strategy` both remain at
 their non-adopting defaults (`flat` / `none`) in `tuning.yaml` — nothing in this status update changes
 production behavior.
+
+## Status update 4 (2026-08-05): round 3 harness run — content-signal gating cuts collateral damage roughly in half, at UNCALIBRATED placeholder thresholds
+
+`compare_sink_rescue.py` ran against the live `public` schema after implementing `content_gate_narrow`/
+`content_gate_broad` (157 scenarios, 4,605 pairs, 1,865 sink-bound — same corpus as status updates 1-2).
+Full output: `Brain/compare_sink_rescue_round3_20260805.log`. **`sink_rescue_density_threshold` (0.15)
+and `sink_rescue_density_borderline_floor` (0.05) are still their un-calibrated placeholders from the
+plan** — `label_trigger_quality_sample.py` was implemented (Task 5) but not run against real Gemma calls
+in this pass (a deliberate scope decision: it spends real Gemma API budget and needs separate
+authorization, unlike this zero-Gemma harness). So this round is a first, uncalibrated data point, not
+a final verdict — same caveat every prior round in this file was held to before its own recalibration.
+
+**Headline result: content_gate_broad's collateral damage is less than half of or_rule's, at a
+comparable rescue rate.**
+
+| strategy | sink-bound rescued | non-sink pairs touched |
+| --- | --- | --- |
+| response_only | 764/1,865 (41.0%) | 0/2,740 (0%, by design) |
+| or_rule | 736/1,865 (39.5%) | 1,147/2,740 (**41.9%**) |
+| blended | 418/1,865 (22.4%) | 1,305/2,740 (**47.6%**) |
+| content_gate_narrow | 546/1,865 (29.3%) | 0/2,740 (0%, by design) |
+| content_gate_broad | 546/1,865 (29.3%) | **515/2,740 (18.8%)** |
+
+`content_gate_narrow` and `content_gate_broad` rescue the identical 546 pairs from the sink-bound
+population (same gate, same routing) — the only difference is `content_gate_broad`'s willingness to
+also reconsider already-non-sink pairs. That extra reach costs it 18.8% collateral damage, which is
+real but **less than half** of `or_rule`'s 41.9% and `blended`'s 47.6% at comparable or higher rescue
+volume. This is the first evidence in this file's whole calibration history that a non-embedding gate
+changes the precision/reach trade-off rather than just relocating it — every embedding-floor variant
+tested in status updates 1-2 converged on "any setting wide enough to reach real content is wide enough
+to catch comparable wrong content too."
+
+**Reading the samples shows genuine wins alongside genuine misses — this is not yet a clean signal.**
+Wins: `[25572]` "we're doing a little bit better... spending around thousand to 2,0[00]" correctly
+rescued to `budget_and_spend_disclosure` from `client_general_comparisons` — a real dollar figure the
+density signal was built to catch. Misses: `[26471]` "I think we're good, Patrick. Awesome. Thank you,
+everyone." — a plain call-closing exchange — got rescued to `client_direct_denial`, which reads wrong;
+`[26605]` "Alright. Got it. If there's anything else, you can let me know on Slack" rescued to
+`onboarding_completion_metrics_discovery` also reads like a weak/generic match, not genuinely about
+onboarding metrics. Both misses have the same shape: `concrete_entity_density` cleared the placeholder
+gate (a name like "Patrick" or "Slack" registers as a named entity) without the surrounding text
+actually being substantive content — a name mention is not the same as a concrete disclosure, and the
+current signal doesn't yet distinguish them. This is exactly the calibration gap `τ_density`/`τ_low`
+being unset is expected to produce, and is the concrete argument for running
+`label_trigger_quality_sample.py` before trusting this round's numbers further.
+
+**Not yet done, explicit next step:** run `label_trigger_quality_sample.py` against the real schema
+(spends real Gemma budget — a deliberate, separate decision from this implementation pass), read the
+density-vs-label distributions and the disagreement-edge samples it prints, and set
+`sink_rescue_density_threshold`/`sink_rescue_density_borderline_floor` from that data — the same
+discipline every prior threshold in this file (`relative_margin`, `merge_cosine_threshold`,
+`sink_rescue_response_min_similarity`) was held to before being trusted. Until then,
+`sink_rescue_strategy` stays at its non-adopting default (`none`) in `tuning.yaml`, same as every
+status update before this one.
