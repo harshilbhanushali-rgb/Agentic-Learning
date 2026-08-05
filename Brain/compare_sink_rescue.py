@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
-"""Zero-Gemma comparison of the three sink-rescue strategies (response_only /
-or_rule / blended) from docs/superpowers/specs/2026-08-04-layer-b-sink-rescue-design.md
-against the real, already-populated corpus.
+"""Zero-Gemma comparison of the five sink-rescue strategies (response_only /
+or_rule / blended / content_gate_narrow / content_gate_broad) from
+docs/superpowers/specs/2026-08-04-layer-b-sink-rescue-design.md against the
+real, already-populated corpus.
 
 Read-only against Postgres: trigger_text and response_text are real columns on
 kb_pairs, so no Pinecone read is needed. Re-runs assign_scenarios_with_sink_rescue
 in memory for each strategy over the same real texts. No DB writes, no Gemma calls
 -- embedder calls go through the disk cache, which is warm for this corpus.
+
+The content_gate_narrow/broad strategies additionally need each pair's
+preceding_turn_is_question signal, which requires re-parsing the source
+transcript (kb_pairs only stores call_id/turn_index, not the turn list) --
+see _attach_preceding_turn_is_question. This is a new, real dependency on
+recordings/ or csm_recordings/ that the response_only/or_rule/blended-only
+version of this script did not have.
 """
 from __future__ import annotations
+import json
 import random
 import sys
 from collections import Counter
+from pathlib import Path
 
 if sys.path and sys.path[0] not in ("", "."):
     sys.path[0] = ""
@@ -20,7 +30,8 @@ import numpy as np
 
 from config import load_config
 from preprocessing import embedder
-from shared import storage
+from preprocessing.transcript_parser import parse_transcript, load_roster
+from shared import storage, trigger_quality
 from shared.scenario_vectors import build_scenario_vecs
 from v1 import layer_b
 
@@ -28,20 +39,53 @@ from v1 import layer_b
 def _load_real_pairs(conn) -> list[dict]:
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT pair_id, trigger_text, response_text, scenario_key "
-            "FROM kb_pairs ORDER BY pair_id"
+            "SELECT p.pair_id, p.trigger_text, p.response_text, p.scenario_key, "
+            "p.call_id, p.turn_index, c.filename "
+            "FROM kb_pairs p JOIN calls c ON c.call_id = p.call_id "
+            "ORDER BY p.pair_id"
         )
         rows = cur.fetchall()
     return [
-        {"pair_id": r[0], "trigger_text": r[1], "response_text": r[2], "flat_key": r[3]}
+        {"pair_id": r[0], "trigger_text": r[1], "response_text": r[2], "flat_key": r[3],
+         "call_id": r[4], "turn_index": r[5], "filename": r[6]}
         for r in rows
     ]
+
+
+def _locate_transcript(filename: str) -> Path:
+    for directory in ("recordings", "csm_recordings"):
+        candidate = Path(directory) / filename
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        f"transcript {filename!r} not found in recordings/ or csm_recordings/ -- "
+        "needed to reconstruct turns for preceding_turn_is_question"
+    )
+
+
+def _attach_preceding_turn_is_question(real_pairs: list[dict], config) -> None:
+    by_filename: dict[str, list[dict]] = {}
+    for p in real_pairs:
+        by_filename.setdefault(p["filename"], []).append(p)
+
+    print(f"\nRe-parsing {len(by_filename)} transcript(s) for preceding_turn_is_question...")
+    for filename, group in by_filename.items():
+        txt_path = _locate_transcript(filename)
+        turns = parse_transcript(
+            str(txt_path), config.joveo_speakers_lower, config.naren_name_lower,
+            roster=load_roster(str(txt_path)),
+        )
+        for p in group:
+            p["preceding_turn_is_question"] = trigger_quality.preceding_turn_is_question(
+                turns, p["turn_index"]
+            )
 
 
 def _fresh_pairs(real_pairs: list[dict]) -> list[dict]:
     return [
         {"trigger_text": p["trigger_text"], "response_text": p["response_text"],
-         "scenario_key": None, "scenario_id": None}
+         "scenario_key": None, "scenario_id": None,
+         "preceding_turn_is_question": p["preceding_turn_is_question"]}
         for p in real_pairs
     ]
 
@@ -125,7 +169,29 @@ def main() -> None:
 
     _print_response_similarity_percentiles(real_pairs, scenario_map)
 
-    for strategy in ("response_only", "or_rule", "blended"):
+    labels_path = Path(__file__).parent / "trigger_quality_labels.json"
+    if labels_path.exists():
+        labeled = json.loads(labels_path.read_text(encoding="utf-8"))
+        coachable = sorted(e["concrete_entity_density"] for e in labeled if e["coachable"])
+        junk = sorted(e["concrete_entity_density"] for e in labeled if not e["coachable"])
+
+        def _pct(values, p):
+            if not values:
+                return float("nan")
+            idx = min(len(values) - 1, int(len(values) * p / 100))
+            return values[idx]
+
+        print(f"\nconcrete_entity_density(response), labeled coachable (n={len(coachable)}):")
+        print("  " + "  ".join(f"p{p}={_pct(coachable, p):.3f}" for p in (10, 25, 50, 75, 90)))
+        print(f"concrete_entity_density(response), labeled NOT coachable (n={len(junk)}):")
+        print("  " + "  ".join(f"p{p}={_pct(junk, p):.3f}" for p in (10, 25, 50, 75, 90)))
+    else:
+        print(f"\n({labels_path.name} not found -- run label_trigger_quality_sample.py first "
+              "for the label-split density view.)")
+
+    _attach_preceding_turn_is_question(real_pairs, config)
+
+    for strategy in ("response_only", "or_rule", "blended", "content_gate_narrow", "content_gate_broad"):
         pairs = _fresh_pairs(real_pairs)
         layer_b.assign_scenarios_with_sink_rescue(pairs, scenario_map, config=None, strategy=strategy)
         _report(strategy, real_pairs, scenario_map, pairs)
