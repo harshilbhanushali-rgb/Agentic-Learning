@@ -372,10 +372,10 @@ artifact. `by_response` is the same story at 87 lost. **So the sink gate is doin
 eight-round search for a better rescue *score* was optimising a lever that damages what it was meant
 to improve.**
 
-**`by_cluster` is the only viable method, and better than the bar reads.** It touches 4 of 81
-scenarios. Its single `lost` milestone is **not substantively lost** — read verbatim, its lead clause
-reappears in one of the same scenario's `gained` milestones at support 6 instead of 8; it was
-re-clustered, not destroyed. Its placebo lost 6 and gained 0.
+**`by_cluster` appeared to be the only viable method** — it touches 4 of 81 scenarios, its single
+`lost` milestone's lead clause reappears in a `gained` cluster at support 6 instead of 8, and its
+placebo lost 6 while gaining 0. **This reading was falsified the same day; see "Correction (2026-08-05,
+same day)" below. Do not treat `by_cluster` as validated.**
 
 **Correction to this design's own adoption bar.** "Zero baseline milestones lost" is unachievable in
 principle: the placebo shows that perturbing a clause pool *at all* costs ~6 milestones through
@@ -383,11 +383,11 @@ UMAP/HDBSCAN sensitivity, independent of content quality. The bar as written wou
 that performs better than the noise floor. **The placebo, not the bar, is what makes a loss count
 interpretable** — that is the methodological finding, and any future Layer C A/B should carry one.
 
-**The real payoff is evidence thickening, not new milestones.**
+**The apparent payoff was evidence thickening, not new milestones** —
 `client_requests_operational_visualization` 22 → 133 calls, 28 → 133, 112 → 133, 39 → 63;
-`media_channel_and_retargeting_discovery` 6 → 36, 7 → 36, 8 → 36, 10 → 36, 18 → 36;
-`ai_capability_discovery` 9 → 33, 47 → 68. A milestone that looked like a 6-call fluke is a 36-call
-pattern. That is the same rubric made trustworthy, which matters more than 4 added entries.
+`media_channel_and_retargeting_discovery` 6 → 36, 7 → 36, 8 → 36; `ai_capability_discovery` 9 → 33,
+47 → 68. **These numbers are real but do not mean what they appear to mean — see the Correction
+section below.**
 
 **Unplanned side-finding: Layer C's relevance filter barely discriminates by topic.** Deliberately
 wrong placebo clauses survived the p40 cut at 53.9–57.2%, versus 57.7–63.0% for real rescued content —
@@ -399,14 +399,16 @@ than assumed. Not investigated further; recorded as a separate open finding.
 - **Nothing is wired into production.** `sink_rescue_strategy` stays `none`, `matching_strategy` stays
   `flat`, no `tuning.yaml` value changed, no scenario added, no pair rerouted. This pass was
   measurement and it stayed measurement.
-- **`by_trigger_nonsink` and `by_response` are rejected on measured evidence**, not on principle.
-- **`by_cluster` is the recommended fix**, pending a follow-up design for how cluster adjudication gets
-  wired in.
-- **Reversal, stated explicitly:** this session earlier argued against recurring per-cluster LLM
-  adjudication in production, because Layer A's own per-cluster coachability verdicts flip ~5–6%
-  between runs. Half B overturns that: both zero-LLM alternatives destroy ~21% of the rubric set, so
-  ~15 batched calls per run is a cost to manage rather than a reason to avoid the only method that
-  works. Its blast radius (4 of 81 scenarios) bounds what the variance can damage.
+- **`by_trigger_nonsink` and `by_response` are rejected on measured evidence**, not on principle. This
+  survives the correction below: their losses are counted directly, and merge-blindness can only
+  *understate* damage, never invent it.
+- **`by_cluster` was recommended, and that recommendation is WITHDRAWN** — see the Correction section.
+  No rescue method is validated.
+- **A reversal that has itself been reversed:** this session first argued against recurring per-cluster
+  LLM adjudication in production (Layer A's own per-cluster verdicts flip ~5–6% between runs), then
+  overturned that on Half B's evidence, then withdrew the overturn when that evidence was falsified.
+  Recorded in full rather than tidied, because the tidied version would read as a settled
+  recommendation that no longer exists.
 - **The two proposed scenarios are NOT adopted, and Half B could not test them** — routing can only
   place content into scenarios that already exist, so their payoff is unmeasured.
 - **Sufficiency, stated plainly:** adding those two scenarios alone would capture nothing. Layer B
@@ -422,3 +424,66 @@ than assumed. Not investigated further; recorded as a separate open finding.
   split the 535-pair junk cluster and cut noise. Untested.
 - Whether the two proposed scenarios earn their place, which needs a Layer A change plus a rerun.
 - Layer C's weak relevance filter, above.
+
+## Correction (2026-08-05, same day): the "evidence thickening" result was a merge artifact — `by_cluster` is not validated
+
+The status update above recommended `by_cluster` on the strength of 383/385 milestones matched, 1 lost,
+and large support jumps read as evidence thickening. **The very check that recommendation flagged as
+mandatory before shipping ("read the thickened milestones' clauses") was then run, and it falsified the
+reading.** New script: `Brain/check_milestone_thickening.py` (zero Gemma, imports
+`replay_layer_c_admitted`'s own `_pass1`/`_route` so it measures the same thing that arm measured).
+
+### `_match_milestones` is merge-blind
+
+It maps each baseline milestone to its best-overlapping arm cluster **independently**, with no check for
+whether several baseline milestones land in the *same* arm cluster. So an N-into-1 collapse is scored as
+N clean `matched` outcomes, each with a large positive `support_delta`, when what actually happened was
+one destructive merge.
+
+Measured in `client_requests_operational_visualization`:
+
+| Baseline milestone | Clauses | Support | Matched arm cluster |
+| --- | --- | --- | --- |
+| A | 45 | 22 calls | the **same** 532-clause cluster, support 133 |
+| B | 54 | 28 calls | the **same** 532-clause cluster, support 133 |
+| C | 337 | 112 calls | the **same** 532-clause cluster, support 133 |
+
+Their printed clause lists are byte-identical. Three distinct coaching moves fused into one blob, and
+the report called it three thickened milestones.
+
+### Three compounding traps, all of them mine
+
+1. **The merge was not caused by the rescued content.** Admitted clauses are only **15%** of that
+   532-clause cluster. The clause pool grew 2,315 → 3,239 and UMAP re-partitioned — the *same* mechanism
+   that destroyed 82 milestones in `by_trigger_nonsink`, just silent here because the milestone count
+   went 6 → 7 and looked healthy.
+2. **Raw support is not comparable across arms.** The 112 → 133 jump is **73% → 72%** as a fraction of
+   the scenario's own calls, because 31 new calls arrive with the admitted pairs. The denominator moved
+   and the report only printed the numerator.
+3. **The dilution indicator that was coded looked in the wrong place.** `support >= 90% of all calls`
+   returned 0/7 and missed this completely. The correct indicator is *"do multiple baseline milestones
+   map to the same arm cluster"* — a check the matching rule made structurally impossible to see.
+
+### What survives and what does not
+
+| Finding | Status |
+| --- | --- |
+| Half A in full — pool composition, 21%/71%/80% agreement with the independent labels, the taxonomy gap, embedding signals dead at cluster level | **Stands.** Independent of the matching rule |
+| Baseline replay fidelity (385 milestones, inside the documented band) | **Stands** |
+| `by_trigger_nonsink` rejected (82 lost), `by_response` rejected (87 lost) | **Stands.** Losses are counted directly; merge-blindness can only understate damage, never invent it |
+| `by_cluster` "383/385 matched, 1 lost" | **Withdrawn.** Merges counted as matches, so damage is understated by an unknown amount |
+| "Evidence thickening" as the payoff | **Withdrawn.** It is cluster merging |
+| The correction to the adoption bar (zero-lost is unachievable; the placebo sets the noise floor) | **Stands** — and is now doubly important, since the placebo is the only reason the mechanism was suspected at all |
+
+**Net: no rescue method is validated, and nothing is recommended for production.** The diagnostic did
+its job — it caught this before anything shipped, at the checkpoint it had itself declared mandatory —
+but the fix it recommended is unsupported until re-measured.
+
+### Required next step (zero Gemma, ~30 min local)
+
+`_match_milestones` gains a fourth outcome, **`merged`**: after mapping baseline milestones to arm
+clusters, any arm cluster claimed by two or more baseline milestones marks all of them `merged` rather
+than `matched`. Support must additionally be reported as a fraction of each arm's own scenario call
+count, never as a raw delta. Then Half B is re-run and all three arms re-read — including
+`by_trigger_nonsink` and `by_response`, whose `matched` counts (255 and 264) are inflated by the same
+bug even though their rejections do not depend on it.

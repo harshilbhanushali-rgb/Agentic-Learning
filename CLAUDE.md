@@ -459,20 +459,37 @@ so the replay reproduces Pass 1 by **importing** production code rather than cop
   cheapest fix outright.** Baseline reproduced 385 milestones (inside the documented ~[350,450] band,
   so the replay is faithful). **Deleting the sink short-circuit destroys 82 of 385 milestones (21%) and
   its placebo gained MORE than it did (98 vs 84)** — the entire apparent gain is a pool-size clustering
-  artifact. `by_response`: 87 lost. **`by_cluster` (route only clusters judged `belongs_to_existing`) is
-  the only viable method**: 383/385 matched, 1 lost (and read verbatim, that milestone's lead clause
-  reappears in a `gained` cluster at support 6 vs 8 — re-clustered, not destroyed) vs its placebo's 6
-  lost / 0 gained. **The real payoff is evidence thickening, not new milestones** — e.g.
-  `client_requests_operational_visualization` 22→133 / 28→133 / 112→133 calls;
-  `media_channel_and_retargeting_discovery` 6→36 / 7→36 / 8→36.
+  artifact. `by_response`: 87 lost. `by_cluster` (route only clusters judged `belongs_to_existing`)
+  *appeared* to be the only viable method — 383/385 matched, 1 lost vs its placebo's 6 lost / 0 gained,
+  with large support jumps read as "evidence thickening". **That reading was FALSIFIED the same day by
+  `check_milestone_thickening.py` — see the next bullet. `by_cluster` is NOT validated and NOT
+  recommended.**
+- **`replay_layer_c_admitted._match_milestones` is MERGE-BLIND, and it inflated `by_cluster`'s result.**
+  It maps each baseline milestone to its best-overlapping arm cluster *independently*, so when N
+  baseline milestones collapse into ONE arm cluster it scores N clean "matched + thickened" milestones
+  instead of one destructive merge. Measured in `client_requests_operational_visualization`: three
+  baseline milestones (45, 54 and 337 clauses; support 22, 28, 112) all matched the *same* 532-clause
+  treatment cluster at support 133 — byte-identical clause lists, i.e. three distinct coaching moves
+  fused into one blob. **The admitted content was only 15% of that cluster**, so the merge was driven by
+  the clause pool growing (2,315 → 3,239) and UMAP re-partitioning — the same mechanism that destroyed
+  82 milestones in `by_trigger_nonsink`, just silent. Milestone count went 6 → 7, which is exactly how
+  it hid. Two further traps: **support as a raw count is not comparable across arms** (the 112 → 133 jump
+  is 73% → 72% *as a fraction of the scenario's calls*, since 31 new calls arrive with the admitted
+  pairs), and the dilution indicator that *was* coded (`support >= 90% of all calls`) reported 0/7 and
+  missed it entirely — the correct indicator is "do multiple baseline milestones map to the same arm
+  cluster". **Any future Layer C A/B must report a `merged` outcome and normalise support by call count.**
+  Fixing the rule and re-running Half B is open work (zero Gemma, ~30 min local).
 - **A placebo arm is mandatory for any future Layer C A/B, and "zero milestones lost" is an
   unachievable bar.** Perturbing a clause pool *at all* costs ~6 milestones to UMAP/HDBSCAN sensitivity
   regardless of content quality — so a loss count is only interpretable against a volume-matched
   placebo. The bar as originally written would have rejected a fix that beats the noise floor.
-- **Reversal worth remembering: recurring per-cluster LLM adjudication in production is now the
-  recommended path, having first been argued against.** The objection was Layer A's ~5-6% per-cluster
-  coachability flip between runs; but both zero-LLM alternatives destroy ~21% of the rubric set, so
-  ~15 batched calls per run is a cost to manage. Blast radius is 4 of 81 scenarios, which bounds it.
+- **No rescue method is currently validated, and nothing is recommended for production.** Mid-session
+  this file briefly recommended `by_cluster` plus recurring per-cluster LLM adjudication (reversing an
+  earlier objection based on Layer A's ~5-6% per-cluster verdict flip between runs). **That
+  recommendation is withdrawn** — it rested on the merge-blind measurement above. What survives is the
+  *negative* result: `by_trigger_nonsink` and `by_response` are rejected on directly-counted losses
+  (82 and 87 milestones), which merge-blindness cannot inflate. `by_cluster`'s standing is unknown
+  until the matching rule is fixed and Half B re-run.
 - **The two proposed scenarios are necessary but NOT sufficient, and Half B could not test them.**
   Routing can only place content into scenarios that exist. And adding them alone captures nothing —
   Layer B matches on the CLIENT trigger, and these pairs were sunk *because* their triggers look like
