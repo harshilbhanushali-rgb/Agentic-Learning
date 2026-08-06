@@ -487,3 +487,72 @@ than `matched`. Support must additionally be reported as a fraction of each arm'
 count, never as a raw delta. Then Half B is re-run and all three arms re-read — including
 `by_trigger_nonsink` and `by_response`, whose `matched` counts (255 and 264) are inflated by the same
 bug even though their rejections do not depend on it.
+
+## Status update (2026-08-06/07): merge-blindness fixed, Half B re-run — `by_cluster` is far cleaner but still not a clean win
+
+`_match_milestones` now has a fourth outcome, `merged`: after mapping each baseline milestone to its
+best-overlapping arm cluster, any arm cluster claimed by 2+ baseline milestones marks all of them
+`merged` instead of `matched`, and support is reported as a fraction of each arm's own scenario call
+count rather than a raw delta. Sanity-tested against synthetic merge/match/lost/split cases (including
+the exact 45/54/337-clause → 532-clause example above) before re-running against real data. Full log:
+`Brain/replay_layer_c_admitted_postfix.log`; payload: `Brain/layer_c_admitted_replay_postfix.json`.
+
+**The fix reproduces the exact inflation the prior update predicted, byte for byte.** `matched + merged`
+equals the old (buggy) `matched` count in both rejected arms: `by_trigger_nonsink` 172 + 83 = 255,
+`by_response` 172 + 92 = 264. This is strong internal evidence the fix is measuring the right thing
+rather than introducing a new artifact.
+
+| Arm | matched | merged | split | lost | gained | (old buggy "matched") |
+| --- | --- | --- | --- | --- | --- | --- |
+| `by_trigger_nonsink` | 172 | 83 | 48 | 82 | 84 | 255 |
+| placebo | 151 | 98 | 53 | 83 | 98 | 249 |
+| `by_response` | 172 | 92 | 34 | 87 | 71 | 264 |
+| placebo | 174 | 81 | 35 | 95 | 67 | 255 |
+| `by_cluster` | 375 | 8 | 1 | 1 | 4 | 383 |
+| placebo | 378 | 0 | 1 | 6 | 0 | 378 |
+
+(385 baseline candidate milestones total, 81 coachable scenarios replayed, 74 clustered / 7 fallback —
+same as the original Half B run, confirming the replay is still faithful.)
+
+**`by_trigger_nonsink` and `by_response` are now rejected more decisively, not just still-rejected.**
+Roughly a third of what looked like clean matches (83/255, 92/264) were secretly destructive merges.
+Reading samples confirms the same collapse pattern as the withdrawn `by_cluster` finding, and it is
+worse in magnitude: `budget_and_spend_disclosure` under `by_response` fuses a literal filler exchange
+("So, for example, if I'm looking at stem." / "What are you trialing?" / "Does that answer your
+question?") together with real spend-strategy content into one cluster, and the multiplicity
+distribution shows clusters absorbing as many as **10 baseline milestones at once**
+(`by_trigger_nonsink`: {2:36, 3:9, 4:4, 5:10, 7:14, 10:10}; `by_response`: {2:40, 3:15, 4:16, 6:12,
+9:9}) — a bigger "gravity well" than anything seen in `by_cluster`.
+
+**`by_cluster` is genuinely far cleaner than the other two (8 merges out of 385 vs. 83–92), but it is
+still not a clean win, and the fix surfaced a merge the original write-up never caught.** Its own worst
+case is a **5-into-1** collapse in `media_channel_and_retargeting_discovery` (support 6/18/7/10/8 → 36
+calls each, 14–41% → 73% of scenario calls) — a previously undetected instance of the identical pattern
+as the documented `client_requests_operational_visualization` 3-into-1 case (which reproduces exactly:
+22/28/112 → 133 calls, now correctly shown as 14%/18%/73% → 72% of scenario calls). Read verbatim, the
+`media_channel` merge fuses genuinely distinct sub-topics (which job boards are in the mix, whether
+applications flow back to the ATS, a cost-per-applied pricing model, and a generic "we can optimize
+further" claim) into one blob — the same "N distinct coaching moves read as one" failure, just smaller
+in scale (2% of milestones vs. ~22–24%).
+
+**`by_cluster` beats its own placebo on every other axis.** lost: treatment 1 vs. placebo 6. gained: 4
+vs. 0 (new content — Scale AI partnership, LinkedIn CPC/CPA specifics, landing-page follow-up — read
+verbatim and it is genuine, on-topic, distinct from existing milestones). merged: treatment 8 vs.
+placebo 0 — the one axis where `by_cluster` is *worse* than its placebo, meaning the real (not random)
+content it admits causes more genuine fusions than topically-wrong volume does. That is a real, if
+small, cost, not noise.
+
+**Verdict: no rescue method is validated for production, and none is recommended — this stands, not
+softened.** `by_cluster` is the least-damaging of the three by a wide margin and the only one whose
+placebo comparison reads unambiguously in its favor on lost/gained, but a strict reading of the
+adoption bar (zero baseline milestones lost or destructively merged) still fails: 1 lost, 8 merged,
+both nonzero. Whether "far cleaner than the alternatives, wins vs. its own placebo everywhere except
+merge count" clears a *revised* bar is a product decision this diagnostic does not make on its own —
+it was scoped to measure, not to decide. `sink_rescue_strategy` stays `none`; `matching_strategy` stays
+`flat`; no `tuning.yaml` change; no scenario added; no pair rerouted.
+
+### Open, still not addressed here
+
+Unchanged from the prior "Open, not addressed here" list — the 47.3% HDBSCAN noise ceiling, the
+untested two new scenarios, and Layer C's weak relevance filter are all orthogonal to the merge-scoring
+bug fixed here and were not touched by this pass.

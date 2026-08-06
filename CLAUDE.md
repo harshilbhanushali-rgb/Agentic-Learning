@@ -478,18 +478,36 @@ so the replay reproduces Pass 1 by **importing** production code rather than cop
   pairs), and the dilution indicator that *was* coded (`support >= 90% of all calls`) reported 0/7 and
   missed it entirely — the correct indicator is "do multiple baseline milestones map to the same arm
   cluster". **Any future Layer C A/B must report a `merged` outcome and normalise support by call count.**
-  Fixing the rule and re-running Half B is open work (zero Gemma, ~30 min local).
+  **Fixed and re-run 2026-08-06/07** — see the next bullet for the corrected result.
 - **A placebo arm is mandatory for any future Layer C A/B, and "zero milestones lost" is an
   unachievable bar.** Perturbing a clause pool *at all* costs ~6 milestones to UMAP/HDBSCAN sensitivity
   regardless of content quality — so a loss count is only interpretable against a volume-matched
   placebo. The bar as originally written would have rejected a fix that beats the noise floor.
-- **No rescue method is currently validated, and nothing is recommended for production.** Mid-session
-  this file briefly recommended `by_cluster` plus recurring per-cluster LLM adjudication (reversing an
-  earlier objection based on Layer A's ~5-6% per-cluster verdict flip between runs). **That
-  recommendation is withdrawn** — it rested on the merge-blind measurement above. What survives is the
-  *negative* result: `by_trigger_nonsink` and `by_response` are rejected on directly-counted losses
-  (82 and 87 milestones), which merge-blindness cannot inflate. `by_cluster`'s standing is unknown
-  until the matching rule is fixed and Half B re-run.
+- **`_match_milestones` merge-blindness fixed and Half B re-run against live data (2026-08-06/07) —
+  `by_cluster` is far cleaner than the other two arms but still not a clean win, and no method is
+  recommended for production.** Fix: a fourth outcome `merged` (2+ baseline milestones claiming the
+  same arm cluster mark all of them `merged`, not `matched`), plus support reported as a fraction of
+  each arm's own scenario call count. Sanity-tested against synthetic cases (including the exact
+  45/54/337→532-clause example above) before the real re-run. **The fix reproduces the prior update's
+  own prediction exactly**: `matched + merged` equals the old inflated `matched` count in both rejected
+  arms (`by_trigger_nonsink` 172+83=255, `by_response` 172+92=264) — strong evidence the fix measures
+  the right thing. Corrected per-arm counts (of 385 baseline milestones): `by_trigger_nonsink` 172
+  matched / 83 merged / 48 split / 82 lost; `by_response` 172/92/34/87; `by_cluster` 375/8/1/1.
+  `by_trigger_nonsink` and `by_response` are now rejected *more* decisively — roughly a third of their
+  apparent matches were destructive merges, some absorbing up to **10 baseline milestones into one
+  cluster** (worse than anything in `by_cluster`), confirmed by reading samples (e.g. `by_response`'s
+  `budget_and_spend_disclosure` fuses literal filler — "What are you trialing?", "Does that answer your
+  question?" — into a real spend-strategy cluster). `by_cluster` beats its own placebo on lost (1 vs 6)
+  and gained (4 genuine new milestones — Scale AI partnership, LinkedIn CPC/CPA, landing-page
+  follow-up — vs 0), but **not** on merged (8 vs placebo's 0) — its worst case is a previously
+  undetected **5-into-1** collapse in `media_channel_and_retargeting_discovery` fusing genuinely
+  distinct sub-topics (which job boards, ATS integration, a pricing model, a generic optimization
+  claim). **Verdict, unsoftened: no rescue method is validated for production.** `by_cluster` is the
+  least damaging by a wide margin and wins its placebo comparison on every axis except merge count, but
+  1 lost + 8 merged is nonzero real damage, not proof of a clean fix. Full detail, including the
+  multiplicity distributions and verbatim merged/gained samples: design spec's "Status update
+  (2026-08-06/07)" section; raw output `Brain/replay_layer_c_admitted_postfix.log` /
+  `Brain/layer_c_admitted_replay_postfix.json`.
 - **The two proposed scenarios are necessary but NOT sufficient, and Half B could not test them.**
   Routing can only place content into scenarios that exist. And adding them alone captures nothing —
   Layer B matches on the CLIENT trigger, and these pairs were sunk *because* their triggers look like

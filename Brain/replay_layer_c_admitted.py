@@ -259,44 +259,74 @@ def _pass1(info, base_responses, extra_responses, tuning):
 
 # --- milestone matching --------------------------------------------------------
 
-def _match_milestones(base_ms, arm_ms):
+def _match_milestones(base_ms, arm_ms, base_scenario_calls=None, arm_scenario_calls=None):
     """Clause-set overlap matching. The arm's pool is a strict superset of baseline's,
     so every baseline clause exists in the arm and overlap is exact -- no similarity
     threshold has to be invented.
 
-    Three outcomes, deliberately distinguished: conflating `split` with `lost` would
-    over-report regression, because fragmented evidence still survives.
+    Four outcomes, deliberately distinguished: conflating `split` with `lost` would
+    over-report regression, because fragmented evidence still survives. `merged` is
+    split out from `matched` because mapping each baseline milestone to its best arm
+    cluster INDEPENDENTLY is blind to several baseline milestones landing in the same
+    arm cluster -- that is a destructive collapse (N distinct moves fused into one),
+    not N clean matches, even though each one individually clears the majority-overlap
+    bar (see design doc's "Correction" section, 2026-08-05).
+
+    Support is reported as a FRACTION of each arm's own scenario call count, not a raw
+    delta -- an arm's scenario_calls grows when admitted pairs bring new calls, so raw
+    support is not comparable across arms.
     """
     arm_sets = [set(m["clauses"]) for m in arm_ms]
-    outcomes, matched_arm_idx = [], set()
 
-    for b in base_ms:
+    per_base = []  # (bset, overlaps, best, best_frac, total_frac) or None for empty
+    claims: dict[int, list[int]] = {}
+    for bi, b in enumerate(base_ms):
         bset = set(b["clauses"])
         if not bset:
+            per_base.append(None)
             continue
         overlaps = [len(bset & a) for a in arm_sets]
         best = int(np.argmax(overlaps)) if overlaps else -1
         best_frac = (overlaps[best] / len(bset)) if overlaps else 0.0
         total_frac = (sum(overlaps) / len(bset)) if overlaps else 0.0
+        per_base.append((bset, overlaps, best, best_frac, total_frac))
+        if best_frac > _MATCH_MAJORITY:
+            claims.setdefault(best, []).append(bi)
+
+    merged_arm_idx = {idx for idx, bis in claims.items() if len(bis) > 1}
+
+    outcomes = []
+    for bi, b in enumerate(base_ms):
+        entry = per_base[bi]
+        if entry is None:
+            continue
+        bset, overlaps, best, best_frac, total_frac = entry
+        base_frac = (b["support_calls"] / base_scenario_calls) if base_scenario_calls else None
 
         if best_frac > _MATCH_MAJORITY:
-            matched_arm_idx.add(best)
-            outcomes.append({"outcome": "matched", "base_support": b["support_calls"],
-                             "arm_support": arm_ms[best]["support_calls"],
-                             "support_delta": arm_ms[best]["support_calls"] - b["support_calls"],
+            arm_support = arm_ms[best]["support_calls"]
+            arm_frac = (arm_support / arm_scenario_calls) if arm_scenario_calls else None
+            outcome_name = "merged" if best in merged_arm_idx else "matched"
+            outcomes.append({"outcome": outcome_name, "base_support": b["support_calls"],
+                             "arm_support": arm_support,
+                             "base_support_frac": base_frac, "arm_support_frac": arm_frac,
+                             "n_baseline_in_same_cluster": len(claims[best]),
                              "clauses": b["clauses"][:3]})
         elif total_frac > _MATCH_MAJORITY:
             outcomes.append({"outcome": "split", "base_support": b["support_calls"],
+                             "base_support_frac": base_frac,
                              "n_fragments": sum(1 for o in overlaps if o > 0),
                              "clauses": b["clauses"][:3]})
         else:
             outcomes.append({"outcome": "lost", "base_support": b["support_calls"],
+                             "base_support_frac": base_frac,
                              "clauses": b["clauses"][:3]})
 
+    claimed_arm_idx = set(claims.keys())
     new_ms = [
         {"support_calls": m["support_calls"], "extra_fraction": m["extra_fraction"],
          "n_from_extra": m["n_from_extra"], "clauses": m["clauses"][:3]}
-        for i, m in enumerate(arm_ms) if i not in matched_arm_idx
+        for i, m in enumerate(arm_ms) if i not in claimed_arm_idx
     ]
     return outcomes, new_ms
 
@@ -306,13 +336,15 @@ def _match_milestones(base_ms, arm_ms):
 def _summarise_arm(name, per_scenario):
     tally = Counter()
     gained_from_extra = gained_other = 0
-    support_deltas, extra_admitted, extra_surviving = [], 0, 0
+    support_frac_deltas, extra_admitted, extra_surviving = [], 0, 0
 
     for s in per_scenario.values():
         for o in s["outcomes"]:
             tally[o["outcome"]] += 1
-            if o["outcome"] == "matched":
-                support_deltas.append(o["support_delta"])
+            if (o["outcome"] in ("matched", "merged")
+                    and o.get("base_support_frac") is not None
+                    and o.get("arm_support_frac") is not None):
+                support_frac_deltas.append(o["arm_support_frac"] - o["base_support_frac"])
         for n in s["new_milestones"]:
             if n["extra_fraction"] > 0.5:
                 gained_from_extra += 1
@@ -323,14 +355,16 @@ def _summarise_arm(name, per_scenario):
 
     return {
         "arm": name,
-        "matched": tally["matched"], "split": tally["split"], "lost": tally["lost"],
+        "matched": tally["matched"], "merged": tally["merged"],
+        "split": tally["split"], "lost": tally["lost"],
         "gained_majority_admitted": gained_from_extra,
         "gained_other": gained_other,
         "admitted_clauses": extra_admitted,
         "admitted_surviving_relevance": extra_surviving,
-        "support_delta_mean": float(np.mean(support_deltas)) if support_deltas else 0.0,
-        "support_thickened": sum(1 for d in support_deltas if d > 0),
-        "support_thinned": sum(1 for d in support_deltas if d < 0),
+        "support_frac_delta_mean": (float(np.mean(support_frac_deltas))
+                                    if support_frac_deltas else 0.0),
+        "support_thickened": sum(1 for d in support_frac_deltas if d > 0),
+        "support_thinned": sum(1 for d in support_frac_deltas if d < 0),
     }
 
 
@@ -353,11 +387,14 @@ def _report(payload):
         print(f"    {s['arm']:<28} {surv:>6}/{adm:<6} admitted clauses survive ({rate:.1%})")
 
     print("\n  --- Milestone outcomes vs baseline ---")
-    hdr = (f"    {'arm':<28}{'matched':>8}{'split':>7}{'lost':>6}"
+    print("  ('merged' = 2+ baseline milestones collapsed into the same arm cluster --")
+    print("   a destructive merge, NOT a clean match; support thick/thin is now a")
+    print("   fraction-of-scenario-calls delta, not a raw call-count delta)")
+    hdr = (f"    {'arm':<28}{'matched':>8}{'merged':>7}{'split':>7}{'lost':>6}"
            f"{'gained':>8}{'thick':>7}{'thin':>6}")
     print(hdr)
     for s in payload["arms"]:
-        print(f"    {s['arm']:<28}{s['matched']:>8}{s['split']:>7}{s['lost']:>6}"
+        print(f"    {s['arm']:<28}{s['matched']:>8}{s['merged']:>7}{s['split']:>7}{s['lost']:>6}"
               f"{s['gained_majority_admitted']:>8}{s['support_thickened']:>7}"
               f"{s['support_thinned']:>6}")
 
@@ -372,13 +409,18 @@ def _report(payload):
               f"   placebo {p['gained_majority_admitted']:>4}")
         print(f"      lost                       : treatment {t['lost']:>4}"
               f"   placebo {p['lost']:>4}")
+        print(f"      merged (destructive collapse): treatment {t['merged']:>4}"
+              f"   placebo {p['merged']:>4}")
         verdict = ("INDISTINGUISHABLE FROM PLACEBO -- gain is a pool-size artifact"
                    if t["gained_majority_admitted"] <= p["gained_majority_admitted"]
                    else "beats placebo")
         bar = ("ADOPTION BAR FAILS -- baseline milestones lost"
                if t["lost"] > 0 else "adoption bar: no baseline milestone lost")
+        merge_note = (f" (note: {t['merged']} additional baseline milestone(s) were "
+                      f"MERGED -- not lost, but not clean matches either)"
+                      if t["merged"] > 0 else "")
         print(f"      => {verdict}")
-        print(f"      => {bar}")
+        print(f"      => {bar}{merge_note}")
 
     print("\n" + "-" * 78)
     print("VERBATIM: every LOST baseline milestone (what the adoption bar turns on)")
@@ -395,6 +437,30 @@ def _report(payload):
                     print(f"      - {c[:160]!r}")
     if not any_lost:
         print("  None. No baseline milestone was lost in any arm.")
+
+    print("\n" + "-" * 78)
+    print("VERBATIM: every MERGED baseline milestone (N baseline milestones collapsed")
+    print("into the SAME arm cluster -- a destructive merge the old code scored as")
+    print("N clean matches)")
+    print("-" * 78)
+    any_merged = False
+    for arm_name, per_scenario in payload["detail"].items():
+        for key, s in per_scenario.items():
+            for o in s["outcomes"]:
+                if o["outcome"] != "merged":
+                    continue
+                any_merged = True
+                bf = o.get("base_support_frac")
+                af = o.get("arm_support_frac")
+                frac_str = (f"{bf:.0%} -> {af:.0%} of scenario calls"
+                           if bf is not None and af is not None else "n/a")
+                print(f"\n  [{arm_name}] {key} ({o['n_baseline_in_same_cluster']} baseline "
+                      f"milestones -> 1 arm cluster; support {o['base_support']} -> "
+                      f"{o['arm_support']} calls, {frac_str})")
+                for c in o["clauses"]:
+                    print(f"      ~ {c[:160]!r}")
+    if not any_merged:
+        print("  None. No arm cluster claimed more than one baseline milestone.")
 
     print("\n" + "-" * 78)
     print("VERBATIM: sample GAINED milestones built mostly from admitted clauses")
@@ -478,8 +544,10 @@ def main() -> None:
             extra = admitted.get(key, [])
 
             arm = _pass1(scenario_map[key], base_resp, extra, tuning)
+            base_calls = baseline[key].get("scenario_calls")
             outcomes, new_ms = _match_milestones(baseline[key]["milestones"],
-                                                arm["milestones"])
+                                                arm["milestones"],
+                                                base_calls, arm.get("scenario_calls"))
             per_scenario[key] = {**{k: arm[k] for k in
                                    ("n_clauses_base", "n_clauses_extra", "n_clauses_total",
                                     "outcome", "extra_surviving_relevance")},
@@ -487,7 +555,8 @@ def main() -> None:
 
             placebo_extra = _placebo_pool(key, arm["n_clauses_extra"], by_key, rng)
             pl = _pass1(scenario_map[key], base_resp, placebo_extra, tuning)
-            pl_out, pl_new = _match_milestones(baseline[key]["milestones"], pl["milestones"])
+            pl_out, pl_new = _match_milestones(baseline[key]["milestones"], pl["milestones"],
+                                              base_calls, pl.get("scenario_calls"))
             placebo_scenario[key] = {**{k: pl[k] for k in
                                        ("n_clauses_base", "n_clauses_extra",
                                         "n_clauses_total", "outcome",
