@@ -29,7 +29,7 @@ if sys.path and sys.path[0] not in ("", "."):
     sys.path[0] = ""
 
 from config import load_config
-from shared import cluster_evidence, storage
+from shared import cluster_evidence, scenario_vectors, storage, topic_grouping
 from shared.gemma import call_gemma
 from shared.prompts import PROMPT_GRADUATE_SINK_TOPIC
 from shared.tuning import load_tuning
@@ -96,6 +96,43 @@ def _support_stats_for_pairs(conn, pair_ids: list[int]) -> tuple[int, int, float
     return distinct_calls, len(pair_ids), call_coverage
 
 
+def _resolve_primary_topic_key(conn, row: dict) -> str:
+    """Fixes the primary_topic_key=None orphaning bug: primary_topics is only ever
+    populated once, during Layer A's main grouping pass -- a scenario graduated afterward
+    (by this script, or by response_taxonomy_auto_pass.py) has no later grouping step to go
+    through, so this resolves a real key instead of leaving the FK null forever. See
+    docs/superpowers/specs/2026-08-07-response-taxonomy-auto-pass-design.md's "Fix:
+    primary_topic_key orphaning" section -- response_taxonomy_auto_pass.py's own
+    _resolve_primary_topic_key is the sibling of this function, both built together.
+
+    Reuses merge_cosine_threshold (the tight, subtopic-dedup threshold), not the looser
+    primary_topic_merge_threshold used for INITIAL macro-grouping -- primary_topics rows are
+    already tight-cohesion groups by the time they're stored (post tighten_coachable_groups),
+    so the tight threshold is the comparable one.
+    """
+    tuning_a = load_tuning().layer_a
+    existing = storage.get_primary_topics(conn)
+    by_key = {t["primary_topic_key"]: t for t in existing}
+    keys, vecs = scenario_vectors.build_primary_topic_vecs(by_key)
+    new_vec = scenario_vectors.scenario_vec(row)
+
+    match = topic_grouping.match_existing_primary_topic(new_vec, keys, vecs, tuning_a.merge_cosine_threshold)
+    if match is not None:
+        return match
+
+    storage.upsert_primary_topic(conn, {
+        "primary_topic_key": row["scenario_key"],
+        "label": row["scenario_key"].replace("_", " ").title(),
+        "description": row["business_description"],
+        "keyphrases": row["keyphrases"],
+        "grouping_method": "graduated_singleton",
+        "support_calls": row["support_calls"],
+        "support_subtopics": 1,
+        "call_coverage": row["call_coverage"],
+    })
+    return row["scenario_key"]
+
+
 def _graduate_one(cluster_id: str, record: dict, verdict: dict, config, conn,
                    dry_run: bool) -> str | None:
     tuning = load_tuning().layer_a
@@ -142,8 +179,8 @@ def _graduate_one(cluster_id: str, record: dict, verdict: dict, config, conn,
         "call_coverage": call_coverage,
         "triage_verdict": "graduated_from_sink_pool",
         "adjudication_reason": verdict["reason"],
-        "primary_topic_key": None,
     }
+    row["primary_topic_key"] = _resolve_primary_topic_key(conn, row)
     scenario_id = storage.upsert_scenario(conn, row)
     print(f"  -> scenario_id={scenario_id}")
 
