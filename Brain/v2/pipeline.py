@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 from pathlib import Path
 import psycopg
+import response_taxonomy_auto_pass
 from config import Config
 from preprocessing.transcript_parser import parse_transcript, load_roster
 from shared import storage, checkpoint
@@ -51,6 +52,12 @@ def run_v2(recordings_dir: str, config: Config, conn: psycopg.Connection, run_id
 
     print("\n[V2 Layer C] Generating rubrics...")
     layer_c.run_layer_c_v2(scenario_map, config, conn, run_id)
+
+    print("\n[Response-taxonomy auto-pass] Checking for homeless topics to graduate...")
+    try:
+        response_taxonomy_auto_pass.run_auto_pass(config, conn, run_id)
+    except Exception as exc:  # noqa: BLE001 -- must never fail the overall pipeline run
+        print(f"  ! response_taxonomy_auto_pass failed (logged, not fatal): {exc}")
 
     _reconcile(conn, len(scenario_map))
 
