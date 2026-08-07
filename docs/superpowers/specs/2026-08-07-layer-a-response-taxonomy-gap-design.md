@@ -240,10 +240,20 @@ go-ahead.
   run). This is expected — Half A clustered a 3,730-item union of sink+control; this pass
   clusters the whole corpus at once, and the same coarse-clustering/high-noise dynamic already
   documented for this codebase's UMAP+HDBSCAN steps applies here too.
-- **Purity gate: 0 of 15 clusters skipped** — every cluster's current `scenario_key` composition
-  was either scattered across several coachable scenarios or not dominated by one coachable
-  scenario at the 0.90 threshold, so all 15 went to adjudication. This kept Gemma cost trivial:
-  15 clusters batched at 5/call = **3 Gemma calls total** for the whole corpus-wide pass.
+- **Purity gate: 0 of 15 clusters skipped, and it was never close to binding.** Every cluster's
+  current `scenario_key` composition was either scattered across several coachable scenarios or
+  not dominated by one coachable scenario at the 0.90 threshold, so all 15 went to adjudication.
+  The maximum top-1 dominance fraction observed across all 15 clusters was **0.300** (`cluster_2`),
+  and 13 of the 15 clusters sat below 0.15 — nowhere near the 0.90 gate. At `min_cluster_size=25`
+  over the full 4,605-pair corpus, clusters this large (29–401 members observed) spanning dozens
+  of distinct scenarios structurally cannot reach 90% single-scenario dominance — the gate was
+  inert at this clustering granularity, not selectively permissive. **This run does not validate
+  `response_taxonomy_purity_gate=0.90` as a good operating point** — it simply never came close to
+  binding, so this pass provides no evidence either way about whether 0.90 is well-calibrated.
+  That question remains open for whatever future run (finer clustering, a different corpus scale)
+  might actually approach the threshold. Gemma cost was trivial for an unrelated reason — there
+  were only 15 clusters total, not because the purity gate filtered anything out: 15 clusters
+  batched at 5/call = **3 Gemma calls total** for the whole corpus-wide pass.
 - **Verdict tally**: `belongs_to_existing` 11, `genuine_sink` 3, **`new_coachable_topic` 1**.
 - **`nearest_coachable_sim` distribution**: p10=0.649, p25=0.703, p50=0.717, p75=0.740,
   p90=0.756 — every cluster sits comfortably below `merge_cosine_threshold=0.85`, which is an
@@ -269,9 +279,35 @@ rediscovered as part of the same 11 `belongs_to_existing` clusters and `genuine_
 reappear as separate `new_coachable_topic` entries here — they were already handled by Phase 1).
 One new gap, `expert_led_discovery_and_context_setting`, was found. Per this design's explicit
 scope boundary, **no scenario was created and no pair was rerouted** — this is a measurement
-only. Whether to graduate this third cluster (via a future run of `graduate_sink_topics.py`
-against this new cluster's data) and whether to build a permanent recurring pass are both
-follow-up decisions, not resolved here.
+only.
+
+Graduating this third cluster is not a simple repeat of Phase 1 — two concrete blockers rule out
+a naive attempt via the existing script:
+
+1. **Field-name mismatch.** `graduate_sink_topics.py` reads `record["sink_member_pair_ids"]` from
+   its clusters-file. `sink_pool_clusters.json` (Phase 1's input) has both `member_pair_ids` and
+   `sink_member_pair_ids`. `dry_run_response_taxonomy.json` (Phase 2's output, where `cluster_6`
+   lives) records only `member_pair_ids` — there is no `sink_member_pair_ids` key anywhere in the
+   file. Passing `dry_run_response_taxonomy.json` as `--clusters-file` with `--clusters cluster_6`
+   would raise a `KeyError`, not graduate anything.
+2. **`cluster_6`'s membership is not sink-only, so a naive reroute would be destructive.** Its 30
+   members' current `scenario_key` composition (`current_composition_top5`) is scattered across
+   several ALREADY-COACHABLE scenarios — `stakeholder_role_identification` x2,
+   `client_small_talk_weather` x2, `feasibility_and_implementation_request` x2,
+   `client_validates_proposed_scenario` x2, `vague_general_references` x1, and more spread across
+   the remaining ~21 members — unlike Phase 1's two clusters, which were homogeneously sink-bound.
+   If `graduate_sink_topics.py` were naively adapted to rewrite all 30 `member_pair_ids` onto a new
+   scenario, it would overwrite `scenario_key` on pairs that are ALREADY correctly filed to real
+   coachable scenarios and feeding real rubrics — stealing evidence from existing rubrics. This is
+   exactly the destructive-reroute failure mode (the `by_cluster` failure mode) this whole design
+   was written to avoid — it would just be arriving through a documentation suggestion instead of
+   through code.
+
+Graduating `cluster_6`, if it is ever done, would require first deriving which specific member
+pairs are ACTUALLY sink-bound (not just cluster-co-located) before rerouting anything, plus a
+compatible field name — not a direct reuse of `graduate_sink_topics.py` as it exists today. That
+is a follow-up design question, not something to attempt via the existing script. Whether to build
+a permanent recurring pass is a separate follow-up decision, also not resolved here.
 
 Raw output: `Brain/dry_run_response_taxonomy_20260808.log` (Gemma run),
 `Brain/dry_run_response_taxonomy_no_gemma_20260808.log` (free pass),
