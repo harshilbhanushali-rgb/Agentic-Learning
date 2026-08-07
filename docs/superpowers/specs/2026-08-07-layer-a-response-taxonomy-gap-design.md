@@ -84,8 +84,18 @@ number used here was already computed and stored by Half A.
 3. **Insert.** `storage.upsert_scenario(conn, row)` with `is_coachable=True`,
    `cluster_kind='scenario'`, `triage_verdict='graduated_from_sink_pool'` (a new value —
    distinguishes these rows from ordinary Layer A output when reading `scenarios` later),
-   `support_calls`/`support_clauses`/`call_coverage` taken directly from Half A's stored
-   cluster stats, `adjudication_reason` = Half A's stored `reason`.
+   `adjudication_reason` = Half A's stored `reason`.
+   **`support_calls`/`support_clauses`/`call_coverage` are NOT taken directly from Half A's
+   stored `distinct_calls`/`call_coverage`** — corrected during implementation planning.
+   Those stored fields are computed over the cluster's full union of sink members AND its
+   volume-matched coachable-control sample (e.g. `cluster_5` stores `distinct_calls=115`
+   over 209 total members: 94 sink + 115 control), not over the 94 sink pairs actually being
+   graduated. Reusing them verbatim would overstate this scenario's real evidence with calls
+   it has no graduated pair in. Instead, recompute `support_calls`/`call_coverage` from the
+   exact `sink_member_pair_ids` at graduation time (one `COUNT(DISTINCT call_id)` query), and
+   set `support_clauses = len(sink_member_pair_ids)` — Half A clusters at response
+   granularity, not Layer C's clause granularity, so there is no real clause count to report;
+   this is a count of graduated responses, documented as such.
 4. **Reroute pairs.** Update exactly the pairs in the cluster's stored
    `sink_member_pair_ids` (94 for `cluster_5`, 81 for `cluster_8`) — no re-deriving
    membership, no similarity re-computation. Mirrors `backfill_scenarios.py`'s
@@ -93,9 +103,13 @@ number used here was already computed and stored by Half A.
    pattern, and also appends the new `scenario_key` into each row's `scenario_keys` array
    (the multi-scenario column) rather than overwriting it, since these pairs may already
    carry other matches from Layer B's normal multi-match behavior.
-5. **Generate rubrics.** Run Layer C for just these two new scenarios, reusing
-   `rerun_layer_c.py`'s existing pattern (`storage.get_naren_responses_for_scenario` per
-   target key, then `layer_c.run_layer_c(targeted, config, conn, run_id="")`).
+5. **Generate rubrics.** Run Layer C for just these two new scenarios. **Not**
+   `rerun_layer_c.py`'s own pattern verbatim — that script calls V1's
+   `layer_c.run_layer_c(targeted, config, conn, run_id="")`, but the `public` schema was
+   populated by the **V2** pipeline (`v2/layer_a.py`, `v2/layer_c.py`), so the correct call is
+   `v2.layer_c.run_layer_c_v2(targeted, config, conn, run_id="")`. Copying `rerun_layer_c.py`
+   literally would target the wrong Layer C implementation — caught during implementation
+   planning, not a design change.
 
 **Verification (mandatory, not optional):**
 
@@ -175,6 +189,46 @@ question, unresolved here).
   validated the way Half A already was: cross-checked against `labeled_trigger_quality_sample.json`
   where cluster membership overlaps it, and by reading verbatim samples for any newly
   found `new_coachable_topic` cluster before trusting it.
+
+## Status update (2026-08-08): Phase 1 code implemented and dry-run-verified against real production data; the real write is still deferred
+
+`shared/cluster_evidence.py::passes_reconciliation_gate`, `PROMPT_GRADUATE_SINK_TOPIC`,
+`layer_a.response_taxonomy_purity_gate` (tuning key, `0.90` pre-registered), and
+`Brain/graduate_sink_topics.py` (with a mocked-connection test suite covering the write path —
+no real DB, no real Gemma) are implemented, tested, and committed. Per an explicit
+human-partner instruction given during implementation planning, **no write against the real
+`public` schema happens as part of this implementation pass** — only reads. The write path is
+verified with mocked SQL assertions instead; the real insert + reroute + Layer C run is a
+separate, explicit step deferred to later, gated on the human partner's go-ahead and preceded
+by the `baseline_pre_graduation_20260807` schema snapshot.
+
+`graduate_sink_topics.py --dry-run` was run for real against the live `public` schema (reads
+only, zero writes) and both clusters graduated cleanly:
+
+| Cluster | Gemma-generated `scenario_key` | Pairs | Distinct calls | Coverage |
+| --- | --- | --- | --- | --- |
+| `cluster_5` | `strategic_performance_consulting` | 94 | **57** | **13.7%** |
+| `cluster_8` | `technical_operational_alignment` | 81 | **59** | **14.2%** |
+
+Both clusters passed the reconciliation gate (0.726 and 0.742, both `<` `merge_cosine_threshold`
+= 0.85). Gemma's generated `business_description` for both reads as accurate and specific to
+the cluster's actual content, not generic filler.
+
+**The distinct-call/coverage numbers materially differ from this design doc's own evidence
+table above (115 calls / 27.6% for `cluster_5`) — confirming exactly the reasoning the
+implementation plan flagged.** The design doc's original table (and Half A's own stored
+`distinct_calls`/`call_coverage` fields) counted the cluster's full 209-member union of 94 sink
+pairs **plus** 115 volume-matched coachable-control pairs — not the 94 sink pairs actually being
+graduated. `graduate_sink_topics.py::_support_stats_for_pairs` recomputes support scoped to only
+the exact `sink_member_pair_ids`, which is why the real numbers (57/13.7%, 59/14.2%) are smaller
+and different from the design table. This does not change the graduation decision — the
+reconciliation gate depends only on `nearest_coachable_sim`, unaffected by this fix — but it
+means anyone reading this design doc's evidence table alongside the real result should not
+expect the call-coverage figures to match; they were never measuring the same population.
+
+Next step, not part of this pass: run `graduate_sink_topics.py` without `--dry-run` against
+real production data, preceded by the deferred schema snapshot, on the human partner's explicit
+go-ahead.
 
 ## Out of scope
 
