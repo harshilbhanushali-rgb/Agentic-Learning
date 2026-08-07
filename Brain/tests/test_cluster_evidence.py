@@ -171,3 +171,20 @@ class TestMilestoneSupport:
         assert ce.milestone_min_cluster_size(10, 0.02, floor=3, ceiling=25) == 3
         assert ce.milestone_min_cluster_size(10_000, 0.02, floor=3, ceiling=25) == 25
         assert ce.milestone_min_cluster_size(500, 0.02, floor=3, ceiling=25) == 10
+
+
+class TestPassesReconciliationGate:
+    def test_true_when_comfortably_below_threshold(self):
+        assert ce.passes_reconciliation_gate(0.726, 0.85) is True
+
+    def test_false_when_at_or_above_threshold(self):
+        assert ce.passes_reconciliation_gate(0.85, 0.85) is False
+        assert ce.passes_reconciliation_gate(0.90, 0.85) is False
+
+    def test_matches_the_two_known_graduated_clusters(self):
+        # cluster_5 and cluster_8 from sink_pool_clusters.json -- the two candidates
+        # this milestone actually graduates. If this ever goes False, something
+        # upstream (embeddings, merge_cosine_threshold) has drifted since the design
+        # spec was written, and graduation must not proceed on stale confidence.
+        assert ce.passes_reconciliation_gate(0.726, 0.85) is True
+        assert ce.passes_reconciliation_gate(0.742, 0.85) is True

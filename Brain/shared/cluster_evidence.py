@@ -211,3 +211,18 @@ def is_substantive(text: str, min_content_words: int) -> bool:
         _nlp = spacy.load("en_core_web_lg", disable=["parser", "ner"])
     doc = _nlp(text)
     return sum(1 for t in doc if t.is_alpha and not t.is_stop) >= min_content_words
+
+
+def passes_reconciliation_gate(nearest_coachable_sim: float, merge_cosine_threshold: float) -> bool:
+    """True iff a candidate homeless-topic cluster is genuinely distinct from its
+    nearest existing coachable scenario, using the SAME threshold this codebase
+    already uses to decide "duplicate or genuinely distinct" for subtopic dedup
+    (merge_cosine_threshold). No new threshold -- the existing one already draws
+    the right line here.
+
+    A cluster that fails this must be SKIPPED by its caller, never force-routed
+    into the near-neighbor scenario -- that is the exact failure mode the
+    sink-pool diagnostic's by_cluster variant was rejected for (destructive
+    milestone merges from routing content into a near-but-wrong scenario).
+    """
+    return nearest_coachable_sim < merge_cosine_threshold
