@@ -103,6 +103,35 @@ def split_by_coachability(groups: list[list[dict]]) -> list[list[dict]]:
     return result
 
 
+def match_existing_primary_topic(
+    centroid: np.ndarray, candidate_keys: list[str], candidate_vecs, threshold: float,
+) -> str | None:
+    """Nearest-neighbor match of a single new embedding against an existing primary_topics
+    population, for assigning a graduated scenario's primary_topic_key.
+
+    Reuses the one-vs-population cosine-argmax-plus-threshold shape this module and
+    cluster_evidence.py already use elsewhere (cluster_evidence.nearest_sink_index is the
+    closest existing analogue) rather than reaching for merge_by_similarity, which groups a
+    whole population pairwise -- overkill for matching one new item against an
+    already-fixed set of candidates.
+
+    Returns None when there are no candidates, or when the best match does not clear
+    threshold -- both cases mean the caller should create a new primary_topics row instead
+    of reusing one.
+    """
+    if len(candidate_keys) == 0:
+        return None
+    c = np.asarray(centroid, dtype=np.float32)
+    c = c / (np.linalg.norm(c) + 1e-10)
+    arr = np.asarray(candidate_vecs, dtype=np.float32)
+    normed = arr / (np.linalg.norm(arr, axis=1, keepdims=True) + 1e-10)
+    sims = normed @ c
+    best = int(np.argmax(sims))
+    if float(sims[best]) < threshold:
+        return None
+    return candidate_keys[best]
+
+
 def tighten_coachable_groups(groups: list[list[dict]], tight_threshold: float) -> list[list[dict]]:
     """Re-cluster every all-coachable group at the tight (subtopic-dedup) threshold.
 

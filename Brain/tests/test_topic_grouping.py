@@ -245,6 +245,29 @@ class TestTightenCoachableGroups:
     def test_empty_input_returns_no_groups(self):
         assert tg.tighten_coachable_groups([], tight_threshold=0.95) == []
 
+
+class TestMatchExistingPrimaryTopic:
+    def test_no_candidates_returns_none(self):
+        assert tg.match_existing_primary_topic(_angle_vec(0), [], np.empty((0, 2)), 0.85) is None
+
+    def test_close_match_returns_its_key(self):
+        keys = ["a", "b"]
+        vecs = np.stack([_angle_vec(0), _angle_vec(90)])
+        assert tg.match_existing_primary_topic(_angle_vec(1), keys, vecs, 0.85) == "a"
+
+    def test_no_candidate_clears_threshold_returns_none(self):
+        keys = ["a", "b"]
+        vecs = np.stack([_angle_vec(0), _angle_vec(90)])
+        # 45 degrees from both -- cosine ~0.707, below a strict 0.85 threshold.
+        assert tg.match_existing_primary_topic(_angle_vec(45), keys, vecs, 0.85) is None
+
+    def test_picks_the_single_best_match_when_multiple_clear_threshold(self):
+        keys = ["far_but_ok", "closest"]
+        vecs = np.stack([_angle_vec(20), _angle_vec(2)])
+        assert tg.match_existing_primary_topic(_angle_vec(0), keys, vecs, 0.80) == "closest"
+
+
+class TestTightenCoachableGroupsResplitOrdering:
     def test_resplitting_reorders_by_final_group_size(self):
         # Group A: two cohesive members (0, 2 deg) plus an outlier (60 deg)
         # that splits off. Group B: two cohesive members, presented second.
