@@ -140,6 +140,35 @@ CREATE TABLE IF NOT EXISTS rubrics (
     created_at        TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Response-taxonomy auto-pass (added 2026-08-07): tracks candidate "homeless topic" clusters
+-- across pipeline runs so a genuinely recurring gap in the CLIENT-clause-only taxonomy can be
+-- graduated into a real scenario automatically, once it survives response_taxonomy_
+-- consensus_runs consecutive runs. See docs/superpowers/specs/2026-08-07-response-taxonomy-
+-- auto-pass-design.md.
+--   member_pair_ids  latest run's raw cluster snapshot -- kept for observability/debugging.
+--   stable_pair_ids  running intersection of every member_pair_ids snapshot seen since
+--                    first_seen_run_id. THIS is what gets graduated, not member_pair_ids --
+--                    a pair that only appeared in one noisy run drops out automatically
+--                    instead of riding along on the latest snapshot alone.
+--   status           tracking | graduated | discarded
+CREATE TABLE IF NOT EXISTS response_taxonomy_candidates (
+    candidate_id            SERIAL PRIMARY KEY,
+    label                   TEXT NOT NULL,
+    description             TEXT NOT NULL,
+    member_pair_ids         INTEGER[] NOT NULL,
+    stable_pair_ids         INTEGER[] NOT NULL,
+    consensus_count         INTEGER NOT NULL DEFAULT 1,
+    first_seen_run_id       TEXT NOT NULL,
+    last_seen_run_id        TEXT NOT NULL,
+    status                  TEXT NOT NULL DEFAULT 'tracking',
+    graduated_scenario_key  TEXT,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- init_db.py only creates missing tables, it never alters existing ones.
+ALTER TABLE response_taxonomy_candidates ADD COLUMN IF NOT EXISTS stable_pair_ids INTEGER[] NOT NULL DEFAULT '{}';
+
 -- Layer D: Ego Trap gap-analysis profiles, accumulated per CSM
 CREATE TABLE IF NOT EXISTS csms (
     csm_id     TEXT PRIMARY KEY,
