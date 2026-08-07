@@ -13,6 +13,9 @@ layer_a:
   grouping_method: post_hoc
   primary_topic_merge_threshold: 0.70
   response_taxonomy_purity_gate: 0.90
+  response_taxonomy_auto_pass_enabled: false
+  response_taxonomy_consensus_runs: 3
+  response_taxonomy_candidate_match_overlap: 0.5
 layer_b:
   relative_margin: 0.85
   max_scenarios_per_pair: 3
@@ -66,6 +69,9 @@ def test_shipped_tuning_yaml_is_valid():
     assert t.layer_a.grouping_method in ("post_hoc", "nested")
     assert 0.0 < t.layer_a.primary_topic_merge_threshold <= 1.0
     assert 0.0 < t.layer_a.response_taxonomy_purity_gate <= 1.0
+    assert t.layer_a.response_taxonomy_auto_pass_enabled in (True, False)
+    assert t.layer_a.response_taxonomy_consensus_runs >= 1
+    assert 0.0 < t.layer_a.response_taxonomy_candidate_match_overlap <= 1.0
     assert t.layer_c.min_milestone_calls_floor >= 1
     assert t.layer_b.matching_strategy in ("flat", "strict", "soft", "fallback")
     assert t.layer_b.sink_rescue_strategy in (

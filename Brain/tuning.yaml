@@ -145,6 +145,30 @@ layer_a:
   # what validates or corrects this number.
   response_taxonomy_purity_gate: 0.90
 
+  # Permanent auto-pass (see docs/superpowers/specs/2026-08-07-response-taxonomy-auto-pass-
+  # design.md): runs after every pipeline execution, clusters the sink pool, and graduates
+  # any candidate that reappears across response_taxonomy_consensus_runs consecutive runs
+  # into a real scenario -- zero human step. Off by default; flip to true only for the
+  # explicit, separately-gated real run.
+  response_taxonomy_auto_pass_enabled: false
+
+  # Consecutive pipeline runs a candidate must reappear in (via Jaccard overlap of its
+  # member pairs, not embedding similarity -- Postgres never stores vectors in this
+  # codebase) before it graduates. Absorbs the documented UMAP+HDBSCAN run-to-run
+  # instability (241->403->398->404 milestones for one identical corpus) by requiring
+  # cross-run agreement instead of acting on a single run's clustering.
+  #
+  # PRE-REGISTERED STARTING POINT, not a fitted value -- there is no real run history to
+  # calibrate against yet, same discipline response_taxonomy_purity_gate was held to.
+  response_taxonomy_consensus_runs: 3
+
+  # Jaccard overlap of member_pair_ids that counts as "the same candidate reappeared"
+  # across two runs.
+  #
+  # PRE-REGISTERED STARTING POINT, not a fitted value, same discipline as the two keys
+  # above.
+  response_taxonomy_candidate_match_overlap: 0.5
+
 layer_b:
   # Keep every scenario scoring at least this fraction of the best match for a
   # given trigger. Replaces the absolute 0.30 cosine threshold, which did not

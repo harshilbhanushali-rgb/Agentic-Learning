@@ -25,6 +25,9 @@ class LayerATuning:
     grouping_method: str
     primary_topic_merge_threshold: float
     response_taxonomy_purity_gate: float
+    response_taxonomy_auto_pass_enabled: bool
+    response_taxonomy_consensus_runs: int
+    response_taxonomy_candidate_match_overlap: float
 
 
 @dataclass(frozen=True)
