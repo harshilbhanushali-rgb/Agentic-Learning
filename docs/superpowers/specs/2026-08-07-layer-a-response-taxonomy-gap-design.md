@@ -230,6 +230,53 @@ Next step, not part of this pass: run `graduate_sink_topics.py` without `--dry-r
 real production data, preceded by the deferred schema snapshot, on the human partner's explicit
 go-ahead.
 
+## Status update (2026-08-08): Phase 2 corpus-wide dry run run for real — the gap is bigger than the two known clusters, by exactly one
+
+`dry_run_response_taxonomy.py` ran for real against the live `public` schema, first `--no-gemma`
+(free) then with adjudication. Zero DB writes, as designed.
+
+- **Clustering was much coarser than Half A's**: only **15 clusters** over the full 4,605-pair
+  corpus, `min_cluster_size=25` (hit `min_cluster_size_ceiling`, same as Half A's own clustering
+  run). This is expected — Half A clustered a 3,730-item union of sink+control; this pass
+  clusters the whole corpus at once, and the same coarse-clustering/high-noise dynamic already
+  documented for this codebase's UMAP+HDBSCAN steps applies here too.
+- **Purity gate: 0 of 15 clusters skipped** — every cluster's current `scenario_key` composition
+  was either scattered across several coachable scenarios or not dominated by one coachable
+  scenario at the 0.90 threshold, so all 15 went to adjudication. This kept Gemma cost trivial:
+  15 clusters batched at 5/call = **3 Gemma calls total** for the whole corpus-wide pass.
+- **Verdict tally**: `belongs_to_existing` 11, `genuine_sink` 3, **`new_coachable_topic` 1**.
+- **`nearest_coachable_sim` distribution**: p10=0.649, p25=0.703, p50=0.717, p75=0.740,
+  p90=0.756 — every cluster sits comfortably below `merge_cosine_threshold=0.85`, which is an
+  empirical validation of that threshold as the reconciliation cutoff: nothing in this run was
+  a near-miss case where 0.85 would have made a different call.
+- **The one new cluster beyond the two already-graduated topics: `cluster_6`,
+  `expert_led_discovery_and_context_setting`** — "The expert proactively guides the conversation
+  by introducing the company's value proposition or partnership context to align the client's
+  expectations." 30 pairs, 22 distinct calls, 5.3% coverage, `nearest_coachable_sim=0.678`
+  (comfortably below 0.85). Read verbatim: the samples show the expert deliberately pivoting a
+  drifting or small-talk-adjacent conversation ("Pretty fine lately, engaged in giving multiple
+  notes of interviews" → the expert redirects into a discovery question about the engagement's
+  expected outcome; a client mid-sentence about internal reporting cadence → the expert
+  interjects a partnership recap and screen-share) into a deliberate expectation-setting or
+  discovery move. This reads as genuinely distinct coaching content, not generic filler — a real
+  but smaller-scale finding than the two already-graduated topics (30 pairs/5.3% coverage vs.
+  94/81 pairs and 13.7%/14.2% coverage for the two known clusters).
+
+**Answering this design's own question ("is the gap bigger than what's already been found?"):
+yes, by one additional topic, not by a large amount.** The two already-known clusters were
+rediscovered as part of the same 11 `belongs_to_existing` clusters and `genuine_sink` clusters
+(their sink-pool-derived pairs are now folded into the full-corpus clustering, so they don't
+reappear as separate `new_coachable_topic` entries here — they were already handled by Phase 1).
+One new gap, `expert_led_discovery_and_context_setting`, was found. Per this design's explicit
+scope boundary, **no scenario was created and no pair was rerouted** — this is a measurement
+only. Whether to graduate this third cluster (via a future run of `graduate_sink_topics.py`
+against this new cluster's data) and whether to build a permanent recurring pass are both
+follow-up decisions, not resolved here.
+
+Raw output: `Brain/dry_run_response_taxonomy_20260808.log` (Gemma run),
+`Brain/dry_run_response_taxonomy_no_gemma_20260808.log` (free pass),
+`Brain/dry_run_response_taxonomy.json` (full persisted payload, re-reportable via `--load`).
+
 ## Out of scope
 
 - Building a permanent, recurring response-clustering pass wired into `v2/layer_a.py` or

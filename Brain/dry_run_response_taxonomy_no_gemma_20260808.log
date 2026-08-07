@@ -1,0 +1,19 @@
+C:\PF\Joveo\CS-platform\.venv\Lib\site-packages\umap\umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+Loaded 157 scenario(s), 4605 pair(s), 416 call(s).
+Embedding 4605 response(s) via embed_document (warm cache expected)...
+min_cluster_size: 25
+Clustering (UMAP n_components<=5, cosine -> HDBSCAN)...
+
+Persisted to dry_run_response_taxonomy.json -- re-report for free with --load dry_run_response_taxonomy.json
+
+==============================================================================
+CORPUS-WIDE RESPONSE TAXONOMY REPORT
+==============================================================================
+  total pairs clustered            : 4605
+  clusters found                    : 15
+  purity-gated (skipped)            : 0
+  sent to adjudication               : 15
+
+  nearest_coachable_sim distribution (validates merge_cosine_threshold=0.85):
+    p10=0.649  p25=0.703  p50=0.717  p75=0.740  p90=0.756
