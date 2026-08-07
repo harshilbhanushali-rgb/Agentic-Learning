@@ -9,6 +9,15 @@ import pytest
 import response_taxonomy_auto_pass as rtap
 
 
+@pytest.fixture(autouse=True)
+def _disable_real_log_file(monkeypatch):
+    # _logger is a module-level singleton writing to the real
+    # response_taxonomy_auto_pass.log on disk -- without this, every test run
+    # interleaves fake candidate_id/scenario_key entries into the same file a real
+    # production run appends to, making the log untrustworthy as an audit trail.
+    monkeypatch.setattr(rtap._logger, "disabled", True)
+
+
 # --- Jaccard / matching (Decision 1) -----------------------------------------
 
 class TestJaccard:
@@ -179,7 +188,7 @@ class TestAttemptGraduation:
         cur.rowcount = 3
         monkeypatch.setattr(rtap, "run_layer_c_v2", lambda *a, **k: None)
 
-        result = rtap._attempt_graduation(
+        result, _conn = rtap._attempt_graduation(
             conn, config=None, run_id="run_1",
             tracking_row=_consensus_row([1, 2, 3]),
             nearest_coachable_sim=0.70, merge_cosine_threshold=0.85, proposed_label="l",
@@ -223,7 +232,7 @@ class TestAttemptGraduation:
         conn = MagicMock()
         cur = conn.cursor.return_value.__enter__.return_value
         cur.fetchall.return_value = [(1, True), (2, True)]  # all already re-homed
-        result = rtap._attempt_graduation(
+        result, _conn = rtap._attempt_graduation(
             conn, config=None, run_id="run_1",
             tracking_row=_consensus_row([1, 2]),
             nearest_coachable_sim=0.70, merge_cosine_threshold=0.85, proposed_label="l",
@@ -239,7 +248,7 @@ class TestAttemptGraduation:
         cur.fetchall.return_value = [(1, False), (2, False)]
         monkeypatch.setattr(rtap, "_support_stats_for_pairs", lambda c, ids: (2, len(ids), 0.2))
         monkeypatch.setattr(rtap.cluster_evidence, "passes_reconciliation_gate", lambda sim, thr: False)
-        result = rtap._attempt_graduation(
+        result, _conn = rtap._attempt_graduation(
             conn, config=None, run_id="run_1",
             tracking_row=_consensus_row([1, 2]),
             nearest_coachable_sim=0.90, merge_cosine_threshold=0.85, proposed_label="l",

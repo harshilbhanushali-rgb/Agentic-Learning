@@ -235,7 +235,7 @@ def _attempt_graduation(
     conn, config: Config, run_id: str, tracking_row: dict, nearest_coachable_sim: float,
     merge_cosine_threshold: float, proposed_label: str, proposed_description: str,
     reason: str, samples: list[dict],
-) -> str | None:
+):
     """Graduates a consensus-reaching candidate into a real scenario.
 
     Uses tracking_row["stable_pair_ids"] (Decision 2), never the latest raw member_pair_ids
@@ -245,6 +245,12 @@ def _attempt_graduation(
     pairs both discard rather than force-routing. The write (scenario insert, primary_topic
     resolution, kb_pairs reroute, tracking-row status update) is one all-or-nothing sequence:
     any failure rolls back before Layer C ever sees a possibly-wrong pair set.
+
+    Returns (scenario_key_or_None, conn) -- conn is reconnected after the Gemma metadata
+    call if Neon dropped the connection while it was idle (documented failure mode in this
+    codebase: a bare connection held open across a slow Gemma call gets killed by Neon's
+    idle-timeout with "SSL connection has been closed unexpectedly"). The caller must use
+    the returned conn for anything after this call, not its own original reference.
     """
     candidate_id = tracking_row["candidate_id"]
     stable_ids = list(tracking_row["stable_pair_ids"])
@@ -263,13 +269,14 @@ def _attempt_graduation(
 
     if not surviving:
         _discard(conn, candidate_id, "zero pairs survived is_coachable re-check")
-        return None
+        return None, conn
 
     if not cluster_evidence.passes_reconciliation_gate(nearest_coachable_sim, merge_cosine_threshold):
         _discard(conn, candidate_id, f"failed reconciliation gate ({nearest_coachable_sim:.3f})")
-        return None
+        return None, conn
 
     meta = _generate_metadata(config, proposed_label, proposed_description, reason, samples)
+    conn = storage.reconnect_if_closed(conn)
     distinct_calls, n_pairs, call_coverage = _support_stats_for_pairs(conn, surviving)
 
     row = {
@@ -328,7 +335,8 @@ def _attempt_graduation(
     )
     all_scenarios = {s["scenario_key"]: s for s in storage.get_scenarios(conn)}
     run_layer_c_v2({row["scenario_key"]: all_scenarios[row["scenario_key"]]}, config, conn, run_id="")
-    return row["scenario_key"]
+    conn = storage.reconnect_if_closed(conn)
+    return row["scenario_key"], conn
 
 
 # --- Entry point --------------------------------------------------------------
@@ -351,6 +359,7 @@ def run_auto_pass(config: Config, conn, run_id: str) -> None:
         pairs, vecs, labels, scenario_map, total_calls, a.response_taxonomy_purity_gate, seed=0,
     )
     verdicts = response_taxonomy.adjudicate_clusters(records, config)
+    conn = storage.reconnect_if_closed(conn)  # adjudicate_clusters holds conn idle across Gemma calls
 
     new_candidates = [
         r for r in records
@@ -383,7 +392,7 @@ def run_auto_pass(config: Config, conn, run_id: str) -> None:
         if refreshed["consensus_count"] < a.response_taxonomy_consensus_runs:
             continue
 
-        key = _attempt_graduation(
+        key, conn = _attempt_graduation(
             conn, config, run_id, refreshed, record["nearest_coachable_sim"],
             a.merge_cosine_threshold, verdict.get("proposed_label", record["id"]),
             verdict.get("proposed_description", ""), verdict.get("reason", ""),
