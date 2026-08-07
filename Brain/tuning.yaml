@@ -130,6 +130,21 @@ layer_a:
   # threshold paired with merge_cosine_threshold (0.85) as the tight threshold.
   primary_topic_merge_threshold: 0.75
 
+  # Corpus-wide response-taxonomy dry run (see
+  # docs/superpowers/specs/2026-08-07-layer-a-response-taxonomy-gap-design.md). A response
+  # cluster is skipped from three-way Gemma adjudication when one existing COACHABLE
+  # scenario already accounts for at least this fraction of the cluster's members --
+  # client-side and response-side taxonomies already agree there, so adjudicating it
+  # would spend a Gemma call answering a question nobody asked. A cluster dominated by a
+  # SINK scenario at this same fraction is NOT skipped -- that is exactly the case this
+  # dry run exists to examine.
+  #
+  # PRE-REGISTERED STARTING POINT, not a fitted value -- fixed before dry_run_response_
+  # taxonomy.py's own purity distribution exists, the same discipline diagnose_sink_pool.py's
+  # _NOISE_ESCAPE_HATCH/_MIX_UNINFORMATIVE_BAND were held to. The dry run's own report is
+  # what validates or corrects this number.
+  response_taxonomy_purity_gate: 0.90
+
 layer_b:
   # Keep every scenario scoring at least this fraction of the best match for a
   # given trigger. Replaces the absolute 0.30 cosine threshold, which did not

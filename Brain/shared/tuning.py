@@ -24,6 +24,7 @@ class LayerATuning:
     min_content_words: int
     grouping_method: str
     primary_topic_merge_threshold: float
+    response_taxonomy_purity_gate: float
 
 
 @dataclass(frozen=True)
