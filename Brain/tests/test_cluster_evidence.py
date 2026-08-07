@@ -188,3 +188,37 @@ class TestPassesReconciliationGate:
         # spec was written, and graduation must not proceed on stale confidence.
         assert ce.passes_reconciliation_gate(0.726, 0.85) is True
         assert ce.passes_reconciliation_gate(0.742, 0.85) is True
+
+
+class TestPurityGateVerdict:
+    def test_skips_when_one_coachable_scenario_dominates(self):
+        counts = {"pricing_discussion": 92, "quality_signal": 8}
+        is_coachable = {"pricing_discussion": True, "quality_signal": True}
+        skip, dominant = ce.purity_gate_verdict(counts, is_coachable, dominance_fraction=0.90)
+        assert skip is True
+        assert dominant == "pricing_discussion"
+
+    def test_does_not_skip_when_a_sink_dominates(self):
+        # A cluster overwhelmingly filed to a SINK is exactly the case this dry run
+        # exists to examine -- purity-skipping it would defeat the whole point.
+        counts = {"conversational_confirmation_and_fillers": 95, "pricing_discussion": 5}
+        is_coachable = {"conversational_confirmation_and_fillers": False, "pricing_discussion": True}
+        skip, dominant = ce.purity_gate_verdict(counts, is_coachable, dominance_fraction=0.90)
+        assert skip is False
+
+    def test_does_not_skip_when_scattered_across_several_coachable_scenarios(self):
+        counts = {"a": 40, "b": 35, "c": 25}
+        is_coachable = {"a": True, "b": True, "c": True}
+        skip, dominant = ce.purity_gate_verdict(counts, is_coachable, dominance_fraction=0.90)
+        assert skip is False
+
+    def test_dominance_exactly_at_threshold_skips(self):
+        counts = {"a": 90, "b": 10}
+        is_coachable = {"a": True, "b": True}
+        skip, dominant = ce.purity_gate_verdict(counts, is_coachable, dominance_fraction=0.90)
+        assert skip is True
+
+    def test_empty_counts_never_skips(self):
+        skip, dominant = ce.purity_gate_verdict({}, {}, dominance_fraction=0.90)
+        assert skip is False
+        assert dominant is None

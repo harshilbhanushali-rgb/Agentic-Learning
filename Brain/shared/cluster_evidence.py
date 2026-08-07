@@ -226,3 +226,30 @@ def passes_reconciliation_gate(nearest_coachable_sim: float, merge_cosine_thresh
     milestone merges from routing content into a near-but-wrong scenario).
     """
     return nearest_coachable_sim < merge_cosine_threshold
+
+
+def purity_gate_verdict(
+    scenario_key_counts: dict[str, int],
+    is_coachable: dict[str, bool],
+    dominance_fraction: float,
+) -> tuple[bool, str | None]:
+    """Generalizes diagnose_sink_pool.py's "skip pure-control clusters" optimization from a
+    binary sink/control split to an arbitrary current scenario_key composition.
+
+    Skips (returns skip=True) ONLY when one existing COACHABLE scenario already accounts for
+    at least dominance_fraction of the cluster's members -- client-side and response-side
+    taxonomies already agree there, so adjudicating would spend a Gemma call answering a
+    question nobody asked.
+
+    A cluster dominated by a SINK scenario at the same fraction is NOT skipped -- that is
+    exactly the population this dry run exists to examine, and skipping it would silently
+    reproduce the sink pool's own blind spot one level up.
+    """
+    total = sum(scenario_key_counts.values())
+    if total == 0:
+        return False, None
+    dominant_key, dominant_count = max(scenario_key_counts.items(), key=lambda kv: kv[1])
+    dominant_fraction = dominant_count / total
+    if dominant_fraction >= dominance_fraction and is_coachable.get(dominant_key, False):
+        return True, dominant_key
+    return False, dominant_key
