@@ -492,6 +492,45 @@ target_scenario_key null.
 For "genuine_sink", leave target_scenario_key, proposed_label and proposed_description null.
 """
 
+# Writes the permanent scenario record for a cluster diagnose_sink_pool.py already
+# verdicted "new_coachable_topic". Deliberately NOT a reuse of PROMPT_LAYER_A_V2_TRIAGE:
+# that prompt is written to interpret CLIENT clauses and ask a coachability question
+# this prompt's caller has already answered (see
+# docs/superpowers/specs/2026-08-07-layer-a-response-taxonomy-gap-design.md). This
+# prompt's only job is to write up an already-confirmed gap in the same output shape
+# every other scenario in the taxonomy uses.
+PROMPT_GRADUATE_SINK_TOPIC = """\
+You are writing the permanent scenario record for a coaching topic that this taxonomy never
+had an entry for. A prior audit already reviewed real call pairs and confirmed a genuine,
+recurring expert behaviour exists here -- your job is only to write it up in the same shape as
+every other scenario in the taxonomy, not to re-judge whether it is real.
+
+PROPOSED LABEL: {proposed_label}
+PROPOSED DESCRIPTION: {proposed_description}
+WHY THIS IS A GAP, NOT A DUPLICATE OF AN EXISTING SCENARIO: {reason}
+
+SAMPLE PAIRS (CLIENT trigger -> EXPERT response) THAT DEMONSTRATE THIS BEHAVIOUR:
+{samples_block}
+
+Write the scenario record a junior CS colleague would be coached against. Use the same
+bloom_level rubric used everywhere else in this taxonomy:
+- remember: recall facts -- pricing tiers, contract terms, SLA commitments
+- understand: explain or restate a concern in Joveo terms
+- apply: deploy a specific move in the moment -- objection handling, a conversational pivot
+- analyze: diagnose a root cause, parse conflicting signals from multiple stakeholders
+- evaluate: judge and justify a tradeoff -- escalate vs. hold, negotiate vs. stand firm
+- create: construct something novel -- a custom ROI narrative, a multi-product proposal
+
+Respond ONLY with valid JSON:
+{{
+  "scenario_key": "snake_case_identifier",
+  "business_description": "one sentence naming the client situation and the expert move",
+  "keyphrases": ["2-4 word phrase", "another phrase"],
+  "soft_skills": ["skill_name"],
+  "bloom_level": "apply"
+}}
+"""
+
 # Batched primary-topic labelling. Runs once per macro-group AFTER the per-subtopic
 # adjudication loop above finishes and shared/topic_grouping.py has decided which
 # subtopics belong together -- this prompt only names the umbrella category a group of
