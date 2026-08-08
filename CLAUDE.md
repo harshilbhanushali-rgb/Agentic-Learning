@@ -236,6 +236,7 @@ SQLite `checkpoints.db` — item convention: `"ALL"` for Layer A, call stem (e.g
 - Milestone JSONB gains `support_calls`, `support_clauses`, `relevance_mean` per milestone (2026-07-27)
 - `primary_topics` table (added 2026-07-30, see spec `2026-07-30-layer-a-topic-hierarchy-design.md`): `primary_topic_key TEXT UNIQUE`, `label`, `description`, `keyphrases`, `grouping_method`, `support_calls`, `support_subtopics`, `call_coverage` — a real parent entity for `scenarios.primary_topic_key` (FK), replacing the old free-text `primary_topic` column that Gemma reinvented independently per subtopic cluster with no dedup. `scenarios.primary_topic` stays as a NOT NULL denormalized label copy so existing simple readers need zero changes; `primary_topic_key` is the real FK for grouping/joins. `storage.get_primary_topics()` mirrors `get_scenarios()`.
 - `scenarios.sub_topic` renamed to `scenarios.business_description` (2026-07-30) — `shared/storage.py::upsert_scenario`/`get_scenarios` and `shared/scenario_vectors.py::scenario_text` all updated together; grep for `sub_topic` before trusting any old snippet or doc reference to it.
+- `response_taxonomy_candidates` table (added 2026-08-07, see below) — the only Brain table besides `scenarios`/`primary_topics` this pass ever writes to; tracks candidates across runs, never stores vectors (matched by pair-id Jaccard overlap, not embedding similarity).
 
 ### V2 evidence-triage clustering (2026-07-27)
 
@@ -520,6 +521,64 @@ so the replay reproduces Pass 1 by **importing** production code rather than cop
   problem. `min_cluster_size` resolved to 25 **by hitting the `min_cluster_size_ceiling`** (0.02 × 3730
   = 74.6, clamped), so the clustering is coarse — a finer rerun would likely split the 535-pair junk
   cluster and cut noise. Untested.
+
+### Response-taxonomy auto-pass: closing the sink-pool gap permanently (2026-08-07/08)
+
+Designs: `docs/superpowers/specs/2026-08-07-layer-a-response-taxonomy-gap-design.md`,
+`docs/superpowers/specs/2026-08-07-response-taxonomy-auto-pass-design.md`. Full narrative
+(problems found, fixes, real-run result) in `Brain/PROBLEMS_AND_FIXES.md`.
+
+Two manual, one-time scripts proved the fix first: `graduate_sink_topics.py` (graduated
+2 known homeless topics from `sink_pool_clusters.json`) and `dry_run_response_taxonomy.py`
+(zero-write corpus-wide measurement, found a 3rd candidate blocked on a field-name mismatch
+and non-sink-only membership). This session built the permanent version.
+
+- New module `Brain/response_taxonomy_auto_pass.py` — entry point
+  `run_auto_pass(config, conn, run_id)`, called from `v2/pipeline.py` immediately after
+  `run_layer_c_v2`, wrapped in try/except that logs and swallows (must never fail the
+  overall pipeline run). Gated by `tuning.yaml`'s `layer_a.response_taxonomy_auto_pass_enabled`
+  (default `false`, currently `false` in the live file — pending further review after the
+  first real run below).
+- `Brain/shared/response_taxonomy.py` (new) extracted from `dry_run_response_taxonomy.py`
+  (which now imports from it) — clustering/pair-loading/adjudication shared between the
+  dry-run script and the permanent pass, same precedent as `build_clause_pool`'s extraction.
+- **Fixed a real orphaning bug, retroactively too:** `graduate_sink_topics.py` used to write
+  `primary_topic_key = None` for every scenario it created — a real, permanent orphan, since
+  `primary_topics` is only ever built once, during Layer A's main pass. New pure helper
+  `shared/topic_grouping.py::match_existing_primary_topic` (nearest-neighbor match against
+  the existing `primary_topics` population) resolves a real key at graduation time instead —
+  reuses `merge_cosine_threshold` (existing tight threshold), not `primary_topic_merge_threshold`
+  (the loose one), since stored `primary_topics` rows are already tight-cohesion groups.
+  Both `graduate_sink_topics.py` and the new auto-pass call it.
+- New table `response_taxonomy_candidates` (`db/schema.sql`): `status`
+  tracking/graduated/discarded; `member_pair_ids` is the latest raw cluster snapshot,
+  `stable_pair_ids` is the running **intersection** across every run a candidate has been
+  seen in — graduation reads `stable_pair_ids`, not the latest snapshot, specifically so a
+  pair that only appeared in one noisy clustering run drops out automatically instead of
+  riding along. A candidate must reappear (Jaccard overlap of `member_pair_ids`, **not**
+  embedding similarity — this Postgres never stores vectors) across
+  `response_taxonomy_consensus_runs` (3, pre-registered) consecutive runs before it
+  graduates — the same UMAP/HDBSCAN run-to-run instability this file already documents
+  elsewhere is exactly why a single run's cluster can't be trusted on its own.
+- **The real run (2026-08-08), snapshotted first to `baseline_20260808`:** 3 manual
+  invocations against the live `public` schema (no re-clustering of Layer A/C, no re-running
+  Layer B — just this pass, standalone). Result: **4 scenarios graduated, 164 pairs rescued
+  from the sink pool, `kb_pairs` total unchanged (4,605→4,605), and every one of the 164
+  rerouted pairs confirmed `is_coachable=false` before this ran** — i.e. the "never disturb an
+  already-homed pair" protection held, verified directly against the snapshot, not assumed.
+  Flag reverted to `false` afterward pending further review before letting it run unattended.
+- **Hit `IdleInTransactionSessionTimeout`'s sibling bug again, in two new places.** The very
+  first real invocation crashed with `SSL connection has been closed unexpectedly` —
+  the connection sat idle across the batched Gemma adjudication calls and Neon killed it.
+  This is the *exact* existing `storage.reconnect_if_closed` gotcha below, just missed in two
+  new call sites (right after `adjudicate_clusters`, and again after `_generate_metadata`
+  inside the graduation path) — **any new code path that does a slow Gemma call before
+  touching the DB again needs this called explicitly, it is never automatic.**
+- **New gotcha, specific to this module:** it's the first Brain script to use a persistent
+  `logging` file handler instead of `print()`. That handler is a module-level singleton, so
+  pytest runs against the same module silently wrote fake `candidate_id`/`scenario_key`
+  entries into the real production log file, unless a test explicitly disables it
+  (`monkeypatch.setattr(module._logger, "disabled", True)`).
 
 ### Brain Architecture Notes
 
