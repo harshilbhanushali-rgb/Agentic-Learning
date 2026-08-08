@@ -149,6 +149,25 @@ Two moves made a zero-cost dry run possible anyway (`dry_run_layer_bc.py`):
 
 **The problem:** rubric depth in that first production run was thin — median 2 milestones per scenario, 20 scenarios with exactly 1, 3 with 0. Root-cause diagnosis (verified against the live DB with zero mismatches on recomputation, before trusting the numbers): only 51 of 85 scenarios successfully used real clustering; 34 fell back to unclustered V1 free text. A direct DB query confirmed this fallback is always **whole-scenario, never partial** — every rubric's milestones were either ALL clustered (carrying `support_calls` evidence) or ALL fallback (none do), zero rubrics mixed the two within themselves — which matters because it means the fix options below don't need to worry about a "half-evidenced" rubric as a third case. Of those 34 fallbacks, **28 (82%) were caused by HDBSCAN returning 100% noise — zero clusters found — regardless of clause-pool size**, from 10 clauses up to 680. That range ruled out plain data sparsity as the explanation.
 
+The architecture this section ends up landing on — the one still live today — restructures Layer C from a simple per-scenario loop into four passes across the whole run, specifically so the batched judge (below) always has enough flagged candidates to fill a batch:
+
+```mermaid
+flowchart TD
+    RESP[Response clause pool,\nper scenario] --> UMAP["UMAP dimensionality reduction\n(5 components, cosine) --\nthe fix that rescued 26/28\nfailing scenarios"]
+    UMAP --> HDB[HDBSCAN clustering]
+    HDB --> GATE["Distinct-call support gate\n(max(floor, ceil(fraction x calls)))"]
+    GATE -->|too few calls| FALLBACK[V1 Gemma free-text\nfallback -- whole scenario,\nnever partial]
+    GATE -->|passes| SINKCHECK["Score candidate's centroid vs\nknown-junk sink vectors --\nno clean cliff, so this is a\nSOFT flag, not a filter"]
+    SINKCHECK -->|flagged, ~5% of candidates| COLLECT[Collected run-wide,\nacross ALL scenarios]
+    SINKCHECK -->|not flagged| KEPT[Kept as-is]
+    COLLECT --> BATCH["One batched Gemma call\nper 5 flagged candidates\n(not one call per scenario)"]
+    BATCH -->|verdict: mechanics| DROP[Dropped from that\nscenario's milestone list]
+    BATCH -->|verdict: real| KEPT
+    KEPT --> CAP["milestone_hard_cap = 15\n(backstop, logs loudly if it binds)"]
+    FALLBACK --> RUBRIC[(rubrics table)]
+    CAP --> RUBRIC
+```
+
 **Track B (the cheap, immediate win):** loosen the milestone call-support floor from 3 to 2 distinct calls. Tested against the *actual* recomputed cluster candidates (not a simulation), this rescued 3 scenarios that were fully falling back to V1 and added exactly +1 milestone each to 9 already-clustered scenarios — net +16% milestones (87→101) with an honestly-reported tradeoff: 3 of those rescued scenarios actually had *more* milestones under the old V1 free-text fallback (3 each) than the new floor gives them via real clustering (2, 2, 1) — adopted anyway, because evidence-backed milestones (with `support_calls` attached) are the entire point of the rewrite, even at a lower raw count.
 
 **Track A (the real diagnostic — a controlled variant sweep, one variable at a time):** holding the relevance-filtered clause pool and the `min_cluster_size` formula fixed, four clustering variants were tested against the 28 failing scenarios *plus* a control set of already-working scenarios (to catch regressions — "fixing the 28 by breaking the 51" would not be a win):
@@ -232,6 +251,18 @@ Everything above assumes Layer B's matching behaves as intended once its margin 
 
 Any trigger-response pair whose *best*-matching scenario is a junk "sink" (mechanics/backchannel/logistics) gets filed to that sink alone and permanently excluded from every rubric — by design, so junk doesn't contaminate real scenarios. In the first production run, **1,827 of 4,605 pairs (39.7%) were filed this way**, with no counter and no audit trail anywhere in the pipeline.
 
+```mermaid
+flowchart LR
+    PAIR["Trigger-response pair"] --> EMBED["Embed the CLIENT\ntrigger only"]
+    EMBED --> MATCH{"Best-matching\nscenario is a\nreal topic, or a\njunk sink?"}
+    MATCH -->|real topic| KB["Filed under that scenario\n-- eligible for a rubric"]
+    MATCH -->|sink| SINK["Filed under the sink,\nALONE -- permanently\nexcluded from every rubric"]
+    RESP["The response that\nfollows the trigger"] -.never looked at\nby this decision.-> MATCH
+    SINK -.what this audit found,\nreading samples by hand.-> LOST["~half of sampled sink pairs:\nresponse (or even the trigger\nitself) was real content"]
+```
+
+This is the exact gap the response-taxonomy auto-pass (see below, 2026-08-07/08) was eventually built to close — not by changing this matching decision, but by periodically re-examining what actually accumulates in the sink and promoting genuinely recurring content out of it.
+
 Reading 30 of those 1,827 pairs (trigger + response, sampled and grouped by which sink they landed in) found roughly **half are genuinely coachable content, wrongly discarded** — not junk. The pattern: a client's trigger is a short backchannel-sounding acknowledgment ("I'm fine with whatever you guys think," "yeah, I think so"), which correctly best-matches a mechanics sink *on its own* — but the *response* that follows is often long, substantive, and strategic. One trigger was "I'm fine with whatever you guys think is the right hook" — the response behind it was an entire detailed walkthrough of the analytics dashboard. The matching decision only ever looks at the trigger's embedding, so it has no way to notice the response carries real content.
 
 **Not fixed yet** — it's a structural gap (matching keyed on trigger-only, not trigger+response) that needs a design change to the matching decision itself, not a threshold tweak. This is flagged as the single most material open finding from this whole audit: at roughly a fifth of the entire corpus's worth of content silently lost, it's a bigger issue than any of the tuning work recorded elsewhere in this document, and is worth prioritizing before the taxonomy is treated as final.
@@ -256,7 +287,20 @@ The same under-merging shows up on the mechanics/sink side too in this run — `
 
 ## Reliability and infrastructure fixes (not data-quality bugs — things that crashed or silently corrupted state)
 
-These aren't about scenario/rubric *quality* — they're about the pipeline not falling over or silently going wrong.
+These aren't about scenario/rubric *quality* — they're about the pipeline not falling over or silently going wrong. The first two rows below are really one connection-lifecycle problem, seen at two different points in it:
+
+```mermaid
+flowchart LR
+    OPEN["Open a Postgres\nconnection"] --> AUTOCOMMIT["autocommit=True +\nTCP keepalives\n(idle=30s, interval=10s)"]
+    AUTOCOMMIT --> SLOW["Long loop of slow\nGemma/Pinecone calls,\nno DB traffic in between"]
+    SLOW --> NEON{"Neon's idle-connection\ntimeout fires?"}
+    NEON -->|no| CONTINUE["Next DB write\nsucceeds normally"]
+    NEON -->|yes -- connection\nis now dead| RECHECK["reconnect_if_closed(conn)\n-- must be called EXPLICITLY\nbefore the next DB write"]
+    RECHECK -->|not called| CRASH["OperationalError: SSL\nconnection has been closed\nunexpectedly"]
+    RECHECK -->|called| FRESH["Fresh connection,\nwrite proceeds"]
+```
+
+Recurred twice more, independently, in later work also documented in this file: once in V2 Layer A's adjudication loop (fixed by making **no** DB calls at all inside the Gemma loop, writing everything in one pass afterward instead), and again in the response-taxonomy auto-pass (2026-08-08, see below) — the exact same missing `reconnect_if_closed` call, just at two new call sites this codebase hadn't needed it at before.
 
 | Problem | Why it happened | Fix |
 |---|---|---|
@@ -317,6 +361,21 @@ transcript.
 3. Both pipeline versions (`v1/pipeline.py` and `v2/pipeline.py`) load the
    sidecar automatically per transcript, so the fix applies without changing
    either version's actual clustering/matching logic.
+
+```mermaid
+flowchart TD
+    subgraph OLD["Before"]
+        T1[Transcript] --> NAMELIST["Fuzzy-match speaker name\nagainst hand-maintained\nJOVEO_SPEAKER_NAMES (17 names)"]
+        NAMELIST -->|on the list| INTERNAL1[NAREN / internal Joveo]
+        NAMELIST -->|not on the list| CLIENT1["CLIENT (default) --\nwrong for 189 real names\nseen in 2+ calls"]
+    end
+    subgraph NEW["After"]
+        T2[Transcript] --> BACKFILL["backfill_speaker_roster.py:\none-time call to Avoma's\nper-meeting insights API"]
+        BACKFILL --> SIDECAR["{stem}.speakers.json --\nreal name + email + is_rep,\nper meeting"]
+        SIDECAR -->|speaker covered| REAL["Use Avoma's own\nis_rep ground truth"]
+        SIDECAR -->|not covered, or a\nlegacy pre-export file| NAMELIST2["Fall back to the\nold name-list heuristic"]
+    end
+```
 
 412 of 416 transcripts got a real roster this way; the 4 misses are the
 legacy pre-export files, which keep the old fallback behaviour unchanged.
@@ -400,6 +459,20 @@ Category names are generated by Gemma in small batches; two separate batches can
 
 **6. An experimental "search by category first, then scenario" matching approach — built, tested at two scales, and full-scale data made the case against it, not for it.**
 Alongside the category table, an alternate way of matching a client's question to a scenario was built: first narrow down to the likely *category*, then search within it (instead of searching all scenarios flat, which is what production does today). Three variants were built and tested against real data: **Strict** (hard-restrict to the category's members), **Soft** (never exclude, just re-rank by blending scenario-similarity with category-similarity), and **Fallback** (try Strict, revert to flat if its answer looks weak).
+
+```mermaid
+flowchart TD
+    TRIG[Client trigger] --> FLAT["Production today: FLAT --\nsearch all 157 scenarios\ndirectly, ignore categories"]
+    TRIG --> STAGE1{"Experimental: which\nprimary_topic category\nfirst?"}
+    STAGE1 --> STRICT["Strict: hard-restrict\nsearch to that category's\nmembers only"]
+    STAGE1 --> SOFT["Soft: never exclude,\nre-rank by blending\ncategory + scenario similarity"]
+    STAGE1 --> FALLBK["Fallback: try Strict,\nrevert to flat if the\nanswer looks weak"]
+    STRICT --> RESULT["Compared against\nflat's own answer"]
+    SOFT --> RESULT
+    FALLBK --> RESULT
+    RESULT -->|150-call sample| PROMISING["Looked promising\n(Soft: 83.6% agreement)"]
+    RESULT -->|full 416-call corpus| WORSE["Every strategy got WORSE\n(Soft: 77.0%) -- more categories\ngives step 1 more chances to\nguess wrong, unrecoverable by step 2"]
+```
 
 On a smaller 150-call sample, this looked promising — Soft, the best of the three, recovered 83.6% of what flat matching would have chosen while still meaningfully re-ranking. But that result came with two honest caveats even at the time: it had only been tested at small scale (not the full dataset), and there's no independent "ground truth" for which scenario a client question *should* match — these numbers only measure how much a strategy agrees or disagrees with flat, never whether either one is actually more correct.
 
