@@ -274,17 +274,44 @@ Consequently: `W(A3) ≥ 0.50` licenses "the rubrics are satisfiable", **not** "
 3.1%-to-ceiling distance is CSM skill". Attributing that distance requires separately
 measuring Step 0 precision and the response-window shape, which are follow-on work.
 
-### The noise floor governs how finely this may be read
+### The noise floor governs how finely this may be read — MEASURED 2026-08-11
 
-A companion run (`measure_scoring_noise.py`, two identical Layer D runs) is measuring how
-much Layer D moves when nothing changes; early partial data suggested a ~25% per-milestone
-movement rate. Whatever it reports:
+`measure_scoring_noise.py`, two identical 19-transcript Layer D runs, nothing changed between
+them (`arm3_run1_20260810` vs `public`):
 
-- Aggregate arm comparisons are only citable if the gap exceeds the floor's net drift.
-- **Per-milestone winners and losers are not citable at all** if the floor's movement rate
-  approaches the effect size, which for a ~25% floor it does.
-- Milestones with ≤2 attempts are reported separately, since one verdict flip moves their
-  score by 0.5 or 1.0.
+```text
+run A  889 attempts | 28 hits (3.1%) | 76 partial | weighted 0.074
+run B  905 attempts | 31 hits (3.4%) | 73 partial | weighted 0.075
+
+aggregate weighted drift : +0.000
+attempt-count drift      : +1.8%
+MOVEMENT RATE            : 37/237 milestones (15.6%)
+   improved 18 (+3.30) | worsened 19 (-2.73) | net +0.56
+   |delta| median 0.12, max 0.50; 24% of movers have <=2 attempts
+```
+
+The floor is **15.6%**, not the ~25% an earlier partial read suggested. Three rules follow:
+
+1. **Aggregate arm comparisons are safe.** Weighted drift across identical runs is `+0.000`,
+   so §1's 0.20 / 0.50 thresholds sit orders of magnitude outside the floor and the fork is
+   decidable.
+2. **Per-milestone winners and losers remain uncitable individually** — 15.6% against any
+   plausible effect size is too close.
+3. **Direction of an asymmetric aggregate shift is citable**, which is a stronger conclusion
+   than "per-milestone results are noise, so nothing is". The floor moves 18 up / 19 down for
+   a net of +0.56 — symmetric, as noise must be. The criteria rewrite moved 43 up / 17 down
+   for +4.48. Shape, not just rate, separates signal from variance, and the reporting in §6
+   states up/down/net for every arm comparison so the shape is always visible.
+
+**Consequence for this design's sampling.** The movement is not diffuse instability, it is
+arithmetic on small denominators: all 12 of the largest moves had ≤4 attempts. At 8 items per
+scenario per arm each milestone gets ≤8 attempts, which is thin by the same standard. So:
+
+- The "milestones even the author cannot satisfy" list (§6.4) requires **0 full hits AND 0
+  partial hits at ≥6 attempts** — a milestone showing partials is being *approached*, and the
+  floor's median |delta| of 0.12 is exactly the size of a partial flip at these denominators.
+- Every per-milestone table reports the attempt count beside the score, and milestones at ≤2
+  attempts are listed in a separate block, never mixed into the main body.
 
 ### Every number is read before it is believed
 
@@ -321,8 +348,9 @@ is gitignored) and `--load PATH` re-reports at zero cost — the established pat
 `labeled_trigger_quality_sample.json` and `layer_c_admitted_replay.json`.
 
 `arm3_run1_20260810` is the CSM baseline for every comparison. **`public` must not be used**
-— the noise-floor run is currently mid-flight rewriting it (258 attempts and climbing
-against the completed run's 889).
+as that baseline: as of 2026-08-11 it holds the *second* arm of the completed noise-floor run
+(905 attempts against arm3's 889), so quoting it would silently compare against a different
+arm of a variance experiment. Read the CSM number from the snapshot, always.
 
 ### CPU and memory safety, given a concurrent run
 
@@ -355,10 +383,12 @@ The residual risk is that `import torch` alone costs address space, the document
    Madhumita's, joined the way `compare_criteria_ab.py` joins
    (`rubric_id`, `milestone_id`, plus `csm_id` on her side). Flagged, not ranked, when the
    noise floor forbids per-milestone claims.
-4. **Milestones even the author cannot satisfy** — 0 full hits in A3 at ≥6 attempts, with
-   `support_calls` and description. This is the highest-value output: a stronger and
-   better-evidenced indictment than the 17 already flagged by
-   `ops/flag_uncoachable_milestones.py`, because it is measured rather than judged.
+4. **Milestones even the author cannot satisfy** — 0 full hits **and 0 partial hits** in A3 at
+   ≥6 attempts, with `support_calls` and description. The partial-hit condition is required by
+   the measured noise floor: a milestone scoring partials is being approached, and a partial
+   flip is exactly the size of the floor's median move at these denominators. This is the
+   highest-value output — a stronger and better-evidenced indictment than the 17 already
+   flagged by `ops/flag_uncoachable_milestones.py`, because it is measured rather than judged.
 5. **Provenance** — `scored_by` distribution per arm, id-shortfall warnings from
    `score_milestones_batch`, degenerate-benchmark counts, achieved N per scenario.
 
