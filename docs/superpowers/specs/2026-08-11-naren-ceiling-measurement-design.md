@@ -501,7 +501,113 @@ below that. The dry run prints the real per-arm call count before anything is sp
 
 ---
 
-## 9. Verification plan
+## 9. RESULT (2026-08-11) — the instrument is invalid, and the criteria are scenario-agnostic
+
+Run: `ops/run_naren_ceiling.ps1`, 49 scenarios, seed 20260811, `skip_uncoachable=True`,
+artifact `Brain/artifacts/naren_ceiling.json`, log `logs/naren_ceiling_20260811_*.log`.
+One batch of 32 failed on malformed JSON, costing A1 12 of 383 items; nothing else failed.
+
+| arm | attempts | full hits | partials | **W** |
+| --- | --- | --- | --- | --- |
+| **A1** primary label (leaked) | 1834 | 187 (10.2%) | 215 (11.7%) | **0.161** |
+| **A3** call-level holdout (clean) | 1806 | 92 (5.1%) | 228 (12.6%) | **0.114** |
+| **B** unrelated rubric (control) | 1833 | 68 (3.7%) | 124 (6.8%) | **0.071** |
+| CSM `arm3_run1_20260810` | 889 | 28 (3.1%) | 76 (8.5%) | 0.074 |
+
+### The validity gate trips, and it survives the one confound that could have explained it
+
+`W(B) = 0.071 ≥ 0.5 × W(A3) = 0.057`. **Instrument invalid.** Per §1 this is checked first and
+no other number may be cited as a measurement.
+
+Arm B had a real model confound — A1 and A3 were 100% `gemini-3.1-flash-lite`, but B came back
+793 verdicts `gemini-3.1-flash-lite` + 1040 `gemini-3.5-flash-lite`, the fallback chain firing
+under rate limits. This is exactly what the per-arm `scored_by` reporting exists to catch, and
+it had to be resolved before the gate could be believed. Splitting B by scorer **makes the
+result worse, not better**:
+
+```text
+B | gemini-3.1-flash-lite   793 att | 38 hit (4.8%) | 66 part | W 0.090   <- same model as A1/A3
+B | gemini-3.5-flash-lite  1040 att | 30 hit (2.9%) | 58 part | W 0.057   <- stricter
+GATE on the same-model subset: 0.090 >= 0.057  -> STILL INVALID
+```
+
+So the fallback model was *masking* the problem. On an apples-to-apples comparison the
+unrelated-rubric control reaches **W 0.090 against a matched 0.114** — a signal-to-null ratio
+of 1.27 : 1. And the CSM's own 0.074 sits **below** what scoring Naren against a deliberately
+unrelated rubric produces. The CSM number was never measuring coaching performance; it sits at
+or under the instrument's null.
+
+### Why — read from arm B's full hits, not inferred from the numbers
+
+The scorer is not being lazy. The criteria are **genuinely scenario-agnostic**, so a response
+from a different scenario legitimately satisfies them. Verbatim from arm B, where a response
+about `ai_capability_discovery` was scored against `client_resistance_and_constraints`:
+
+> **M2** *Explain the practical utility of the tool in handling immediate tasks and illustrate
+> this value through concrete examples of real-world application.*
+> → "The CSM explains the utility of the analytics dashboard and provides concrete examples of
+> tracking candidate journeys and drop-offs." **full_hit**
+>
+> **M9** (`candidate_screening_capability_discovery`, response really about
+> `ats_integration_architecture_discovery`) *Use open-ended questions to uncover the functional
+> flow and required mechanics of a system or implementation format.*
+> → "The CSM uses questions to uncover the mechanics of the integration with Bullhorn."
+> **full_hit**
+
+Those verdicts are *correct*. Nothing in either criterion mentions client resistance, or
+screening, or anything that distinguishes one scenario from another — they describe generic
+consultative behaviour that any competent technical discovery response exhibits.
+
+**This localises the defect to the 2026-08-10 criteria rewrite, which over-corrected.** Before
+it, descriptions were narration about one person ("He uses hypothetical numerical examples of
+job slots…") — unhittable by anyone else. The rewrite removed names, pronouns and specifics to
+make them transferable, and went far enough that they stopped identifying a *situation*. The
+milestones moved from **too specific to one person** to **too generic to one scenario**. Both
+fail; the second fails less visibly.
+
+It also retroactively explains that rewrite's most-cited signal. Partials doubled (32 → 73)
+while full hits barely moved (21 → 29), which was read as "the rubric became gradable". A
+simpler reading now fits: generic criteria are easy to partially satisfy with almost anything.
+
+### A quarter of the rubric is unreachable by its own author
+
+Measured in A3, with 8 attempts per milestone:
+
+| | milestones scored | 0 full **and** 0 partial | 0 full |
+| --- | --- | --- | --- |
+| A1 (leaked) | 232 | 50 (22%) | 121 (52%) |
+| A3 (clean) | 235 | **65 (28%)** | **154 (66%)** |
+
+Two thirds of milestones are never fully satisfied by the expert whose corpus produced them,
+even in the leaked arm. The 17 already flagged by `ops/flag_uncoachable_milestones.py` were a
+severe underestimate.
+
+### What this settles, and what it does not
+
+- **Settled: the primary fork resolves to "broken measurement", not "real coaching gap".** Both
+  pre-registered failure conditions fired independently — `W(A3) = 0.114 < 0.20`, and the
+  validity gate. Every Layer D hit-rate number produced to date, including the 2.4% → 3.1%
+  improvement arc, is uninterpretable as CSM performance.
+- **Settled: derivation leakage was not the problem.** `W(A1) − W(A3) = +0.047`, under the 0.20
+  overfit threshold — though a 41% relative inflation is not nothing, and it does confirm the
+  A3 holdout was worth building.
+- **Not settled: whether milestone scoring can be fixed by better criteria, or whether the
+  milestone is the wrong unit of feedback.** The result is consistent with both. Deciding needs
+  the §7-deferred work, not another threshold pass.
+- **Do not tune anything on the strength of these numbers.** The gate forbids citing them as
+  measurements. Their value is the diagnosis, which came from reading arm B's verdicts.
+
+### Recommended next step
+
+Criteria must be scenario-discriminating before any hit rate means anything. The cheap test of
+whether that is achievable: take ~10 milestones, rewrite them by hand to name the client
+situation they respond to, and re-run A3 and B on that subset only (~6 Gemma calls). If B's
+score collapses while A3's holds, the rewrite is the fix. If B stays high, the milestone is the
+wrong unit and §7's alternatives are the real path.
+
+---
+
+## 10. Verification plan
 
 `score_milestones_batch` is unchanged, so no test covers it here. The new, testable surface
 is the sampling and holdout logic, which is pure and separable:
