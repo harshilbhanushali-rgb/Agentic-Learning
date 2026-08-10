@@ -22,7 +22,10 @@ Set-Location "C:\PF\Joveo\CS-platform\Brain"
 
 $py    = "..\.venv\Scripts\python.exe"
 $stamp = Get-Date -Format "yyyyMMdd_HHmm"
-$log   = "logs\naren_ceiling_$stamp.log"
+# Fixed name while running, so a watcher can tail a known path; archived to a timestamped
+# copy at the end so successive runs are kept for reference rather than overwritten.
+$log     = "logs\naren_ceiling.log"
+$archive = "logs\naren_ceiling_$stamp.log"
 $env:PYTHONUNBUFFERED = "1"
 $env:PYTHONIOENCODING = "utf-8"
 
@@ -71,8 +74,9 @@ $started = Get-Date
 $code = $LASTEXITCODE
 $elapsed = (Get-Date) - $started
 
+Copy-Item $log $archive -Force
 Write-Host "`n=== finished in $([int]$elapsed.TotalMinutes) min $([int]$elapsed.Seconds) s ===" -ForegroundColor Cyan
-Write-Host "log      : $log" -ForegroundColor White
+Write-Host "log      : $log  (archived: $archive)" -ForegroundColor White
 Write-Host "artifact : artifacts\naren_ceiling.json" -ForegroundColor White
 Write-Host "`nRe-read the result at zero cost with:" -ForegroundColor Cyan
 Write-Host "  $py calibration\score_naren_ceiling.py --load artifacts\naren_ceiling.json" -ForegroundColor White
