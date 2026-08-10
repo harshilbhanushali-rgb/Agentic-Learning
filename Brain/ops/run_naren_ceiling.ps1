@@ -57,7 +57,7 @@ Write-Host "[guard] no competing pipeline run detected" -ForegroundColor Green
 # --- 1/2: dry pass, zero Gemma calls ----------------------------------------
 Write-Host "`n[1/2] DRY PASS - zero Gemma calls. Checks embed-cache coverage, the arm B" -ForegroundColor Yellow
 Write-Host "      pairings, benchmark holdout, and ranking equivalence." -ForegroundColor Yellow
-& $py calibration\score_naren_ceiling.py 2>&1 | Tee-Object -FilePath $log
+& cmd /c "$py calibration\score_naren_ceiling.py 2>&1" | Tee-Object -FilePath $log
 if ($LASTEXITCODE -ne 0) {
     Write-Host "`nABORTING: the dry pass failed, so nothing was scored and no quota spent." -ForegroundColor Red
     Write-Host "Read $log - the harness aborts deliberately on an uncached text or a" -ForegroundColor Red
@@ -70,7 +70,13 @@ Write-Host "`n[guard] dry pass clean" -ForegroundColor Green
 Write-Host "`n[2/2] SCORING - ~95 Gemma calls across 3 arms (~19% of one key's 500/day)." -ForegroundColor Yellow
 Write-Host "      A failed batch is reported and SKIPPED, never retried, to protect quota." -ForegroundColor DarkGray
 $started = Get-Date
-& $py calibration\score_naren_ceiling.py --run 2>&1 | Tee-Object -FilePath $log -Append
+# cmd does the stream merge, NOT PowerShell. `& $py ... 2>&1` looks equivalent and is not:
+# in PS 5.1, redirecting a native command's stderr wraps each line in a NativeCommandError,
+# and with $ErrorActionPreference = "Stop" that TERMINATES the pipeline before Tee-Object
+# writes anything. That is how a Python traceback vanished on 2026-08-11 -- the run died, the
+# log ended mid-batch with no error, and the cause had to be deduced from the code instead of
+# read. cmd merges at the OS level, so PowerShell only ever sees plain stdout text.
+& cmd /c "$py calibration\score_naren_ceiling.py --run 2>&1" | Tee-Object -FilePath $log -Append
 $code = $LASTEXITCODE
 $elapsed = (Get-Date) - $started
 

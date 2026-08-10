@@ -467,8 +467,8 @@ def _baseline_totals(conn, schema: str) -> dict:
     return {"attempts": a, "hits": h, "partial": p, "W": weighted(h, p, a)}
 
 
-def _line(label: str, t: dict, items: int | str = "-") -> str:
-    a = t["attempts"]
+def _line(label: str, t: dict | None, items: int | str = "-") -> str:
+    a = (t or {}).get("attempts", 0)
     if not a:
         return f"  {label:<34} no data"
     return (f"  {label:<34} {a:>5} att | {t['hits']:>4} hit ({t['hits']/a:>5.1%}) | "
@@ -476,9 +476,17 @@ def _line(label: str, t: dict, items: int | str = "-") -> str:
             f"items {items}")
 
 
+_EMPTY_ARM = {"totals": {"attempts": 0, "hits": 0, "partial": 0, "miss": 0, "W": 0.0},
+              "items": 0, "unscored": 0, "distinct_pairs": 0, "empty_benchmarks": 0,
+              "models": {}, "counters": {}, "records": []}
+
+
 def _report(payload: dict) -> None:
-    arms = payload["arms"]
-    base = payload["baseline"]
+    # Tolerant of a missing arm and a missing baseline so the PARTIAL artifact a crashed run
+    # leaves behind is still readable with --load. An unreadable partial would defeat the
+    # point of flushing it.
+    arms = {a: payload.get("arms", {}).get(a) or _EMPTY_ARM for a in _ARMS}
+    base = payload.get("baseline")
     print("\n" + "=" * 92)
     print("LAYER D CEILING — Naren scored against his own rubrics")
     print("=" * 92)
@@ -512,9 +520,13 @@ def _report(payload: dict) -> None:
     print(f"  LEAK  W(A1) - W(A3) = {leak:+.3f}   -> "
           f"{'RUBRICS OVERFIT to their own source calls' if leak >= 0.20 else 'no large derivation leak'}")
 
-    print("\n  Reference: the CSM baseline is W "
-          f"{base['W']:.3f} / {base['hits']}/{base['attempts']} full hits "
-          f"({base['hits']/max(base['attempts'],1):.1%}).")
+    if base and base.get("attempts"):
+        print("\n  Reference: the CSM baseline is W "
+              f"{base['W']:.3f} / {base['hits']}/{base['attempts']} full hits "
+              f"({base['hits']/max(base['attempts'],1):.1%}).")
+    else:
+        print("\n  Reference: CSM baseline UNAVAILABLE (lookup failed after scoring). "
+              "Known value from the spec: W 0.074, 3.1% full hits.")
 
     print("\n" + "-" * 92)
     print("PROVENANCE (an arm scored by a different model is not comparable)")
@@ -581,6 +593,10 @@ def main() -> None:
     ap.add_argument("--batch-size", type=int, default=_BATCH_SIZE)
     ap.add_argument("--samples", type=int, default=12,
                     help="non-miss verdicts to print per arm")
+    ap.add_argument("--max-items-per-arm", type=int, default=0,
+                    help="cap items per arm (0 = no cap). Use a small value for a cheap "
+                         "end-to-end smoke test of the scoring, artifact and report path "
+                         "before committing the full ~95 calls.")
     ap.add_argument("--out", default=str(ARTIFACTS_DIR / "naren_ceiling.json"))
     args = ap.parse_args()
 
@@ -638,6 +654,10 @@ def main() -> None:
 
         items, plan = _build_items(conn, keys, args.per_scenario, args.seed,
                                    pools, ranked_pools, scen_info, rubrics, partner)
+        if args.max_items_per_arm:
+            items = {a: v[:args.max_items_per_arm] for a, v in items.items()}
+            print(f"[smoke] capped to {args.max_items_per_arm} item(s) per arm — this is a "
+                  f"PATH test, its numbers are not a measurement")
 
         # --- dry run ------------------------------------------------------------------
         print(f"\n{'scenario':<46} {'ms':>3} {'prim':>5} {'sec':>5} {'a3':>5} "
@@ -672,13 +692,36 @@ def main() -> None:
             return
 
         # --- score --------------------------------------------------------------------
-        arms_out = {}
+        # EVERY paid result is flushed to disk the moment its arm finishes, before anything
+        # else is attempted.
+        #
+        # The first version built `payload` with a DB lookup inline and wrote the artifact
+        # afterwards. The connection had gone idle across ~55 minutes of Gemma calls, so that
+        # lookup raised OperationalError and 95 calls' worth of verdicts died in memory with
+        # nothing on disk. reconnect_if_closed exists for exactly that and is never automatic
+        # -- but calling it is only half the fix. The real rule is that a FREE operation must
+        # never be able to destroy an EXPENSIVE one, so persistence happens first and every
+        # step after it is best-effort.
+        out = _Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        partial = out.with_suffix(".partial.json")
+
+        payload = {
+            "baseline_schema": args.baseline, "seed": args.seed,
+            "per_scenario": args.per_scenario, "batch_size": args.batch_size,
+            "max_items_per_arm": args.max_items_per_arm,
+            "scenarios": keys, "plan": plan, "partner": partner,
+            "pairing_method": method,
+            "skip_uncoachable": tuning.skip_uncoachable_milestones,
+            "baseline": None,
+            "arms": {},
+        }
         for arm in _ARMS:
             records, models = _score_arm(arm, items[arm], cfg,
                                          tuning.skip_uncoachable_milestones,
                                          args.batch_size)
             scored_pairs = {(r["pair_id"], r["scenario_key"]) for r in records}
-            arms_out[arm] = {
+            payload["arms"][arm] = {
                 "items": len(items[arm]),
                 "unscored": len(items[arm]) - len(scored_pairs),
                 "distinct_pairs": len({i["pair_id"] for i in items[arm]}),
@@ -688,19 +731,22 @@ def main() -> None:
                 "counters": {f"{k[0]}::{k[1]}": v for k, v in aggregate(records).items()},
                 "records": records,
             }
+            partial.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+            print(f"  [{arm}] {payload['arms'][arm]['totals']['attempts']} verdict(s) "
+                  f"flushed to {partial.name}")
 
-        payload = {
-            "baseline_schema": args.baseline, "seed": args.seed,
-            "per_scenario": args.per_scenario, "batch_size": args.batch_size,
-            "scenarios": keys, "plan": plan, "partner": partner,
-            "pairing_method": method,
-            "skip_uncoachable": tuning.skip_uncoachable_milestones,
-            "baseline": _baseline_totals(conn, args.baseline),
-            "arms": arms_out,
-        }
-        out = _Path(args.out)
-        out.parent.mkdir(parents=True, exist_ok=True)
+        # Only now is the DB touched again, and its failure is survivable. The try/except is
+        # the load-bearing half: a reconnect can fail too, and the artifact must still land.
+        try:
+            conn = storage.reconnect_if_closed(conn)
+            payload["baseline"] = _baseline_totals(conn, args.baseline)
+        except Exception as e:  # noqa: BLE001 -- a written artifact beats a stack trace
+            print(f"\n  ! baseline lookup failed after scoring: {e}")
+            print("  ! the CSM comparison row will read 'no data'; every scored verdict is "
+                  "still written.")
+
         out.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+        partial.unlink(missing_ok=True)
         print(f"\n[artifact] {out}")
 
         _report(payload)
