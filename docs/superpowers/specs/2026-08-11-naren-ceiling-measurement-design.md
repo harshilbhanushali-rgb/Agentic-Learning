@@ -4,8 +4,9 @@
 **Status:** design approved, not yet implemented. Amended the same day after measuring the
 holdout populations — scope corrected 27 → 49 scenarios, the plain secondary-label arm dropped
 in favour of the stricter call-level one, cost ~54 → ~95 Gemma calls. The companion noise-floor
-number is **not** yet measured (§4) and is not a blocker: this design's fork is decided by a
-single aggregate comparison against thresholds far wider than any plausible variance band.
+number is now measured on clean data (§4): aggregate drift 0.006, per-milestone movement 15.6%.
+That confirms the fork is decidable — the thresholds are 30–80× the drift — and it corrected an
+earlier claim in §4 that mover *shape* separates signal from noise.
 **Deliverable:** `Brain/calibration/score_naren_ceiling.py` — read-only, zero DB writes
 
 ---
@@ -276,22 +277,62 @@ Consequently: `W(A3) ≥ 0.50` licenses "the rubrics are satisfiable", **not** "
 3.1%-to-ceiling distance is CSM skill". Attributing that distance requires separately
 measuring Step 0 precision and the response-window shape, which are follow-on work.
 
-### The noise floor governs how finely this may be read — STILL UNMEASURED
+### The noise floor governs how finely this may be read — MEASURED CLEAN 2026-08-11
 
-A companion experiment (`measure_scoring_noise.py`, two identical Layer D runs) is meant to
-establish how much Layer D moves when nothing changes. **The first attempt is void and the
-number is not yet known.** Rules that hold regardless of what it eventually reports:
+Third attempt, after the first two were void (see below). `measure_scoring_noise.py` now
+checks its own precondition first, and **both arms passed as exactly one run each**:
 
-- Aggregate arm comparisons are only citable if the gap exceeds the floor's net drift.
-- **Per-milestone winners and losers are not citable** unless the floor's movement rate is
-  well below the effect size.
-- Shape matters as much as rate: noise moves milestones up and down in roughly equal measure,
-  so an asymmetric aggregate shift is evidence in a way a symmetric one is not. §6 therefore
-  reports up / down / net for every arm comparison, not just a movement percentage.
-- Milestones with ≤2 attempts are reported separately, since one verdict flip moves their
-  score by 0.5 or 1.0.
+```text
+arm3_run1_20260810   clean          public   clean          (zero duplicated signals)
+run A   889 attempts | 28 hits (3.1%) | 76 partial | W 0.074
+run B   889 attempts | 33 hits (3.7%) | 77 partial | W 0.080
 
-#### Why the first attempt was void, and what it costs this design
+aggregate weighted drift : +0.006
+attempt-count drift      :  0.0%      milestones in only one run: 0
+MOVEMENT RATE            : 37/237 (15.6%)
+   improved 24 (+3.88) | worsened 13 (-1.76) | net +2.12
+   |delta| median 0.12, max 1.00; 16% of movers have <=2 attempts
+   movers with >=6 attempts on BOTH sides: 15
+```
+
+Three rules follow, and the second **corrects an earlier draft of this section**:
+
+1. **Aggregate arm comparisons are safe, and the fork is decidable.** Aggregate drift across
+   identical runs is 0.006. §1's thresholds at 0.20 and 0.50 are 30–80× that, so no plausible
+   variance explains landing on either side of them.
+
+2. **Shape does NOT cleanly separate signal from noise — an earlier draft claimed it did, and
+   the clean floor refutes that.** The claim was that noise moves milestones up and down about
+   equally, so the criteria rewrite's lopsided 43-up/17-down was therefore evidence. But the
+   clean floor is *also* lopsided:
+
+   | | up : down | net | aggregate W drift |
+   | --- | --- | --- | --- |
+   | noise floor | 1.85 : 1 | +2.12 | +0.006 |
+   | criteria rewrite | 2.53 : 1 | +4.48 | +0.025 |
+
+   The rewrite is ~2× the floor on net and ~4× on aggregate drift — real, but the same order of
+   magnitude rather than the decisive gap the earlier wording implied. The floor's own 24/13
+   split is not statistically distinguishable from even (binomial p≈0.11), yet it is not tight
+   around zero either, so it cannot serve as a sharp null. §6 still reports up/down/net per
+   comparison, but as context rather than as a test.
+
+3. **Small hit-rate differences are noise.** Identical config produced 28 vs 33 full hits —
+   3.1% vs 3.7%, an 18% relative swing — so the CSM's headline rate carries roughly ±0.6pp at
+   this sample size. Only a large `W(A3)` means anything, which is why §1's thresholds are set
+   where they are rather than at "better than the CSM".
+
+**Consequence for this design's sampling.** The movement is arithmetic on small denominators,
+not diffuse instability: |delta| max is 1.00 (a 1-attempt milestone flipping outright), and
+only 15 of 237 milestones have ≥6 attempts on both sides. At 8 items per scenario per arm each
+milestone here gets ≤8 attempts, which is thin by the same standard. So:
+
+- The "milestones even the author cannot satisfy" list (§6.4) requires **0 full hits AND 0
+  partial hits at ≥6 attempts**.
+- Every per-milestone table reports the attempt count beside the score, and milestones at ≤2
+  attempts go in a separate block, never mixed into the main body.
+
+#### Why the first attempt was void — kept because the failure mode is the lesson
 
 Two Layer D runs wrote to the same database concurrently. The first run was believed dead
 because the harness reported its background task as stopped — but that is the harness's own
@@ -323,12 +364,21 @@ on the clean arm: the rebuild reproduces `arm3_run1_20260810`'s stored counters 
 and the choice of which duplicate to keep changes the result by a single partial hit. So a
 future floor can be computed from data already on disk.
 
-**Two durable fixes this implies, neither of them in this deliverable.**
-`measure_scoring_noise.py` should count duplicate `(call_id, scenario_key, signal_turn_index)`
-groups and **refuse to report a floor** when any exist — it silently reported one here, which
-is the same class of self-inflicted harness error as the merge-blind `_match_milestones` and
-`dry_run_ego_trap`'s "no data" band. And `ops/run_ego_trap.py` should refuse to start when
-another process holds `checkpoints.db`, since a stopped task is not a dead process.
+**One durable fix landed, one still open.** `measure_scoring_noise.py` now counts duplicate
+`(call_id, scenario_key, signal_turn_index)` groups in both arms and **refuses to report a
+floor** when any exist — it silently reported one, which is the same class of self-inflicted
+harness error as the merge-blind `_match_milestones` and `dry_run_ego_trap`'s "no data" band.
+It also gained `--dedup`, which rebuilds counters from `gap_events` keeping one verdict per
+signal, and self-checks that the *un*deduplicated rebuild reproduces the stored counters
+exactly before reporting anything. That check is what makes the salvage defensible rather than
+plausible, and it passed on the clean arm at 889/28/76 across 237 rows.
+
+Still open, not built: `ops/run_ego_trap.py` should refuse to start while another process holds
+`checkpoints.db`. `ops/run_noisefloor.ps1` and `ops/run_naren_ceiling.ps1` both guard by
+scanning command lines, but the guard belongs in the Python entry point too, since a hand-run
+`python ops/run_ego_trap.py` bypasses both scripts. **A stopped background task is not a dead
+process** — that is the whole lesson, and two `python.exe` PIDs in a parent/child pair are one
+run, because the venv shim re-execs the base interpreter. Different parents means two runs.
 
 ### Every number is read before it is believed
 
