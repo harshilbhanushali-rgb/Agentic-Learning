@@ -3,7 +3,9 @@
 **Date:** 2026-08-11
 **Status:** design approved, not yet implemented. Amended the same day after measuring the
 holdout populations — scope corrected 27 → 49 scenarios, the plain secondary-label arm dropped
-in favour of the stricter call-level one, cost ~54 → ~95 Gemma calls.
+in favour of the stricter call-level one, cost ~54 → ~95 Gemma calls. The companion noise-floor
+number is **not** yet measured (§4) and is not a blocker: this design's fork is decided by a
+single aggregate comparison against thresholds far wider than any plausible variance band.
 **Deliverable:** `Brain/calibration/score_naren_ceiling.py` — read-only, zero DB writes
 
 ---
@@ -274,44 +276,59 @@ Consequently: `W(A3) ≥ 0.50` licenses "the rubrics are satisfiable", **not** "
 3.1%-to-ceiling distance is CSM skill". Attributing that distance requires separately
 measuring Step 0 precision and the response-window shape, which are follow-on work.
 
-### The noise floor governs how finely this may be read — MEASURED 2026-08-11
+### The noise floor governs how finely this may be read — STILL UNMEASURED
 
-`measure_scoring_noise.py`, two identical 19-transcript Layer D runs, nothing changed between
-them (`arm3_run1_20260810` vs `public`):
+A companion experiment (`measure_scoring_noise.py`, two identical Layer D runs) is meant to
+establish how much Layer D moves when nothing changes. **The first attempt is void and the
+number is not yet known.** Rules that hold regardless of what it eventually reports:
 
-```text
-run A  889 attempts | 28 hits (3.1%) | 76 partial | weighted 0.074
-run B  905 attempts | 31 hits (3.4%) | 73 partial | weighted 0.075
+- Aggregate arm comparisons are only citable if the gap exceeds the floor's net drift.
+- **Per-milestone winners and losers are not citable** unless the floor's movement rate is
+  well below the effect size.
+- Shape matters as much as rate: noise moves milestones up and down in roughly equal measure,
+  so an asymmetric aggregate shift is evidence in a way a symmetric one is not. §6 therefore
+  reports up / down / net for every arm comparison, not just a movement percentage.
+- Milestones with ≤2 attempts are reported separately, since one verdict flip moves their
+  score by 0.5 or 1.0.
 
-aggregate weighted drift : +0.000
-attempt-count drift      : +1.8%
-MOVEMENT RATE            : 37/237 milestones (15.6%)
-   improved 18 (+3.30) | worsened 19 (-2.73) | net +0.56
-   |delta| median 0.12, max 0.50; 24% of movers have <=2 attempts
-```
+#### Why the first attempt was void, and what it costs this design
 
-The floor is **15.6%**, not the ~25% an earlier partial read suggested. Three rules follow:
+Two Layer D runs wrote to the same database concurrently. The first run was believed dead
+because the harness reported its background task as stopped — but that is the harness's own
+bookkeeping, not the OS process state, and the Python process was still alive and still
+marking transcripts done in `checkpoints.db`. The Layer D tables were then cleared and a
+second run launched, which read the first run's checkpoints and skipped 10 of 19 transcripts
+as already complete. The result is a blend, and the run still printed
+`Ego Trap batch complete`.
 
-1. **Aggregate arm comparisons are safe.** Weighted drift across identical runs is `+0.000`,
-   so §1's 0.20 / 0.50 thresholds sit orders of magnitude outside the floor and the fork is
-   decidable.
-2. **Per-milestone winners and losers remain uncitable individually** — 15.6% against any
-   plausible effect size is too close.
-3. **Direction of an asymmetric aggregate shift is citable**, which is a stronger conclusion
-   than "per-milestone results are noise, so nothing is". The floor moves 18 up / 19 down for
-   a net of +0.56 — symmetric, as noise must be. The criteria rewrite moved 43 up / 17 down
-   for +4.48. Shape, not just rate, separates signal from variance, and the reporting in §6
-   states up/down/net for every arm comparison so the shape is always visible.
+Verified rather than assumed: `public.gap_events` carries **28 duplicate groups** on
+`(call_id, scenario_key, signal_turn_index)` — the same signal scored twice — against
+**zero** in `arm3_run1_20260810`. Because `upsert_milestone_performance` does
+`attempts = attempts + 1` on conflict, that inflated attempts to 905 against the clean run's
+889. Both runs used the same model (all verdicts `gemini-3.1-flash-lite`), so the model is not
+a confound; the duplication is.
 
-**Consequence for this design's sampling.** The movement is not diffuse instability, it is
-arithmetic on small denominators: all 12 of the largest moves had ≤4 attempts. At 8 items per
-scenario per arm each milestone gets ≤8 attempts, which is thin by the same standard. So:
+**Nothing this design depends on was affected.** The contamination is confined to Layer D's
+four tables, which are wiped before every run by design. `kb_pairs`, `scenarios`, `rubrics`
+and `primary_topics` are untouched, so §2's holdout populations, §3's 49-scenario scope and
+the `W = 0.074` baseline in `arm3_run1_20260810` all stand — every one of those was read from
+a clean source.
 
-- The "milestones even the author cannot satisfy" list (§6.4) requires **0 full hits AND 0
-  partial hits at ≥6 attempts** — a milestone showing partials is being *approached*, and the
-  floor's median |delta| of 0.12 is exactly the size of a partial flip at these denominators.
-- Every per-milestone table reports the attempt count beside the score, and milestones at ≤2
-  attempts are listed in a separate block, never mixed into the main body.
+**And the floor is recoverable without spending Gemma calls again.** `gap_events` stores
+per-signal `milestones_hit` / `milestones_partial_hit` / `milestones_missed`, so
+`milestone_performance` can be rebuilt from it by counting array membership. Verified faithful
+on the clean arm: the rebuild reproduces `arm3_run1_20260810`'s stored counters exactly
+(889 attempts / 28 hits / 76 partial / 237 rows, identical). Deduplicating the blended arm by
+`(call_id, scenario_key, signal_turn_index)` returns it to **889 attempts, matching arm3**,
+and the choice of which duplicate to keep changes the result by a single partial hit. So a
+future floor can be computed from data already on disk.
+
+**Two durable fixes this implies, neither of them in this deliverable.**
+`measure_scoring_noise.py` should count duplicate `(call_id, scenario_key, signal_turn_index)`
+groups and **refuse to report a floor** when any exist — it silently reported one here, which
+is the same class of self-inflicted harness error as the merge-blind `_match_milestones` and
+`dry_run_ego_trap`'s "no data" band. And `ops/run_ego_trap.py` should refuse to start when
+another process holds `checkpoints.db`, since a stopped task is not a dead process.
 
 ### Every number is read before it is believed
 
@@ -347,10 +364,12 @@ Results are persisted to `Brain/artifacts/naren_ceiling.json` (disk, not DB; the
 is gitignored) and `--load PATH` re-reports at zero cost — the established pattern from
 `labeled_trigger_quality_sample.json` and `layer_c_admitted_replay.json`.
 
-`arm3_run1_20260810` is the CSM baseline for every comparison. **`public` must not be used**
-as that baseline: as of 2026-08-11 it holds the *second* arm of the completed noise-floor run
-(905 attempts against arm3's 889), so quoting it would silently compare against a different
-arm of a variance experiment. Read the CSM number from the snapshot, always.
+`arm3_run1_20260810` is the CSM baseline for every comparison. **`public` must not be read for
+the CSM number, under any circumstances.** It is the working target of whatever Layer D run is
+current, so at any moment it may be mid-flight (partial, and indistinguishable from complete),
+freshly cleared, or — as of 2026-08-11 — a blend of two concurrent runs with 28 duplicated
+signals. Every one of those states looks like a finished run when you `SUM(attempts)` it. Read
+the CSM number from a snapshot schema, always.
 
 ### CPU and memory safety, given a concurrent run
 
@@ -384,11 +403,12 @@ The residual risk is that `import torch` alone costs address space, the document
    (`rubric_id`, `milestone_id`, plus `csm_id` on her side). Flagged, not ranked, when the
    noise floor forbids per-milestone claims.
 4. **Milestones even the author cannot satisfy** — 0 full hits **and 0 partial hits** in A3 at
-   ≥6 attempts, with `support_calls` and description. The partial-hit condition is required by
-   the measured noise floor: a milestone scoring partials is being approached, and a partial
-   flip is exactly the size of the floor's median move at these denominators. This is the
-   highest-value output — a stronger and better-evidenced indictment than the 17 already
-   flagged by `ops/flag_uncoachable_milestones.py`, because it is measured rather than judged.
+   ≥6 attempts, with `support_calls` and description. The partial-hit condition is not a
+   noise-floor concession but a semantic one: a milestone scoring partials is being
+   *approached*, so it is gradable and the criterion is reachable — the claim "nobody can
+   satisfy this" requires that nobody got near it. This is the highest-value output, a stronger
+   and better-evidenced indictment than the 17 already flagged by
+   `ops/flag_uncoachable_milestones.py`, because it is measured rather than judged.
 5. **Provenance** — `scored_by` distribution per arm, id-shortfall warnings from
    `score_milestones_batch`, degenerate-benchmark counts, achieved N per scenario.
 
