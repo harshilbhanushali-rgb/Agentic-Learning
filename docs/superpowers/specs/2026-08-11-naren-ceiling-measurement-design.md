@@ -597,13 +597,79 @@ severe underestimate.
 - **Do not tune anything on the strength of these numbers.** The gate forbids citing them as
   measurements. Their value is the diagnosis, which came from reading arm B's verdicts.
 
-### Recommended next step
+### The aggregate hid the real structure: Layer C is BIMODAL, not uniformly broken
 
-Criteria must be scenario-discriminating before any hit rate means anything. The cheap test of
-whether that is achievable: take ~10 milestones, rewrite them by hand to name the client
-situation they respond to, and re-run A3 and B on that subset only (~6 Gemma calls). If B's
-score collapses while A3's holds, the rewrite is the fix. If B stays high, the milestone is the
-wrong unit and §7's alternatives are the real path.
+The global `W(A3) 0.114` vs `W(B) 0.071` is an average over two populations that behave in
+opposite directions. Per scenario, matched minus unrelated, ≥15 attempts on each side (40 of 49
+scenarios qualify):
+
+```text
+gap      A3 W   B W    scenario
++0.271   0.271  0.000  ats_integration_requirement
++0.250   0.261  0.011  budget_and_spend_disclosure
++0.188   0.188  0.000  url_redirection_configuration
++0.188   0.188  0.009  job_board_ecosystem_discovery
++0.125   0.125  0.000  ai_capability_discovery
++0.125   0.125  0.000  competitor_comparison_appcast
++0.104   0.104  0.000  pixel_implementation_discovery
+   ...
+-0.089   0.143  0.232  client_segments_requirements
+-0.125   0.042  0.167  client_admits_lack_of_familiarity
+-0.172   0.156  0.328  client_seeks_process_momentum
+-0.229   0.167  0.396  client_reacts_to_anomaly
+
+16 of 40 discriminate clearly (gap > +0.05)
+ 7 of 40 are INVERTED — the unrelated rubric scores HIGHER than the matched one
+```
+
+**The split follows what the scenario is named for.** Scenarios named for *subject matter* — ATS
+integration, budget, URL redirection, job boards, pixels, competitors, AI capability — have
+milestones about **content**, and content is scenario-specific by construction, so the control
+collapses to literally 0.000. Those rubrics are real instruments: a 0.19–0.27 matched score
+against a 0.00 null.
+
+Scenarios named for a *client posture* — reacts to anomaly, seeks momentum, admits
+unfamiliarity, segments requirements — have milestones about **conversational moves**, which are
+universal. Those do not merely fail to discriminate; seven of them **invert**, meaning the
+scenario label carries no information at all for their milestones. No wording change fixes that,
+because "acknowledge the concern and probe for specifics" is genuinely true of every good
+response.
+
+**This is why three rounds of prompt tuning each moved the needle slightly and never broke 4%:**
+the working half and the inverted half cancel in every global average. Every measurement to date
+was taken on the average.
+
+### Recommended next steps, in order
+
+The bimodal result replaces the "rewrite ~10 milestones and re-test" plan that was written here
+before the per-scenario split was known. Rewriting criteria globally would keep averaging over
+the two populations.
+
+1. **Route by kind instead of retuning one prompt.** The describe prompt is not wrong for topic
+   scenarios — it produces exactly what they need. It is wrong for client-state scenarios, and
+   no prompt can be right for both, because one needs content specificity and the other has no
+   content to be specific about.
+
+2. **Ship the topic rubrics as-is.** ~16 scenarios already carry a working instrument, at zero
+   additional Gemma cost. That is a usable coaching product today for the subject-matter half.
+
+3. **Change the unit for client-state scenarios, do not reword them.** The inversion is the
+   evidence: when an unrelated rubric outscores the matched one, per-scenario milestones are the
+   wrong shape. Candidates are one shared conversational-moves rubric applied once rather than
+   per scenario, or the scenario-level "was this handled?" judgement.
+
+4. **Adopt arm B per scenario as a permanent admission gate.** Any scenario whose `W(B) ≥ W(A3)`
+   should not carry a rubric. This is a property of the data rather than a curated list, which is
+   what `tuning.yaml` requires of a knob, and it is measurable at ~2 Gemma calls per scenario.
+
+**A flaw in this harness that inflates the "unreachable" count, and is not yet quantified.** Some
+milestones encode call-POSITION moves — introductions, agenda-setting, wrap-ups. One dead
+milestone reads *"Define the speaker's professional role and explain the internal hand-off
+process between solutions, onboarding, and customer success teams"* (and still says "the
+speaker's", so the rewrite missed it). Responses were sampled uniformly, so an opening-move
+milestone almost never met an opening response. Some share of the 65 zero-hit milestones is this
+artifact rather than an unreachable criterion, and separating them needs turn position — which
+`kb_pairs.turn_index` already carries, so the check is free.
 
 ---
 
