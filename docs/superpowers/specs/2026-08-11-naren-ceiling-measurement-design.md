@@ -699,6 +699,71 @@ milestone almost never met an opening response. Some share of the 65 zero-hit mi
 artifact rather than an unreachable criterion, and separating them needs turn position — which
 `kb_pairs.turn_index` already carries, so the check is free.
 
+### Corrected diagnosis, after three further free analyses the same night
+
+Three offline analyses over `naren_ceiling.json` changed the causal account above. Two of my
+own hypotheses died; the replacement is mechanically provable.
+
+**1. The dominant cause of the low rate is CONTINGENCY, not wording.** Reading all 60 dead
+pure-behaviour criteria, the shared property is not vagueness — it is an unstated
+**precondition**: a call *position* (*"Define the speaker's professional role and explain the
+internal hand-off process"* — an opening, and it still says "the speaker"; *"…utilize screen
+sharing to visually demonstrate…"*), a client *history* (*"…the logic behind previous spending
+decisions and trial processes"*), or an *artifact* (*"Reference internal data analysis…"*,
+*"…involving external partners…"*). These are real recurring moves that are **contingent**, and
+the rubric emits them as **mandatory**.
+
+The mechanism meant to catch this is dead code:
+
+```text
+sequencing_type across 235 milestones:  fixed 234,  conditional 1
+position_variance:  p50 0.098   max 0.240
+the conditional trigger is > 0.3  ->  fires 0 of 226 times
+```
+
+CLAUDE.md records that Layer D deliberately never *acts* on `conditional`. The deeper problem is
+that Layer C never *produces* it, so every response is graded against every milestone whether or
+not the moment called for it. This is a scoring-model error, which is why rewording the criteria
+twice did not help.
+
+**2. Satisfiability and discrimination are INDEPENDENT axes.** Whether a criterion names its own
+scenario's subject (measured token-wise against `scenario_key`, no curated list):
+
+```text
+subject tokens named   n     full%   dead
+0 (pure behaviour)    179     3.8%   60/179 (34%)
+1                      31    12.1%    4/31  (13%)
+2+                      6    10.4%    1/6
+
+correlation with the per-scenario A3-minus-B discrimination gap:  r = -0.038
+```
+
+Naming the subject triples the full-hit rate and cuts deadness by two thirds, yet has **no**
+relationship to discrimination. **83% of criteria (179/216) are pure behavioural prose.** Fixing
+one axis will not move the other, so a fix must target both deliberately.
+
+**3. Two hypotheses recorded earlier are retracted.**
+
+- *"Frequency may be anti-correlated with coachability"* — **wrong, it is uninformative.**
+  `correlation(support_calls, W) r = -0.019`, and the buckets are flat: 3–9 calls W 0.110, 10–24
+  W 0.133, 25–59 W 0.115, 60+ W 0.094 (n=4). **A milestone `ubiquity_ceiling` would be wasted
+  work** — worth knowing before building it.
+- *"Criteria discriminate because they name their subject"* — **wrong**, r = −0.038 as above.
+
+**Revised cause list, in order of expected effect on the rate:**
+
+1. No objective function for rubric quality *(root cause — addressed by the companion spec,
+   `2026-08-11-layer-c-objective-function-design.md`)*
+2. Contingent moves emitted as mandatory, conditional path firing 0/226 *(dominant proximate
+   cause)*
+3. The describe prompt is blind to the scenario and its siblings *(cause of the discrimination
+   failure)*
+4. Clause ≠ move — clustering finds topical proximity, not conversational function
+5. For posture scenarios, no discriminating criterion exists to be found
+
+The clustering itself remains sound: `W(A1) − W(A3) = +0.047` says the clusters are not artifacts
+of specific calls.
+
 ---
 
 ## 10. Verification plan

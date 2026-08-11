@@ -17,6 +17,7 @@ This is a plain-language history of the Brain pipeline: what it does, what went 
 | V2 + primary-topic hierarchy | 2026-07-30 → 08-02 | Added a "parent category" layer above scenarios, found and fixed two new bugs in it |
 | V2 audit pass | 2026-07-28 | Read real samples of Layer B's matching and re-validated a Layer B threshold against the true production taxonomy; found one real content-loss issue not yet fixed (see "Open findings" below) |
 | Response-taxonomy auto-pass | 2026-08-07 → 08-08 | Built a permanent, automatic version of the manual "graduate a homeless topic" fix; hit and fixed a known connection-drop bug again in the wild; ran it for real and rescued 164 pairs into 4 new real scenarios |
+| **The ceiling measurement** | **2026-08-11** | **Graded the expert against his own rubrics to find out whether the CSM's 3.1% means anything. It doesn't: the scorer barely tells a matched rubric from a random one. Found the real defect — the rubrics are bimodal, and contingent moves are being graded as mandatory** |
 
 ---
 
@@ -116,7 +117,7 @@ Neither of these is a data-quality fix. They're the reason every number in this 
 
 **1. Every threshold moved into one config file, with a loader that fails loudly.** Thresholds had been scattered as constants across the layer modules, so tuning meant editing code, and it was easy to change one copy of a value while missing another. They now all live in `Brain/tuning.yaml`, grouped by layer, each with a comment saying what it controls and which direction is more aggressive. The loader (`shared/tuning.py`) validates the file against a typed schema and **raises on an unknown or missing key instead of falling back to a default**. That last part matters more than it sounds: the failure mode of a silent default is that you fix a typo'd key like `min_call_suport`, observe no change in behaviour, and conclude *the threshold doesn't matter* — when in reality your edit was never read. A config file whose entire purpose is "change values without touching code" has to make a typo impossible to miss.
 
-**2. A zero-cost calibration harness (`dry_run_layer_a.py`).** It runs the real clustering over the real corpus, applies the real merge and triage logic, and prints what the taxonomy *would* be — with **zero LLM calls and zero database writes**. Two design details do the actual work:
+**2. A zero-cost calibration harness (`calibration/dry_run_layer_a.py`).** It runs the real clustering over the real corpus, applies the real merge and triage logic, and prints what the taxonomy *would* be — with **zero LLM calls and zero database writes**. Two design details do the actual work:
 
    - `--sweep` performs the expensive clustering **once**, then evaluates ~40 threshold combinations against that single result. Merge, support, and coverage are all cheap set operations *downstream* of clustering, so there is no reason to re-cluster per candidate value. This is what turned "pick a threshold, run the pipeline for hours, find out it was wrong" into a minutes-long loop.
    - Combined with the embedding cache, every run after the first skips encoding all 73,771 clauses.
@@ -129,7 +130,7 @@ Neither of these is a data-quality fix. They're the reason every number in this 
 
 Layer A could be calibrated cheaply because its clustering needs no LLM. Layers B and C looked like they couldn't: Layer C's input is response pools, which come from Layer B's matching, which needs Layer A's *labelled* taxonomy — and the labels are exactly the part that costs LLM calls. Paying for a full 416-transcript run just to discover a threshold was wrong would mean paying for it twice.
 
-Two moves made a zero-cost dry run possible anyway (`dry_run_layer_bc.py`):
+Two moves made a zero-cost dry run possible anyway (`calibration/dry_run_layer_bc.py`):
 
 - **Stand-in scenario descriptions.** A cluster's top keywords substitute for the LLM-written description, embedded through the *same* code path production uses. The wording isn't what the LLM would write, but the relative similarity behaviour is representative — which is all a threshold sweep needs.
 - **Call the real functions, don't reimplement them.** The harness invokes production's own matching and relevance-filtering functions directly. A reimplementation would only ever prove that *the copy* behaves well.
@@ -220,7 +221,7 @@ Cheap mitigation adopted instead: log a warning if a future run's total mileston
 
 > **UNVERIFIED — flag for the next session to check, not yet independently confirmed by the session that built the Track A redesign above.** Iterations 3 and 4 describe a *completed* investigation: three separate process launches producing milestone counts of 3, 10, and 8 for one scenario, a full overnight run landing at 404 milestones, and a decision to accept the variance. The session that implemented and first ran the UMAP+judge redesign left this open instead. Its own investigation found the *aggregate* Pass 1 replay fully reproducible — 407 candidates, threshold 0.738, 21 flagged, identical across two separate replay runs — while one *individual* scenario's live-run result (`client_availability_and_scheduling_friction`, stored with `support_calls` = [8, 4, 4]) didn't match a fresh replay's own candidate list (`support_calls` = [4, 4, 4, 4, 6, 6, 7, 16, 15, 7] — 8 appears nowhere in it). That session ended by handing the rest of the investigation to a fresh chat, without reaching either the "confirmed root cause" or the "accept and move on" conclusion recorded in Iterations 3-4 below. Before trusting those two sections as settled: confirm whether a later session actually ran the three-launch test and the overnight run described here, or whether this text was written by extrapolating the pattern already documented elsewhere in this file for Layer A's BERTopic clustering onto Layer C without re-confirming it there.
 
-**Partially resolved (2026-07-29, a later session).** The *aggregate* overnight-run claim above was independently re-verified, not re-derived from this document's own text: read `run_full_pipeline_20260722.log` directly (the only one of three same-day attempts to reach a clean `RECONCILIATION` block — the other two match the crash/interruption story above exactly: one hit the `bloom_level` `CheckViolation`, the other was cut off mid-Layer-A with a PowerShell `NativeCommandError` in its tail and no traceback), then queried the live Postgres `public` schema directly and confirmed it matches that log byte-for-byte: 158 scenarios, 0 unaccounted, 77 rubrics, **404 total milestones (403 clustered + 1 fallback)**. Snapshotted to schema `v2_overnight_20260729` before anything could overwrite it. Also independently confirmed the Layer A clustering-geometry claim (`237 raw -> 171 cluster(s)`, matching the prior production run byte-for-byte) and the 85-vs-78 coachability-adjudication discrepancy, by direct SQL comparison against the `v2_prebatch_20260728` snapshot rather than trusting the prose. **Still not independently re-checked**: the specific `client_availability_and_scheduling_friction` individual-scenario mismatch ([8,4,4] vs a replay finding no 8) — that claim comes from the earlier session and wasn't re-derived here. So the aggregate "accept the variance" verdict now has two independent confirmations; the one specific per-scenario data point backing the root-cause story does not yet have a second one.
+**Partially resolved (2026-07-29, a later session).** The *aggregate* overnight-run claim above was independently re-verified, not re-derived from this document's own text: read `Brain/logs/run_full_pipeline_20260722.log` directly (the only one of three same-day attempts to reach a clean `RECONCILIATION` block — the other two match the crash/interruption story above exactly: one hit the `bloom_level` `CheckViolation`, the other was cut off mid-Layer-A with a PowerShell `NativeCommandError` in its tail and no traceback), then queried the live Postgres `public` schema directly and confirmed it matches that log byte-for-byte: 158 scenarios, 0 unaccounted, 77 rubrics, **404 total milestones (403 clustered + 1 fallback)**. Snapshotted to schema `v2_overnight_20260729` before anything could overwrite it. Also independently confirmed the Layer A clustering-geometry claim (`237 raw -> 171 cluster(s)`, matching the prior production run byte-for-byte) and the 85-vs-78 coachability-adjudication discrepancy, by direct SQL comparison against the `v2_prebatch_20260728` snapshot rather than trusting the prose. **Still not independently re-checked**: the specific `client_availability_and_scheduling_friction` individual-scenario mismatch ([8,4,4] vs a replay finding no 8) — that claim comes from the earlier session and wasn't re-derived here. So the aggregate "accept the variance" verdict now has two independent confirmations; the one specific per-scenario data point backing the root-cause story does not yet have a second one.
 
 **Bonus confirmation from the same log read**: the milestone review-judge described in iteration 2 (design-only there, dry-run-tested at 496 candidates) was directly observed *firing in this real production run*, not just designed — the log shows "21 milestone candidate(s) flagged for review -- batched into 5 Gemma call(s)," and 12 of those 21 were actually dropped as mechanics with specific, correct per-case reasons (e.g. a cluster in `stakeholder_role_mapping` cut for being "standard greetings and polite introductions," one in `product_testing_validation` cut for being "greetings, technical glitches, and generic filler"). Spot-checking ~30 of the milestones that survived (across the full depth range, low to high) found no backchannel or filler content among them — the judge mechanism is doing real, correct work in production, not sitting dormant.
 
@@ -370,7 +371,7 @@ flowchart TD
         NAMELIST -->|not on the list| CLIENT1["CLIENT (default) --\nwrong for 189 real names\nseen in 2+ calls"]
     end
     subgraph NEW["After"]
-        T2[Transcript] --> BACKFILL["backfill_speaker_roster.py:\none-time call to Avoma's\nper-meeting insights API"]
+        T2[Transcript] --> BACKFILL["ops/backfill_speaker_roster.py:\none-time call to Avoma's\nper-meeting insights API"]
         BACKFILL --> SIDECAR["{stem}.speakers.json --\nreal name + email + is_rep,\nper meeting"]
         SIDECAR -->|speaker covered| REAL["Use Avoma's own\nis_rep ground truth"]
         SIDECAR -->|not covered, or a\nlegacy pre-export file| NAMELIST2["Fall back to the\nold name-list heuristic"]
@@ -406,8 +407,10 @@ flowchart LR
 
 ### Problems found
 
-**1. A 0% hit rate looked like a scoring bug — it wasn't.**
-Early results showed almost no milestones being "hit." Reading the actual explanation text Gemma gave for each miss confirmed every single one was a legitimate content critique — none were complaining about *who* the responder was. **Real cause**: the similarity threshold used to decide "is this client statement even about the scenario in question" was too loose, letting irrelevant small talk ("I'm good, thanks", calendar chit-chat) get matched to real coaching scenarios — so milestone scoring was correctly failing content-empty matches, not misbehaving. **Lesson**: tune this kind of threshold *down*, not up, when hit rates look wrong.
+**1. A 0% hit rate looked like a scoring bug — it wasn't, but the story turned out to be bigger than this.**
+Early results showed almost no milestones being "hit." Reading the actual explanation text Gemma gave for each miss confirmed every single one was a legitimate content critique — none were complaining about *who* the responder was. **Real cause (at the time)**: the similarity threshold used to decide "is this client statement even about the scenario in question" was too loose, letting irrelevant small talk ("I'm good, thanks", calendar chit-chat) get matched to real coaching scenarios — so milestone scoring was correctly failing content-empty matches, not misbehaving.
+
+> **Superseded in part, 2026-08-10.** This diagnosis was right about *those* misses but it was drawn from only 8 scored signals, which was far too little to see the real problem. With 106 real calls and 864 scored attempts, a much larger cause showed up: **the rubrics themselves were written as descriptions of what one expert did, not as criteria anyone else could satisfy.** See "The milestones were narration, not criteria" below. The old advice to "tune the threshold down, not up" is also retired — that threshold was deleted entirely, because it turned out to sit below the *entire* range of real data and was admitting everything.
 
 **2. Binary hit/miss was too blunt, with no evidence attached.**
 A CSM who nailed a milestone perfectly and one who barely gestured at it were scored identically — just `true` or `false`, with no supporting quote from the transcript. **Fixed by**: three tiers instead of two — `full_hit` / `partial_hit` / `miss` — with a verbatim quote and an explanation of what a full hit would have looked like, attached to anything that isn't a full hit.
@@ -490,7 +493,7 @@ On a smaller 150-call sample, this looked promising — Soft, the best of the th
 
 The "known open issue" flagged at the very end of this document — ~39.7% of pairs discarded to a junk sink based on the trigger's wording alone — turned out to have a specific, structural root cause: Layer A builds the entire scenario taxonomy from **CLIENT clauses only**. If Naren gives a genuinely expert, recurring response to a client cue that itself never phrases consistently enough to cluster, there is no scenario for that response to belong to — not "it got misrouted," but "it was never a candidate destination in the first place." Eight separate per-pair signal-search attempts (documented earlier in this codebase's design history, outside this file) all tried to route already-orphaned content into a taxonomy that was already fixed, and all were rejected. The fix instead had to be to the taxonomy itself.
 
-Two prior scripts proved the idea manually, one-time, by hand: `graduate_sink_topics.py` graduated 2 already-identified "homeless" topics into real scenarios, and `dry_run_response_taxonomy.py` measured the whole corpus and found a 3rd candidate — but flagged it unsafe to graduate blindly, since some of its member pairs were already correctly homed elsewhere. Both scripts were explicitly one-off, not a permanent mechanism.
+Two prior scripts proved the idea manually, one-time, by hand: `calibration/graduate_sink_topics.py` graduated 2 already-identified "homeless" topics into real scenarios, and `calibration/dry_run_response_taxonomy.py` measured the whole corpus and found a 3rd candidate — but flagged it unsafe to graduate blindly, since some of its member pairs were already correctly homed elsewhere. Both scripts were explicitly one-off, not a permanent mechanism.
 
 ```mermaid
 flowchart TD
@@ -505,7 +508,7 @@ flowchart TD
 
 ### Problems found and fixed before ever touching production
 
-**1. A new scenario would have been permanently unlinked from its parent category.** `graduate_sink_topics.py` wrote `primary_topic_key = None` for every scenario it created. That's a real orphan, not a cosmetic gap: the `primary_topics` "parent category" table (see the section above) is only ever built once, during Layer A's main pass — a scenario created afterward has no later grouping step to go through, so the field would stay null forever unless something explicitly resolved it. **Fixed by**: embedding the new scenario's own description and comparing it against every existing parent category, the same nearest-neighbor technique already used elsewhere in this pipeline — close enough to an existing category, join it; nothing close enough, create a new single-member category. Applied to both the new permanent pass and retroactively to the original one-time script, so neither one can reproduce this gap.
+**1. A new scenario would have been permanently unlinked from its parent category.** `calibration/graduate_sink_topics.py` wrote `primary_topic_key = None` for every scenario it created. That's a real orphan, not a cosmetic gap: the `primary_topics` "parent category" table (see the section above) is only ever built once, during Layer A's main pass — a scenario created afterward has no later grouping step to go through, so the field would stay null forever unless something explicitly resolved it. **Fixed by**: embedding the new scenario's own description and comparing it against every existing parent category, the same nearest-neighbor technique already used elsewhere in this pipeline — close enough to an existing category, join it; nothing close enough, create a new single-member category. Applied to both the new permanent pass and retroactively to the original one-time script, so neither one can reproduce this gap.
 
 **2. A cluster could plausibly match two different "candidates being tracked from a previous run" at once.** Since candidates are matched across runs by how much their member pairs overlap (not by embedding similarity — this database never stores vectors), a cluster could in principle overlap two different tracked candidates above the matching bar simultaneously. **Fixed by**: always taking the single best-overlapping match, never merging two tracked candidates into one — this codebase has repeatedly rejected exactly that kind of speculative-merge behavior elsewhere (the mega-blob category fix above is the same shape of decision). A near-tie just gets logged for visibility, not acted on differently.
 
@@ -527,6 +530,290 @@ Verified directly against the pre-run snapshot, not just trusted: **164 pairs mo
 
 ---
 
+## Layer D catches up with the rest of the pipeline (2026-08-10 → 08-11)
+
+Ego Trap was written before the big clustering rework and had quietly missed three changes the rest of the pipeline made since. Bringing it up to date exposed a much more serious problem in the *rubrics* — which is the real story of this section.
+
+### Part 1 — Layer D was reading the taxonomy as if sinks didn't exist
+
+The clustering rework split the topic list into two populations: real coachable topics, and deliberate "junk sinks" that exist to absorb backchannel so it never contaminates a real rubric. Layer D never learned about that split. It handed Gemma **all 161 topics** — including 76 sinks — and asked "which of these did the client raise?", which is an open invitation to report *"Perfect, thanks"* as a coaching moment. Any signal that came back pointing at a sink was then silently dropped with no record kept at all.
+
+**Fixed by** giving each of Layer D's two detection modes the population it actually needs — and these are *opposites*, which is why one global filter would have broken things:
+
+- The **Gemma mode** prompt now lists only the 85 coachable topics. Measured: the prompt shrank 39% (32,575 → 19,778 characters).
+- The **similarity mode** keeps all 161, sinks included — because a sink *winning* the match is the only way that mode can conclude "this turn isn't worth scoring." Remove the sinks and the nearest match is always a real topic by definition, so every single client turn becomes a signal.
+
+Measured on 6,482 real client turns: **57% best-match a sink and are correctly rejected.** Reading the highest-scoring rejections confirms them — *"Thank you."*, *"Can you guys see my screen?"*, *"Yeah. That makes sense."*, *"Good."*
+
+**Also fixed in passing:** the old absolute similarity cutoff (0.35) was deleted. Measured against real data its whole range sits between 0.49 and 0.65 — **so 0.35 was below everything and admitted 99.95% of all client turns.** It wasn't a loose threshold; it was doing nothing at all.
+
+**A latent crash, found by reading rather than by hitting it.** Milestone IDs were built from an `order` number inside each rubric. But rubrics written by the older fallback path store whatever the LLM returned with no validation — so a missing `order` would have crashed an entire run, and a *duplicated* `order` was worse: it silently merged two different milestones into one performance record, permanently blending their scores. **Fixed by** using the milestone's position in the list instead, which always exists and can't collide. Confirmed safe to switch: the newer path already numbers positions 1, 2, 3… so no existing record was orphaned.
+
+### Part 2 — 3 calls became 106, and two problems surfaced immediately
+
+Layer D had only ever run on 3 transcripts. We pulled Madhumita Katta's last three months from Avoma — **103 more calls** — reusing the existing fetch script rather than writing a new one.
+
+**A silent misclassification that would have poisoned everything.** Speaker roles come from a configured list of Joveo employee names; anyone not on it is assumed to be the *client*. The new calls involved **14 Joveo colleagues who weren't on that list**. Their turns would have been treated as client statements — inventing coaching signals out of internal chatter, and breaking the "did the CSM answer, or did a teammate?" logic at the same time. **Caught by** a check added to the fetch script that compares who actually spoke (Avoma tells us who is internal) against the configured list, and refuses to stay quiet about the difference. After fixing the list, 2,559 turns correctly classify as *teammate* that would otherwise have been counted as client.
+
+**The strong model could never have done this work.** Every scoring call was failing and silently falling back to a weaker model. **Real cause**: the main model allows 16,000 tokens per minute, and one scoring batch was **60,184 tokens** — nearly four times over, so every call was doomed before it was sent. Why so large: the prompt repeated the full reference answer *once per milestone*, so a topic with 6 milestones sent the same 2,400-character passage 6 times. **Fixed by** restructuring the prompt to state the reference answer and the CSM's response once per exchange, with the milestones nested underneath — **a 77% token reduction** for identical information. A separate fix records which model actually answered, because a score whose author is unknown can't be compared against anything.
+
+### Part 3 — The milestones were narration, not criteria (the important one)
+
+With 864 real scored attempts instead of 8, the hit rate was **2.4%**. Reading individual misses against the transcripts found the cause, and it was never in Layer D at all:
+
+> *"He uses hypothetical numerical examples of job slots to illustrate how the platform can scale."*
+
+That is a **description of something one person did once**, not a standard someone else could meet. Checking all of them: **100% of the 405 milestone descriptions were written this way** — 37% naming Naren outright, 63% saying "the speaker", 91% using he/she/his/her.
+
+This matters because those descriptions are exactly what a *different* person's response gets graded against. **A CSM could handle a call perfectly and still miss every milestone, simply by not reproducing one expert's improvisation.**
+
+**Real cause**: the prompt that writes them literally says *"Describe each recurring communicative move in Naren Shankar's sales responses"* and asks for prose *"grounded in the clauses above"* — an instruction to summarise a transcript. The older fallback prompt was worse: the flaw was in its own worked *example* (`"Naren explicitly validates the client worry..."`), priming the model to copy that shape.
+
+**Fixed in two places:**
+
+1. Both prompts now ask for *the criterion a different person's response must satisfy*, ban names and pronouns, and require generalising past specific numbers, clients and anecdotes. This prevents recurrence.
+2. The 405 existing descriptions were **rewritten in place** rather than regenerated. Regenerating would have meant re-running the clustering, which isn't reproducible run-to-run (it returns anywhere from 385 to 407 milestones for identical input) — so it would have changed *which* milestones exist, orphaned every performance record, and moved the baseline, all to fix wording. The clusters were fine; only the prose was wrong.
+
+Result: **405/405 rewritten, person-language 100% → 3%** (and all remaining hits are a false-positive regex catching a generic "their"), **zero rubrics changed milestone count**, and all 391 evidence figures preserved exactly.
+
+> *"Naren acknowledges specific client limitations before proposing Joveo's alternative"*
+> → *"Acknowledge specific client limitations or existing processes before proposing an alternative solution"*
+
+**The A/B — a genuinely controlled one, which is rare here.** Same transcripts, same topics, same clusters, same IDs, same evidence. Only the wording differed:
+
+| | before | after |
+| --- | --- | --- |
+| attempts | 864 | 963 |
+| full hits | 21 (2.4%) | 29 (3.0%) |
+| partial hits | 32 (3.7%) | **73 (7.6%)** |
+| weighted score | 0.043 | **0.068 (×1.6)** |
+
+**Verdict: the wording was a real cause but not the whole cause.** 3.0% is still low, so this is not closed. The most informative part is that **partial credit more than doubled while full hits barely moved** — a narration-style milestone is effectively all-or-nothing (you reproduced the improvisation or you didn't) so it collapses to "miss", whereas a behavioural criterion can be *partly* met. The rewrite made the rubric **gradable**, which matters more for coaching than the headline number.
+
+> **This ×1.6 survives scrutiny — but the step that came after it does not. See "How much of this was real?" at the end of this section.**
+
+### Part 4 — Some milestones can never be hit by anyone
+
+The rewriter volunteered, unprompted, that a few milestones weren't coachable at all. Asking the question deliberately across all 405 found **17 (4%)** that a CSM cannot satisfy by construction:
+
+- **Needs seniority or personal relationships** (5) — *"leverage professional relationships to explore industry overlap"*. This works because of *who is speaking*; a CSM has neither the relationships nor the standing.
+- **Nothing observable to grade** (4) — *"share a relatable, vulnerable personal story"*.
+- **Call mechanics, not coaching** (8) — *"address immediate technical hurdles regarding communication quality"*, i.e. **"can you hear me?" logistics that leaked into a coachable rubric** despite the sink screening designed to catch exactly that.
+
+**The proof they're impossible rather than merely hard: those 17 took 74 attempts and returned zero hits.** Not a low rate — zero, across 12 distinct milestones.
+
+**Fixed by** flagging them and skipping them at scoring time (a setting, reversible per-milestone, nothing deleted — they're still real evidence about how an expert behaves, just not a fair test of a CSM). Effect: 3.0% → 3.1%, weighted 0.068 → 0.074.
+
+**The metric change is small and partly just arithmetic** — removing items shrinks the denominator, and that caveat is written into the code so nobody later reports it as the CSM improving. **The real win is different:** each of those 74 misses also generated written coaching advice telling the CSM to *do the impossible thing*. That output was actively wrong, and it's now gone.
+
+### Part 5 — How much of this was real? (the control, run 2026-08-11)
+
+Everything above was measured against *no control*. The grader doesn't run at zero temperature, so re-scoring the same response can flip a borderline judgement — and nobody had ever run Layer D twice with **nothing** changed to see how much it moves on its own. Without that number, no A/B result can be separated from ordinary variance.
+
+So we ran it: same 19 transcripts, same code, same config, same rubrics, twice.
+
+| | run 1 | run 2 (nothing changed) |
+| --- | --- | --- |
+| attempts | 889 | 889 |
+| full hits | 28 (3.1%) | **33 (3.7%)** |
+| weighted score | 0.074 | **0.080** |
+
+**The noise band is ±0.006, and 15.6% of milestones (37 of 237) move by themselves.** Holding that up against the three changes:
+
+| change | effect | verdict |
+| --- | --- | --- |
+| criteria rewrite | +0.025 | **~4× the noise band — real** |
+| skip uncoachable milestones | +0.006 | **exactly 1× the band — not measurable** |
+| nothing at all | +0.006 | ← the band |
+
+**What survives:** the criteria rewrite. That was a genuine fix.
+
+**What doesn't:** the "3.0% → 3.1%" improvement claimed for skipping uncoachable milestones is **retracted** — it is precisely the size of the noise. Keep the change regardless, on the grounds that never depended on the score: it stopped 74 pieces of written coaching advice instructing a CSM to do something impossible. Also retracted: any citing of individual milestone winners and losers, since 24.6% observed movement against a 15.6% floor means most of them are noise.
+
+**And one piece of reasoning above was simply wrong.** Part 3's defence of the 43-up/17-down asymmetry assumed noise would be *symmetric*. It isn't: the floor came out 24 up / 13 down, net +2.12. The reason is obvious in hindsight — at a ~3% hit rate almost every milestone sits at zero, and **a random flip can only move up.** Variance is structurally biased upward when scores are pinned against the floor. The valid comparison is magnitude (rewrite net +4.48 vs floor +2.12, about 2×), never shape.
+
+**Three lessons worth carrying beyond this section:**
+
+1. **An A/B against an LLM-scored metric is uninterpretable without a same-config control run.** This one cost ~80 Gemma calls and invalidated one of three conclusions.
+2. **At this sample size, any change below ~+0.02 weighted cannot be measured.** Two of our three changes landed inside the noise. Stop tuning against this metric until the ceiling below is established.
+3. **A single hit-rate figure is meaningless without its band.** Pure variance moved the headline 3.1% → 3.7%, a 19% relative swing.
+
+### And the number that actually matters: the level, not the improvements
+
+After all three fixes the rate is **3.1–3.7%**. A working CSM is being told she fails ~96% of the standard. There are only two readings and this data cannot separate them:
+
+1. She genuinely performs that badly against Naren's bar — implausible for somebody doing the job competently.
+2. **The measurement is still fundamentally broken, and the narration bug was one layer of something deeper.**
+
+The second deserves the weight. We found and fixed a genuinely severe defect — *every single rubric was narration* — and it bought +0.025 on a scale where the ceiling is 1.0. When a bug that bad moves the needle that little, the binding constraint is somewhere nobody has looked yet.
+
+**So the next experiment is not another fix. It's establishing what a good score even looks like: score Naren against his own rubrics.** His responses are the ones the rubrics were derived from, so run them through the same scorer against the same rubrics. ~0.80 means the rubric works and the CSM gap is real. ~0.15 means the rubric or the scorer is broken and reading (2) is confirmed. That's a 10× separation against a ±0.006 band — unambiguous, unlike every measurement in this section.
+
+**The trap that would invalidate it:** the scorer is handed a reference answer drawn from the same pool. Score a response while that same response (or its call-mates) sits in the reference and you've leaked the answer into the question — it will read ~100% regardless of anything. Hold out the response under test, ideally its whole call, and state which holdout rule was used.
+
+### A run-destroying operational trap, found the expensive way
+
+Getting the control run took three attempts. The second was silently corrupted, and the cause is worth knowing because nothing warned about it.
+
+A background Layer D run was reported as *stopped* by the agent harness. That is the harness's own bookkeeping — **it does not mean the operating-system process died.** The process was still running. So when the Layer D tables and checkpoints were cleared and a replacement launched, **two runs shared one database and one checkpoint file**: the survivor kept marking transcripts complete, the new run skipped 10 of 19 as "already done", and because the performance counter increments on conflict, 28 doubly-scored signals inflated attempts from 889 to 905.
+
+**Nothing complained.** The run log printed "Ego Trap batch complete" as usual, and the comparison script cheerfully reported a plausible-looking noise floor from the blend. That is the same class of self-inflicted measurement error as the merge-blind milestone matcher described earlier in this document — a harness that cannot detect its own broken precondition.
+
+**Fixed in two places:** the comparison script now verifies each side is provably a single run and *refuses* to report a floor otherwise, and `ops/run_noisefloor.ps1` checks for a live pipeline process before clearing anything. Check the OS, never the harness. (Note the venv's `python.exe` is a shim that re-executes the base interpreter, so one run always appears as two PIDs in a parent/child pair — two PIDs is normal, two different start times is not.)
+
+---
+
+## The ceiling measurement — we finally asked "is this score measuring anything?" (2026-08-11)
+
+The previous section ended by proposing one experiment: **grade the expert against his own
+rubrics.** If Naren scores ~0.80 the rubric works and the CSM gap is real; if ~0.15 the
+measurement is broken. We ran it. Design spec:
+`docs/superpowers/specs/2026-08-11-naren-ceiling-measurement-design.md`.
+
+### Designing around two ways of cheating
+
+Scoring an expert against a rubric built from his own words is circular twice over, and both had
+to be closed before the number meant anything.
+
+**Cheat 1 — the answer key is in the question.** The scorer is handed two of Naren's responses as
+a "here's what good looks like" reference, chosen from the same pool as the response being graded.
+If the response under test is one of them, you're asking whether an answer matches itself.
+**Closed by** dropping the whole *call* from the reference pool, not just the one response —
+because two responses from the same call are near-duplicates, so removing only the response under
+test leaves its sibling behind to give the game away.
+
+**Cheat 2 — the marking scheme was written from the answers.** Layer C builds each milestone by
+clustering Naren's own sentences, and one milestone was built from 135 of a scenario's 156 calls.
+So a randomly chosen response probably helped *write* the criterion it's being graded against.
+This can't be subtracted, because the rubric stores the *number* 135 and never *which* 135 calls.
+
+**Closed by a holdout that was already sitting in the data.** Layer B files each pair under up to
+three scenarios — the best one in a single "primary" column, all of them in a list. Layer C only
+ever reads the primary column. So a response filed under a scenario as a *secondary* match
+**provably never entered that scenario's rubric**, while still being genuinely on-topic. There are
+2,549 such pairs, free.
+
+That wasn't quite enough either: secondary-label holds out the *response* but not the *call*. For
+one scenario, 115 calls had a secondary pair but only 60 contributed no primary pair — so a plain
+secondary holdout would have been half-leaked and nobody would have noticed. The final rule
+requires **both**: secondary label *and* a call that contributed nothing primary.
+
+### The result: the instrument is invalid
+
+Three arms — the leaked version, the clean version, and a **control** where the same responses are
+graded against a deliberately *unrelated* scenario's rubric.
+
+| arm | full hits | weighted |
+|---|---|---|
+| leaked (primary label) | 10.2% | 0.161 |
+| **clean (call-level holdout)** | **5.1%** | **0.114** |
+| **control (unrelated rubric)** | **3.7%** | **0.071** |
+| the CSM, for reference | 3.1% | 0.074 |
+
+**Naren scores 0.114 against his own rubrics and 0.071 against unrelated ones.** Those are nearly
+the same number. The control arm was supposed to come back at zero; instead it came back at
+roughly two-thirds of the real score.
+
+One confound had to be cleared first: the control arm had partly fallen through to a different,
+stricter model. Splitting by model made the result **worse** — on the same model as the other arms
+the control reaches 0.090 against 0.114, a signal-to-noise ratio of 1.27 : 1. **The CSM's own
+0.074 sits below what grading the expert against a random rubric produces.** That number was never
+measuring coaching performance.
+
+Also worth stating plainly: leakage was *not* the problem. Clean vs leaked is 0.114 vs 0.161 —
+material, but the clean number is still barely above the control.
+
+### Why: read from the control arm's own successes
+
+The scorer isn't being lazy — the criteria are genuinely scenario-agnostic, so those verdicts are
+*correct*. A response about AI capability, graded against a "client resistance" rubric:
+
+> *"Explain the practical utility of the tool in handling immediate tasks and illustrate this
+> value through concrete examples of real-world application."* → **full hit**
+
+Nothing in that criterion mentions resistance, or anything else that distinguishes one scenario
+from another. **This localises the defect to the criteria rewrite described in the previous
+section, which over-corrected.** Before it, descriptions were narration about one person —
+unhittable by anyone else. The rewrite stripped names and specifics to make them transferable and
+went so far that they stopped describing a *situation*. The milestones went from **too specific to
+one person** to **too generic to one scenario**. It also gives a simpler reading of that rewrite's
+headline result: partial credit doubled not because the rubric became "gradable", but because
+generic criteria are easy to *partly* satisfy with almost anything.
+
+### The finding that changes what to fix: it's bimodal, and the average hid it
+
+Per scenario, matched minus control:
+
+- **16 of 40 discriminate clearly.** Seven have a control score of **exactly 0.000** — the
+  unrelated rubric finds nothing at all. Those are real working instruments.
+- **7 of 40 invert** — the unrelated rubric scores *higher* than the correct one.
+
+**So the global number is an average of a working half and an inverted half, and they cancel.**
+That is why four consecutive fixes each nudged the needle and none broke 4%: every measurement was
+taken on the average.
+
+The obvious explanation — "scenarios named for a topic work, scenarios named for a client's mood
+don't" — was **tested and is too weak to act on**: inversion runs 33% for mood-named scenarios
+against 8% for topic-named ones, but 5 of 15 mood-named ones work fine. Don't build a router on
+it. The usable test is the direct one: run the control arm per scenario, ~2 LLM calls each.
+
+### The dominant cause of the low rate: contingent moves graded as mandatory
+
+Reading all 60 dead criteria, what they share isn't vagueness — it's an unstated **precondition**.
+They require a specific moment in the call (introducing yourself, setting an agenda, offering to
+screen-share), a specific client history ("previous spending decisions and trial processes"), or a
+specific thing to point at ("reference internal data analysis", "involving external partners").
+
+These are real recurring moves. They're just **conditional** — and the rubric presents them as
+**required**, grading every response against every milestone regardless of whether that moment
+called for it. The mechanism meant to catch this is **dead code**: 234 of 235 milestones are
+labelled "fixed", and the trigger that would mark one conditional fires **0 times out of 226**.
+
+That's a grading-model bug, not a wording bug — which is exactly why rewriting the wording twice
+didn't fix it.
+
+### Two of our own hypotheses, tested and killed the same night
+
+Both were plausible and both were wrong, which is the point of measuring instead of arguing.
+
+1. **"The more habitually the expert does something, the less anyone gets credit for it."**
+   Wrong — frequency is simply *uninformative*: correlation −0.019, and hit rates flat across
+   every frequency band. **A frequency ceiling for milestones would have been wasted work.**
+2. **"Criteria discriminate because they name their subject matter."** Wrong — correlation −0.038
+   with discrimination. But naming the subject *does* triple the full-hit rate and cut dead
+   milestones from 34% to 13%. **So satisfiability and discrimination are independent axes**, and
+   83% of criteria are pure behavioural prose with no subject at all. Fixing one won't move the
+   other.
+
+### One expensive self-inflicted wound worth recording
+
+The first scored run completed all 95 LLM calls and then **died without saving anything**. The
+results were assembled into a structure that included one small database lookup, and *that* was
+written to disk afterwards — but the connection had gone idle across ~55 minutes of LLM calls and
+the lookup failed, taking 95 calls' worth of verdicts with it.
+
+The missing reconnect is the small half. The real error is **letting a free operation gate the
+persistence of an expensive one**. Fixed by inverting the order: each arm's results are flushed to
+disk the moment that arm finishes, the database is touched only afterwards, and its failure is
+caught so the artifact still lands. A related fix made the failure *visible* — the runner was
+merging the script's error stream in a way that PowerShell turns into a fatal pipeline error, so
+the traceback never reached the log and the cause had to be deduced from the code.
+
+### What to do next, and what not to
+
+**Not** another wording pass. The next step is to give Layer C the objective function it has never
+had — the control arm, run per milestone, as an admission gate. Design spec:
+`docs/superpowers/specs/2026-08-11-layer-c-objective-function-design.md`. It measures
+discrimination and satisfiability separately (they're independent), and adds the missing piece: an
+**applicability** check, so "didn't do it" stops being confused with "wasn't called for".
+
+The single question that run answers: of the 66% of milestones the expert never fully satisfies,
+how many are *unreachable* versus merely *conditional*? If mostly conditional, the rubrics are
+largely fine and the grading model was the bug — a much cheaper world. If mostly unreachable, the
+milestone is the wrong unit of feedback and that becomes unavoidable.
+
+---
+
 ## Summary: what's true today
 
 - The pipeline clusters data with math first and only spends LLM calls judging the survivors — much cheaper and more consistent than asking an LLM to invent everything from scratch.
@@ -534,5 +821,17 @@ Verified directly against the pre-run snapshot, not just trusted: **164 pairs mo
 - Every scenario is guaranteed to end a run with a known status — no silent gaps.
 - The new "parent category" layer is live and in use. Two crashes that blocked its very first real run entirely (a migration check looking at the wrong table, a missing keyword field) and its taxonomy-quality launch bugs (mixed groups, mega-blob groups, duplicate names) are all now fixed and verified against real data.
 - One experimental feature (category-first matching) was built, tested at two scales, and full-scale data argued against shipping it — flat matching stays live in production.
-- Speaker roles (NAREN / internal Joveo / CLIENT) come from Avoma's own per-meeting data, not a hand-maintained name list — the list is only a fallback now, for speakers Avoma didn't report or for transcripts that predate this export method.
+- Speaker roles (NAREN / internal Joveo / CLIENT) come from Avoma's own per-meeting data, not a hand-maintained name list — the list is only a fallback now, for speakers Avoma didn't report or for transcripts that predate this export method. **For CSM calls specifically that fallback list is still load-bearing**, and it silently fails open: an unlisted Joveo colleague is treated as the *client*, inventing coaching signals from internal chatter. The Avoma fetch script now refuses to stay quiet when it sees an internal speaker who isn't configured — this caught 14 of them on the first real 106-call pull.
+- **Layer D now reads the same two-population topic list as the rest of the pipeline**, and the two detection modes get opposite halves of it on purpose: the Gemma prompt sees only coachable topics (a sink in the menu is an invitation to grade backchannel), while similarity matching keeps the sinks, because a sink winning the match is the only mechanism that can reject a turn. Measured: 57% of real client turns are correctly rejected that way.
+- **The rubrics now state criteria, not narration.** All 405 milestone descriptions used to describe what one expert did ("*He* uses hypothetical numerical examples…"), which meant a CSM could handle a call correctly and still miss everything by not reproducing that person's improvisation. Rewritten in place — clusters and evidence untouched — which roughly doubled partial credit and lifted the weighted score ×1.6. **This one is confirmed real: it is ~4× the measured noise band.**
+- 17 of 405 milestones were found to be unsatisfiable by anyone (needing seniority, or being unobservable, or being call logistics) — proven by taking 74 attempts and returning zero hits. They're flagged and skipped. **Its apparent metric gain is exactly the size of the noise band and is retracted**; the change is worth keeping only because each of those 74 misses had been generating written coaching advice telling a CSM to do something impossible.
+- **The scoring noise floor is measured: ±0.006 weighted, with 15.6% of milestones moving between two identical runs.** A same-config control run is therefore mandatory before trusting any A/B, and **at this sample size no change below ~+0.02 is measurable at all** — two of three changes this session landed inside the noise. Beware also that variance is biased *upward* here, not symmetric, because at a ~3% hit rate almost everything sits at zero and a random flip can only go up.
+- **That open question is now answered, and the answer is "no".** We graded the expert against his own rubrics with both circularities closed. He scores **0.114**; grading him against *deliberately unrelated* rubrics scores **0.090**. A ratio of 1.27 : 1 is not a measuring instrument, and the CSM's 0.074 sits *below* the unrelated-rubric null. **Every Layer D hit rate produced so far, including the whole 2.4% → 3.1% improvement arc, is uninterpretable as CSM performance.** Leakage was not the culprit — the clean and leaked numbers are 0.114 and 0.161.
+- **But Layer C is not uniformly broken — it is bimodal, and the average was hiding it.** Per scenario, 16 of 40 discriminate clearly and **7 have a control score of exactly 0.000** (real working instruments), while **7 invert** — the wrong rubric scores *higher* than the right one. The two halves cancel in every global average, which is why four consecutive fixes each nudged the needle and none broke 4%.
+- **The dominant cause of the low rate is a grading-model bug, not a wording bug: contingent moves are graded as mandatory.** The dead criteria all carry an unstated precondition — a specific moment in the call (introducing yourself, offering to screen-share), a specific client history, or a specific artifact to point at. Real moves, conditionally appropriate, graded as required. The mechanism meant to catch this is dead code: 234 of 235 milestones are labelled "fixed" and the conditional trigger fires **0 times out of 226**. This is why rewriting the wording twice didn't help.
+- **Satisfiability and discrimination are independent axes** (correlation −0.038), so a fix must target both deliberately. Naming a criterion's subject matter triples its full-hit rate and cuts dead milestones from 34% to 13%, yet does nothing for discrimination — and 83% of criteria are pure behavioural prose with no subject at all.
+- **Two of our own plausible hypotheses were tested and killed the same night**, which is the argument for measuring over reasoning. "Habitual moves get less credit" — false, frequency is uninformative (correlation −0.019, flat across every band), so **a frequency ceiling for milestones would have been wasted work**. "Criteria discriminate because they name their subject" — false, correlation −0.038.
+- **Next step is the objective function Layer C has never had**, not another wording pass: run the control arm per milestone as an admission gate, plus an **applicability** check so "didn't do it" stops being confused with "wasn't called for". The single question it answers: of the 66% of milestones the expert never fully satisfies, how many are *unreachable* versus merely *conditional*? Mostly conditional means the rubrics are largely fine and the grading model was the bug; mostly unreachable means the milestone is the wrong unit of feedback. Spec: `docs/superpowers/specs/2026-08-11-layer-c-objective-function-design.md`.
+- **A cheap, permanent lesson about expensive work:** never let a free operation gate the persistence of an expensive one. One scored run finished all 95 LLM calls and then lost every result, because the results were assembled into a structure containing one small database lookup and written to disk only afterwards — and the connection had gone idle across ~55 minutes of LLM calls. Flush paid results first; treat everything after as best-effort.
+- **"The background task was reported stopped" is not evidence a process died.** Believing it cost a full run: two Layer D runs ended up sharing one database, and both the run log and the comparison script reported success on corrupted data. Check the OS process list, not the harness.
 - **Known open issue, partially addressed by a real, running mechanism now (previously "not yet fixed"):** ~39.7% of trigger-response pairs get filed to a junk "sink" and permanently excluded from every rubric, based on the trigger's wording alone — reading a sample found roughly half of those discarded pairs are actually real coachable content whose *response* (not trigger) carried the value. Eight different attempts to fix this by changing how a pair gets *matched* were all tried and rejected. The fix that actually worked changes the *taxonomy* instead: a permanent pass that finds genuinely recurring sink content and graduates it into a brand-new real scenario, requiring the same content to survive 3 independent re-clusterings before it's trusted enough to write. Proven for real on 2026-08-08: 164 pairs rescued into 4 new scenarios, with zero already-homed pairs disturbed. Currently switched off pending further review — this closes a meaningful slice of the gap, not the whole 39.7%, since only content that clusters cleanly and repeatedly can ever qualify.
