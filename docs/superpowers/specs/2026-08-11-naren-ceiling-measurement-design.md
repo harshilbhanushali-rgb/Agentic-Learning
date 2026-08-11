@@ -622,18 +622,43 @@ gap      A3 W   B W    scenario
  7 of 40 are INVERTED — the unrelated rubric scores HIGHER than the matched one
 ```
 
-**The split follows what the scenario is named for.** Scenarios named for *subject matter* — ATS
-integration, budget, URL redirection, job boards, pixels, competitors, AI capability — have
-milestones about **content**, and content is scenario-specific by construction, so the control
-collapses to literally 0.000. Those rubrics are real instruments: a 0.19–0.27 matched score
-against a 0.00 null.
+**What separates the two halves — tested, and the obvious proxy does NOT work well enough to
+route on.** The apparent pattern is that scenarios named for *subject matter* (ATS integration,
+budget, URL redirection, job boards, pixels, competitors) carry **content**-based milestones,
+and content is scenario-specific by construction, while scenarios named for a *client posture*
+(reacts to anomaly, seeks momentum, admits unfamiliarity) carry milestones about **universal
+conversational moves**. Measured against the name shape:
 
-Scenarios named for a *client posture* — reacts to anomaly, seeks momentum, admits
-unfamiliarity, segments requirements — have milestones about **conversational moves**, which are
-universal. Those do not merely fail to discriminate; seven of them **invert**, meaning the
-scenario label carries no information at all for their milestones. No wording change fixes that,
-because "acknowledge the concern and probe for specifics" is genuinely true of every good
-response.
+```text
+                   n    mean gap   median   discriminating   inverted
+client-posture    15     -0.019    +0.008          5/15         5/15
+subject-matter    25     +0.057    +0.045         11/25         2/25
+```
+
+The direction is real — inversion runs 33% for posture names against 8% for subject-matter names
+— but this is **not a usable router**. Five of fifteen posture scenarios discriminate fine, and
+fourteen of twenty-five subject-matter ones do not clearly. Do not build a rule on the name, or
+on `cluster_kind` (uniform `scenario` across all 49 coachable rows, so it carries no signal
+here either).
+
+**The usable discriminator is the direct measurement, and it is cheap enough that no proxy is
+needed.** Seven scenarios have a control score of exactly **0.000** — the unrelated rubric finds
+nothing at all — and one of them (`client_expresses_conditional_dependency`) is posture-named,
+which is the clearest evidence the name is not the rule:
+
+```text
+A3 0.271  B 0.000  ats_integration_requirement
+A3 0.188  B 0.000  url_redirection_configuration
+A3 0.125  B 0.000  ai_capability_discovery
+A3 0.125  B 0.000  competitor_comparison_appcast
+A3 0.104  B 0.000  pixel_implementation_discovery
+A3 0.056  B 0.000  client_expresses_conditional_dependency
+A3 0.031  B 0.000  location_targeting_configuration
+```
+
+For the inverted scenarios, no wording change helps, because "acknowledge the concern and probe
+for specifics" is genuinely true of every good response — the scenario label carries no
+information for those milestones.
 
 **This is why three rounds of prompt tuning each moved the needle slightly and never broke 4%:**
 the working half and the inverted half cancel in every global average. Every measurement to date
@@ -645,22 +670,25 @@ The bimodal result replaces the "rewrite ~10 milestones and re-test" plan that w
 before the per-scenario split was known. Rewriting criteria globally would keep averaging over
 the two populations.
 
-1. **Route by kind instead of retuning one prompt.** The describe prompt is not wrong for topic
-   scenarios — it produces exactly what they need. It is wrong for client-state scenarios, and
-   no prompt can be right for both, because one needs content specificity and the other has no
-   content to be specific about.
+1. **Measure per scenario; do not route on a proxy.** The name-shape and `cluster_kind` proxies
+   were both tested above and neither separates the populations well enough to gate on. Arm B
+   *is* the discriminator, it costs ~2 Gemma calls per scenario, and it is exact. Adopt
+   `W(B) ≥ W(A3)` ⇒ this scenario gets no rubric. That is a property of the data rather than a
+   curated list, which is what `tuning.yaml` requires of a knob.
 
-2. **Ship the topic rubrics as-is.** ~16 scenarios already carry a working instrument, at zero
-   additional Gemma cost. That is a usable coaching product today for the subject-matter half.
+2. **Ship the rubrics that pass.** ~16 scenarios already carry a working instrument, and 7 have a
+   control score of exactly zero, at no additional Gemma cost. That is a usable coaching product
+   today for the half that works.
 
-3. **Change the unit for client-state scenarios, do not reword them.** The inversion is the
-   evidence: when an unrelated rubric outscores the matched one, per-scenario milestones are the
-   wrong shape. Candidates are one shared conversational-moves rubric applied once rather than
-   per scenario, or the scenario-level "was this handled?" judgement.
+3. **Stop retuning one describe prompt for both populations.** It is not wrong for the scenarios
+   that pass — it produces what they need. No single prompt can serve both, because one half
+   needs content specificity and the other has no content to be specific about. That is why three
+   global tuning rounds each moved the average slightly.
 
-4. **Adopt arm B per scenario as a permanent admission gate.** Any scenario whose `W(B) ≥ W(A3)`
-   should not carry a rubric. This is a property of the data rather than a curated list, which is
-   what `tuning.yaml` requires of a knob, and it is measurable at ~2 Gemma calls per scenario.
+4. **Change the unit for the failing half, do not reword it.** The inversion is the evidence:
+   when an unrelated rubric outscores the matched one, per-scenario milestones are the wrong
+   shape. Candidates are one shared conversational-moves rubric applied once rather than per
+   scenario, or the scenario-level "was this handled?" judgement from §7's deferred list.
 
 **A flaw in this harness that inflates the "unreachable" count, and is not yet quantified.** Some
 milestones encode call-POSITION moves — introductions, agenda-setting, wrap-ups. One dead
