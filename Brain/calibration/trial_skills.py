@@ -535,7 +535,12 @@ def report(payload: dict) -> None:
         for g in groups:
             print(f"    [{len(g)}] " + " | ".join(g))
 
-    if not any(w["passed"] for w in payload["window"].values()):
+    # Only a full-corpus run may draw this conclusion. A subsample cannot reach the member
+    # floors whatever the behaviours look like, so printing the verdict there would state a
+    # negative the run is structurally incapable of earning -- the same error as reading a
+    # window out of numbers the caveat above just said mean nothing.
+    if (not any(w["passed"] for w in payload["window"].values())
+            and payload["n_items"] >= _MEASURED_MILESTONES):
         print("\nSTOPPING CONDITION 3: no window at any bound. On this evidence a"
               "\nbehavioural skill vocabulary is not buildable from this corpus.")
 
