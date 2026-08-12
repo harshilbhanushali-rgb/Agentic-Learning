@@ -216,9 +216,17 @@ protecting an existing baseline from damage rather than admitting a new vocabula
 
 ## 6. Staging
 
-**Stage 1 — pilot, 91 items, offline.** The 91 baseline descriptions already in
-`artifacts/trial_final.json`: no DB, no network, ~10 abstraction + ~12 judge ≈ **22 calls**.
-Exercises every path end to end.
+**Stage 1 — pilot, 91 items, no Postgres.** The 91 baseline descriptions already in
+`artifacts/trial_final.json`: ~10 abstraction + ~12 judge ≈ **22 calls**. Exercises every path
+end to end. Gemma calls obviously need the network; what stage 1 avoids is the database, which
+is also what makes it immune to the neon DNS block.
+
+**The pilot cannot open the window, by construction.** The member floors in §3.3 are derived
+from 889 attempts over the full 405 milestones; 91 milestones carry roughly 22% of those
+observations, so a median-38 skill is unreachable at pilot scale. The floors are deliberately
+**not** rescaled to fit — a bound moved to fit the run it is judging is not a bound. Stage 1
+validates the paths and the four controls; only stage 2 can return a window verdict, and the
+report prints this caveat rather than leaving the number to be misread.
 
 This is the smoke test whose absence killed two launches on 2026-08-13, both on defects
 `py_compile` cannot catch — a missing import and a positional slice over a reordered tuple.

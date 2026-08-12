@@ -359,6 +359,50 @@ Respond ONLY with valid JSON -- one object per item id above:
 ]
 """
 
+# The counterweight in the skills-vocabulary test. Pre-registration:
+# docs/superpowers/specs/2026-08-13-layer-c-skills-vocabulary-design.md section 3.
+#
+# WHY THIS EXISTS. skills.sweep's cross_scenario_coverage cannot fail: coarsening the
+# threshold merges everything into one group and drives it to 1.0 by construction, so the
+# sweep alone always says yes at SOME granularity. This is the only measurement in the test
+# that gets WORSE as groups fuse distinct moves. Same defect class as the merge-blind
+# _match_milestones, which scored three baseline milestones collapsing into one blob as
+# three clean matches because it only counted the good outcome.
+#
+# EVERY GROUP GETS A VERDICT. Never a returned subset -- that is the generalising lesson
+# from the objective function's applicability judge, whose prompt instructed sparsity and
+# invited the model to pick a top few and stop.
+#
+# Some groups shown here are NOT real clusters: they are deliberately mismatched pairs
+# mixed in blind, so a rubber-stamp judge fails visibly instead of certifying the run. The
+# prompt must therefore never hint that groups are expected to be coherent.
+PROMPT_SKILL_MERGE_VALIDITY_BATCH = """\
+Each GROUP below holds coaching behaviours that were placed together automatically. The
+grouping is unverified -- some groups describe a single coaching move, others have fused
+moves a coach would treat as separate things to work on.
+
+Judge each group on the behaviours as written. Do not assume a group is correct because it
+was grouped, and do not assume it is wrong because its wordings differ.
+
+Verdicts:
+- "same_move" -- a coach could give one piece of feedback covering every item here.
+- "fused" -- coaching one item well would leave another unaddressed.
+
+Rules:
+- Return a verdict for EVERY group id listed below. Never return only the interesting ones.
+- Judge each group independently -- do not let one group influence another.
+- A group of one item is "same_move" by definition.
+- Wording differences do not make a group "fused"; different underlying moves do.
+
+GROUPS:
+{groups_block}
+
+Respond ONLY with valid JSON -- one object per group id above:
+[
+  {{"id": "<id>", "verdict": "same_move", "reason": "one short sentence"}}
+]
+"""
+
 # Batched review-flag judge for V2 Layer C milestone candidates. Mirrors
 # PROMPT_LAYER_A_V2_TRIAGE's precedent: a flagged item is not left dangling, it
 # gets resolved with one Gemma call in the same run. Batched (up to 5 per call)
