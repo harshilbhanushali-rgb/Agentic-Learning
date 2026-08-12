@@ -41,6 +41,21 @@ layer_c:
   min_cluster_size_ceiling: 25
   umap_n_components: 5
   milestone_sink_similarity_percentile: 95
+  describe_mode: legacy
+layer_d:
+  signal_detection_mode: gemma
+  similarity_relative_margin: 0.95
+  max_scenarios_per_signal: 1
+  gemma_scenario_shortlist_k: 0
+  turn_match_mode: normalized
+  turn_match_min_ratio: 0.85
+  gap_events_enabled: true
+  skip_uncoachable_milestones: true
+  require_validated_milestones: false
+  score_soft_skills: true
+  gap_severity_critical_miss_rate: 0.60
+  gap_severity_high_miss_rate: 0.35
+  gap_severity_moderate_miss_rate: 0.15
 embedding:
   cache_enabled: true
   cache_path: embed_cache.db
@@ -58,6 +73,8 @@ def test_loads_valid_file(tmp_path):
     assert t.layer_a.min_call_support_floor == 4
     assert t.layer_a.grouping_method == "post_hoc"
     assert t.layer_c.milestone_hard_cap == 10
+    assert t.layer_d.signal_detection_mode == "gemma"
+    assert t.layer_d.gemma_scenario_shortlist_k == 0
     assert t.embedding.cache_enabled is True
 
 
@@ -83,6 +100,24 @@ def test_shipped_tuning_yaml_is_valid():
     assert 0.0 < t.layer_b.sink_rescue_blend_alpha < 1.0
     assert 0.0 <= t.layer_b.sink_rescue_density_borderline_floor < t.layer_b.sink_rescue_density_threshold
     assert t.layer_b.sink_rescue_density_min_words >= 0
+    assert t.layer_c.describe_mode in ("legacy", "situated")
+    assert t.layer_d.signal_detection_mode in ("gemma", "similarity")
+    assert t.layer_d.turn_match_mode in ("exact", "normalized", "ratio")
+    assert 0.0 < t.layer_d.similarity_relative_margin <= 1.0
+    assert 0.0 < t.layer_d.turn_match_min_ratio <= 1.0
+    assert t.layer_d.max_scenarios_per_signal >= 1
+    assert t.layer_d.gemma_scenario_shortlist_k >= 0
+    assert t.layer_d.gap_events_enabled in (True, False)
+    assert t.layer_d.score_soft_skills in (True, False)
+    assert t.layer_d.skip_uncoachable_milestones in (True, False)
+    # Severity buckets must be strictly descending, or compute_severity's first-match
+    # loop silently makes the lower ones unreachable.
+    assert (
+        t.layer_d.gap_severity_critical_miss_rate
+        > t.layer_d.gap_severity_high_miss_rate
+        > t.layer_d.gap_severity_moderate_miss_rate
+        > 0.0
+    )
 
 
 def test_typo_in_key_raises_rather_than_defaulting(tmp_path):

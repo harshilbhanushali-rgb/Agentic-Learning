@@ -453,6 +453,257 @@ layer_c:
   # merge_cosine_threshold/ubiquity_ceiling upstream.
   milestone_sink_similarity_percentile: 95
 
+  # Which describe prompt writes each milestone's criterion. Strategy selector, same
+  # shape as layer_b.matching_strategy and layer_d.signal_detection_mode -- NOT a
+  # threshold.
+  #
+  #   legacy   -- PROMPT_LAYER_C_MILESTONE_DESCRIBE_BATCH. Batches 5 milestones drawn
+  #               across ALL scenarios; each one sees only its own response clauses and
+  #               the scenario's key string, and is told to write independently and to
+  #               strip out specifics.
+  #   situated -- PROMPT_LAYER_C_MILESTONE_DESCRIBE_SITUATED. One call per scenario, so a
+  #               move is shown its SIBLINGS; adds the CLIENT TURNS that prompted each
+  #               cluster, the scenario's description and keyphrases, and its nearest
+  #               other scenarios; requires a precondition; and permits naming the
+  #               subject matter.
+  #
+  # WHY THIS EXISTS. Measured 2026-08-11/12 across three independent runs: the expert
+  # scores 0.114-0.116 against his own rubrics and 0.090-0.095 against deliberately
+  # UNRELATED ones. At 1.2:1 the criteria do not identify a situation, so no per-scenario
+  # number computed from them means anything. The cause is that the legacy prompt is
+  # BLIND -- it has never seen a client turn, which is also why no milestone can state a
+  # precondition (234 of 235 are labelled "fixed"; the conditional trigger fires 0 of
+  # 226). That is a missing-input problem, so a fourth wording pass cannot fix it.
+  #
+  # Cost is unchanged: 405/5 = 81 calls under legacy, ~82 under situated.
+  #
+  # DEFAULT 'legacy' until the four-arm trial clears its gate --
+  # docs/superpowers/specs/2026-08-12-layer-c-profile-rebuild-design.md. The gate is
+  # inherited, not invented: W(unrelated) < 0.5 x W(matched), i.e. the null must roughly
+  # halve. JUDGE THIS KNOB BY READING THE CRITERIA IT WRITES, never by the hit rate --
+  # showing siblings invites the model to INVENT distinctions to look different, which
+  # would raise discrimination while making the criteria less true.
+  describe_mode: legacy
+
+# ---------------------------------------------------------------------------
+# Layer D -- Ego Trap gap analysis (Brain/ego_trap/)
+# ---------------------------------------------------------------------------
+# These knobs used to live in ego_trap/settings.py as bare os.environ reads, which
+# made Layer D the only part of Brain where a .env line could silently override a
+# value the reader believed they had set in code. That is exactly the failure this
+# file's raise-on-unknown-key rule exists to prevent, and it had already produced a
+# live divergence (settings.py default 0.75 vs .env's actual 0.35). settings.py is
+# deleted; ops/run_ego_trap.py refuses to start if a retired var is still in .env.
+layer_d:
+  # Which Step 0 signal detector runs. Strategy selector, same shape as
+  # layer_b.matching_strategy -- not a threshold.
+  #   gemma      -- one Gemma call per transcript sees the whole transcript plus the
+  #                 coachable-scenario menu (PROMPT_STEP0_SIGNAL_CHECK).
+  #   similarity -- embeds every CLIENT turn and matches against scenario vectors
+  #                 locally, zero Gemma calls.
+  #
+  # This value is also the checkpoint layer suffix
+  # (ego_trap/pipeline.py: layer = f"ego_trap_{mode}_v2"), so the strings are
+  # load-bearing: changing one invalidates prior checkpoints and reprocesses every
+  # transcript. That matters because gap_events has no uniqueness constraint and
+  # upsert_milestone_performance does attempts = attempts + 1 on conflict, so a
+  # reprocess without ops/clear_ego_trap_data.py duplicates rows AND double-counts.
+  #
+  # MEASURED 2026-07-07 (ego_trap/GEMMA_MODE_ANALYSIS.md, same 3 transcripts, no
+  # code change between runs): similarity @ the old absolute 0.35 floor produced 61
+  # "signals", gemma produced 13. All 13 were read by hand and are substantive
+  # business statements; similarity's 61 included the client saying "I'm good. Thank
+  # you." matched to managed_service_vs_direct_access. The 61 -> 13 drop is the
+  # improvement, not a regression. JUDGE THIS KNOB BY READING THE SIGNALS IT KEEPS,
+  # NEVER BY COUNTING THEM -- a higher count is the known failure mode here.
+  #
+  # SET TO 'similarity' 2026-08-10 for the 106-call Madhumita run. Rationale: gemma mode
+  # needs one Step 0 call per transcript on top of the scoring calls, and the first
+  # attempt at 106 transcripts spent both API keys' quota on rate-limit backoff after
+  # only 2 transcripts. similarity mode makes Step 0 free (local embed cache, zero
+  # network), leaving Gemma spend to Step 3 scoring alone. Note the 2026-07-07 caveat
+  # above still stands -- similarity mode's precision was the reason gemma was adopted,
+  # so read the signals, and treat this as a throughput decision rather than a quality
+  # one. What is different now: the old absolute 0.35 floor is gone, and the sink
+  # comparison rejects 57.3% of client turns (measured over all 6,482), which is the
+  # specific defect that made similarity mode unusable before.
+  signal_detection_mode: similarity
+
+  # similarity mode only; ignored in gemma mode.
+  #
+  # Replaces the old absolute cosine floor (EGO_TRAP_SIMILARITY_THRESHOLD, live at
+  # 0.35). An absolute floor is the rule layer_b DELETED for not scaling, and the
+  # 2026-08-10 dry run against the real 3-transcript / 201-client-turn CSM corpus
+  # settled how badly it was miscalibrated: best-match cosine is p10=0.501 p25=0.540
+  # p50=0.581 p75=0.615 p90=0.648, so 0.35 sat BELOW THE ENTIRE DISTRIBUTION and
+  # admitted 100.0% of client turns -- every "Thank you." and "Can you see my
+  # screen?" included. (That band also confirms Layer D and layer_b share one
+  # embedding band: layer_b measured p10=0.496 p50=0.550 p90=0.613 over 416
+  # transcripts.)
+  #
+  # *** INERT AT max_scenarios_per_signal: 1 -- DO NOT TRY TO TUNE IT THERE. ***
+  # Measured, then proven from the code: the dry run's margin sweep returned exactly
+  # 79 signals at every value from 0.85 to 0.99, because relative_match.topk_pick
+  # takes candidates[:cap] and `sims[best] >= margin * sims[best]` holds for every
+  # margin <= 1. The margin governs only how many ADDITIONAL near-ties survive
+  # alongside the best match, and at cap 1 there are no additional slots. Same class
+  # of finding as layer_a.min_call_support_fraction being inert at this corpus size:
+  # recorded so nobody "tunes" it and believes they changed something.
+  #
+  # So in similarity mode the accept/reject decision is made ENTIRELY by the sink
+  # comparison -- a turn is a signal iff its best match is a coachable scenario
+  # rather than a mechanics/logistics sink. Measured rejection rate: 122/201 turns
+  # (60.7%), of which 108 lost to mechanics and 14 to logistics; reading the
+  # highest-scoring rejected turns confirms them ("Thank you.", "Yeah. That makes
+  # sense.", "Good."). This value becomes live only if max_scenarios_per_signal is
+  # raised above 1, at which point it needs the sweep and the sample reading.
+  similarity_relative_margin: 0.95
+
+  # Max scenarios one detected signal can carry. 1 because a gap record scores one
+  # CSM response against one rubric; the harness reports the wider candidate list
+  # for observability without acting on it. NOTE: this is what makes
+  # similarity_relative_margin inert -- see the block above before raising it.
+  max_scenarios_per_signal: 1
+
+  # gemma mode: shortlist the N scenarios most similar to this transcript's client
+  # turns before building the prompt, instead of listing every coachable one.
+  # 0 disables the shortlist entirely (list all coachable scenarios).
+  #
+  # Ships at 0 ON PURPOSE. Filtering sinks already roughly halves the menu (157 ->
+  # ~81) and that half is validated -- a sink in the prompt is provably an invitation
+  # to misclassify backchannel. Any K > 0 additionally trades RECALL for precision,
+  # and that trade is measurable: dry_run_ego_trap.py --shortlist-sweep reports, per
+  # K, what fraction of the scenario keys Gemma actually returned would have survived
+  # the shortlist. Do not raise this without reading that table.
+  gemma_scenario_shortlist_k: 0
+
+  # How Gemma's quoted client_utterance is matched back to a transcript turn, to
+  # recover its turn index. A quote that cannot be located drops the signal entirely.
+  #   exact      -- verbatim equality then verbatim containment (the original rule)
+  #   normalized -- the same two passes, case/punctuation/whitespace-insensitive
+  #   ratio      -- difflib.SequenceMatcher argmax above turn_match_min_ratio
+  #
+  # 'normalized' is the default because it introduces NO new number: it only stops
+  # a smart quote or a trailing period from discarding a real signal. 'ratio' is
+  # implemented but off -- see the next key.
+  turn_match_mode: normalized
+
+  # UNCALIBRATED, and read ONLY when turn_match_mode is 'ratio'.
+  #
+  # Unlike the other two modes this one invents a number, so it must not be switched
+  # on from a guess. The evidence needed to choose it does not exist yet: the two
+  # dropped signals recorded in GEMMA_MODE_ANALYSIS.md were logged through a print
+  # truncated at exactly 80 characters, so we cannot even tell whether Gemma
+  # paraphrased, truncated, spanned two turns, or quoted a non-CLIENT speaker.
+  # dry_run_ego_trap.py A/Bs every mode through the real resolver and prints each
+  # newly-matched pair side by side; decide from those, not from the totals.
+  turn_match_min_ratio: 0.85
+
+  # Write the per-signal gap JSON to gap_events. The aggregate tables
+  # (milestone_performance, signal_recognition_gaps) are written either way, so this
+  # gates only the traceability record. Feature flag, same shape as
+  # layer_a.response_taxonomy_auto_pass_enabled.
+  #
+  # Keep this true. Every Layer D finding to date came from reading gap_events.gaps
+  # -- including the 2026-07-06 result that the zero hit rate was NOT rubric-wording
+  # bias but false-positive Step 0 signals. With it false, a run is unauditable.
+  gap_events_enabled: true
+
+  # Skip milestones that ops/flag_uncoachable_milestones.py marked not_coachable_flag.
+  #
+  # MEASURED 2026-08-10 on the 19-transcript subset: 17 of 405 milestones (4%) are
+  # unsatisfiable by a CSM by construction -- 5 require seniority or personal relationships
+  # ("leverage professional relationships", support 15 calls), 4 have no observable criterion
+  # ("share a vulnerable personal story"), and 8 are call mechanics that leaked past Layer C's
+  # milestone_sink_similarity_percentile triage ("offer screen-sharing", "manage speaking
+  # turns"). Those 17 took **74 attempts and produced 0 hits** -- zero across 12 distinct
+  # milestones, which is what confirms they are impossible rather than merely hard.
+  #
+  # The metric effect is small (full-hit 3.0% -> 3.3%, weighted 0.068 -> 0.073). THE REAL
+  # REASON is not the metric: every one of those 74 misses also emitted a Milestone_Omission
+  # gap with a gap_to_ideal, i.e. 74 pieces of coaching advice instructing a CSM to do
+  # something they cannot do. That is actively harmful output, not just noise.
+  #
+  # Honest-reporting rule: excluding milestones shrinks the denominator, which raises the
+  # rate arithmetically. Always quote both the all-milestone and coachable-only figures, and
+  # never present the difference as the CSM having improved.
+  #
+  # Flags are advisory and reversible -- the pass only sets a JSON key, and re-running it
+  # clears stale flags. To overrule one, clear not_coachable_flag on that milestone.
+  skip_uncoachable_milestones: true
+
+  # Score only milestones carrying a FRESH `validated` or `contingent` verdict from
+  # calibration/validate_rubrics.py. Mirrors skip_uncoachable_milestones above, which
+  # already skips the 17 hand-flagged ones -- but that flag is a hand-audited judgement
+  # about specific milestones, and this is a measurement, so they stay separate keys. A
+  # reader must be able to tell which one silenced a milestone.
+  #
+  # WHY IT EXISTS. The 2026-08-11 ceiling run graded Naren against his own rubrics with
+  # both circularities closed and found the instrument does not discriminate: W(A3) 0.114
+  # against an UNRELATED-rubric control at W(B) 0.090 on the same model -- 1.27 : 1. Per
+  # scenario it is bimodal, not uniformly broken: 16 of 40 discriminate clearly, 7 have a
+  # control score of exactly 0.000, and 7 INVERT (the wrong rubric scores higher). The two
+  # halves cancel in every global average, which is why four consecutive fixes each moved
+  # the hit rate slightly and none broke 4%. This key is what lets Layer D stop scoring
+  # against the half that measures nothing.
+  #
+  # `contingent` is NOT skipped. It means the move is real but conditional, and Layer D
+  # scores it only where the applicability check passes -- the fix for the dominant
+  # proximate cause (contingent moves emitted as mandatory; 234 of 235 milestones are
+  # labelled "fixed" and the conditional trigger fires 0 of 226 times).
+  #
+  # DEFAULT false, exactly like layer_a.response_taxonomy_auto_pass_enabled shipped off.
+  # Turning it on against a rubric set that was never validated empties every rubric,
+  # because a milestone with no verdict is not scored. Run validate_rubrics.py and READ
+  # its report before flipping this.
+  #
+  # A verdict goes stale on its own: it is fingerprinted against the milestone's own
+  # description + detection_hint, and upsert_rubric's ON CONFLICT (scenario_id) replaces
+  # `milestones` in place, so any Layer C run silently invalidates every verdict. Stale
+  # verdicts are refused, never used -- so re-validation is mandatory after Layer C, and
+  # that ongoing cost is an argument for running Layer C rarely, not for skipping it.
+  require_validated_milestones: false
+
+  # Score the soft_skill_rubric alongside the milestones.
+  #
+  # ON, and it should stay on. The toggle exists only so a request-budget emergency has a
+  # lever, not as a default -- turning it off silently drops half of what Layer D
+  # measures, and all 84 coachable rubrics do carry a soft_skill_rubric.
+  #
+  # Cost, measured 2026-08-10: it adds one Gemma call per batch, but that call is cheap --
+  # 5,228 input + 1,320 output tokens at batch 12, versus 18,803 + 8,750 for the milestone
+  # call. So it is +24% tokens and +100% REQUESTS, and requests are the binding constraint
+  # (flash-lite allows 500/day). At batch 12 with the de-duplicated milestone prompt:
+  #   20-transcript subset : ~80 calls  (16% of 500 RPD)
+  #   all 106 transcripts  : ~424 calls (85% of 500 RPD -- tight, use both keys)
+  #
+  # The soft-skill prompt has the same repeat-per-item shape the milestone prompt was
+  # fixed for, but de-duplicating it would save little: excellent+failing execution text
+  # averages 398 chars against the benchmark response's 2,388, and there are only ~1.9
+  # skills per scenario. Not worth the change.
+  score_soft_skills: true
+
+  # Severity buckets for a CSM's ACCUMULATED miss rate on one milestone, derived at
+  # query time from milestone_performance as
+  #     miss_rate = (attempts - hits - 0.5 * partial_hits) / attempts
+  # i.e. exactly 1 - the weighted score db/schema.sql documents, so severity and the
+  # reported score can never disagree.
+  #
+  # Never stored on a row, and never attached to a single gap_event: one event's
+  # miss_rate is only ever 0.0 / 0.5 / 1.0, so per-event severity is always 'low' or
+  # 'critical' and carries no information. Same reason the weighted score is not
+  # stored -- it changes every time attempts increments.
+  #
+  # Fractions of a CSM's own attempts, so they self-scale as calls accumulate.
+  # ORIGINAL SPEC VALUES (Ego_trap.md section 5), NOT FITTED: Layer D has never
+  # recorded a milestone hit in any run (0/8, 0/61, 0/8), so every observed miss_rate
+  # is 1.0 and lands in 'critical' wherever these sit. Do NOT re-tune them off that
+  # -- the blocker is Step 0 false positives and missing rubrics, not these
+  # boundaries. Re-derive once a run yields a spread of hit rates at attempts >= 3.
+  gap_severity_critical_miss_rate: 0.60
+  gap_severity_high_miss_rate: 0.35
+  gap_severity_moderate_miss_rate: 0.15
+
 embedding:
   # Cache embeddings on disk so threshold tuning does not re-embed the corpus.
   # Worth far less on a CUDA box than on CPU -- the model runs locally.

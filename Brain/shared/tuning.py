@@ -59,6 +59,7 @@ class LayerCTuning:
     min_cluster_size_ceiling: int
     umap_n_components: int
     milestone_sink_similarity_percentile: float
+    describe_mode: str
 
 
 @dataclass(frozen=True)
@@ -68,10 +69,40 @@ class EmbeddingTuning:
 
 
 @dataclass(frozen=True)
+class LayerDTuning:
+    """Ego Trap / gap analysis. Replaces ego_trap/settings.py's os.environ reads.
+
+    signal_detection_mode and turn_match_mode are strategy selectors (precedent:
+    layer_b.matching_strategy); gap_events_enabled is a feature flag (precedent:
+    layer_a.response_taxonomy_auto_pass_enabled). Everything else is a fraction or a
+    cosine margin, i.e. a property of the data, per this file's own rule.
+
+    Deliberately absent: the Gemma batch size and the benchmark-example count. Both
+    are request/prompt packing rather than data properties, and the precedent for
+    those is a module constant (v2/layer_c._DESCRIBE_BATCH_SIZE,
+    _MAX_RUBRIC_RESPONSES), not a tuning key.
+    """
+    signal_detection_mode: str
+    similarity_relative_margin: float
+    max_scenarios_per_signal: int
+    gemma_scenario_shortlist_k: int
+    turn_match_mode: str
+    turn_match_min_ratio: float
+    gap_events_enabled: bool
+    skip_uncoachable_milestones: bool
+    require_validated_milestones: bool
+    score_soft_skills: bool
+    gap_severity_critical_miss_rate: float
+    gap_severity_high_miss_rate: float
+    gap_severity_moderate_miss_rate: float
+
+
+@dataclass(frozen=True)
 class Tuning:
     layer_a: LayerATuning
     layer_b: LayerBTuning
     layer_c: LayerCTuning
+    layer_d: LayerDTuning
     embedding: EmbeddingTuning
 
 
@@ -79,6 +110,7 @@ _SECTIONS = {
     "layer_a": LayerATuning,
     "layer_b": LayerBTuning,
     "layer_c": LayerCTuning,
+    "layer_d": LayerDTuning,
     "embedding": EmbeddingTuning,
 }
 

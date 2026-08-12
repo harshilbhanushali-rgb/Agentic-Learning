@@ -357,6 +357,31 @@ def _sequence_milestones(
     return sequencing_map
 
 
+def group_describe_items_by_scenario(items: list[dict]) -> list[list[dict]]:
+    """One batch per scenario, preserving each scenario's own milestone order.
+
+    Replaces the old fixed-size grouping of _DESCRIBE_BATCH_SIZE milestones drawn across
+    ALL scenarios. That grouping is why the prompt had to say "write EACH independently
+    … do not let one item influence another": with unrelated scenarios in one call, any
+    cross-talk is contamination. Inside a single rubric the opposite is true -- a
+    criterion can only be written to be distinguishable from its siblings if it can see
+    them, and it could not.
+
+    Cost is unchanged, which is what makes this affordable: 405 milestones / 5 per call
+    = 81 calls before, ~82 with one call per scenario.
+
+    Insertion order is preserved for both the scenarios and the milestones within them.
+    Order within a scenario is load-bearing -- milestone_id is the array POSITION, so
+    reordering here would repoint existing milestone_performance rows at different
+    criteria. Determinism across calls matters too: a reshuffle would change which
+    criteria saw which siblings and confound any comparison between arms.
+    """
+    by_scenario: dict[str, list[dict]] = {}
+    for item in items:
+        by_scenario.setdefault(item["scenario_key"], []).append(item)
+    return list(by_scenario.values())
+
+
 def _describe_milestones_batch(items: list[dict], config: Config) -> dict[str, dict]:
     """Batched Gemma description for every surviving milestone candidate across
     ALL scenarios in this run. Replaces one PROMPT_LAYER_C_MILESTONE_DESCRIBE

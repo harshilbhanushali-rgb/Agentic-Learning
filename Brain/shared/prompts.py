@@ -73,14 +73,21 @@ Naren's responses across {n_instances} call(s):
 
 Identify recurring strategic milestones (distinct communicative moves appearing in 2+ responses).
 
+Each milestone becomes a criterion that a DIFFERENT person's response will be scored
+against, so write it as an observable behaviour with NO subject: "Validates the client's
+worry before proposing a solution." Never name a person, never use he/she/they, never write
+"the speaker". Generalise past the specific wording, numbers, clients or anecdotes in the
+responses above -- state the underlying behaviour, not the instance. The same rule applies
+to detection_hint.
+
 Respond ONLY with valid JSON:
 {{
   "milestones": [
     {{
       "order": 1,
       "label": "Acknowledge concern",
-      "description": "Naren explicitly validates the client worry before solving it.",
-      "detection_hint": "Present if Naren restates concern BEFORE any Joveo solution.",
+      "description": "Validates the client's stated worry before proposing a solution.",
+      "detection_hint": "Present if the concern is restated or named BEFORE any solution is offered; absent if the response opens with the solution.",
       "sequencing_type": "fixed",
       "source_v": "v1_gemma"
     }}
@@ -101,6 +108,7 @@ Respond ONLY with valid JSON:
 Rules:
 - Only include milestones in 2+ responses
 - Order by position (first = order 1)
+- description and detection_hint: observable behaviour, no subject, no names, no he/she/they
 - failing_execution MUST include prefix "[inferred, unverified]"
 - anti_patterns MUST include "[inferred]" prefix
 """
@@ -131,10 +139,44 @@ Respond ONLY with valid JSON:
 # scenario, ~241-403 total across a full run), each carrying only a handful of
 # short clauses -- exactly the shape ego_trap/milestone_scoring.py's *_batch
 # functions exist to avoid.
+# Writes a COACHING CRITERION, not a description of what Naren did.
+#
+# The previous version opened "Describe each recurring communicative move in Naren
+# Shankar's sales responses" and asked for a description "grounded in the clauses above".
+# Measured 2026-08-10: all 405 stored milestone descriptions came out as narration about a
+# person (37% naming Naren, 63% "the speaker", 91% using he/she/his/her), e.g. "He uses
+# hypothetical numerical examples of job slots to illustrate how the platform can scale."
+#
+# That breaks Layer D at the root. Those descriptions and detection_hints are what Step 3
+# scores a DIFFERENT person's response against, so a CSM can handle a situation well and
+# still miss every milestone, because they did not reproduce Naren's specific improvisation.
+# It is the dominant cause of the 93.9% miss rate.
+#
+# The clauses are still the evidence -- the model must generalise FROM them to the
+# transferable move, rather than summarise them.
 PROMPT_LAYER_C_MILESTONE_DESCRIBE_BATCH = """\
-Describe each recurring communicative move in Naren Shankar's sales responses below.
-Each item below has a unique "id" and belongs to a specific scenario/milestone-position --
-describe EACH independently using only its own clauses, do not let one item influence another.
+You are writing coaching criteria for a sales rubric.
+
+Below are clusters of clauses taken from expert sales responses. Each cluster is one
+recurring move. For each, write the criterion that a DIFFERENT person's response must
+satisfy to count as having made that move.
+
+Each item has a unique "id" and belongs to a specific scenario/milestone-position --
+write EACH independently using only its own clauses, do not let one item influence another.
+
+Rules, all of them load-bearing:
+- Write the criterion as an OBSERVABLE BEHAVIOUR, in the present tense, with NO subject:
+  "Acknowledges the client's existing process before proposing an alternative."
+  NOT "Naren acknowledges..." and NOT "The speaker acknowledges...".
+- Never name any person. Never use he/she/they/his/her. Never write "the speaker".
+- Generalise. The clauses are evidence of a move, not the move itself. If a clause happens
+  to mention a specific number, client, tool or anecdote, state the underlying behaviour
+  instead ("illustrates the point with a concrete worked example"), never the specific
+  instance ("uses hypothetical job-slot numbers").
+- The criterion must be satisfiable by someone who has never read these clauses and who
+  would naturally use different words.
+- detection_hint must say what distinguishes a genuine instance from a near-miss, in the
+  same person-free, behavioural terms.
 
 ITEMS:
 {items_block}
@@ -144,8 +186,74 @@ Respond ONLY with valid JSON -- a single array with exactly one object per item,
   {{
     "id": "<id>",
     "label": "2-4 word action label",
-    "description": "2-3 sentences grounded in the clauses above",
-    "detection_hint": "How to tell this milestone is present vs a near-miss"
+    "description": "1-2 sentences stating the observable behaviour, no subject, no names",
+    "detection_hint": "What separates a genuine instance from a near-miss"
+  }}
+]
+"""
+
+# The SITUATED describe prompt (added 2026-08-12). Selected by layer_c.describe_mode,
+# which ships 'legacy' -- see docs/superpowers/specs/2026-08-12-layer-c-profile-rebuild-design.md.
+#
+# WHAT IS DIFFERENT AND WHY. The legacy prompt above is blind by construction: the model
+# sees the scenario as a bare key string, its own response clauses, and nothing else. It
+# has never seen a CLIENT TURN, which is why no milestone can state a precondition -- 234
+# of 235 are labelled "fixed" and the conditional trigger fires 0 of 226 times. It also
+# cannot see its sibling moves, so it cannot write a criterion that distinguishes move 3
+# from move 5. Measured 2026-08-11/12: the expert scores 0.114 against his own rubrics and
+# 0.090 against deliberately UNRELATED ones -- 1.2:1, reproduced three times.
+#
+# THE RULE CHANGE THAT MATTERS MOST. The 2026-08-10 rewrite banned two different things in
+# one breath. "Never narrate a person" was correct and is kept -- it fixed a real bug worth
+# ~4x the noise band. "Never state the specific instance" was an over-correction and is
+# DROPPED: it is what made criteria scenario-agnostic. A criterion may name its subject
+# matter; it still may not name a person.
+PROMPT_LAYER_C_MILESTONE_DESCRIBE_SITUATED = """\
+You are writing coaching criteria for a sales rubric.
+
+Everything below belongs to ONE scenario. You are given, for each recurring move: the
+expert's own clauses, and the CLIENT TURNS that prompted them. Write the criterion a
+DIFFERENT person's response must satisfy to count as having made that move.
+
+THE SCENARIO
+{scenario_block}
+
+NEAREST OTHER SCENARIOS — a criterion here must NOT be satisfiable by a good response to
+one of these. If what you are about to write would also be true there, it is too generic.
+{neighbours_block}
+
+THE MOVES IN THIS SCENARIO'S RUBRIC
+{moves_block}
+
+Rules, all of them load-bearing:
+- Write the criterion as an OBSERVABLE BEHAVIOUR, in the present tense, with NO subject:
+  "Acknowledges the client's existing process before proposing an alternative."
+  NOT "Naren acknowledges..." and NOT "The speaker acknowledges...".
+- Never name any person. Never use he/she/they/his/her. Never write "the speaker".
+- DO name the subject matter. "Explains how job-slot pricing changes at higher volume"
+  is right; "illustrates the point with a concrete example" is too generic to identify
+  this scenario, and criteria written that way have measurably failed.
+- The criterion must be satisfiable by someone who has never read these clauses and who
+  would naturally use different words. Generalise past the particular number, client or
+  anecdote in a clause — but never past the TOPIC.
+- Every move is shown alongside its siblings so you can make them DISTINGUISHABLE. Use
+  them for contrast only: each criterion must still be grounded in its own clauses. Do
+  NOT invent a distinction the clauses do not support just to make two moves look
+  different.
+- precondition states WHEN this move is called for, judged from the client turns shown.
+  If it applies to essentially any turn in this scenario, say "any turn in this scenario"
+  — do not manufacture a condition.
+- detection_hint says what separates a genuine instance from a near-miss, in the same
+  person-free, behavioural terms.
+
+Respond ONLY with valid JSON -- a single array with exactly one object per move id above:
+[
+  {{
+    "id": "<id>",
+    "label": "2-4 word action label",
+    "description": "1-2 sentences stating the observable behaviour, no subject, no names",
+    "precondition": "the client-side condition that calls for this move",
+    "detection_hint": "What separates a genuine instance from a near-miss"
   }}
 ]
 """
@@ -255,69 +363,104 @@ Rules:
 - client_utterance must be copied verbatim (word-for-word) so it can be matched back to the transcript.
 """
 
-PROMPT_STEP3_MILESTONE_SCORE = """\
-You are evaluating whether a CSM's response satisfies a specific milestone.
+# PROMPT_STEP3_MILESTONE_SCORE and PROMPT_STEP3_SOFT_SKILL_SCORE (one call per
+# milestone / per skill) were deleted along with their scorers in
+# ego_trap/milestone_scoring.py -- nothing but their own tests used them. Two prompts
+# stating the same verdict rules, one never exercised, means a rule change lands in
+# only one of them. The _BATCH variants below are the only Step 3 prompts.
 
-MILESTONE: {milestone_description}
-DETECTION HINT: {detection_hint}
-NAREN'S BENCHMARK RESPONSE (for reference only): {benchmark_response}
-
-CSM RESPONSE:
-"{csm_response}"
-
-Score how well the CSM's response satisfies this milestone, using exactly one of three verdicts:
-- "full_hit": the milestone is fully satisfied
-- "partial_hit": the CSM attempted this milestone but the response is incomplete or weak
-- "miss": the milestone was not addressed at all
-
-Respond ONLY with valid JSON:
-{{
-  "verdict": "full_hit",
-  "confidence": "high",
-  "reason": "one sentence explanation",
-  "quote": "verbatim excerpt from the CSM response this verdict is based on (empty string if verdict is full_hit)",
-  "gap_to_ideal": "one sentence on what a full_hit response would have included (empty string if verdict is full_hit)"
-}}
-"""
-
-PROMPT_STEP3_SOFT_SKILL_SCORE = """\
-SOFT SKILL: {skill_name}
-EXCELLENT EXECUTION: {excellent_execution}
-FAILING EXECUTION: {failing_execution}
-
-CSM RESPONSE:
-"{csm_response}"
-
-How did the CSM execute on this soft skill?
-Respond ONLY with valid JSON:
-{{
-  "rating": "excellent",
-  "confidence": "high",
-  "reason": "one sentence explanation"
-}}
-"""
-
+# Grouped by EXCHANGE, not flat by milestone. The flat shape repeated the benchmark
+# response and the CSM response on every milestone line, so a signal with 5 milestones
+# sent Naren's two reference responses 5 times -- roughly 4x the tokens for identical
+# information. That is what put one batch of 8 at ~30k tokens, above gemma-4-31b-it's
+# 16k TPM limit, guaranteeing a 429 on every call.
+#
+# The ids are unchanged (S<signal>_M<position>), so nothing downstream had to move.
 PROMPT_STEP3_MILESTONE_SCORE_BATCH = """\
-You are evaluating whether CSM responses satisfy specific milestones, across multiple independent items.
-Each item below has a unique "id". Evaluate EACH item independently — do not let one item influence another.
+You are evaluating whether CSM responses satisfy specific coaching milestones.
 
-Score each item using exactly one of three verdicts:
+Below are several INDEPENDENT exchanges. Each exchange has one CSM response and a list of
+milestones to score against it. Evaluate each exchange independently — do not let one
+exchange influence another, and never score a milestone against a different exchange's
+CSM response.
+
+Score every milestone using exactly one of three verdicts:
 - "full_hit": the milestone is fully satisfied
 - "partial_hit": the CSM attempted this milestone but the response is incomplete or weak
 - "miss": the milestone was not addressed at all
 
-ITEMS:
+EXCHANGES:
 {items_block}
 
-Respond ONLY with valid JSON — a single array with exactly one object per item, in this shape:
+Respond ONLY with valid JSON — a single flat array with exactly one object per milestone
+id, across all exchanges. Return EVERY id listed above; a missing id is recorded as a
+miss, so omitting one silently penalises the CSM.
 [
   {{"id": "<id>", "verdict": "full_hit", "confidence": "high", "reason": "one sentence explanation", "quote": "verbatim excerpt (empty string if verdict is full_hit)", "gap_to_ideal": "one sentence (empty string if verdict is full_hit)"}}
+]
+"""
+
+# The applicability pre-check, added 2026-08-11 for Layer C's objective function.
+# Design: docs/superpowers/specs/2026-08-11-layer-c-objective-function-design.md
+#
+# WHY IT ASKS FOR A SUBSET RATHER THAN A PER-MILESTONE VERDICT: one call per batch of
+# exchanges instead of one per (milestone, response). Same batching shape and same id
+# space (S<exchange>) as PROMPT_STEP3_MILESTONE_SCORE_BATCH.
+#
+# THE INSTRUCTION THAT CARRIES THE MEASUREMENT is "judge the CLIENT TURN alone". The
+# whole question is whether the moment called for the move, and a model shown the
+# response would answer "was the move made?" instead -- which is what Step 3 already
+# measures, and would make this pre-check a second copy of it rather than a control on
+# it. The response is deliberately absent from this prompt.
+#
+# Measured 2026-08-11: 234 of 235 milestones are labelled sequencing_type "fixed" and
+# the conditional trigger (position_variance > 0.3) fires 0 of 226 times, so Layer C
+# emits every contingent move as mandatory. This is the missing observation.
+PROMPT_MILESTONE_APPLICABILITY_BATCH = """\
+You are deciding which coaching milestones a client's turn actually CALLED FOR.
+
+Below are several INDEPENDENT exchanges. Each shows one CLIENT TURN and a list of
+milestones from that scenario's rubric. Judge each exchange independently.
+
+For each exchange, return only the ids of milestones the client's turn genuinely called
+for at that moment. A milestone is called for when the client's turn creates the opening
+or the need for it — a question that invites it, a concern that requires it, or
+information that makes it the natural next move.
+
+A milestone is NOT called for when it depends on a precondition this moment does not
+supply. Common examples:
+- it belongs to a different point in the call (an introduction, an agenda, a wrap-up)
+- it needs history this turn does not raise (a past trial, previous spending decisions)
+- it needs something specific to point at (an internal analysis, a partner, a document)
+- the topic it addresses is simply not what this turn is about
+
+Judge the CLIENT TURN alone. You are not being asked whether anyone performed the
+milestone, only whether the moment required it. Do not guess at what the reply said.
+
+Returning every id is almost always wrong: most rubrics contain moves that only some
+moments call for. Returning an empty list is a valid and expected answer.
+
+EXCHANGES:
+{items_block}
+
+Respond ONLY with valid JSON — a single array with exactly one object per exchange id
+listed above. Omitting an exchange makes it unmeasurable, not neutral.
+[
+  {{"id": "S0", "applicable": ["M1", "M4"], "reason": "one sentence"}}
 ]
 """
 
 PROMPT_STEP3_SOFT_SKILL_SCORE_BATCH = """\
 You are rating CSM execution of specific soft skills, across multiple independent items.
 Each item below has a unique "id". Evaluate EACH item independently — do not let one item influence another.
+
+Rate each item using exactly one of three ratings:
+- "excellent": the CSM's delivery matches the EXCELLENT EXECUTION description
+- "adequate": the skill was executed acceptably, but not notably well
+- "failing": the CSM's delivery matches the FAILING EXECUTION description
+
+Use no other rating word. Only "failing" is treated as a coaching gap, so a rating
+outside these three is discarded and the gap is lost.
 
 ITEMS:
 {items_block}
