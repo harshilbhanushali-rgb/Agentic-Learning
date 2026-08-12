@@ -258,6 +258,107 @@ Respond ONLY with valid JSON -- a single array with exactly one object per move 
 ]
 """
 
+# COVERAGE AREAS (added 2026-08-12). Option 4 of the profile-rebuild design: replace
+# ~5 independently-written gradable criteria per scenario with 3-4 things strong handling
+# COVERS. Selected by layer_c.describe_mode == 'coverage'.
+#
+# TWO DELIBERATE INVERSIONS OF THE CRITERIA DESIGN:
+#
+#   1. Areas KEEP their concrete exemplars. "Strip the specifics" was needed to make a
+#      criterion gradable and is destructive for teaching -- "illustrates the point with
+#      a concrete worked example" teaches nothing; the worked example teaches everything.
+#   2. Each area names the CLUSTERS it covers. That is load-bearing, not bookkeeping: it
+#      is what keeps support_calls/support_clauses attached, so an area stays auditable
+#      back to "this recurs in 22 calls" instead of becoming unfalsifiable prose. It also
+#      makes a 4-clusters-into-1 collapse visible in the artifact -- the merge-blindness
+#      that inflated an entire Layer C A/B while the milestone COUNT went up.
+PROMPT_LAYER_C_COVERAGE_AREAS = """\
+You are writing a coaching playbook for one recurring sales situation.
+
+Below is everything the expert did in this situation across many real calls, grouped into
+recurring moves, each shown with the CLIENT TURNS that prompted it.
+
+THE SITUATION
+{scenario_block}
+
+NEAREST OTHER SITUATIONS — the playbook must be about THIS situation, not one that would
+serve equally well for these:
+{neighbours_block}
+
+THE RECURRING MOVES
+{moves_block}
+
+Write 3 to 4 COVERAGE AREAS: the things that strong handling of this situation covers
+between them. An area is broader than a single move -- several moves usually belong to
+one area -- and the areas together should account for every move above.
+
+Rules:
+- Name the subject matter. "Explains what drives a cost-per-application swing" is right;
+  "provides a clear explanation" could describe any situation and is useless.
+- Never name a person. Never use he/she/they/his/her. Never write "the speaker".
+- covers_clusters must list the ids of the moves this area accounts for. Every move above
+  must appear in exactly one area. Do not invent ids.
+- precondition states when this area is called for, judged from the client turns shown.
+  If it applies to essentially any turn in this situation, say "any turn in this
+  situation" -- do not manufacture a condition.
+- exemplars: 2-3 SHORT VERBATIM quotes from the clauses above, copied exactly. These are
+  what a person learns from, so keep the specific numbers, tools and examples in them.
+- Do NOT force a split to reach 4 areas, and do NOT merge unrelated moves to reach 3. If
+  the moves genuinely form 3 areas, write 3.
+
+Respond ONLY with valid JSON:
+[
+  {{
+    "id": "C1",
+    "label": "2-5 word name for this area",
+    "description": "1-2 sentences on what strong handling covers here",
+    "precondition": "when this area is called for",
+    "covers_clusters": ["<move id>", "<move id>"],
+    "exemplars": ["verbatim quote", "verbatim quote"]
+  }}
+]
+"""
+
+# TOPIC-STRIP for the skill pass (added 2026-08-12). Option 1 of the profile-rebuild
+# design, and the step the whole approach depends on.
+#
+# WHY IT IS NEEDED, MEASURED. Clustering the 405 milestone descriptions as written groups
+# them by SUBJECT, not behaviour: 290 of 338 clusters held a single scenario, and "ask
+# open questions about budget" landed in a different cluster from "ask open questions
+# about screening" purely on the topical object. bge embeddings are dominated by topic,
+# so behavioural similarity is invisible until the topic is removed.
+#
+# The output is NEVER shown to a CSM -- it exists only to be embedded and clustered. That
+# is why stripping the subject is right here and wrong everywhere else in this pipeline:
+# the 2026-08-10 over-correction did exactly this to CRITERIA, which are read by people
+# and graded against, and it is what made them scenario-agnostic.
+PROMPT_SKILL_ABSTRACT_BATCH = """\
+Restate each coaching item as the underlying BEHAVIOUR, with the subject matter removed.
+
+You are not writing coaching text. These restatements are used only to group items that
+describe the same underlying move, so two items about different topics must come out
+identical when the behaviour is the same.
+
+Rules:
+- Drop every topic, product, tool, metric and client detail. "Ask open questions about
+  their ATS integration" and "Ask open questions about their budget" must BOTH become
+  "asks open questions to draw out the client's own reasoning".
+- Keep what the person is DOING and WHY: probing, quantifying, reframing, conceding,
+  explaining a mechanism, proposing a next step, setting an expectation.
+- Present tense, no subject, under 15 words.
+- Never name a person. Never use he/she/they.
+- If an item is pure call mechanics (managing turns, screen sharing, scheduling), say
+  exactly "call mechanics" -- that is a real answer and those should group together.
+
+ITEMS:
+{items_block}
+
+Respond ONLY with valid JSON -- one object per item id above:
+[
+  {{"id": "<id>", "behaviour": "the topic-free behaviour, under 15 words"}}
+]
+"""
+
 # Batched review-flag judge for V2 Layer C milestone candidates. Mirrors
 # PROMPT_LAYER_A_V2_TRIAGE's precedent: a flagged item is not left dangling, it
 # gets resolved with one Gemma call in the same run. Batched (up to 5 per call)

@@ -8,12 +8,14 @@ from preprocessing import segmenter, embedder
 from shared.gemma import call_gemma
 from shared.prompts import (
     PROMPT_LAYER_C_MILESTONE_DESCRIBE_BATCH,
+    PROMPT_LAYER_C_COVERAGE_AREAS,
     PROMPT_LAYER_C_MILESTONE_DESCRIBE_SITUATED,
     PROMPT_LAYER_C_MILESTONE_TRIAGE_BATCH,
     PROMPT_LAYER_C_V2_ORDER,
     PROMPT_LAYER_C_V1,
 )
 from shared import storage, checkpoint, cluster_evidence, scenario_vectors
+from shared import coverage_areas as _coverage
 from shared.tuning import load_tuning
 
 _GEMMA_CALL_DELAY = 5  # seconds between calls -- free-tier quota is 16000 input tokens/minute
@@ -465,6 +467,51 @@ def moves_block(items: list[dict], triggers_by_id: dict[str, list[str]]) -> str:
     return "\n\n".join(out)
 
 
+def describe_coverage_areas(items: list[dict], config: Config) -> dict[str, list[dict]]:
+    """One Gemma call per scenario returning 3-4 COVERAGE AREAS instead of N criteria.
+
+    Option 4 of the profile-rebuild design. Returns {scenario_key: [area, ...]} with each
+    area's evidence rolled up from the moves it covers, so an area stays auditable back
+    to "this recurs in 22 calls".
+
+    Everything that did not line up is printed rather than absorbed -- uncovered moves,
+    invented ids, double claims, wide merges. A quiet parse here would repeat the
+    merge-blindness that inflated a whole Layer C A/B while its milestone count went up.
+    """
+    out: dict[str, list[dict]] = {}
+    for batch in group_describe_items_by_scenario(items):
+        first = batch[0]
+        scenario_key = first["scenario_key"]
+        prompt = PROMPT_LAYER_C_COVERAGE_AREAS.format(
+            scenario_block=scenario_block(first.get("info") or {}),
+            neighbours_block=neighbours_block(first.get("neighbours") or []),
+            moves_block=moves_block(
+                batch, {i["id"]: i.get("triggers") or [] for i in batch}),
+        )
+        raw = call_gemma(prompt, config.gemma_api_keys)
+        time.sleep(_GEMMA_CALL_DELAY)
+
+        areas, report = _coverage.parse_areas(raw, [i["id"] for i in batch])
+        clusters_by_id = {i["id"]: i.get("cluster") or {} for i in batch}
+        out[scenario_key] = _coverage.attach_evidence(areas, clusters_by_id)
+
+        if report["uncovered_clusters"]:
+            print(f"  ! {scenario_key}: {len(report['uncovered_clusters'])} move(s) "
+                  f"claimed by NO area -- their evidence is dropped from the playbook.")
+        if report["double_claimed_clusters"]:
+            print(f"  ! {scenario_key}: {len(report['double_claimed_clusters'])} move(s) "
+                  f"claimed by two areas -- support is double counted.")
+        if report["unknown_clusters"]:
+            print(f"  ! {scenario_key}: invented move id(s) "
+                  f"{report['unknown_clusters'][:5]} -- coverage may be misattributed.")
+        wide = [a["id"] for a in out[scenario_key] if a.get("wide_merge")]
+        if wide:
+            print(f"  ! {scenario_key}: area(s) {wide} each fuse "
+                  f">={_coverage.WIDE_MERGE_MOVES} moves -- READ THEM before trusting "
+                  f"this playbook; distinct coaching moves may have been merged.")
+    return out
+
+
 def _describe_situated(items: list[dict], config: Config) -> dict[str, dict]:
     """One Gemma call per scenario, with triggers, siblings and scenario meaning.
 
@@ -730,6 +777,9 @@ def run_layer_c_v2(
                 "neighbours": neighbours_of.get(scenario_key, []),
                 "triggers": [trigger_of[pid] for pid in cluster.get("pair_ids", [])
                              if trigger_of.get(pid)],
+                # The cluster itself, so coverage areas can roll their evidence up from
+                # the moves they cover. Ignored by both describe paths.
+                "cluster": cluster,
             })
     if tuning.describe_mode == "situated":
         descriptions = _describe_situated(describe_items, config)
