@@ -28,8 +28,8 @@ STATUS_FAILED = "failed"
 
 def build_clause_pool(
     responses: list[dict],
-) -> tuple[list[str], list[float], list[str]]:
-    """Segment each response into clauses, keeping per-clause position and source call.
+) -> tuple[list[str], list[float], list[str], list]:
+    """Segment each response into clauses, keeping position, source call and source pair.
 
     Extracted from _pass1_cluster_scenario (unchanged behaviour) so an offline
     replay can build a byte-identical pool instead of reimplementing this loop.
@@ -43,12 +43,25 @@ def build_clause_pool(
     clauses of a single response, and min_cluster_size=2 accepted both. That was
     the 95-milestone bug.
 
+    clause_pairs (added 2026-08-12) is what lets a cluster reach the CLIENT TRIGGER
+    that prompted it. clause_calls cannot do that job: one call contributes many
+    pairs answering different client turns, so attributing a trigger by call would
+    hand a cluster the trigger of a moment that never produced it. Layer C's
+    describe step has always been blind to the trigger, which is why it cannot
+    state a move's precondition -- see the profile-rebuild design, section 3.
+
+    Defaults to None rather than raising when a caller's response dict has no
+    pair_id: calibration/replay_layer_c_admitted.py builds its own dicts, and its
+    whole validity rests on reproducing Pass 1 exactly, so a KeyError there would
+    break the harness that proves this function unchanged.
+
     n = max(len(clauses) - 1, 1) normalises position to [0, 1] and keeps a
     single-clause response at 0.0 rather than dividing by zero.
     """
     all_clauses: list[str] = []
     clause_positions: list[float] = []
     clause_calls: list[str] = []
+    clause_pairs: list = []
     for resp in responses:
         clauses = segmenter.segment_into_clauses(resp["response_text"])
         n = max(len(clauses) - 1, 1)
@@ -56,7 +69,8 @@ def build_clause_pool(
             all_clauses.append(clause)
             clause_positions.append(pos_idx / n)
             clause_calls.append(resp["call_filename"])
-    return all_clauses, clause_positions, clause_calls
+            clause_pairs.append(resp.get("pair_id"))
+    return all_clauses, clause_positions, clause_calls, clause_pairs
 
 
 def _relevance_filter(clauses, vecs, positions, calls, info, percentile):
@@ -179,7 +193,7 @@ def _pass1_cluster_scenario(
         print(f"  ! Fewer than 2 responses -- will fall back to V1 Gemma approach.")
         return {"kind": "fallback", "info": info, "responses": responses}
 
-    all_clauses, clause_positions, clause_calls = build_clause_pool(responses)
+    all_clauses, clause_positions, clause_calls, _clause_pairs = build_clause_pool(responses)
 
     if len(all_clauses) < 6:
         print(f"  ! Too few clauses ({len(all_clauses)}) -- will fall back to V1.")

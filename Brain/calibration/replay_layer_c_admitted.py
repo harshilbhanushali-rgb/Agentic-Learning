@@ -30,10 +30,10 @@ the sink short-circuit once disagreed with production by 99.7% vs 14%. Reimpleme
 is the failure mode to avoid here.
 
 Usage (from Brain/, venv active):
-    python replay_layer_c_admitted.py
-    python replay_layer_c_admitted.py --variants by_trigger_nonsink
-    python replay_layer_c_admitted.py --limit 20        # first N coachable scenarios
-    python replay_layer_c_admitted.py --load layer_c_admitted_replay.json
+    python calibration/replay_layer_c_admitted.py
+    python calibration/replay_layer_c_admitted.py --variants by_trigger_nonsink
+    python calibration/replay_layer_c_admitted.py --limit 20        # first N coachable scenarios
+    python calibration/replay_layer_c_admitted.py --load layer_c_admitted_replay.json
 """
 from __future__ import annotations
 import argparse
@@ -48,14 +48,23 @@ if sys.path and sys.path[0] not in ("", "."):
 
 import numpy as np
 
+# Brain/ is this file's parent -- put it on sys.path so the shared packages
+# (config, shared, v1, v2, preprocessing) resolve whether this script is run
+# directly (python calibration/x.py) or imported (from calibration import x).
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
+from calibration import ARTIFACTS_DIR
+
 from config import load_config
 from preprocessing import embedder
 from shared import cluster_evidence, storage
 from shared.tuning import load_tuning
 from v2.layer_c import build_clause_pool, _relevance_filter, _cluster_milestones
 
-_DEFAULT_OUTPUT = Path("layer_c_admitted_replay.json")
-_CLUSTER_FILE = Path("sink_pool_clusters.json")
+_DEFAULT_OUTPUT = ARTIFACTS_DIR / "layer_c_admitted_replay.json"
+_CLUSTER_FILE = ARTIFACTS_DIR / "sink_pool_clusters.json"
 _ALL_VARIANTS = ("by_trigger_nonsink", "by_response", "by_cluster")
 _MATCH_MAJORITY = 0.5  # a baseline milestone is "matched" when >half its clauses land together
 
@@ -179,8 +188,8 @@ def _pass1(info, base_responses, extra_responses, tuning):
     already passes through opaquely (it only ever indexes and returns that list), so
     no production function is modified or reimplemented to get it.
     """
-    b_cl, b_pos, b_calls = build_clause_pool(base_responses)
-    e_cl, e_pos, e_calls = build_clause_pool(extra_responses)
+    b_cl, b_pos, b_calls, _ = build_clause_pool(base_responses)
+    e_cl, e_pos, e_calls, _ = build_clause_pool(extra_responses)
 
     clauses = b_cl + e_cl
     positions = b_pos + e_pos
