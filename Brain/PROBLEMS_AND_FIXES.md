@@ -831,6 +831,133 @@ milestone is the wrong unit of feedback and that becomes unavoidable.
 
 ---
 
+## Rebuilding Layer C, and four ways to run a bad experiment (2026-08-12/13)
+
+Design: `docs/superpowers/specs/2026-08-12-layer-c-profile-rebuild-design.md`. The ceiling
+run had established that the criteria don't identify their own scenario. This is the
+attempt to fix that — and, more usefully, a record of how many ways a comparison can be
+set up wrong before it measures anything.
+
+### First, two things were built and both failed their own gates
+
+**The per-milestone objective function** (`shared/rubric_validation.py`,
+`calibration/validate_rubrics.py`) measured discrimination and satisfiability per
+milestone. It failed both pre-registered gates and wrote nothing. The reason is
+arithmetic: at 8 attempts per arm the weighted score moves in steps of 0.0625, so the
+discrimination gate trips on a single stray partial hit — the 7 scenarios a previous run
+called known-good produced **0 of 33** scoreable milestones.
+
+**Its applicability judge failed its own null** — 0.147 for the matched rubric against
+0.120 for an unrelated one, 1.22 : 1. Diagnosis found it *does* vary with the client turn
+(3.89 distinct answers across 8 turns; only 5 of 47 scenarios invariant), so the defect was
+in the asking: the prompt instructed sparsity, and "return a subset" invites picking a top
+few and stopping.
+
+### And a recorded finding was retracted
+
+`PROBLEMS_AND_FIXES.md` and two design specs recorded Layer C as **bimodal** — 16 of 40
+scenarios discriminating, 7 inverted, 7 with a zero control. That labelling had never been
+replicated. Replicated twice on 2026-08-12: three independent measurements of the same 49
+scenarios agree on a verdict only **41–47%** of the time, with SHIP↔DISABLE sign flips on
+the extremes — `client_reacts_to_anomaly` was the worst inverted scenario (−0.229) and came
+back the best (+0.312). The per-scenario gap moves a **median of 0.138** against a ±0.05
+decision band, i.e. the band is a third the size of its own noise. Only the corpus-level
+result survives.
+
+### The rebuild: three changes, all shipped OFF
+
+The root cause is a missing input, not bad wording. Read from
+`v2/layer_c.py::_describe_milestones_batch`, the model writing each criterion sees the
+scenario's key string, its own response clauses, and nothing else — it has **never seen a
+client turn**, which is why no milestone can state a precondition (234 of 235 labelled
+"fixed"; the conditional trigger fires 0 of 226). A fourth wording pass cannot fix a model
+that was never given the information.
+
+| change | what it does |
+| --- | --- |
+| **situated inputs** (`layer_c.describe_mode: situated`) | shows the writer the CLIENT TURNS, its SIBLING moves, the scenario's description and its nearest neighbours; requires a precondition |
+| **coverage areas** (`shared/coverage_areas.py`) | 3–4 things strong handling covers instead of ~5 gradable criteria, with a fourth verdict `not_called_for` |
+| **skills** (`shared/skills.py`) | groups coverage areas into recurring behaviours, so a profile axis has hundreds of observations rather than ~8 |
+
+Also dropped half of one 2026-08-10 rule. That rewrite banned two different things in one
+breath — "never narrate a person" (correct, kept, worth ~4× the noise band) and "never
+state the specific instance" (**the over-correction, dropped**; it is what made criteria
+scenario-agnostic). A criterion may now name its subject matter; it still may not name a
+person.
+
+### Then four ways to run a bad experiment, all mine, all in one afternoon
+
+This is the part worth keeping. Every one produced a number that looked like a result.
+
+**1. An alphabetical "sample."** `--limit 8` returned `ai_capability`,
+`application_conversion_flow`, `ats_*` (four of them), `backend_workflow` and
+`budget_and_performance` — **every one subject-matter, not a single client-posture
+scenario**, because those all begin `client_` and sort after `budget`. The ceiling run had
+already measured those two populations behaving differently (2/25 inverted vs **5/15**). So
+the fix was tested only on the half that already worked, and reported as general. Four arm
+comparisons ran that way before it was noticed. Fixed with a seeded stratified `--sample`
+that preserves the corpus mix, a warning on `--limit`, and the sample's composition printed
+in the report header.
+
+**2. A baseline from a different clustering run.** `arm0_baseline` scored the rubrics
+sitting in Postgres — built by a *different* Layer C run, over a *different* clustering
+(UMAP is not reproducible across process launches). Comparing a generated arm against it
+varies the prompt AND the clusters AND possibly the model at once. Fixed with
+`arm0r_legacy_regen`: the **legacy prompt on this run's clusters with the same model**, so
+legacy-vs-situated differs in exactly one thing.
+
+**3. A plan that described a run the code didn't do.** The harness printed "4 arms x 2
+replications" while scoring each arm **once**, and hardcoded generation-call counts
+regardless of which arms were selected. Fixed: `--reps` defaults to 2, every replication
+flushes to disk as it completes, the report prints the spread beside every number, and
+`--reps 1` prints an explicit warning that its numbers are a path test.
+
+**4. Compile-clean is not run-clean.** Two launches died mid-generation — one on a missing
+import, one on `{a: {} for a in ARMS[2:]}`, a positional slice over a tuple whose order kept
+changing. `py_compile` catches neither. Both were patched by script and never executed.
+Fixed by keying the dict on demand instead of by slice, an AST check that every
+`v2.layer_c` name called is also imported, and — the real fix — **a ~20-call smoke test
+across all four arms before any full run**. `score_naren_ceiling.py` already had exactly
+that in `--max-items-per-arm`; this harness had left it out.
+
+### What stands from the trial so far
+
+- **Removing the benchmark makes discrimination WORSE** — 1.30 → 1.12, null rising 0.130 →
+  0.150. The hypothesis was that showing Naren's own answer made the grader match on
+  resemblance and inflated the null; the opposite is true, it anchors the grader to a
+  scenario-appropriate standard. Survives the sampling problem because it is a paired
+  comparison — same rubrics both sides. **Keep the benchmark.**
+- **The coverage judge failed its null a second time**, in a different framing: 64.9%
+  `not_called_for` for the matched rubric against 65.7% for an unrelated one. That is now
+  two independent attempts at "did this moment call for this move", both landing at
+  ~1.0–1.2 : 1. Being given one more fair chance where its preconditions come from real
+  client turns rather than blind clusters.
+- **The corpus-level measurement is stable and the per-scenario one is not.** Baseline
+  reproduced at 1.30 / 1.30 / 1.21 across three separate runs, with replication spreads of
+  ±0.002–0.018. That is what makes arm comparison possible at all, and it is why the gate
+  is corpus-level.
+- **Test 2's 1.71 is discarded, not disproven.** It carried both flaw 1 and flaw 2. The
+  criteria it wrote did read as genuinely situation-specific on inspection — naming Joveo,
+  the ATS, API-versus-file ingestion — and one carried a precondition that fixes a milestone
+  previously flagged as structurally unhittable. That qualitative read survives; the number
+  does not. Being re-measured now against a fair baseline with both populations present.
+
+### Still not done, and it is the bigger question
+
+**The skills test has never run.** A first attempt clustered the 405 milestone descriptions
+as written and came back negative (290 of 338 clusters held a single scenario) — but that
+test is confounded: every description carries its topic in the sentence, and bge embeddings
+are dominated by topic, so it grouped by *subject* rather than by *behaviour*. "Ask open
+questions about budget" separated from "ask open questions about screening" on the topical
+object alone. The clean version — one cheap LLM pass to strip the topic, then re-cluster —
+is ~41 calls.
+
+That question is larger than anything the arms answer. **The arms decide whether the
+criteria can be made to discriminate; the skills test decides whether a per-person profile
+can be built at all.** Even a winning arm leaves 405 axes at ~8 observations each.
+
+---
+
 ## Summary: what's true today
 
 - The pipeline clusters data with math first and only spends LLM calls judging the survivors — much cheaper and more consistent than asking an LLM to invent everything from scratch.

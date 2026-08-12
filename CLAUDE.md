@@ -291,6 +291,7 @@ Core principle: **cluster freely, then triage clusters against evidence.** Filte
 
 Calibration gotchas:
 
+- **NEVER calibrate on the first N scenarios. Alphabetical is not a sample — measured 2026-08-13.** `--limit 8` on `calibration/trial_layer_c_arms.py` returned `ai_capability_discovery`, `application_conversion_flow_discovery`, `ats_*` (four of them), `backend_workflow_logic_discovery` and `budget_and_performance_strategy_optimization` — **every one a subject-matter scenario and not a single client-posture one**, because those all begin `client_` and sort after `budget`. The ceiling run measured those two populations behaving differently (subject-matter mean gap +0.057, 2/25 inverted; posture −0.019, **5/15 inverted**), so an alphabetical prefix silently tests a fix on the half that already worked and reports it as a general result. Four arm comparisons were run this way before the bias was noticed. Use `--sample N` (seeded, stratified, preserves the corpus's posture/subject mix) for any number you intend to believe; `--limit` is a path test only and now prints a warning saying so. **15–20 scenarios is the practical floor** — below that a stratum can hold one or two members and per-population conclusions stop being safe. The report prints the sample's composition and shouts if a stratum is empty. Generalises beyond this harness: every subset selector in `calibration/` should be checked for what it *excludes*, not just how many it keeps.
 - `min_call_support_fraction` is **inert** at this corpus size (dropped 0–3 of 226 clusters across the whole sweep grid) because BERTopic's `min_cluster_size` is already 50 clauses. It is a small-corpus safety floor — do not credit it with removing junk.
 - `merge_cosine_threshold` and `ubiquity_ceiling` **interact**: merging unions the member call sets, which raises each surviving cluster's coverage. They cannot be tuned independently.
 - **`relative_margin` does NOT feed Layer C — measured 2026-07-28.** This was assumed to couple and it does not. Re-running `calibration/dry_run_layer_bc.py` at margin 0.95 produced a **byte-identical** Layer C table to the 0.85 run, because Layer C keys off the single primary `scenario_key` (the best match) while `relative_margin` only controls the *additional* entries in `scenario_keys`. So the two knobs are independent and can be calibrated in either order. `relative_margin` is also `layer_b` only — **Layer A never reads it** — so changing it never requires re-running the Layer A dry run either.
@@ -753,6 +754,68 @@ topic whose signals are the most useful thing Layer D produces.
 - Still open, noted not fixed: `pipeline.py`'s Gemma-failure path skips a batch but still marks the
   transcript checkpoint done, so those signals are permanently lost on resume while a forced
   re-run double-counts instead.
+
+### Layer C rebuild — three changes, all shipped OFF (2026-08-12/13)
+
+Design: `docs/superpowers/specs/2026-08-12-layer-c-profile-rebuild-design.md`. Narrative and
+the methodology failures: `Brain/PROBLEMS_AND_FIXES.md`.
+
+**Root cause, and why a fourth wording pass cannot work.** Read from
+`v2/layer_c.py::_describe_milestones_batch` — the model writing each criterion sees the
+scenario's KEY STRING, its own response clauses, and nothing else. It has never seen a client
+turn, so it cannot state a precondition (234 of 235 milestones are labelled `fixed`; the
+conditional trigger fires **0 of 226**), and it is told to strip specifics on top. That is a
+missing-INPUT problem. Asking a better-worded question of a blind model changes nothing.
+
+| what | where | flag |
+| --- | --- | --- |
+| situated describe inputs | `PROMPT_LAYER_C_MILESTONE_DESCRIBE_SITUATED`, `v2/layer_c._describe_situated` | `layer_c.describe_mode: legacy` |
+| coverage areas + 4th verdict | `shared/coverage_areas.py`, `PROMPT_LAYER_C_COVERAGE_AREAS`, `milestone_scoring.score_coverage_batch` | same key, value `coverage` |
+| skills (profile axes) | `shared/skills.py`, `PROMPT_SKILL_ABSTRACT_BATCH` | not wired to production |
+| the trial harness | `calibration/trial_layer_c_arms.py` | read-only, artifacts only |
+
+- **`describe_mode` ships `legacy`; production Layer C is byte-identical.** The situated path
+  needs `build_clause_pool`'s 4th return value (`clause_pairs`) and `trigger_text` on
+  `get_naren_responses_for_scenario` — both additive, both threaded through `_relevance_filter`
+  into each cluster's `pair_ids`. Verified live: `client_reacts_to_anomaly` has 34 pairs across
+  27 calls, so 7 calls contribute more than one pair and attributing triggers by
+  `call_filename` would hand a cluster the trigger of a moment that never produced the move.
+- **Half of the 2026-08-10 rule is DROPPED in the situated prompt.** That rewrite banned two
+  things in one breath: "never narrate a person" (correct, kept, ~4x the noise band) and "never
+  state the specific instance" (**the over-correction** — it is what made criteria
+  scenario-agnostic). A criterion may now name its subject matter; it still may not name a
+  person.
+- **Batching is per SCENARIO in the situated path**, not 5 milestones across all scenarios.
+  That is what lets a move see its siblings, which the legacy prompt had to forbid because its
+  batches mixed unrelated scenarios. Cost is unchanged: 81 calls vs ~82.
+- **`_describe_*` take an optional `model=`, defaulting to None.** The situated/coverage
+  prompts pack a whole scenario and cannot fit `gemma-4-31b-it`'s 16k TPM ceiling — measured
+  2026-08-13, one call burned 8+ minutes of backoff. Only the trial passes the flash-lite
+  chain, so production is unaffected.
+
+**Established by the trial so far (corpus-level, replicated):**
+
+- **Do NOT remove Naren's benchmark response from the scorer.** Hypothesis was that it makes
+  the grader match on resemblance and inflates the null. **Refuted, and it goes the other
+  way:** removing it moved discrimination 1.30 -> **1.12**, null rising 0.130 -> 0.150. It
+  anchors the grader to a scenario-appropriate standard. Valid despite the sampling bug below —
+  paired comparison, same rubrics both sides.
+- **"Did this moment call for this move" has now failed TWICE, in two different framings.**
+  The standalone applicability judge: 0.147 matched vs 0.120 unrelated (1.22:1). The coverage
+  judge with the client turn AND response in front of it: **64.9% `not_called_for` matched vs
+  65.7% unrelated**. Treat a third attempt as speculative, not routine.
+- **Corpus-level is stable, per-scenario is not.** Baseline reproduced at 1.30 / 1.30 / 1.21
+  across three separate runs with spreads of +/-0.002-0.018. That is why the gate is
+  corpus-level and why arm comparison works at all.
+- **`ops/run_visible.ps1`** runs a Brain script in a real window that stays open, with the
+  neon DNS bypass built in. Three bugs are documented in the script so they are not
+  reintroduced: `-Args` is a PowerShell automatic variable; the inner script must call the venv
+  python by full path; and `-ScriptArgs` must be ONE STRING because `-File` does not preserve
+  array syntax.
+- **Always smoke-test a harness end to end before a full run.** `--sample 2 --per-scenario 2
+  --reps 1` costs ~20 calls and exercises every path. Two full launches died mid-generation on
+  a missing import and a positional slice (`ARMS[2:]`) — **`py_compile` catches neither**.
+  `score_naren_ceiling.py` already had this in `--max-items-per-arm`.
 
 ### Layer C milestones were narration, not criteria — found and fixed (2026-08-10)
 

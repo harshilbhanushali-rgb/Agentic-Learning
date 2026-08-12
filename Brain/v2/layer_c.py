@@ -23,6 +23,14 @@ _MAX_RUBRIC_RESPONSES = 12  # cap responses fed into one rubric prompt -- some s
 _TRIAGE_BATCH_SIZE = 5  # flagged milestones per PROMPT_LAYER_C_MILESTONE_TRIAGE_BATCH call
 _DESCRIBE_BATCH_SIZE = 5  # milestones per PROMPT_LAYER_C_MILESTONE_DESCRIBE_BATCH call
 
+# Optional model override for the describe step. None keeps call_gemma's default, so
+# production Layer C is unchanged. The trial passes the flash-lite chain because the
+# situated and coverage prompts pack a whole scenario and cannot fit gemma-4-31b-it's 16k
+# tokens-per-minute ceiling -- measured 2026-08-13, one call burned 8+ minutes of backoff
+# before making any progress. Same failure milestone_scoring documents for scoring.
+_FAST_DESCRIBE_MODEL = "gemini-3.1-flash-lite"
+_FAST_DESCRIBE_FALLBACKS = ("gemini-3.5-flash-lite", "gemma-4-31b-it")
+
 STATUS_GENERATED = "rubric_generated"
 STATUS_NOT_COACHABLE = "skipped_not_coachable"
 STATUS_INSUFFICIENT = "skipped_insufficient_responses"
@@ -367,6 +375,13 @@ def _sequence_milestones(
     return sequencing_map
 
 
+def _model_kwargs(model: str | None) -> dict:
+    """call_gemma kwargs for an optional model override; empty dict keeps the default."""
+    if not model:
+        return {}
+    return {"model": model, "fallback_models": _FAST_DESCRIBE_FALLBACKS}
+
+
 def group_describe_items_by_scenario(items: list[dict]) -> list[list[dict]]:
     """One batch per scenario, preserving each scenario's own milestone order.
 
@@ -467,7 +482,8 @@ def moves_block(items: list[dict], triggers_by_id: dict[str, list[str]]) -> str:
     return "\n\n".join(out)
 
 
-def describe_coverage_areas(items: list[dict], config: Config) -> dict[str, list[dict]]:
+def describe_coverage_areas(items: list[dict], config: Config,
+                            model: str | None = None) -> dict[str, list[dict]]:
     """One Gemma call per scenario returning 3-4 COVERAGE AREAS instead of N criteria.
 
     Option 4 of the profile-rebuild design. Returns {scenario_key: [area, ...]} with each
@@ -488,7 +504,7 @@ def describe_coverage_areas(items: list[dict], config: Config) -> dict[str, list
             moves_block=moves_block(
                 batch, {i["id"]: i.get("triggers") or [] for i in batch}),
         )
-        raw = call_gemma(prompt, config.gemma_api_keys)
+        raw = call_gemma(prompt, config.gemma_api_keys, **_model_kwargs(model))
         time.sleep(_GEMMA_CALL_DELAY)
 
         areas, report = _coverage.parse_areas(raw, [i["id"] for i in batch])
@@ -512,7 +528,8 @@ def describe_coverage_areas(items: list[dict], config: Config) -> dict[str, list
     return out
 
 
-def _describe_situated(items: list[dict], config: Config) -> dict[str, dict]:
+def _describe_situated(items: list[dict], config: Config,
+                       model: str | None = None) -> dict[str, dict]:
     """One Gemma call per scenario, with triggers, siblings and scenario meaning.
 
     Selected by layer_c.describe_mode == 'situated'. Same call count as the legacy
@@ -527,7 +544,7 @@ def _describe_situated(items: list[dict], config: Config) -> dict[str, dict]:
             moves_block=moves_block(
                 batch, {i["id"]: i.get("triggers") or [] for i in batch}),
         )
-        raw = call_gemma(prompt, config.gemma_api_keys)
+        raw = call_gemma(prompt, config.gemma_api_keys, **_model_kwargs(model))
         time.sleep(_GEMMA_CALL_DELAY)
         raw_list = raw if isinstance(raw, list) else raw.get("results", [])
         returned = {r["id"] for r in raw_list if isinstance(r, dict) and "id" in r}
@@ -543,7 +560,8 @@ def _describe_situated(items: list[dict], config: Config) -> dict[str, dict]:
     return descriptions
 
 
-def _describe_milestones_batch(items: list[dict], config: Config) -> dict[str, dict]:
+def _describe_milestones_batch(items: list[dict], config: Config,
+                               model: str | None = None) -> dict[str, dict]:
     """Batched Gemma description for every surviving milestone candidate across
     ALL scenarios in this run. Replaces one PROMPT_LAYER_C_MILESTONE_DESCRIBE
     call per milestone (up to milestone_hard_cap per scenario, ~241-403 calls
@@ -566,7 +584,7 @@ def _describe_milestones_batch(items: list[dict], config: Config) -> dict[str, d
         )
         raw = call_gemma(
             PROMPT_LAYER_C_MILESTONE_DESCRIBE_BATCH.format(items_block=items_block),
-            config.gemma_api_keys,
+            config.gemma_api_keys, **_model_kwargs(model),
         )
         time.sleep(_GEMMA_CALL_DELAY)
         raw_list = raw if isinstance(raw, list) else raw.get("results", [])

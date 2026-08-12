@@ -1,10 +1,11 @@
-"""graduate_sink_topics.py's write path, verified against a mocked connection/cursor -- no
-real database, per this plan's Global Constraints (reads against prod are fine, writes are not
-during this pass). Asserts the exact SQL and bound parameters _graduate_one would send.
+"""calibration/graduate_sink_topics.py's write path, verified against a mocked
+connection/cursor -- no real database, per this plan's Global Constraints (reads against prod
+are fine, writes are not during this pass). Asserts the exact SQL and bound parameters
+_graduate_one would send.
 """
 from unittest.mock import MagicMock, call
 
-import graduate_sink_topics as gst
+from calibration import graduate_sink_topics as gst
 from shared import cluster_evidence
 
 

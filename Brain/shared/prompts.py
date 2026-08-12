@@ -806,3 +806,50 @@ shape:
   }}
 ]
 """
+
+
+# Step 3 scoring against COVERAGE AREAS (added 2026-08-12). The counterpart to
+# PROMPT_STEP3_MILESTONE_SCORE_BATCH for the coverage arms of the profile-rebuild trial.
+#
+# ONE EXPLICIT VERDICT PER AREA, NEVER A RETURNED SUBSET. That is a correction learned
+# the expensive way: the applicability judge built on 2026-08-12 asked for a subset and
+# failed its own null (0.147 matched vs 0.120 unrelated, 1.22:1). Two defects were in the
+# asking -- the prompt instructed sparsity, and "return a subset" invites picking a top
+# few and stopping. The scorer that DOES separate signal asks about every id, at the same
+# cost per call.
+#
+# THE CLIENT TURN IS SHOWN. That is what makes not_called_for answerable at all: a judge
+# shown only the response cannot tell "she skipped it" from "the moment never asked for
+# it", which is the confusion that makes 234 of 235 milestones grade as mandatory.
+PROMPT_STEP3_COVERAGE_SCORE_BATCH = """\
+You are assessing how well a customer-success rep handled specific moments in real calls.
+
+For each exchange below you are given the CLIENT TURN, the rep's RESPONSE, and the
+coverage areas that strong handling of this situation covers. Give a verdict for EVERY
+area listed. Do not omit any.
+
+Verdicts:
+- covered         the response does this
+- partly_covered  the response approaches it but is incomplete or vague
+- not_covered     this moment called for it and the response does not do it
+- not_called_for  this particular moment did not require it
+
+not_called_for is a real and expected answer. A playbook lists what the situation covers
+in general; any single moment usually calls for only some of it. Judge from the CLIENT
+TURN whether this moment required the area at all.
+
+EXCHANGES:
+{items_block}
+
+Respond ONLY with valid JSON -- one object per id above:
+[
+  {{
+    "id": "<id>",
+    "verdict": "covered|partly_covered|not_covered|not_called_for",
+    "confidence": "high|medium|low",
+    "reason": "one sentence",
+    "quote": "the part of the response that covers it, or empty",
+    "gap_to_ideal": "what was missing, empty unless not_covered or partly_covered"
+  }}
+]
+"""

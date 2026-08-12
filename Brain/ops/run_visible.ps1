@@ -25,14 +25,17 @@
       and declaring it makes the script fail before its first line runs.
     * The inner script must call the venv python by full path. A bare `python` picks up
       whatever is on PATH, which has neither the dependencies nor Brain's config.
+    * -ScriptArgs is a single STRING, not an array. PowerShell's -File invocation
+      does NOT preserve array syntax: -ScriptArgs '--limit','6' arrives as the one
+      token "--limit,6" and argparse rejects it. Pass '--limit 6' instead.
 
 .EXAMPLE
   .\ops\run_visible.ps1 -Script calibration/validate_rubrics.py -HostAddr 18.138.49.39
-  .\ops\run_visible.ps1 -Script calibration/validate_rubrics.py -ScriptArgs '--scope','all','--run'
+  .\ops\run_visible.ps1 -Script calibration/validate_rubrics.py -ScriptArgs '--scope all --run'
 #>
 param(
   [Parameter(Mandatory = $true)][string]$Script,
-  [string[]]$ScriptArgs = @(),
+  [string]$ScriptArgs = "",
   [string]$HostAddr = "",
   [string]$Log = ""
 )
@@ -51,7 +54,7 @@ if (-not $Log) {
 $logDir = Join-Path $brain (Split-Path -Parent $Log)
 if ($logDir -and -not (Test-Path $logDir)) { New-Item -ItemType Directory -Force $logDir | Out-Null }
 
-$argLine = ($ScriptArgs | ForEach-Object { '"' + $_ + '"' }) -join ' '
+$argLine = $ScriptArgs.Trim()
 
 # Written to a temp .ps1 and launched with -File. A multi-line -Command string is fragile
 # about quoting and newlines; a file is not.
