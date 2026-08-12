@@ -740,22 +740,39 @@ one person** to **too generic to one scenario**. It also gives a simpler reading
 headline result: partial credit doubled not because the rubric became "gradable", but because
 generic criteria are easy to *partly* satisfy with almost anything.
 
-### The finding that changes what to fix: it's bimodal, and the average hid it
+### RETRACTED — "it's bimodal" did not survive replication (retracted 2026-08-12)
 
-Per scenario, matched minus control:
+> **The section below is kept as a record of what one run showed. Its per-scenario labelling is
+> NOT established and must not be acted on.** Replicated twice on 2026-08-12: three independent
+> measurements of the same 49 scenarios agreed on a scenario's verdict only **41–47%** of the
+> time, with outright SHIP↔DISABLE sign flips on the most extreme cases — `client_reacts_to_anomaly`
+> was the *worst* inverted scenario here (−0.229) and came back the *best* on re-measurement
+> (+0.312). The per-scenario gap moves a **median of 0.138** between runs against a decision band
+> of ±0.05, i.e. the band is about a third the size of its own noise.
+>
+> Two causes, both sample-of-one: eight responses per scenario, and a null built from a **single
+> arbitrary partner rubric** — so "the null" is a property of the *(scenario, partner)* pair, not
+> of the scenario. A fix that costs no extra Gemma calls: draw arm B from k≥3 different unrelated
+> scenarios per rubric instead of one.
+>
+> **What survives is the corpus-level result** (0.114–0.116 matched vs 0.090–0.095 unrelated,
+> reproduced three times). What does not survive is any claim about *which* scenarios work.
+
+Per scenario, matched minus control — **one run, not replicated**:
 
 - **16 of 40 discriminate clearly.** Seven have a control score of **exactly 0.000** — the
-  unrelated rubric finds nothing at all. Those are real working instruments.
+  unrelated rubric finds nothing at all.
 - **7 of 40 invert** — the unrelated rubric scores *higher* than the correct one.
 
-**So the global number is an average of a working half and an inverted half, and they cancel.**
-That is why four consecutive fixes each nudged the needle and none broke 4%: every measurement was
-taken on the average.
+The reading at the time was that the global number averages a working half and an inverted half
+which cancel. That reading is no longer supported: the halves are not stable across runs, so the
+"cancelling" story is one interpretation of noise rather than a measured structure.
 
 The obvious explanation — "scenarios named for a topic work, scenarios named for a client's mood
 don't" — was **tested and is too weak to act on**: inversion runs 33% for mood-named scenarios
 against 8% for topic-named ones, but 5 of 15 mood-named ones work fine. Don't build a router on
-it. The usable test is the direct one: run the control arm per scenario, ~2 LLM calls each.
+it. **And the direct per-scenario control arm recommended here is exactly what failed replication**
+— at 8 responses per scenario it does not have the power the recommendation assumed.
 
 ### The dominant cause of the low rate: contingent moves graded as mandatory
 
@@ -827,7 +844,8 @@ milestone is the wrong unit of feedback and that becomes unavoidable.
 - 17 of 405 milestones were found to be unsatisfiable by anyone (needing seniority, or being unobservable, or being call logistics) — proven by taking 74 attempts and returning zero hits. They're flagged and skipped. **Its apparent metric gain is exactly the size of the noise band and is retracted**; the change is worth keeping only because each of those 74 misses had been generating written coaching advice telling a CSM to do something impossible.
 - **The scoring noise floor is measured: ±0.006 weighted, with 15.6% of milestones moving between two identical runs.** A same-config control run is therefore mandatory before trusting any A/B, and **at this sample size no change below ~+0.02 is measurable at all** — two of three changes this session landed inside the noise. Beware also that variance is biased *upward* here, not symmetric, because at a ~3% hit rate almost everything sits at zero and a random flip can only go up.
 - **That open question is now answered, and the answer is "no".** We graded the expert against his own rubrics with both circularities closed. He scores **0.114**; grading him against *deliberately unrelated* rubrics scores **0.090**. A ratio of 1.27 : 1 is not a measuring instrument, and the CSM's 0.074 sits *below* the unrelated-rubric null. **Every Layer D hit rate produced so far, including the whole 2.4% → 3.1% improvement arc, is uninterpretable as CSM performance.** Leakage was not the culprit — the clean and leaked numbers are 0.114 and 0.161.
-- **But Layer C is not uniformly broken — it is bimodal, and the average was hiding it.** Per scenario, 16 of 40 discriminate clearly and **7 have a control score of exactly 0.000** (real working instruments), while **7 invert** — the wrong rubric scores *higher* than the right one. The two halves cancel in every global average, which is why four consecutive fixes each nudged the needle and none broke 4%.
+- **RETRACTED 2026-08-12: "Layer C is bimodal" did not survive replication.** One run showed 16 of 40 scenarios discriminating, 7 with a control of exactly 0.000, and 7 inverting. Re-measured twice, three independent runs agree on a scenario's verdict only **41–47%** of the time, with SHIP↔DISABLE sign flips on the extremes — the worst-inverted scenario came back best. The per-scenario gap moves a median of **0.138** against a ±0.05 band, so the band is a third the size of its own noise. Causes are sample-of-one on both axes: 8 responses per scenario, and a null built from a single arbitrary partner rubric. **Only the corpus-level result survives; no scenario may be shipped, disabled or gated on the per-scenario table.**
+- **The per-milestone objective function was built, run, and failed both its own pre-registered gates (2026-08-12).** At 8 attempts per arm the weighted score quantizes to steps of 0.0625, so the discrimination gate trips on a single stray partial hit in the control — the 7 scenarios a previous run called known-good produced **0 of 33** scoreable milestones. Its applicability judge failed its own null too (0.147 matched vs 0.120 unrelated, **1.22 : 1**) even though it demonstrably *does* vary with the client turn — the defects were in how it was asked: the prompt instructed sparsity, and "return a subset" invites picking a top few and stopping. Nothing was written to the database and `require_validated_milestones` stays `false`. **The lesson that generalises: ask for an explicit verdict on every item, never a returned subset.**
 - **The dominant cause of the low rate is a grading-model bug, not a wording bug: contingent moves are graded as mandatory.** The dead criteria all carry an unstated precondition — a specific moment in the call (introducing yourself, offering to screen-share), a specific client history, or a specific artifact to point at. Real moves, conditionally appropriate, graded as required. The mechanism meant to catch this is dead code: 234 of 235 milestones are labelled "fixed" and the conditional trigger fires **0 times out of 226**. This is why rewriting the wording twice didn't help.
 - **Satisfiability and discrimination are independent axes** (correlation −0.038), so a fix must target both deliberately. Naming a criterion's subject matter triples its full-hit rate and cuts dead milestones from 34% to 13%, yet does nothing for discrimination — and 83% of criteria are pure behavioural prose with no subject at all.
 - **Two of our own plausible hypotheses were tested and killed the same night**, which is the argument for measuring over reasoning. "Habitual moves get less credit" — false, frequency is uninformative (correlation −0.019, flat across every band), so **a frequency ceiling for milestones would have been wasted work**. "Criteria discriminate because they name their subject" — false, correlation −0.038.
