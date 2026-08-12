@@ -206,8 +206,9 @@ def _pass1(info, base_responses, extra_responses, tuning):
     vecs = embedder.embed_document_matrix(clauses)
     scenario_calls = len({c for c, _ in packed})
 
-    clauses, vecs, positions, packed, relevance = _relevance_filter(
-        clauses, vecs, positions, packed, info, tuning.milestone_relevance_percentile)
+    clauses, vecs, positions, packed, _pairs, relevance = _relevance_filter(
+        clauses, vecs, positions, packed, [None] * len(clauses), info,
+        tuning.milestone_relevance_percentile)
     result["n_clauses_after_relevance"] = len(clauses)
     result["extra_surviving_relevance"] = sum(1 for _, o in packed if o == "extra")
 

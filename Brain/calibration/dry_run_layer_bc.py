@@ -31,8 +31,8 @@ What it measures, and why each matters:
 Nothing is written to Postgres or Pinecone and no LLM is called.
 
 Usage (from Brain/, venv active):
-    python dry_run_layer_bc.py --limit 30      # fast smoke test
-    python dry_run_layer_bc.py                 # full corpus
+    python calibration/dry_run_layer_bc.py --limit 30      # fast smoke test
+    python calibration/dry_run_layer_bc.py                 # full corpus
 """
 from __future__ import annotations
 
@@ -41,6 +41,13 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
+
+# Brain/ is this file's parent -- put it on sys.path so the shared packages
+# (config, shared, v1, v2, preprocessing) resolve whether this script is run
+# directly (python calibration/x.py) or imported (from calibration import x).
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
 
 from config import load_config
 from preprocessing import embedder, segmenter
@@ -207,8 +214,10 @@ def _milestone_counts(responses, info, percentile, tuning_c):
     if len(all_clauses) < 6:
         return None
     vecs = embedder.embed_document_matrix(all_clauses)
-    kept_clauses, kept_vecs, _pos, kept_calls, _rel = layer_c._relevance_filter(
-        all_clauses, vecs, positions, calls, info, percentile
+    # None pairs: this sweep has no pair provenance and does not need it -- the
+    # argument exists so Layer C's describe step can reach a cluster's client turns.
+    kept_clauses, kept_vecs, _pos, kept_calls, _pairs, _rel = layer_c._relevance_filter(
+        all_clauses, vecs, positions, calls, [None] * len(all_clauses), info, percentile
     )
     if len(kept_clauses) < 6:
         return None
