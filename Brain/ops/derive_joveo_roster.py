@@ -50,8 +50,21 @@ def norm(name: str) -> frozenset:
 
 
 def main() -> None:
-    rosters = sorted((_BRAIN / "recordings").glob("*.speakers.json"))
-    print(f"Avoma rosters found: {len(rosters)}")
+    # BOTH sides. Naren's rosters alone can only recognise Joveo staff who appear in his
+    # calls too, so an implementation engineer who only ever joins CSM calls stays
+    # invisible -- and those are exactly the people on a "uat" or "move to production"
+    # call. backfill_csm_speaker_roster.py fetches the CSM side; reading it here is what
+    # makes that fetch count, because ego_trap/ does NOT read speakers.json at all. It
+    # classifies from csm_name plus JOVEO_SPEAKER_NAMES, so the authoritative data has to
+    # be fed INTO that list rather than consumed directly.
+    naren_rosters = sorted((_BRAIN / "recordings").glob("*.speakers.json"))
+    csm_rosters = sorted((_BRAIN / "csm_recordings").glob("*.speakers.json"))
+    rosters = naren_rosters + csm_rosters
+    print(f"Avoma rosters: {len(naren_rosters)} naren + {len(csm_rosters)} csm"
+          f" = {len(rosters)}")
+    if not csm_rosters:
+        print("  WARNING: no CSM rosters. Run ops/backfill_csm_speaker_roster.py --run"
+              " first, or this can only see staff who appear in Naren's calls.")
 
     by_email: dict[frozenset, set] = {}
     is_rep_only: dict[frozenset, set] = {}
