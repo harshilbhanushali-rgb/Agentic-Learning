@@ -728,17 +728,19 @@ embedding:
 
   gemini_model: gemini-embedding-2
 
-  # Native output is 3072. The model is Matryoshka-trained, so a shorter vector is a
-  # truncation of the same one -- which means ONE api call yields every level and the
-  # levels can be compared for free.
+  # The model's native width. Two consequences to keep in view rather than discover:
   #
-  # 768 is not a downgrade by default, it is what the rest of this system is built for:
-  # Pinecone index narens-brain is a 768-dim index, and the Layer A clause matrix at
-  # 74k x 3072 float32 is 867 MiB against 217 MiB -- on a box where spaCy's CONTIGUOUS
-  # 392 MiB allocation already fails intermittently from address-space fragmentation.
-  # Raise it only if the labelled-sample comparison shows 3072 genuinely separates
-  # better, not on the assumption that more dimensions must be better.
-  gemini_dimensions: 768
+  #  * Pinecone index narens-brain is a 768-dim index, so 3072 needs a NEW index and 4x
+  #    the storage across both namespaces -- a migration, not a config change.
+  #  * The Layer A clause matrix at 74k x 3072 float32 is 867 MiB against 217 MiB, on a
+  #    box where spaCy's CONTIGUOUS 392 MiB allocation already fails intermittently from
+  #    address-space fragmentation. Watch for MemoryError in Layer A specifically.
+  #
+  # The model is Matryoshka-trained, so 1536 or 768 is a truncation of this same vector
+  # and ONE api call yields every level. That makes "is 3072 actually worth it" a
+  # measurement rather than a guess -- the labelled-sample comparison scores all three
+  # levels for free, and only then is there a reason to drop.
+  gemini_dimensions: 3072
 
   # Inputs per request. The binding quota is tokens-per-minute, not requests-per-minute:
   # at ~25 tokens a clause this packs ~2500 tokens per request, so 30k TPM allows about
