@@ -291,6 +291,7 @@ Core principle: **cluster freely, then triage clusters against evidence.** Filte
 
 Calibration gotchas:
 
+- **SYMMETRIC FILTERING. Any filter applied to one arm must apply to the other, or the comparison measures the filter instead of the thing.** This codebase has hit this class of bug at least four times and grew a separate defence for each — `compare_criteria_ab.py`'s attempt-drift check (refuses above 15%), `replay_layer_c_admitted.py`'s volume-matched placebo, `trial_skills.py`'s as-written control on identical items, and the profile-rebuild spec's rule that coverage arms report unconditional `W` because `not_called_for` shrinks their denominator. It was never written down as one rule, which is why the instances kept recurring. **Two live examples.** (1) `score_naren_ceiling.py` compares **A3 against B across different response populations** — see the AMENDED block under the ceiling section below; the validity verdict flips depending on which arm pair you use. (2) `compare_embedders.py`'s `coupling` criterion sent triggers as `RETRIEVAL_QUERY` and responses as `RETRIEVAL_DOCUMENT` while bge had no task split at all — already recorded as confounded. **And one caught before it cost anything:** `calibration/trial_head_to_head.py` initially applied `v1/layer_b._is_substantive` to the CSM's trigger but not to the CSM's *response*, while `layer_b.extract_pairs` filters BOTH sides — so 19.8% of CSM replies entered as `"Yeah."` against expert replies that are substantive by construction, handing the expert free wins. Fixing it also **halved the length confound** (median log length ratio −0.68 → −0.34), which is the giveaway that an asymmetric filter is never only about the rows it drops. **The check to run: for every arm, list what was filtered, and diff the lists.** A guard belongs in the harness (a printed population diff, or an assert), not in a reviewer's memory.
 - **NEVER calibrate on the first N scenarios. Alphabetical is not a sample — measured 2026-08-13.** `--limit 8` on `calibration/trial_layer_c_arms.py` returned `ai_capability_discovery`, `application_conversion_flow_discovery`, `ats_*` (four of them), `backend_workflow_logic_discovery` and `budget_and_performance_strategy_optimization` — **every one a subject-matter scenario and not a single client-posture one**, because those all begin `client_` and sort after `budget`. The ceiling run measured those two populations behaving differently (subject-matter mean gap +0.057, 2/25 inverted; posture −0.019, **5/15 inverted**), so an alphabetical prefix silently tests a fix on the half that already worked and reports it as a general result. Four arm comparisons were run this way before the bias was noticed. Use `--sample N` (seeded, stratified, preserves the corpus's posture/subject mix) for any number you intend to believe; `--limit` is a path test only and now prints a warning saying so. **15–20 scenarios is the practical floor** — below that a stratum can hold one or two members and per-population conclusions stop being safe. The report prints the sample's composition and shouts if a stratum is empty. Generalises beyond this harness: every subset selector in `calibration/` should be checked for what it *excludes*, not just how many it keeps.
 - `min_call_support_fraction` is **inert** at this corpus size (dropped 0–3 of 226 clusters across the whole sweep grid) because BERTopic's `min_cluster_size` is already 50 clauses. It is a small-corpus safety floor — do not credit it with removing junk.
 - `merge_cosine_threshold` and `ubiquity_ceiling` **interact**: merging unions the member call sets, which raises each surviving cluster's coverage. They cannot be tuned independently.
@@ -994,6 +995,172 @@ time; `v2/layer_c._FAST_DESCRIBE_MODEL` matched. **This changes production outpu
 number in this file was produced under `gemma-4-31b-it`** — comparisons against them are
 model-confounded exactly as `arm0_baseline` (1.58) vs `arm0r_legacy_regen` (1.04) already is.
 
+### Head-to-head comparison — the last live idea for wall 1, and it is CLOSED (2026-08-13)
+
+Pre-registration: `docs/superpowers/specs/2026-08-13-head-to-head-comparison-design.md`.
+Plan: `docs/superpowers/plans/2026-08-13-head-to-head.md`. Harness
+`calibration/trial_head_to_head.py` (+ `calibration/probe_retrieval_gate.py`,
+`shared/head_to_head.py`, `PROMPT_HEAD_TO_HEAD_BATCH`, `tests/test_head_to_head.py`).
+Zero Postgres writes, zero `tuning.yaml` keys. **~250 Gemma calls total.**
+
+Drop criteria entirely: for a CSM's client moment, retrieve Naren's real reply to the nearest
+comparable moment and ask a blinded judge which reply handled it better. Named in the
+profile-rebuild spec as the fallback if its gate failed. It failed; this is that fallback.
+**The attraction was that the null is STRUCTURAL** — a useless judge scores 50%, so unlike
+every criteria attempt there is nothing to argue about.
+
+**DO NOT RETRY THIS. It failed for two INDEPENDENT reasons, and only one of them is about the
+design.**
+
+| control | run 1 | run 2 (pinned, both keys) | bar | |
+| --- | --- | --- | --- | --- |
+| C1 position-swap agreement, pooled | 0.694 | **0.669** | >= 0.75 | **FAIL** both |
+| C2 expert vs expert | 0.582 | 0.543 | within [0.40, 0.60] | pass both |
+| C3 sensitivity vs deranged-unrelated | 0.713 | 0.750 | >= 0.75 | marginal, lands ON the bar |
+| **C4 transplant penalty** | **0.843** | **0.835** | < 0.75 | **FATAL**, replicated to 0.008 |
+
+- **C4 is the one that matters, and it would have produced a spectacular FALSE POSITIVE.**
+  Both sides of C4 are Naren; the only difference is that one reply is *native* to the moment
+  and the other *transplanted* from a neighbouring one. Native wins **83.5%**. In the headline
+  the CSM is always native and the expert always transplanted, so **W3 would have reported
+  "the CSM outperforms Naren" — pure retrieval artifact.** The control caught it before the
+  headline was ever computed. This is the argument for pre-registering controls, not a
+  footnote to it.
+- **Not length** (C4's length-matched cell is 0.875, *higher*), **not position** (slot-1 win
+  rates 0.485–0.520, i.e. no positional bias at all), **not retrieval quality** (by cosine
+  quartile 0.90/0.82/0.83/0.79 — tighter matching reduces it but never below the bar).
+- **C1 is the deeper failure and no pairing design fixes it.** The judge reverses itself on
+  ~20% of items when the two replies are swapped; signal share is `2a-1` = **0.34**. That is a
+  property of the judge, not of the comparison.
+- **C3 is the tell.** The judge separates a matched reply from a *deliberately unrelated* one
+  only 75/25. A judge that can barely tell relevant from irrelevant cannot tell good from
+  better. Same shape as the criteria scorer's 1.2:1 — weakly above chance, not an instrument.
+- **The mechanism is understood, not merely observed:** Naren never spoke into this client's
+  moment, so his reply can only ever reach the judge as a transplant. That is what comparing
+  across corpora *is*; it is not a tuning problem.
+
+**Model provenance is recorded per verdict (`judged_by`) and per artifact (`models`) — do this
+in any future judge harness.** Run 2 pinned `gemini-3.5-flash-lite` with `gemini-3.1-flash-lite`
+as the only fallback and still blended 8-18% of batches under rate limits (c4 was least
+blended at 92.5% primary, and still 0.835). Without this field a verdict has unknown
+provenance, which is exactly what makes the ceiling run's arm B uninterpretable.
+**Gotcha found the same day: `call_gemma(fallback_enabled=False)` also disables KEY ROTATION**
+— a failure then raises `GemmaError` instead of `_ModelExhausted`, and only the latter is
+caught by the key loop ("single-model, single-key" in its own docstring). To pin the model
+while keeping both keys live, pass `fallback_enabled=True, fallback_models=()`.
+
+**What survives and is reusable by any future approach:**
+
+- **`artifacts/h2h_moments.json` — 589 verified moments across 98 calls / 68 scenarios**,
+  content-hashed (`moments_sha`). Built from all 106 `csm_recordings/` transcripts, because
+  the unit is a *moment* and needs no rubric, no `milestone_performance` and no Layer D run.
+  Funnel: 6,482 client turns -> 4,114 substantive -> 2,200 non-sink -> 853 with a CSM reply
+  -> 589 after the symmetry fix and the retrieval floor.
+- **The retrieval gate passes, in both directions**, and `calibration/probe_retrieval_gate.py`
+  re-reports free via `--load`. Naren->Naren clean top-1 **0.812** vs a 0.631 base (95% CI on
+  the lift [+0.168, +0.196]); cross-corpus CSM->Naren **0.791** vs 0.631 ([+0.130, +0.190]).
+  Retrieval was never the problem.
+- **First measurement of the trigger-vs-trigger cosine band in this repo:** p10=0.630
+  p25=0.659 p50=0.689 p75=0.717 p90=0.746 — higher and tighter than the trigger-vs-scenario
+  band `relative_margin` was calibrated against (p10=0.496 p50=0.550 p90=0.613). **Never
+  borrow a floor between the two.**
+- Restricting retrieval to **coachable-filed pairs** removes the 18.8% of neighbours that are
+  sink-filed, by construction. This is also why retrieval runs against Postgres and not
+  Pinecone: `is_coachable` is not in the `"triggers"` namespace metadata, so the filter is not
+  expressible there.
+
+**Where this leaves the profile effort: BOTH WALLS ARE NOW CLOSED BY MEASUREMENT.** Wall 1
+(the ruler) has had criteria scoring, the four-arm rebuild and head-to-head all fail
+pre-registered gates. Wall 2 (the axes) has no vocabulary at any granularity with enough
+observations. Four approaches, four gates, four failures, each with a specific measured cause.
+**A fifth variant of "get a model to referee" is not the next step** — every approach tried so
+far asks an LLM to judge quality, and the referee is what keeps failing. What would be
+different in kind is a unit of evidence whose ground truth is not another model's opinion:
+real outcomes (deal progression, churn) or human labels from the CS team.
+
+### Layer D over 100 CSM calls, and two defects it exposed (2026-08-13)
+
+Ran the EXISTING Layer D unchanged over 100 of the 107 CSM transcripts (7 excluded, see
+below) instead of the ~19 used until now. One variable: input volume. Log
+`logs/run_ego_trap_100calls.log`, 100/100 transcripts, zero tracebacks, ~70 min,
+~230 flash-lite calls across both keys, embeddings local.
+
+| | 19 calls | 100 calls |
+| --- | --- | --- |
+| attempts | 889 | **4,181** |
+| milestones touched | 237 | **378** |
+| per milestone (mean) | 3.75 | **11.1** |
+| per milestone (MEDIAN) | — | **7.0** |
+| weighted | 0.074-0.080 | **0.0785** |
+
+- **Observations per milestone grow SUB-LINEARLY, and a projection that assumes otherwise
+  is wrong.** 5.3x the calls gave 4.7x the attempts but only 2.9x the per-milestone mean,
+  because more calls also drag previously-untouched milestones into play (237 -> 378). A
+  pre-run estimate of "~20-30 per milestone" was made assuming a fixed denominator and the
+  real median is **7**. **Reaching a median of 25 needs ~350+ calls, not the ~130 first
+  quoted.** Any future "how many calls do we need" estimate must model the milestone count
+  growing too.
+- **A minority IS now well powered**: 26 milestones clear 23 attempts and 3 clear 83
+  (the strictest standard). The distribution is 108 at 0-4, 155 at 5-11, 89 at 12-22.
+  That is the population a partial vocabulary would report on — see the skills section.
+- **The weighted score did not move** (0.0785 vs the 0.074-0.080 noise band), which is the
+  correct outcome: same rubrics, same grader, so more data makes the number precise rather
+  than different.
+
+**DEFECT 1 — `Signal_Recognition_Failure` is 98.6% a segmentation artifact. MEASURED, free,
+over all 100 transcripts.** `transcript_parser.turns_until_next_client` stops at the NEXT
+CLIENT turn, so when a client speaks several turns in a row — a pause, a continued thought,
+or the transcriber splitting one utterance — every turn but the last gets an **empty**
+response window and `classify_response_outcome` returns `"none"` by construction. Of 5,731
+client turns: 2,144 `csm` / 1,103 `other_joveo` / **2,484 `none`**. Of those 2,484,
+**2,449 (98.6%) are immediately followed by ANOTHER CLIENT TURN**, 35 are the last turn of
+the call, and **0 are genuine silence.** It does not measure whether the CSM responded; it
+measures whether a client turn happened to be last in its block. **This retires the claim
+recorded here that "36% of gap_events are `Signal_Recognition_Failure` — no CSM response
+existed to score at all"**, which had been cited as a real cause of the low hit rate. Scored
+milestones are UNAFFECTED (only `csm` outcomes are scored, and those are correct); what is
+corrupted is the failure count and any coaching output derived from it. Fixing it means
+treating consecutive client turns as ONE client move, which changes what counts as a signal
+and therefore the denominator — pre-register it.
+
+**DEFECT 2 — the GRADER never sees the client turn, the scenario, or the milestone label.**
+Read from `ego_trap/milestone_scoring.py::score_milestones_batch`, the entire per-exchange
+prompt is: Naren's benchmark response, the CSM response, and per milestone only
+`description` + `detection_hint`. Not sent: the **client turn**, the **scenario_key**, and
+the **`label`** — which matters because the 2026-08-10 rewrite stripped subject matter out
+of descriptions while labels kept it (`"Identifying ATS Options"` vs *"List relevant
+software platforms to establish the scope…"*). The situational anchoring the ceiling run
+identified as missing is sitting in a field that is already stored and is discarded at
+grading time. **This is the same missing-INPUT defect the Layer C rebuild found in the
+WRITER, one stage later and never diagnosed** — so it is not a fourth wording pass, which
+stopping condition #1 ruled out. Cheap to test against the ceiling run's own null (matched
+vs deliberately unrelated rubric); change one field at a time.
+
+**Also unused: `rubrics.anti_patterns` has never been read by anything.** Layer D scores
+`milestones` and `soft_skills`; `anti_patterns` sits in every rubric untouched. It asks a
+genuinely different question ("did they do this specific bad thing" rather than "did they
+reproduce this specific good move"), which is a real reason it might discriminate where
+milestones do not — but `PROMPT_LAYER_C_V1` requires them to carry `"[inferred]"` and
+`"confidence": "inferred, unverified"`, so they are model guesses rather than clustered
+evidence, i.e. strictly weaker than the thing already scoring 1.2:1. **Soft skills are
+scored but have NEVER been separately validated** — the ceiling measurement was milestones
+only. Both are cheap to null-test against the data this run produced.
+
+**Data quality before the run — speaker roles are now as trustworthy as Naren's side.**
+`ops/check_csm_speakers.py` found **87 of 113 speakers unclassified**, and classification
+fails OPEN (an unlisted Joveo colleague is scored as THE CLIENT, so internal chatter becomes
+coaching findings). Fixed by deriving the roster from Avoma rather than a hand-kept list:
+`ops/backfill_csm_speaker_roster.py` (new) resolves each CSM transcript's `uuid[:8]` filename
+suffix against the meetings list — the meetings window is **end-EXCLUSIVE**, measured — and
+fetched **103/103** per-meeting rosters; `ops/derive_joveo_roster.py` (new) reads both sides
+and identifies Joveo staff by `@joveo.com` email rather than `is_rep` (which mislabels
+client-side contractors). 66 staff found, one unconfigured (`Shehzad karkhanawala`, added).
+**`ego_trap/` does NOT read `speakers.json` at all** — it classifies from `csm_name` plus
+`JOVEO_SPEAKER_NAMES` — so the authoritative data has to be fed INTO that list, which is
+what makes the fetch count. 7 transcripts excluded via the new `run_ego_trap.py --exclude`
+(applied BEFORE `run_id` is derived): 6 whose 417 `Unknown Speaker` turns cannot be
+attributed, plus `sample_call_priya_001` which has no mapped CSM.
+
 ### Layer C milestones were narration, not criteria — found and fixed (2026-08-10)
 
 **The single most important Layer D finding to date, and it was never a Layer D bug.** All
@@ -1125,9 +1292,30 @@ rubric.
 | CSM reference | 0.074 | **below the control** |
 
 **Signal-to-null is 1.2 : 1, reproduced three independent times** (0.114/0.090, 0.116/0.095).
-Both pre-registered failure conditions fired. **Every Layer D hit rate in this document, including
-the entire 2.4% -> 3.1% arc and the ±0.006 noise band it was read against, is uninterpretable as
-CSM performance.** Leakage was NOT the cause — clean vs leaked is 0.114 vs 0.161. The cause is
+Both pre-registered failure conditions fired.
+
+**AMENDED 2026-08-13 — that ratio compares two arms that do NOT share a response population, and
+the validity verdict flips on the pair you pick.** Read from `_build_items` and confirmed against
+`artifacts/naren_ceiling.json`: **A1 and B are built from the same sampled rows** (`for row in
+a1_sample:` appends to both), so they are population-symmetric, while **A3 draws from a different
+pool entirely** — secondary-label rows. Measured overlap: `A1 ∩ A3` is **45 pair_ids** out of
+371 / 346, with B at 383. The gate is applied as `W(B) >= 0.5 * W(A3)`, i.e. across that boundary:
+
+| comparison | ratio | B as a share of matched | `_T_INSTRUMENT` |
+| --- | --- | --- | --- |
+| A3 / B — the cited figure, **crosses populations** | 1.61 : 1 | 62% | **fails** |
+| A1 / B — **same responses both sides** | 2.26 : 1 | 44% | **passes** |
+
+**No arm pair is both leakage-clean AND population-symmetric.** A1 is leaked, so 2.26 is inflated
+by exactly what A3 removes; the clean symmetric figure is *unmeasured* because the arm that would
+give it — `a3_sample` scored against the partner rubric, call it **B3** — was never built (~94
+calls). Arm B is also model-split (793 `gemini-3.1` + 1040 `gemini-3.5`), so the exact ratios move
+with the subset: full-arm B is W=0.0709 against the 0.090 same-model subset quoted above.
+**The overall verdict still stands**, on the four-arm trial's independent failure (1.04 / 0.89 /
+1.09 against a fair same-model, same-clustering baseline, whose arms DO share a population) — but
+cite that trial, not this ratio, and treat "1.2 : 1" as softer than it reads.
+
+Leakage was NOT the cause — clean vs leaked is 0.114 vs 0.161. The cause is
 that the criteria are scenario-agnostic: the 2026-08-10 rewrite conflated "never narrate a person"
 (correct) with "never state the specific instance" (an over-correction), so criteria stopped
 identifying a situation.
