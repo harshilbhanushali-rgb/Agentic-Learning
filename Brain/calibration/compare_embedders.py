@@ -120,18 +120,39 @@ def band(sims: np.ndarray) -> dict:
     return {"p10": p10, "p50": p50, "p90": p90, "spread": p90 - p10}
 
 
-def score_space(trig: np.ndarray, resp: np.ndarray, sinks: np.ndarray,
-                reals: np.ndarray, labels: np.ndarray) -> dict:
-    """Every published signal, recomputed in one embedding space."""
-    coupling = np.einsum("ij,ij->i", trig, resp)
-    margin = (sinks @ trig.T).max(axis=0) - (reals @ trig.T).max(axis=0)
-    best = np.vstack([sinks, reals]) @ trig.T
-    raw_margin_auc = auc(margin, labels)
+def balanced_accuracy(pred: np.ndarray, truth: np.ndarray) -> float:
+    """Mean of per-class accuracy. Plain accuracy would reward always guessing the
+    majority class -- this sample is 63 coachable / 87 not."""
+    pred, truth = np.asarray(pred, bool), np.asarray(truth, bool)
+    if truth.all() or (~truth).all():
+        return float("nan")
+    return float((pred[truth].mean() + (~pred[~truth]).mean()) / 2)
+
+
+def score_space(trig_q: np.ndarray, trig_s: np.ndarray, resp_s: np.ndarray,
+                sinks: np.ndarray, reals: np.ndarray, labels: np.ndarray) -> dict:
+    """Three criteria in one embedding space.
+
+    trig_q is query-side (for matching against scenarios, production's asymmetry);
+    trig_s and resp_s are symmetric-side, because comparing a trigger to its OWN response
+    across two different task spaces measures the task split, not the model.
+    """
+    raw_margin = auc((sinks @ trig_q.T).max(axis=0) - (reals @ trig_q.T).max(axis=0), labels)
+
+    # THE PRODUCTION DECISION, scored against independent ground truth. layer_b files a
+    # pair to a sink -- permanently out of every rubric -- when the trigger's best match is
+    # a sink. This asks how often that call agrees with a label Gemma produced by READING
+    # the text. Replaces the old `spread` criterion, which measured the model's cosine
+    # scale rather than whether it decides anything correctly.
+    top_is_real = (reals @ trig_q.T).max(axis=0) >= (sinks @ trig_q.T).max(axis=0)
+
     return {
-        "trigger_response_coupling": auc(coupling, labels),
-        "sink_real_margin_raw": raw_margin_auc,
-        "sink_real_margin_corrected": corrected(raw_margin_auc),
-        "band": band(best.max(axis=0)),
+        "trigger_response_coupling": auc(np.einsum("ij,ij->i", trig_s, resp_s), labels),
+        "sink_real_margin_raw": raw_margin,
+        "sink_real_margin_corrected": corrected(raw_margin),
+        "sink_routing_balanced_acc": balanced_accuracy(top_is_real, labels),
+        "sink_routing_kept_frac": float(top_is_real.mean()),
+        "band": band((np.vstack([sinks, reals]) @ trig_q.T).max(axis=0)),
     }
 
 
@@ -225,14 +246,19 @@ def run() -> dict:
 
     out = {"n_pairs": len(rows), "n_scenarios": len(scen_texts), "baseline_published": BASELINE}
 
-    # --- bge baseline, from the vectors stored in the artifact (exact reproduction) ---
+    # --- bge baseline, recomputed HERE rather than quoted ---
+    # Every baseline in this table is measured in this same run under the same rules. The
+    # previous version compared against figures published weeks ago and computed
+    # differently, which is how a criterion can appear to regress because the harness
+    # changed rather than the model.
     bge_t = np.asarray([r["trigger_vec"] for r in rows], dtype=np.float32)
     bge_r = np.asarray([r["response_vec"] for r in rows], dtype=np.float32)
     from preprocessing import embedder
     bge_s = embedder.embed_document_matrix(scen_texts)      # local, cached, free
     norm = lambda m: m / (np.linalg.norm(m, axis=1, keepdims=True) + 1e-10)
-    out["bge_768"] = score_space(norm(bge_t), norm(bge_r), norm(bge_s[~is_real]),
-                                 norm(bge_s[is_real]), labels)
+    # bge has no task types, so its query and symmetric vectors are the same object.
+    out["bge_768"] = score_space(norm(bge_t), norm(bge_t), norm(bge_r),
+                                 norm(bge_s[~is_real]), norm(bge_s[is_real]), labels)
 
     # --- gemini, one call per population, every width off the same vectors ---
     # One request PER TEXT -- measured, not assumed. An earlier version of this line said
@@ -246,62 +272,85 @@ def run() -> dict:
     # Triggers go in query-side, responses and scenarios document-side -- the same
     # asymmetry production uses. Gemini expresses it as a task type rather than a text
     # prefix, and _encode_gemini does that translation.
-    from preprocessing.embedder import _QUERY_PREFIX
-    g_t = _embed_gemini([r["trigger_text"] for r in rows], _QUERY_PREFIX, "1/3 triggers")
-    g_r = _embed_gemini([r["response_text"] for r in rows], "", "2/3 responses")
-    g_s = _embed_gemini(scen_texts, "", "3/3 scenarios")
-    out["gemini_native_width"] = int(g_t.shape[1])
+    from preprocessing.embedder import _QUERY_PREFIX, SYMMETRIC_PREFIX as _SYMMETRIC
+    trig_texts = [r["trigger_text"] for r in rows]
+    resp_texts = [r["response_text"] for r in rows]
+    g_tq = _embed_gemini(trig_texts, _QUERY_PREFIX, "1/4 triggers (query-side)")
+    g_ts = _embed_gemini(trig_texts, _SYMMETRIC, "2/4 triggers (symmetric)")
+    g_rs = _embed_gemini(resp_texts, _SYMMETRIC, "3/4 responses (symmetric)")
+    g_s = _embed_gemini(scen_texts, "", "4/4 scenarios (document-side)")
+    out["gemini_native_width"] = int(g_tq.shape[1])
+
+    # PERSIST THE PAID ARTIFACT, not just the conclusions drawn from it. The previous run
+    # saved only the scores, so correcting a criterion cost the full request budget again.
+    # .npz rather than JSON: 611 x 3072 floats is ~40MB of text and a fraction of that
+    # compressed, and it reloads as arrays instead of nested lists.
+    vec_path = ARTIFACTS_DIR / "embedder_compare_vectors.npz"
+    np.savez_compressed(vec_path, trigger_query=g_tq, trigger_sym=g_ts,
+                        response_sym=g_rs, scenario=g_s, is_real=is_real, labels=labels)
+    out["vectors_path"] = str(vec_path)
+    print(f"  saved raw vectors -> {vec_path}", flush=True)
 
     for w in WIDTHS:
-        if w > g_t.shape[1]:
+        if w > g_tq.shape[1]:
             continue
-        out[f"gemini_{w}"] = score_space(truncate(g_t, w), truncate(g_r, w),
-                                         truncate(g_s[~is_real], w),
-                                         truncate(g_s[is_real], w), labels)
+        out[f"gemini_{w}"] = score_space(
+            truncate(g_tq, w), truncate(g_ts, w), truncate(g_rs, w),
+            truncate(g_s[~is_real], w), truncate(g_s[is_real], w), labels)
     return out
 
 
+_CRITERIA = (("sink_real_margin_corrected", "real-vs-sink separation"),
+             ("trigger_response_coupling", "trigger<->response coupling"),
+             ("sink_routing_balanced_acc", "sink routing accuracy"))
+_MIN_DELTA = 0.03      # pre-registered: below this a difference is not called a difference
+
+
 def report(p: dict) -> None:
-    print("\n" + "=" * 76)
-    print(f"EMBEDDER COMPARISON -- {p['n_pairs']} labelled pairs, "
+    print("\n" + "=" * 78)
+    print(f"EMBEDDER COMPARISON (corrected) -- {p['n_pairs']} labelled pairs, "
           f"{p['n_scenarios']} scenarios")
-    print("=" * 76)
-    print(f"\n{'space':<14} {'margin(corr)':>13} {'coupling':>10} "
-          f"{'p10':>7} {'p50':>7} {'p90':>7} {'spread':>8}")
+    print("=" * 78)
+    print("\nEvery baseline below is recomputed in THIS run under the same rules.")
+    print(f"\n{'space':<14} {'margin(corr)':>13} {'coupling':>10} {'routing':>9}"
+          f" {'kept%':>7} {'p50':>7}")
     for key in ["bge_768"] + [f"gemini_{w}" for w in WIDTHS]:
         s = p.get(key)
         if not s:
             continue
-        b = s["band"]
         print(f"{key:<14} {s['sink_real_margin_corrected']:>13.3f}"
               f" {s['trigger_response_coupling']:>10.3f}"
-              f" {b['p10']:>7.3f} {b['p50']:>7.3f} {b['p90']:>7.3f} {b['spread']:>8.3f}")
+              f" {s['sink_routing_balanced_acc']:>9.3f}"
+              f" {s['sink_routing_kept_frac'] * 100:>6.0f}%"
+              f" {s['band']['p50']:>7.3f}")
 
-    print(f"\nPUBLISHED bge baseline: margin(corr) {BASELINE['sink_real_margin_corrected']}"
-          f"  coupling {BASELINE['trigger_response_coupling']}"
-          f"  spread {BASELINE['band_spread']}")
-
-    print("\nPRE-REGISTERED VERDICT (2 of 3 required)")
+    base = p.get("bge_768")
+    print(f"\nPRE-REGISTERED VERDICT -- beat bge on >=2 of 3 by >={_MIN_DELTA}")
     for key in [f"gemini_{w}" for w in WIDTHS]:
         s = p.get(key)
-        if not s:
+        if not (s and base):
             continue
-        checks = {
-            "margin>=0.65": s["sink_real_margin_corrected"] >= PASS["sink_real_margin_corrected"],
-            "coupling>=0.70": s["trigger_response_coupling"] >= PASS["trigger_response_coupling"],
-            "spread wider": s["band"]["spread"] > BASELINE["band_spread"],
-        }
-        n = sum(checks.values())
-        marks = "  ".join(f"{k}:{'Y' if v else 'n'}" for k, v in checks.items())
-        print(f"  {key:<13} {n}/3  {marks}   -> {'PASS' if n >= 2 else 'no'}")
+        wins, marks = 0, []
+        for field, name in _CRITERIA:
+            d = s[field] - base[field]
+            ok = d >= _MIN_DELTA
+            wins += ok
+            marks.append(f"{name} {d:+.3f}{'Y' if ok else 'n'}")
+        print(f"  {key:<13} {wins}/3  " + "  ".join(marks))
+        print(f"                -> {'PASS' if wins >= 2 else 'no'}")
 
     print("\nDIMENSION DECISION: ship 768 unless a wider vector wins by more than 0.02")
-    base = p.get("gemini_768")
+    small = p.get("gemini_768")
     top = p.get(f"gemini_{p.get('gemini_native_width', 3072)}")
-    if base and top:
-        d = top["sink_real_margin_corrected"] - base["sink_real_margin_corrected"]
-        print(f"  native minus 768 on margin(corr) = {d:+.3f}"
-              f"  -> {'wider width earns its cost' if d > 0.02 else 'ship 768'}")
+    if small and top:
+        for field, name in _CRITERIA:
+            d = top[field] - small[field]
+            print(f"  native minus 768 on {name:<28} {d:+.3f}"
+                  f"  {'wider earns it' if d > 0.02 else 'ship 768'}")
+
+    print("\nNOTE: gemini's cosine scale differs from bge's (see p50). Every threshold in"
+          "\ntuning.yaml was calibrated against bge's bands and must be re-derived before"
+          "\nany production swap -- that re-calibration is the cost, not the model.")
 
 
 def main() -> None:

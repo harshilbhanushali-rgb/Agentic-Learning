@@ -25,9 +25,30 @@ def _get_model() -> SentenceTransformer:
         _model = SentenceTransformer(_MODEL_NAME, device=_DEVICE)
     return _model
 
+_backend_override: str | None = None
+
+
+def set_backend(name: str | None) -> None:
+    """Override tuning.yaml's backend for THIS PROCESS only.
+
+    Exists so a calibration harness can compare backends without editing the shipped
+    config -- editing tuning.yaml to run a comparison is how a temporary experiment
+    becomes the production default by accident. Pass None to fall back to the file.
+
+    The cache key follows the override (see _cache_model_key), so vectors from the two
+    backends never collide and switching back never re-embeds anything.
+    """
+    global _backend_override
+    _backend_override = name
+
+
+def _active_backend() -> str:
+    return _backend_override or get_tuning().embedding.backend
+
+
 def _encode(texts: list[str], prefix: str) -> list[list[float]]:
-    """Dispatch to whichever backend tuning.yaml selects. The only fork in this module."""
-    backend = get_tuning().embedding.backend
+    """Dispatch to whichever backend is active. The only fork in this module."""
+    backend = _active_backend()
     if backend == "local":
         return _encode_local(texts, prefix)
     if backend == "gemini":
@@ -49,6 +70,9 @@ def _encode_local(texts: list[str], prefix: str) -> list[list[float]]:
     passes, so the vectors -- and therefore the cache -- are identical either way.
     """
     model = _get_model()
+    # The symmetric sentinel is a task-type marker, not text -- prepending it would embed
+    # a control string.
+    prefix = "" if prefix == SYMMETRIC_PREFIX else prefix
     inputs = [prefix + t for t in texts] if prefix else texts
     batch = _BATCH_SIZE
     while True:
@@ -72,7 +96,14 @@ def _encode_local(texts: list[str], prefix: str) -> list[list[float]]:
 # bge encodes query-vs-document by PREPENDING a text prefix. Gemini expresses the same
 # asymmetry as a task type, so the prefix is translated rather than sent as text -- sending
 # bge's instruction sentence to Gemini would embed the instruction itself.
-_GEMINI_TASK = {_QUERY_PREFIX: "RETRIEVAL_QUERY", "": "RETRIEVAL_DOCUMENT"}
+#
+# SYMMETRIC_PREFIX is a sentinel, never prepended to any text. Comparing a trigger to its
+# own response is symmetric, so both sides must share one task space -- scoring one as a
+# query and the other as a document measures the task split rather than the model. bge has
+# no equivalent, so the local backend treats the sentinel as no prefix.
+SYMMETRIC_PREFIX = "\x00symmetric\x00"
+_GEMINI_TASK = {_QUERY_PREFIX: "RETRIEVAL_QUERY", "": "RETRIEVAL_DOCUMENT",
+                SYMMETRIC_PREFIX: "SEMANTIC_SIMILARITY"}
 
 # Same split gemma.py draws: a quota error means this key is done, so rotate immediately
 # rather than sleeping on it; a transient error means retry the same key with backoff.
@@ -118,6 +149,38 @@ def _throttle(tokens: int) -> None:
             return
         oldest = min(t for t, _ in _recent_calls)
         time.sleep(max(0.25, _RATE_WINDOW - (now - oldest) + 0.15))
+
+
+# A key that hit a limit is parked rather than retried on the very next request. Without
+# this, an exhausted key costs a wasted round-trip on EVERY subsequent call -- observed
+# 2026-08-13, key 1 exhausted its daily quota and every one of the remaining ~330 requests
+# paid a rejection before falling through to key 2.
+#
+# The park doubles on consecutive failures because a per-minute limit and a per-DAY limit
+# report the same message, and nothing in the error distinguishes them. Backing off
+# geometrically costs one wasted call every few minutes for a dead key, while a key that
+# was merely rate-limited comes back on its own.
+_key_parked_until: dict[str, float] = {}
+_key_fail_streak: dict[str, int] = {}
+_PARK_BASE = 60.0
+_PARK_MAX = 900.0
+
+
+def _park(key: str) -> None:
+    streak = _key_fail_streak.get(key, 0) + 1
+    _key_fail_streak[key] = streak
+    _key_parked_until[key] = time.time() + min(_PARK_BASE * 2 ** (streak - 1), _PARK_MAX)
+
+
+def _unpark(key: str) -> None:
+    _key_fail_streak.pop(key, None)
+    _key_parked_until.pop(key, None)
+
+
+def _available(keys: list[str]) -> list[str]:
+    """Keys not currently parked, in order. Empty means every key is cooling down."""
+    now = time.time()
+    return [k for k in keys if _key_parked_until.get(k, 0.0) <= now]
 
 
 def _classify(err: Exception) -> str:
@@ -171,7 +234,8 @@ def _encode_gemini(texts: list[str], prefix: str) -> list[list[float]]:
         _throttle(_estimate_tokens(text))
         vector, last_err = None, None
         for attempt in range(_MAX_ROUNDS):
-            for n, key in enumerate(keys):
+            usable = _available(keys) or keys      # all parked -> try anyway rather than stall
+            for n, key in enumerate(usable):
                 try:
                     resp = _gemini_client(key).models.embed_content(
                         model=cfg.gemini_model,
@@ -184,12 +248,19 @@ def _encode_gemini(texts: list[str], prefix: str) -> list[list[float]]:
                         raise RuntimeError(
                             f"expected 1 embedding for 1 text, got {len(got)}")
                     vector = got[0].values
+                    _unpark(key)
                     break
                 except Exception as e:                      # noqa: BLE001 - classified below
                     last_err, kind = e, _classify(e)
                     if kind == "fatal":
                         raise
-                    print(f"[embedder] key {n + 1}/{len(keys)} {kind}: {str(e)[:120]}")
+                    if kind == "limit":
+                        _park(key)
+                        wait = _key_parked_until[key] - time.time()
+                        print(f"[embedder] key {n + 1}/{len(usable)} limited; "
+                              f"parked {wait:.0f}s")
+                    else:
+                        print(f"[embedder] key {n + 1}/{len(usable)} {kind}: {str(e)[:100]}")
             if vector is not None:
                 break
             wait = 2 ** (attempt + 1)
@@ -218,7 +289,7 @@ def _cache_model_key() -> str:
     asked for -- silently, and only for texts that happened to be cached already.
     """
     cfg = get_tuning().embedding
-    if cfg.backend == "local":
+    if _active_backend() == "local":
         return _MODEL_NAME
     return f"{cfg.gemini_model}@{cfg.gemini_dimensions}"
 

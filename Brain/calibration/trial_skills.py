@@ -399,16 +399,36 @@ def _mechanics_control(groups: list[dict], items: list[dict]) -> dict:
 
 
 def run(items: list[dict], config, model: str | None, seed: int,
-        n_judge_groups: int = _N_JUDGE_GROUPS, n_null: int = _N_NULL_PAIRS) -> dict:
+        n_judge_groups: int = _N_JUDGE_GROUPS, n_null: int = _N_NULL_PAIRS,
+        reuse_behaviours: dict | None = None, skip_control: bool = False) -> dict:
     """The whole measurement. Flushes nothing itself -- the caller writes as stages land."""
     texts = [it["description"] for it in items]
     scenario_keys = [it["scenario_key"] for it in items]
 
-    print(f"[1/5] control sweep on {len(items)} descriptions AS WRITTEN", flush=True)
-    control_rows, _ = _sweep_with_groups(_embed(texts), scenario_keys)
+    if skip_control:
+        # The control answers "is the abstraction pass inert" and already answered it
+        # decisively (56 groups as-written vs 14 abstracted at t=0.7). Re-running it in a
+        # new vector space costs a full second embedding of the corpus for no new
+        # information, and on a metered backend that is half the budget.
+        print("[1/5] control sweep SKIPPED (already established; saves "
+              f"{len(items)} requests)", flush=True)
+        control_rows = []
+    else:
+        print(f"[1/5] control sweep on {len(items)} descriptions AS WRITTEN", flush=True)
+        control_rows, _ = _sweep_with_groups(_embed(texts), scenario_keys)
 
-    print(f"[2/5] abstracting {len(items)} descriptions", flush=True)
-    behaviours = abstract_behaviours(items, config, model)
+    if reuse_behaviours:
+        # CHANGE EXACTLY ONE THING. Re-using the saved abstraction means the embedder is
+        # the only difference from the run this is being compared against -- re-abstracting
+        # would vary the LLM's wording and the vector space at once, and neither could then
+        # be credited. Same reason arm0r_legacy_regen had to exist.
+        behaviours = {it["id"]: reuse_behaviours[it["id"]]
+                      for it in items if it["id"] in reuse_behaviours}
+        print(f"[2/5] REUSING {len(behaviours)} saved behaviours "
+              f"(no abstraction calls; embedder is the only variable)", flush=True)
+    else:
+        print(f"[2/5] abstracting {len(items)} descriptions", flush=True)
+        behaviours = abstract_behaviours(items, config, model)
     kept = [it for it in items if it["id"] in behaviours]
     if not kept:
         return {"error": "the abstraction pass returned nothing"}
@@ -595,6 +615,14 @@ def main() -> None:
     ap.add_argument("--model", default=None, help="override the describe model")
     ap.add_argument("--seed", type=int, default=20260813)
     ap.add_argument("--out", default=str(ARTIFACTS_DIR / "skills_trial.json"))
+    ap.add_argument("--embed-backend", choices=("local", "gemini"), default=None,
+                    help="override tuning.yaml for this process only")
+    ap.add_argument("--skip-control", action="store_true",
+                    help="skip the as-written sweep (already established; halves cost "
+                         "on a metered backend)")
+    ap.add_argument("--reuse-behaviours",
+                    help="load the abstraction from a prior artifact instead of "
+                         "re-running it, so the embedder is the only variable")
     args = ap.parse_args()
 
     if args.load:
@@ -622,11 +650,32 @@ def main() -> None:
         items = items[:12]
         print(f"SMOKE TEST: {len(items)} items, ~4 calls. Numbers are a path test, not a result.")
 
+    if args.embed_backend:
+        from preprocessing import embedder
+        embedder.set_backend(args.embed_backend)
+        print(f"EMBEDDER: {args.embed_backend} (process-only override; "
+              f"tuning.yaml is unchanged)")
+
+    reuse = None
+    if args.reuse_behaviours:
+        prior = json.loads(Path(args.reuse_behaviours).read_text(encoding="utf-8-sig"))
+        reuse = prior.get("behaviours") or {}
+        if not reuse:
+            print(f"No 'behaviours' in {args.reuse_behaviours} -- cannot reuse.")
+            return
+        print(f"REUSING {len(reuse)} behaviours from {args.reuse_behaviours}")
+        print("THE GATE IS UNCHANGED: V_MIN=%.2f and the same K/median bounds as the run"
+              "\nthis is compared against. A second attempt at a question that returned"
+              "\nno is exactly where a bar gets quietly moved." % V_MIN)
+
     from config import load_config
     payload = run(items, load_config(), args.model, args.seed,
                   n_judge_groups=3 if args.smoke else _N_JUDGE_GROUPS,
-                  n_null=3 if args.smoke else _N_NULL_PAIRS)
+                  n_null=3 if args.smoke else _N_NULL_PAIRS,
+                  reuse_behaviours=reuse, skip_control=args.skip_control)
     payload["smoke"] = args.smoke
+    payload["embed_backend"] = args.embed_backend or "tuning.yaml default"
+    payload["reused_behaviours_from"] = args.reuse_behaviours
 
     # Flush the paid results BEFORE reporting. One scored run lost all 95 LLM results
     # because a free lookup gated the persistence of expensive work.
