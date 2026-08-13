@@ -359,6 +359,51 @@ Respond ONLY with valid JSON -- one object per item id above:
 ]
 """
 
+# V2, 2026-08-13. The ONLY difference from V1 is that the purpose clause is banned.
+#
+# WHY. V1 says "Keep what the person is DOING and WHY". Measured on the real 405: that WHY
+# splintered ONE behaviour into thirty phrasings -- "explains a mechanism to clarify
+# functionality", "...to demonstrate value", "...to justify an approach", "...to demonstrate
+# how a goal is achieved" -- 55 items across 30 strings that are plainly one move. The
+# purpose is not the behaviour; it is the situation the behaviour was used in, and it varies
+# per instance by definition. Keeping it guarantees the thing this pass exists to prevent.
+#
+# This is the THIRD attempt at the same question (V1 with bge, V1 with gemini, now V2). The
+# gate does not move: V_MIN stays 0.80 and the K/median bounds are unchanged. If this fails,
+# the question is closed.
+PROMPT_SKILL_ABSTRACT_BATCH_V2 = """\
+Restate each coaching item as the underlying BEHAVIOUR, with the subject matter removed.
+
+You are not writing coaching text. These restatements are used only to group items that
+describe the same underlying move, so two items describing the same move must come out
+IDENTICAL even when they were done for different reasons or about different topics.
+
+Rules:
+- Drop every topic, product, tool, metric and client detail. "Ask open questions about
+  their ATS integration" and "Ask open questions about their budget" must BOTH become
+  "asks open questions".
+- State ONLY the move itself. Do NOT state its purpose, goal, or effect. Never write "to
+  demonstrate value", "to build trust", "to ensure alignment", "to set expectations",
+  "to clarify functionality" or anything of that shape. Those describe WHY the move was
+  made on one occasion, and the same move is made for different reasons every time.
+  "explains a mechanism to demonstrate value" and "explains a mechanism to justify an
+  approach" must BOTH become "explains a mechanism".
+- Keep the verb and its object-type only: probing, quantifying, reframing, conceding,
+  explaining a mechanism, proposing a next step, setting an expectation, building rapport.
+- Present tense, no subject, UNDER 8 WORDS. Shorter is better.
+- Never name a person. Never use he/she/they.
+- If an item is pure call mechanics (managing turns, screen sharing, scheduling), say
+  exactly "call mechanics".
+
+ITEMS:
+{items_block}
+
+Respond ONLY with valid JSON -- one object per item id above:
+[
+  {{"id": "<id>", "behaviour": "the topic-free, purpose-free behaviour, under 8 words"}}
+]
+"""
+
 # The counterweight in the skills-vocabulary test. Pre-registration:
 # docs/superpowers/specs/2026-08-13-layer-c-skills-vocabulary-design.md section 3.
 #

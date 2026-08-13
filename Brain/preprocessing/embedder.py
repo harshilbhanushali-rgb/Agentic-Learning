@@ -46,6 +46,26 @@ def _active_backend() -> str:
     return _backend_override or get_tuning().embedding.backend
 
 
+_reverse_key_order = False
+
+
+def set_key_order(reverse: bool) -> None:
+    """Try the LAST configured key first, for this process only.
+
+    Both keys look identical to the picker on a cold start -- neither has history, so it
+    takes keys[0] and that key absorbs the opening burst. When one key has already been
+    worked hard (or is nearer a daily ceiling), starting from the other end spreads the
+    load instead of reproducing the imbalance. After the first minute the headroom picker
+    balances them regardless of order.
+    """
+    global _reverse_key_order
+    _reverse_key_order = reverse
+
+
+def _ordered_keys(keys: list[str]) -> list[str]:
+    return list(reversed(keys)) if _reverse_key_order else keys
+
+
 def _encode(texts: list[str], prefix: str) -> list[list[float]]:
     """Dispatch to whichever backend is active. The only fork in this module."""
     backend = _active_backend()
@@ -125,10 +145,50 @@ _SYNC_EMBEDS_ONE_AT_A_TIME = True
 # Both ceilings are enforced, because the binding one changes with text length. Measured
 # on the first real run: 6/100 RPM and 7/1000 RPD used while TPM hit 34.66K/30K -- tokens
 # blew first and by a wide margin, so pacing on request count alone would 429 immediately.
+# PER KEY, not global. The limits are enforced per key, so a global budget aimed at
+# whichever key is tried first wastes every other key: measured 2026-08-13, a global
+# 100 RPM throttle sent all 100 to key 1, which then 429'd on its own RPM ceiling while
+# key 2 sat idle picking up only the overflow. Two keys, one key's throughput.
 _RPM_LIMIT = 100
 _TPM_LIMIT = 30_000
 _RATE_WINDOW = 60.0
-_recent_calls: list[tuple[float, int]] = []
+_recent_by_key: dict[str, list[tuple[float, int]]] = {}
+
+
+def _headroom(key: str, tokens: int) -> bool:
+    """Does this key have room for a request of this size inside its own rolling minute?"""
+    now = time.time()
+    hist = [(t, n) for t, n in _recent_by_key.get(key, []) if now - t < _RATE_WINDOW]
+    _recent_by_key[key] = hist
+    return (len(hist) < _RPM_LIMIT
+            and sum(n for _, n in hist) + tokens <= _TPM_LIMIT)
+
+
+def _record(key: str, tokens: int) -> None:
+    _recent_by_key.setdefault(key, []).append((time.time(), tokens))
+
+
+def _pick_key(keys: list[str], tokens: int) -> str:
+    """The first unparked key with headroom, waiting only if every key is saturated.
+
+    Ordering by headroom rather than always starting at keys[0] is what actually uses a
+    second key: with 2 keys this roughly doubles throughput instead of making key 2 a
+    failover that only sees traffic after key 1 has already 429'd.
+    """
+    while True:
+        for key in _available(keys) or []:
+            if _headroom(key, tokens):
+                return key
+        now = time.time()
+        waits = []
+        for key in keys:
+            hist = _recent_by_key.get(key, [])
+            if hist:
+                waits.append(_RATE_WINDOW - (now - min(t for t, _ in hist)) + 0.15)
+            parked = _key_parked_until.get(key, 0.0) - now
+            if parked > 0:
+                waits.append(parked + 0.15)
+        time.sleep(max(0.25, min(waits) if waits else 0.25))
 
 
 def _estimate_tokens(text: str) -> int:
@@ -138,17 +198,9 @@ def _estimate_tokens(text: str) -> int:
     return max(8, len(text) // 4 + 8)
 
 
-def _throttle(tokens: int) -> None:
-    """Block until this request fits inside BOTH rolling-60s budgets."""
-    while True:
-        now = time.time()
-        _recent_calls[:] = [(t, n) for t, n in _recent_calls if now - t < _RATE_WINDOW]
-        spent = sum(n for _, n in _recent_calls)
-        if len(_recent_calls) < _RPM_LIMIT and spent + tokens <= _TPM_LIMIT:
-            _recent_calls.append((now, tokens))
-            return
-        oldest = min(t for t, _ in _recent_calls)
-        time.sleep(max(0.25, _RATE_WINDOW - (now - oldest) + 0.15))
+# _throttle is gone. It enforced ONE global budget and then spent all of it on whichever
+# key was tried first, so a second key only ever saw traffic after the first had already
+# 429'd. Rate accounting is per key now -- see _pick_key.
 
 
 # A key that hit a limit is parked rather than retried on the very next request. Without
@@ -164,6 +216,10 @@ _key_parked_until: dict[str, float] = {}
 _key_fail_streak: dict[str, int] = {}
 _PARK_BASE = 60.0
 _PARK_MAX = 900.0
+
+# How many hosted embeddings to buy before writing them to the cache. Small enough that a
+# crash loses little, large enough that the sqlite write is not per-request.
+_CACHE_FLUSH_EVERY = 25
 
 
 def _park(key: str) -> None:
@@ -226,16 +282,19 @@ def _encode_gemini(texts: list[str], prefix: str) -> list[list[float]]:
     from config import load_config
 
     cfg = get_tuning().embedding
-    keys = list(load_config().gemma_api_keys) or [load_config().gemma_api_key]
+    keys = _ordered_keys(list(load_config().gemma_api_keys)
+                         or [load_config().gemma_api_key])
     task = _GEMINI_TASK.get(prefix, "RETRIEVAL_DOCUMENT")
 
     out: list[list[float]] = []
     for i, text in enumerate(texts):
-        _throttle(_estimate_tokens(text))
+        tokens = _estimate_tokens(text)
         vector, last_err = None, None
         for attempt in range(_MAX_ROUNDS):
-            usable = _available(keys) or keys      # all parked -> try anyway rather than stall
+            # Choose a key that has room, rather than always starting at the first one.
+            usable = [_pick_key(keys, tokens)]
             for n, key in enumerate(usable):
+                _record(key, tokens)
                 try:
                     resp = _gemini_client(key).models.embed_content(
                         model=cfg.gemini_model,
@@ -315,9 +374,17 @@ def _embed_matrix(texts: list[str], prefix: str = "") -> np.ndarray:
     cached = cache.get_many(model_key, prefix, texts)
     missing = [i for i in range(len(texts)) if i not in cached]
     if missing:
-        fresh = _encode([texts[i] for i in missing], prefix)
-        cache.put_many(model_key, prefix, [texts[i] for i in missing], fresh)
-        cached.update({i: np.asarray(v, dtype=np.float32) for i, v in zip(missing, fresh)})
+        # Cache in CHUNKS, not once at the end. put_many used to run only after _encode
+        # finished the whole list, so a crash partway through discarded every vector
+        # already paid for -- measured 2026-08-13, a run died at 200 of 405 and lost all
+        # 200. Harmless when embedding is local and free; on a metered backend it is real
+        # money. Same rule as flushing paid LLM results before anything free can block them.
+        chunk = _CACHE_FLUSH_EVERY if _active_backend() != "local" else len(missing)
+        for start in range(0, len(missing), chunk):
+            idx = missing[start:start + chunk]
+            fresh = _encode([texts[i] for i in idx], prefix)
+            cache.put_many(model_key, prefix, [texts[i] for i in idx], fresh)
+            cached.update({i: np.asarray(v, dtype=np.float32) for i, v in zip(idx, fresh)})
     return np.stack([cached[i] for i in range(len(texts))])
 
 

@@ -853,8 +853,43 @@ whether criteria can grade; this decides whether there are axes to report on.** 
   ONCE.** Only 22% recur at all, 11% recur 5+ times. So behaviours DO repeat — an
   *explains-a-mechanism* family covers 55 items, `call mechanics` 11, *asks open questions*
   8 — but they cover ~a fifth of the corpus. Pooling 405 into <=35 axes requires merging 315
-  genuinely distinct one-off moves. **This 78% figure is exact string matching, not
-  embeddings** — a better embedder cannot un-write 342 different sentences.
+  genuinely distinct one-off moves.
+
+**CLOSED after three attempts, each varying exactly ONE thing (2026-08-13).** An earlier
+version of this section argued a better embedder could not matter because the 78% figure is
+exact string matching. **That reasoning was wrong and is retracted** — merging
+differently-worded items that mean the same thing is precisely what clustering does, so the
+grouping was always an embedding question. It was tested rather than argued.
+
+| # | treatment | best validity | window |
+| --- | --- | --- | --- |
+| 1 | V1 prompt + bge | 0.50 | no |
+| 2 | V1 prompt + **gemini** (`--reuse-behaviours`, embedder the only variable) | **0.667** | no |
+| 3 | **V2 prompt** + gemini (`--abstract-prompt v2`) | 0.50 | no |
+
+- **The embedder helped materially and was not enough.** Validity 0.50 -> 0.667 at t=0.725,
+  and the sample groups read visibly better (a six-member set-expectations group that bge
+  never produced). Still short of the 0.80 bar. Gemini's space also has a **cliff, not a
+  gradient** — K=2 with median 202 at t<=0.70, then median 2.0 at K=6 — so no granularity
+  gives both a workable K and real membership. Order drift also failed there (0.33 > 0.20).
+- **The V2 prompt hit its target exactly and made the result WORSE (0.667 -> 0.50).** Banning
+  the purpose clause collapsed *explains a mechanism* from 30 phrasings into ONE string with
+  29 members — the fix worked. The model then varied on the adjective instead: `asks open` /
+  `targeted` / `probing` / `clarifying questions`, 26 items across 4 strings. **Close one
+  axis of variation and it finds another.** V2 did improve stability (drift 0.09-0.17):
+  shorter strings cluster more consistently, just more consistently into fused groups.
+- **The number that decides it barely moved: one-offs 78% -> 74%, distinct strings 342 ->
+  323.** 299 of 405 behaviours still occur exactly once after a better embedder AND a prompt
+  written specifically to collapse them.
+- **The controls held identically across all three runs** — judge null 12/12 rejected and
+  positive control 1.00 every time — so the instrument was stable while the treatments
+  varied. That is what makes this a conclusion rather than three failures.
+- **What survives: a PARTIAL vocabulary.** The head is genuine — `explains a mechanism` (29),
+  `asks open questions` (10), `call mechanics` (8), `builds rapport` (4), `proposes a next
+  step` (3) — roughly 6-27 skills covering ~25% of milestones, with the rest in
+  `skills.UNASSIGNED`. **Do not attempt a fourth wording or embedder pass.** The fix for thin
+  axes is MORE CSM CALLS (multiply observations) rather than fewer axes (compress what is
+  observed) — see the arithmetic in the Layer D section.
 - **What this DOES support:** a *partial* vocabulary of the ~6-27 skills that genuinely
   recur, covering 11-22% of milestones, with the rest in `skills.UNASSIGNED`. What it rules
   out is a complete vocabulary at any granularity where every axis has enough observations.

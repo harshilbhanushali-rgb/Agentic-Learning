@@ -1072,6 +1072,50 @@ published AUC of 0.437 is not "worse than chance". The signal is inverted by con
 so it is direction-correct and worth 0.563 of separating power. A pass mark set at "≥0.55"
 would have passed on zero improvement.
 
+### Closing the skills question properly, and a claim of mine that was wrong
+
+I had written that a better embedder could not change the skills result, because the
+78%-one-offs figure comes from exact string matching rather than embeddings. **That was
+wrong.** Merging differently-worded items that mean the same thing is exactly what
+clustering does — the 342 distinct strings are the *input* to grouping, not its verdict.
+Those five *"explains a mechanism to…"* variants are five strings and obviously one move,
+and whether they merge is purely an embedding question. The claim would have discouraged a
+legitimate experiment, so it was tested instead of argued.
+
+Three attempts, each varying exactly one thing, each with the gate untouched:
+
+| # | treatment | best validity | window |
+| --- | --- | --- | --- |
+| 1 | original prompt, local bge | 0.50 | no |
+| 2 | original prompt, **hosted Gemini** | **0.667** | no |
+| 3 | **purpose-free prompt**, Gemini | 0.50 | no |
+
+**The embedder helped, materially.** Validity rose from 0.50 to 0.667 and the groups read
+visibly better — a six-member "sets expectations" cluster that bge never found. It still
+fell short of the 0.80 bar, and Gemini's space turned out to have a cliff rather than a
+gradient: two enormous groups down to a median of two members with nothing usable in
+between.
+
+**The prompt fix hit its target exactly and made things worse.** Banning the purpose clause
+collapsed *explains a mechanism* from thirty phrasings into one string with twenty-nine
+members — precisely the intended effect. The model then started varying the adjective
+instead: *open* / *targeted* / *probing* / *clarifying* questions, twenty-six items across
+four strings. **Close one axis of variation and it finds another.** Validity fell to 0.50.
+
+And the number that actually decides the question barely moved: one-offs went from 78% to
+74%, distinct strings from 342 to 323. **299 of 405 behaviours still occur exactly once**,
+after both a stronger embedder and a prompt written specifically to collapse them.
+
+What makes this a conclusion rather than three failures is that the instrument held still
+while the treatments changed: the judge rejected 12 of 12 blinded nonsense groups and scored
+a perfect 1.00 on its positive control in **all three** runs.
+
+The question is closed. What survives is a *partial* vocabulary — roughly 6–27 genuinely
+recurring skills covering about a quarter of the milestones, with the rest honestly marked
+unassigned. And the strategic conclusion is unchanged and better supported than before: the
+way to fix thin axes is to **multiply the observations** (more CSM calls) rather than to
+compress the things being observed.
+
 ---
 
 ## Summary: what's true today
@@ -1097,7 +1141,9 @@ would have passed on zero improvement.
 - **That negative is trustworthy, and the reason is worth copying.** The test was built so it could fail: the grouping metric it started from literally could not return a no (coarsen the threshold and everything merges into one group, which scores perfectly), so a second measurement was added that gets *worse* as unrelated things fuse. Then the judge was checked before its verdict was used — 12 of 12 disguised nonsense groups correctly rejected, and a perfect score on a control where the answer was known. **It is the first judge in this whole effort to pass its own sanity check.**
 - **The highest-leverage fix for that wall needs no new idea: more CSM calls.** The folding attempt was trying to give each axis more observations by shrinking the number of axes. Multiplying the calls achieves the same thing directly — ~19 calls to ~100 takes each axis from about 4 observations to about 20. It also rescues the per-scenario breakdown and narrows the noise floor. The caveat is real though: more data makes the *profile* trustworthy, not the *scoring*, so it would produce more confident numbers from an instrument we already know doesn't discriminate.
 - **Three bugs in one evening, all from believing an API's shape instead of measuring it.** A client built inline got garbage-collected mid-request; a list of texts silently collapsed into a single embedding (161 inputs returned 2 vectors, and had the count been 2 it would have run clean and produced fabricated numbers); and the rate limiter watched requests while the real ceiling was tokens — 34.66K against a 30K/minute cap while requests sat at 6 of 100. The one that generalises: **the sync embedding endpoint cannot batch, so a full corpus backfill is 74,000 requests against a 1,000/day quota — the async batch endpoint is mandatory, not an optimisation.**
-- **A better embedder helps one specific thing and is not a cure.** Hosted Gemini embeddings improved the real-vs-junk separation from 0.561 to 0.686 — a genuine win on the exact signal whose failure had been blamed on embedding space — and the 768-wide vector beat the 3072 one, so no index migration is needed. But two of the three pre-registered checks were badly specified by us (one measured the model's cosine *scale* rather than its discrimination; the other compared vectors built for two different purposes), so the overall verdict is an inconclusive instrument rather than a clean answer. Also note it cannot touch the folding result above: the 78% figure comes from counting identical sentences, not from embeddings.
+- **A better embedder helps one specific thing and is not a cure.** Hosted Gemini embeddings improved the real-vs-junk separation from 0.561 to 0.686 — a genuine win on the exact signal whose failure had been blamed on embedding space — and the 768-wide vector beat the 3072 one, so no index migration is needed. The corrected comparison passed its gate on 2 of 3 measures. Concretely: on that sample the current model files **100%** of pairs into the junk bin (which is why it scores exactly chance), while Gemini recovers **57% of the genuinely coachable ones and still rejects two thirds of the junk**.
+- **The folding question was then re-tested properly and is CLOSED — three attempts, three noes.** Each varied exactly one thing: the original prompt with the old embedder (validity 0.50), the same prompt with Gemini (0.667 — a real improvement, still under the 0.80 bar), and a prompt rewritten specifically to stop the fragmentation (0.50, i.e. worse). The rewrite worked on its target — one behaviour that had been split across thirty phrasings collapsed into a single string with twenty-nine members — and the model simply began varying a different word instead (*open* / *targeted* / *probing* / *clarifying* questions). **Close one axis of variation and it finds another.** The deciding number barely moved: one-offs 78% → 74%. What makes this a conclusion rather than three failures is that the judge passed its blinded sanity check 12/12 and scored a perfect 1.00 on its control in **all three** runs — the instrument held still while the treatments changed.
+- **An argument of mine was wrong here and is retracted.** I claimed a better embedder could not affect the folding result because the one-off count comes from matching identical sentences. That is backwards: merging differently-worded items that mean the same thing is precisely what the grouping step does. The claim would have talked us out of a legitimate experiment, so it was tested instead — and the embedder did help, just not enough.
 - **A cheap, permanent lesson about expensive work:** never let a free operation gate the persistence of an expensive one. One scored run finished all 95 LLM calls and then lost every result, because the results were assembled into a structure containing one small database lookup and written to disk only afterwards — and the connection had gone idle across ~55 minutes of LLM calls. Flush paid results first; treat everything after as best-effort.
 - **"The background task was reported stopped" is not evidence a process died.** Believing it cost a full run: two Layer D runs ended up sharing one database, and both the run log and the comparison script reported success on corrupted data. Check the OS process list, not the harness.
 - **Known open issue, partially addressed by a real, running mechanism now (previously "not yet fixed"):** ~39.7% of trigger-response pairs get filed to a junk "sink" and permanently excluded from every rubric, based on the trigger's wording alone — reading a sample found roughly half of those discarded pairs are actually real coachable content whose *response* (not trigger) carried the value. Eight different attempts to fix this by changing how a pair gets *matched* were all tried and rejected. The fix that actually worked changes the *taxonomy* instead: a permanent pass that finds genuinely recurring sink content and graduates it into a brand-new real scenario, requiring the same content to survive 3 independent re-clusterings before it's trusted enough to write. Proven for real on 2026-08-08: 164 pairs rescued into 4 new scenarios, with zero already-homed pairs disturbed. Currently switched off pending further review — this closes a meaningful slice of the gap, not the whole 39.7%, since only content that clusters cleanly and repeatedly can ever qualify.

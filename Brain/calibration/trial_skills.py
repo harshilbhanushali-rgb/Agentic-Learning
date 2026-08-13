@@ -313,7 +313,8 @@ def _as_list(raw, key: str) -> list:
     return raw if isinstance(raw, list) else (raw.get(key) or raw.get("results") or [])
 
 
-def abstract_behaviours(items: list[dict], config, model: str | None = None) -> dict:
+def abstract_behaviours(items: list[dict], config, model: str | None = None,
+                        prompt_version: str = "v1") -> dict:
     """One Gemma pass stripping the topic off each description. Batched at 10.
 
     The strip is the whole trick. Clustering the descriptions as written groups them by
@@ -322,14 +323,17 @@ def abstract_behaviours(items: list[dict], config, model: str | None = None) -> 
     the topical object.
     """
     from shared.gemma import call_gemma
-    from shared.prompts import PROMPT_SKILL_ABSTRACT_BATCH
+    from shared import prompts as _p
 
+    prompt = (_p.PROMPT_SKILL_ABSTRACT_BATCH_V2 if prompt_version == "v2"
+              else _p.PROMPT_SKILL_ABSTRACT_BATCH)
     out: dict[str, str] = {}
     batches = [items[i:i + _ABSTRACT_BATCH] for i in range(0, len(items), _ABSTRACT_BATCH)]
     for n, batch in enumerate(batches, 1):
         block = "\n".join(f'{it["id"]} | {it["description"]}' for it in batch)
-        print(f"  [abstract] batch {n}/{len(batches)} ({len(batch)} items)", flush=True)
-        raw = call_gemma(PROMPT_SKILL_ABSTRACT_BATCH.format(items_block=block),
+        print(f"  [abstract:{prompt_version}] batch {n}/{len(batches)} "
+              f"({len(batch)} items)", flush=True)
+        raw = call_gemma(prompt.format(items_block=block),
                          config.gemma_api_keys, **_model_kwargs(model))
         time.sleep(_GEMMA_CALL_DELAY)
         for rec in _as_list(raw, "items"):
@@ -400,7 +404,8 @@ def _mechanics_control(groups: list[dict], items: list[dict]) -> dict:
 
 def run(items: list[dict], config, model: str | None, seed: int,
         n_judge_groups: int = _N_JUDGE_GROUPS, n_null: int = _N_NULL_PAIRS,
-        reuse_behaviours: dict | None = None, skip_control: bool = False) -> dict:
+        reuse_behaviours: dict | None = None, skip_control: bool = False,
+        prompt_version: str = "v1") -> dict:
     """The whole measurement. Flushes nothing itself -- the caller writes as stages land."""
     texts = [it["description"] for it in items]
     scenario_keys = [it["scenario_key"] for it in items]
@@ -427,8 +432,9 @@ def run(items: list[dict], config, model: str | None, seed: int,
         print(f"[2/5] REUSING {len(behaviours)} saved behaviours "
               f"(no abstraction calls; embedder is the only variable)", flush=True)
     else:
-        print(f"[2/5] abstracting {len(items)} descriptions", flush=True)
-        behaviours = abstract_behaviours(items, config, model)
+        print(f"[2/5] abstracting {len(items)} descriptions "
+              f"(prompt {prompt_version})", flush=True)
+        behaviours = abstract_behaviours(items, config, model, prompt_version)
     kept = [it for it in items if it["id"] in behaviours]
     if not kept:
         return {"error": "the abstraction pass returned nothing"}
@@ -617,6 +623,11 @@ def main() -> None:
     ap.add_argument("--out", default=str(ARTIFACTS_DIR / "skills_trial.json"))
     ap.add_argument("--embed-backend", choices=("local", "gemini"), default=None,
                     help="override tuning.yaml for this process only")
+    ap.add_argument("--abstract-prompt", choices=("v1", "v2"), default="v1",
+                    help="v2 bans the purpose clause that splintered one behaviour into "
+                         "30 phrasings")
+    ap.add_argument("--reverse-keys", action="store_true",
+                    help="try the last configured API key first")
     ap.add_argument("--skip-control", action="store_true",
                     help="skip the as-written sweep (already established; halves cost "
                          "on a metered backend)")
@@ -655,6 +666,9 @@ def main() -> None:
         embedder.set_backend(args.embed_backend)
         print(f"EMBEDDER: {args.embed_backend} (process-only override; "
               f"tuning.yaml is unchanged)")
+        if args.reverse_keys:
+            embedder.set_key_order(reverse=True)
+            print("KEY ORDER: reversed -- the last configured key goes first")
 
     reuse = None
     if args.reuse_behaviours:
@@ -672,8 +686,10 @@ def main() -> None:
     payload = run(items, load_config(), args.model, args.seed,
                   n_judge_groups=3 if args.smoke else _N_JUDGE_GROUPS,
                   n_null=3 if args.smoke else _N_NULL_PAIRS,
-                  reuse_behaviours=reuse, skip_control=args.skip_control)
+                  reuse_behaviours=reuse, skip_control=args.skip_control,
+                  prompt_version=args.abstract_prompt)
     payload["smoke"] = args.smoke
+    payload["abstract_prompt"] = args.abstract_prompt
     payload["embed_backend"] = args.embed_backend or "tuning.yaml default"
     payload["reused_behaviours_from"] = args.reuse_behaviours
 
