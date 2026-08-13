@@ -958,6 +958,122 @@ can be built at all.** Even a winning arm leaves 405 axes at ~8 observations eac
 
 ---
 
+## The profile has no axes, and the API had three lies in it (2026-08-13)
+
+Pre-registration: `docs/superpowers/specs/2026-08-13-layer-c-skills-vocabulary-design.md`.
+
+### The question, and why it outlived the trial
+
+The four-arm trial had just closed negative — criteria cannot be made to discriminate on
+this corpus. But that only settles the *ruler*. A profile also needs *axes to report on*,
+and there are 405 of them at roughly 4–8 observations each. That is arithmetic, not a
+quality problem, and no scoring fix touches it.
+
+So: do the 405 fold into ~15 recurring behaviours, pooling their observations? What makes a
+criterion a bad grader — too generic to identify its own situation — is exactly what makes a
+good skill label, so the trial's failure mode is this test's raw material.
+
+### The test could not have failed as designed
+
+`skills.sweep`'s docstring names `cross_scenario_coverage` as the number that lets the
+approach "fail honestly". It cannot: drop the threshold far enough and everything merges
+into one group, driving it to 1.0 by construction. **Nothing in the sweep gets worse as
+distinct moves fuse.** That is the merge-blind `_match_milestones` defect again — a metric
+that only counts the good outcome — and it would have returned a confident yes at some
+granularity no matter what the data looked like.
+
+The fix is a second curve pulling the other way: merge validity, a batched judge asked
+whether each group is one coaching move, with **a verdict on every group and never a
+returned subset**. The two curves bound coarseness from opposite ends and the test is
+whether the window between them is non-empty.
+
+The lower bound is derived rather than chosen. From 889 attempts over 405 milestones and
+the ±0.006 noise floor, a usable axis needs 83/50/25 observations under three quantization
+standards and 51 under a ranking standard — giving K ≤ 11/18/35/17. Two independent
+derivations landing on K ≈ 17–18 is better support than either alone. And because K assumes
+observations spread evenly across skills, which never happens, the operative gate is the
+**median skill's member count**, not K.
+
+### The answer is no, and this time it can be believed
+
+No window at any bound. Power is satisfiable only at t ≤ 0.675 (K=6, median 13 members);
+validity there is **0.20** against a bar of 0.80. Off by a factor of four.
+
+What makes this negative different from the dozen before it is that the instrument passed
+its own checks *first*: the judge rejected 12 of 12 disguised dissimilar pairs — blinded by
+building them to the same sizes as the real groups — scored a perfect 1.00 on the
+positive control, and the as-written control confirmed the abstraction pass was doing real
+work rather than nothing. **It is the first judge in this entire effort to pass its own
+null.**
+
+The cause is the useful part: **78% of milestones abstract to a behaviour phrase that occurs
+exactly once.** Behaviours do repeat — *explains a mechanism* covers 55 items, `call
+mechanics` 11 — but that head is about a fifth of the corpus. Folding 405 into 35 axes means
+merging 315 genuinely distinct one-off moves. And the 78% comes from **exact string
+matching, not embeddings**, so no better embedding model can un-write 342 different
+sentences.
+
+One lever was found and deliberately not pulled: the abstraction prompt asks the model to
+keep the *why*, which splinters *explains a mechanism* into 30 phrasings. Removing it would
+move the curve. Re-running after a negative with a tweaked prompt is how a result gets tuned
+into existence, so it needs a fresh pre-registration rather than a retry.
+
+### Then the embedding API, where every assumption was wrong
+
+The obvious follow-up — would a better embedder change any of this — turned into a lesson
+about believing an API's shape instead of measuring it. Three bugs, all ours, all found only
+by running it:
+
+**The client closed itself.** Built inline, `genai.Client(...).models.embed_content(...)`
+lets the temporary be garbage-collected mid-request. The same rule `pinecone_store` already
+carries. Worse than the crash: the probe's error classifier didn't recognise the message and
+printed a confident, wrong conclusion — *"will truncate client-side"* — reporting a local
+bug as an API capability. It now runs twice, with and without the parameter, and says
+**inconclusive** when both fail, because one call cannot distinguish a rejected parameter
+from a broken request.
+
+**The list does not batch.** `contents=[3 strings]` returns **one** embedding. 161 scenarios
+sent as two batches produced two vectors, and that only surfaced as an `IndexError` several
+lines later because a boolean mask happened to check the length. **Had the scenario count
+been 2, it would have run clean and produced entirely fabricated numbers.** The consequence
+is larger than the bug: N texts cost N requests, so a 74k-clause backfill is 74,000 requests
+against a 1,000/day cap — 74 days. The async batch endpoint is mandatory for production, not
+an optimisation.
+
+**Pacing watched the wrong meter.** The limiter throttled requests per minute. The quota
+dashboard during the first real run read **34.66K/30K tokens** while requests sat at 6/100
+and 7/1000. Tokens blow first and by a wide margin.
+
+### And the comparison itself was half-built
+
+1 of 3 pre-registered criteria passed, so it does not pass. But two of the three were badly
+specified by me, so it is an inconclusive instrument rather than a clean no.
+
+`sink_real_margin` improved **0.561 → 0.686**, clearing its bar at every width — a real,
+clean win on the one signal whose failure had been explicitly blamed on embedding space
+("real and sink centroids sit too close together"). That diagnosis was correct. And **768
+beat 3072**, so the wide vector earns nothing: no new Pinecone index, no 867 MiB Layer A
+matrix.
+
+The other two criteria measure the wrong things. `spread` (p10–p90 of best-match cosine) is
+the model's cosine *scale*, not its discrimination — Gemini's scores are uniformly higher
+and bunched, which says nothing about whether it separates the best match from the runner-up.
+And `coupling` was confounded by the harness sending triggers as `RETRIEVAL_QUERY` and
+responses as `RETRIEVAL_DOCUMENT`, correct for trigger-vs-scenario and wrong for comparing a
+trigger to its own response.
+
+A related self-inflicted wound worth remembering: **the raw vectors were never persisted**,
+only the scores derived from them. So correcting a criterion costs the full 461 requests
+again. The standing rule was "flush paid results before anything free can block them" — the
+sharper version is *flush the paid artifact itself, not just the conclusions drawn from it*.
+
+One more correction, made before spending anything rather than after: `sink_real_margin`'s
+published AUC of 0.437 is not "worse than chance". The signal is inverted by construction,
+so it is direction-correct and worth 0.563 of separating power. A pass mark set at "≥0.55"
+would have passed on zero improvement.
+
+---
+
 ## Summary: what's true today
 
 - The pipeline clusters data with math first and only spends LLM calls judging the survivors — much cheaper and more consistent than asking an LLM to invent everything from scratch.
@@ -977,6 +1093,11 @@ can be built at all.** Even a winning arm leaves 405 axes at ~8 observations eac
 - **Satisfiability and discrimination are independent axes** (correlation −0.038), so a fix must target both deliberately. Naming a criterion's subject matter triples its full-hit rate and cuts dead milestones from 34% to 13%, yet does nothing for discrimination — and 83% of criteria are pure behavioural prose with no subject at all.
 - **Two of our own plausible hypotheses were tested and killed the same night**, which is the argument for measuring over reasoning. "Habitual moves get less credit" — false, frequency is uninformative (correlation −0.019, flat across every band), so **a frequency ceiling for milestones would have been wasted work**. "Criteria discriminate because they name their subject" — false, correlation −0.038.
 - **Next step is the objective function Layer C has never had**, not another wording pass: run the control arm per milestone as an admission gate, plus an **applicability** check so "didn't do it" stops being confused with "wasn't called for". The single question it answers: of the 66% of milestones the expert never fully satisfies, how many are *unreachable* versus merely *conditional*? Mostly conditional means the rubrics are largely fine and the grading model was the bug; mostly unreachable means the milestone is the wrong unit of feedback. Spec: `docs/superpowers/specs/2026-08-11-layer-c-objective-function-design.md`.
+- **The second wall is now measured too, and it is independent of the first.** Even with a working scorer, the profile has 405 axes at 4–8 observations each. We tested whether they fold into ~15 recurring behaviours and the answer is **no**: 78% of them are one-offs that occur exactly once in the whole corpus. Behaviours *do* repeat — one "explains a mechanism" family covers 55 of them — but that head is only about a fifth, so pooling the rest means merging genuinely different coaching moves. What this does support is a *partial* set of ~6–27 real skills covering that fifth, with everything else explicitly marked "not covered" rather than forced into the nearest label.
+- **That negative is trustworthy, and the reason is worth copying.** The test was built so it could fail: the grouping metric it started from literally could not return a no (coarsen the threshold and everything merges into one group, which scores perfectly), so a second measurement was added that gets *worse* as unrelated things fuse. Then the judge was checked before its verdict was used — 12 of 12 disguised nonsense groups correctly rejected, and a perfect score on a control where the answer was known. **It is the first judge in this whole effort to pass its own sanity check.**
+- **The highest-leverage fix for that wall needs no new idea: more CSM calls.** The folding attempt was trying to give each axis more observations by shrinking the number of axes. Multiplying the calls achieves the same thing directly — ~19 calls to ~100 takes each axis from about 4 observations to about 20. It also rescues the per-scenario breakdown and narrows the noise floor. The caveat is real though: more data makes the *profile* trustworthy, not the *scoring*, so it would produce more confident numbers from an instrument we already know doesn't discriminate.
+- **Three bugs in one evening, all from believing an API's shape instead of measuring it.** A client built inline got garbage-collected mid-request; a list of texts silently collapsed into a single embedding (161 inputs returned 2 vectors, and had the count been 2 it would have run clean and produced fabricated numbers); and the rate limiter watched requests while the real ceiling was tokens — 34.66K against a 30K/minute cap while requests sat at 6 of 100. The one that generalises: **the sync embedding endpoint cannot batch, so a full corpus backfill is 74,000 requests against a 1,000/day quota — the async batch endpoint is mandatory, not an optimisation.**
+- **A better embedder helps one specific thing and is not a cure.** Hosted Gemini embeddings improved the real-vs-junk separation from 0.561 to 0.686 — a genuine win on the exact signal whose failure had been blamed on embedding space — and the 768-wide vector beat the 3072 one, so no index migration is needed. But two of the three pre-registered checks were badly specified by us (one measured the model's cosine *scale* rather than its discrimination; the other compared vectors built for two different purposes), so the overall verdict is an inconclusive instrument rather than a clean answer. Also note it cannot touch the folding result above: the 78% figure comes from counting identical sentences, not from embeddings.
 - **A cheap, permanent lesson about expensive work:** never let a free operation gate the persistence of an expensive one. One scored run finished all 95 LLM calls and then lost every result, because the results were assembled into a structure containing one small database lookup and written to disk only afterwards — and the connection had gone idle across ~55 minutes of LLM calls. Flush paid results first; treat everything after as best-effort.
 - **"The background task was reported stopped" is not evidence a process died.** Believing it cost a full run: two Layer D runs ended up sharing one database, and both the run log and the comparison script reported success on corrupted data. Check the OS process list, not the harness.
 - **Known open issue, partially addressed by a real, running mechanism now (previously "not yet fixed"):** ~39.7% of trigger-response pairs get filed to a junk "sink" and permanently excluded from every rubric, based on the trigger's wording alone — reading a sample found roughly half of those discarded pairs are actually real coachable content whose *response* (not trigger) carried the value. Eight different attempts to fix this by changing how a pair gets *matched* were all tried and rejected. The fix that actually worked changes the *taxonomy* instead: a permanent pass that finds genuinely recurring sink content and graduates it into a brand-new real scenario, requiring the same content to survive 3 independent re-clusterings before it's trusted enough to write. Proven for real on 2026-08-08: 164 pairs rescued into 4 new scenarios, with zero already-homed pairs disturbed. Currently switched off pending further review — this closes a meaningful slice of the gap, not the whole 39.7%, since only content that clusters cleanly and repeatedly can ever qualify.

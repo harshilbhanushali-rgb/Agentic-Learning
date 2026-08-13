@@ -185,8 +185,15 @@ def _probe(dims: int) -> dict:
             "returned_width": got, "native_error": native_err, "param_error": err}
 
 
-def _embed_gemini(texts: list[str], prefix: str) -> np.ndarray:
+def _embed_gemini(texts: list[str], prefix: str, label: str = "") -> np.ndarray:
+    """Label every population before embedding it.
+
+    Three populations are embedded back to back and the embedder's own progress counter
+    restarts at zero for each, so unlabelled output reads as one job looping rather than
+    three jobs running. Cheap to print, and the alternative is watching a counter go
+    1/150 twice and having to guess."""
     from preprocessing import embedder
+    print(f"\n  -- {label}: {len(texts)} texts --", flush=True)
     return np.asarray(embedder._encode_gemini(texts, prefix), dtype=np.float32)
 
 
@@ -228,16 +235,21 @@ def run() -> dict:
                                  norm(bge_s[is_real]), labels)
 
     # --- gemini, one call per population, every width off the same vectors ---
+    # One request PER TEXT -- measured, not assumed. An earlier version of this line said
+    # "~5 requests" because it was written while the code still assumed batches of 100,
+    # and it kept saying so after the batching was removed. A cost estimate that survives
+    # the change it was describing is worse than no estimate.
     n_texts = len(rows) * 2 + len(scen_texts)
-    print(f"\nembedding {n_texts} texts with gemini "
-          f"(~{-(-n_texts // 100)} requests) ...", flush=True)
+    print(f"\nembedding {n_texts} texts with gemini -- {n_texts} requests "
+          f"(the sync endpoint embeds one text per request), paced under "
+          f"100 RPM / 30k TPM ...", flush=True)
     # Triggers go in query-side, responses and scenarios document-side -- the same
     # asymmetry production uses. Gemini expresses it as a task type rather than a text
     # prefix, and _encode_gemini does that translation.
     from preprocessing.embedder import _QUERY_PREFIX
-    g_t = _embed_gemini([r["trigger_text"] for r in rows], _QUERY_PREFIX)
-    g_r = _embed_gemini([r["response_text"] for r in rows], "")
-    g_s = _embed_gemini(scen_texts, "")
+    g_t = _embed_gemini([r["trigger_text"] for r in rows], _QUERY_PREFIX, "1/3 triggers")
+    g_r = _embed_gemini([r["response_text"] for r in rows], "", "2/3 responses")
+    g_s = _embed_gemini(scen_texts, "", "3/3 scenarios")
     out["gemini_native_width"] = int(g_t.shape[1])
 
     for w in WIDTHS:

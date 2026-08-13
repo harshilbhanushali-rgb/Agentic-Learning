@@ -817,6 +817,128 @@ missing-INPUT problem. Asking a better-worded question of a blind model changes 
   a missing import and a positional slice (`ARMS[2:]`) — **`py_compile` catches neither**.
   `score_naren_ceiling.py` already had this in `--max-items-per-arm`.
 
+### Skills vocabulary — can a per-person profile be built at all? No (2026-08-13)
+
+Pre-registration: `docs/superpowers/specs/2026-08-13-layer-c-skills-vocabulary-design.md`.
+Harness `calibration/trial_skills.py`, artifacts `skills_trial.json` (full) /
+`skills_trial_pilot.json`, logs `logs/trial_skills_full.log`. Zero Postgres writes.
+
+The question is independent of the criteria failure and survives it: **the arms decide
+whether criteria can grade; this decides whether there are axes to report on.** 405 axes at
+~4-8 observations each is arithmetic no scoring fix repairs.
+
+- **`skills.sweep`'s own honest-failure signal CANNOT fail.** `cross_scenario_coverage`
+  goes to 1.0 by construction as the threshold falls (everything merges into one group), so
+  the sweep alone always says yes at *some* granularity. Same defect class as the
+  merge-blind `_match_milestones`: a metric that only counts the good outcome. The fix is a
+  second curve that gets WORSE as groups fuse — merge validity `V(t)`, a batched judge
+  returning a verdict on every group.
+- **The gate is a WINDOW between two curves**, constraining from opposite sides: `V(t)`
+  bounds coarseness from above, statistical power bounds it from below. PASS = some judged
+  `t` has `K(t) <= bound` and `V(t) >= 0.80`. The lower bound is derived, never chosen —
+  from 889 attempts / 405 milestones and the ±0.006 noise floor, giving K <= 11/17/18/35 for
+  four standards. **K is optimistic; the operative gate is the MEDIAN skill's member count**
+  (>=38/24/23/12), because K assumes an even split that never holds.
+- **Result: no window at any bound.** Power is satisfiable only at t<=0.675 (K=6, median 13);
+  `V` there is **0.20** against a bar of 0.80 — off by 4x, not a near miss. Validity rises
+  monotonically 0.20 -> 0.25 -> 0.50 -> 1.00 as clustering gets finer, which is the shape a
+  working counterweight should have.
+- **The negative is trustworthy because the instrument passed its own checks first:** judge
+  null 12/12 rejected (blinded, size-matched disguised pairs), positive control V=1.00 at
+  t=0.95, as-written control confirms the abstraction is NOT inert (56 groups written vs 14
+  abstracted at t=0.7), order permutation drift 0.11-0.17 at full scale. **First judge in
+  this whole effort to pass its own null** — the applicability judge failed at 1.22:1 and
+  the coverage judge at 64.9% vs 65.7%.
+- **The cause: 78% of milestones (315/405) abstract to a behaviour string occurring exactly
+  ONCE.** Only 22% recur at all, 11% recur 5+ times. So behaviours DO repeat — an
+  *explains-a-mechanism* family covers 55 items, `call mechanics` 11, *asks open questions*
+  8 — but they cover ~a fifth of the corpus. Pooling 405 into <=35 axes requires merging 315
+  genuinely distinct one-off moves. **This 78% figure is exact string matching, not
+  embeddings** — a better embedder cannot un-write 342 different sentences.
+- **What this DOES support:** a *partial* vocabulary of the ~6-27 skills that genuinely
+  recur, covering 11-22% of milestones, with the rest in `skills.UNASSIGNED`. What it rules
+  out is a complete vocabulary at any granularity where every axis has enough observations.
+- **Identified but NOT pulled:** the abstraction prompt asks the model to keep the *why*
+  ("Keep what the person is DOING and WHY"), which splinters *explains a mechanism* into 30
+  strings over 55 items. Dropping the WHY clause would materially move the curve. Left
+  alone deliberately — re-running after a negative with a tweaked prompt is how a result
+  gets tuned into existence, and three wording passes have already failed here. It needs a
+  fresh pre-registration, not a retry.
+- **The pilot could not open the window by construction** (91 milestones = 22% of the
+  observations the floors were derived from) and the floors were deliberately NOT rescaled
+  to fit — a bound moved to fit the run it is judging is not a bound. The report printed the
+  stopping-condition verdict anyway on the first pass; now gated on the full corpus. Also
+  note the pilot's order-permutation failure at t=0.725 (drift 0.44) did **not** reproduce
+  at full scale — it was a small-sample artifact.
+
+### Embedding backend: local bge vs hosted Gemini (2026-08-13)
+
+`preprocessing/embedder.py` grew a `gemini` backend beside local bge, selected by
+`tuning.yaml`'s `embedding.backend` and **shipping `local`** so nothing moved. Harness
+`calibration/compare_embedders.py`, artifact `embedder_compare.json`.
+
+**Four facts measured against the live API, none of them assumable:**
+
+- **`embed_content` does NOT batch.** `contents=[3 strings]` returns **ONE** embedding — the
+  list is treated as the parts of a single document. N texts cost N requests. This first
+  surfaced as an `IndexError` several lines downstream because 161 scenarios in 2 batches
+  produced 2 vectors and a boolean mask happened to check the length; **had the count been
+  2 it would have run clean and produced fabricated numbers.** `_encode_gemini` now asserts
+  one vector per text. **Consequence: a 74k-clause backfill is 74k requests against a
+  1k/day cap = 74 days. `client.batches.create_embeddings` is mandatory for production, not
+  an optimisation.**
+- **Tokens bind, not requests, and by a wide margin.** Measured on the first real run:
+  **34.66K/30K TPM while RPM sat at 6/100 and RPD at 7/1000.** Pacing on request count alone
+  429s immediately. `_throttle` tracks both over a rolling 60s window.
+- **`genai.Client` must be cached at module level.** Built inline it is garbage-collected
+  mid-request — `Cannot send a request, as the client has been closed`. Same rule
+  `pinecone_store` already carries.
+- **`output_dimensionality` IS accepted; native width is 3072.** The model is
+  Matryoshka-trained, so one call yields every width.
+
+**Comparison result (150-pair labelled sample + 161 scenarios): 1 of 3 pre-registered
+criteria — DOES NOT PASS.** But two of the three criteria were badly built by me, so this is
+an inconclusive instrument rather than a clean no:
+
+| space | margin(corr) | coupling | p50 | spread |
+| --- | --- | --- | --- | --- |
+| bge_768 | 0.561 | 0.617 | 0.558 | 0.141 |
+| gemini_3072 | 0.672 | 0.560 | 0.672 | 0.083 |
+| gemini_768 | **0.686** | 0.569 | 0.686 | 0.082 |
+
+- **`sink_real_margin` 0.561 -> 0.686 is a real, clean win**, clearing its bar at every
+  width. That signal's failure was explicitly diagnosed as an embedding-space problem
+  ("real and sink centroids sit too close together"), and the diagnosis was right.
+- **768 BEAT 3072** (0.686 vs 0.672), so the wide vector earns nothing: no new Pinecone
+  index, no 867 MiB Layer A matrix, no migration.
+- **The `spread` criterion measures the wrong thing.** p10-p90 of best-match cosine is the
+  model's cosine SCALE, not its discrimination — Gemini's scores are uniformly higher and
+  bunched. The right measure is top-1 minus top-2 per trigger, which was never taken.
+- **The `coupling` criterion is confounded by the harness.** Triggers went in as
+  `RETRIEVAL_QUERY` and responses as `RETRIEVAL_DOCUMENT` — correct for trigger-vs-scenario,
+  wrong for comparing a trigger to its own response, which needs one symmetric task type.
+  The bge baseline had no such split.
+- **`sink_real_margin`'s published AUC 0.437 is NOT "worse than chance".** The signal is
+  inverted by construction (higher = more filler-like), so it is direction-correct and worth
+  **0.563** corrected. A pass mark set at ">=0.55" would have passed on zero improvement.
+- **Harness miss to not repeat: the raw vectors were not persisted**, only the derived
+  scores — so changing a criterion costs another 461 requests. Flush the PAID artifact, not
+  just the conclusions drawn from it.
+
+**Every threshold in `tuning.yaml` was calibrated against bge's cosine bands.** Gemini's p50
+is 0.686 vs bge's 0.558 — switching backends invalidates `relative_margin`,
+`merge_cosine_threshold`, the p40 relevance percentile and Layer D's sink comparison until
+they are re-derived. That re-calibration, not the model, is the cost of the swap.
+
+### Default Gemma model is now `gemini-3.5-flash-lite` (2026-08-13)
+
+`shared/gemma.py::_DEFAULT_MODEL`, was `gemma-4-31b-it`, which stays last in the fallback
+chain. Its 16k TPM ceiling could not hold the prompts this pipeline sends (one situated
+describe call burned 8+ minutes of backoff), so call sites had been overriding it one at a
+time; `v2/layer_c._FAST_DESCRIBE_MODEL` matched. **This changes production output, and every
+number in this file was produced under `gemma-4-31b-it`** — comparisons against them are
+model-confounded exactly as `arm0_baseline` (1.58) vs `arm0r_legacy_regen` (1.04) already is.
+
 ### Layer C milestones were narration, not criteria — found and fixed (2026-08-10)
 
 **The single most important Layer D finding to date, and it was never a Layer D bug.** All
