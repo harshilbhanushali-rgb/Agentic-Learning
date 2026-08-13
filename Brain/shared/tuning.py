@@ -66,6 +66,10 @@ class LayerCTuning:
 class EmbeddingTuning:
     cache_enabled: bool
     cache_path: str
+    backend: str
+    gemini_model: str
+    gemini_dimensions: int
+    gemini_batch_size: int
 
 
 @dataclass(frozen=True)

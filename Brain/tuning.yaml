@@ -707,5 +707,40 @@ layer_d:
 embedding:
   # Cache embeddings on disk so threshold tuning does not re-embed the corpus.
   # Worth far less on a CUDA box than on CPU -- the model runs locally.
+  #
+  # WORTH FAR MORE ON THE gemini BACKEND: there the cache is the difference between
+  # a free re-run and spending daily request quota again. The cache key includes the
+  # model AND the dimension, so backends and truncation levels coexist in one file
+  # and switching back to local never re-embeds anything.
   cache_enabled: true
   cache_path: embed_cache.db
+
+  # local  -> BAAI/bge-base-en-v1.5 on this machine. Free, unlimited, offline, but
+  #           NOT reproducible: CUDA matmul reduction order varies, so the same corpus
+  #           re-embedded yields slightly different vectors and UMAP amplifies that into
+  #           different cluster counts (241 -> 231 -> 226 for one identical corpus).
+  # gemini  -> hosted Gemini embeddings. Deterministic, so it removes that variance --
+  #           but it is rate limited, it can fail mid-run, and EVERY threshold in this
+  #           file was calibrated against bge's cosine bands (trigger p10=0.496
+  #           p50=0.550 p90=0.613, response p50=0.635). Switching backends invalidates
+  #           all of them until they are re-derived. This is not a drop-in.
+  backend: local
+
+  gemini_model: gemini-embedding-2
+
+  # Native output is 3072. The model is Matryoshka-trained, so a shorter vector is a
+  # truncation of the same one -- which means ONE api call yields every level and the
+  # levels can be compared for free.
+  #
+  # 768 is not a downgrade by default, it is what the rest of this system is built for:
+  # Pinecone index narens-brain is a 768-dim index, and the Layer A clause matrix at
+  # 74k x 3072 float32 is 867 MiB against 217 MiB -- on a box where spaCy's CONTIGUOUS
+  # 392 MiB allocation already fails intermittently from address-space fragmentation.
+  # Raise it only if the labelled-sample comparison shows 3072 genuinely separates
+  # better, not on the assumption that more dimensions must be better.
+  gemini_dimensions: 768
+
+  # Inputs per request. The binding quota is tokens-per-minute, not requests-per-minute:
+  # at ~25 tokens a clause this packs ~2500 tokens per request, so 30k TPM allows about
+  # 12 requests/min and RPM is never approached.
+  gemini_batch_size: 100

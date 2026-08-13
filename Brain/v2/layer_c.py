@@ -28,8 +28,8 @@ _DESCRIBE_BATCH_SIZE = 5  # milestones per PROMPT_LAYER_C_MILESTONE_DESCRIBE_BAT
 # situated and coverage prompts pack a whole scenario and cannot fit gemma-4-31b-it's 16k
 # tokens-per-minute ceiling -- measured 2026-08-13, one call burned 8+ minutes of backoff
 # before making any progress. Same failure milestone_scoring documents for scoring.
-_FAST_DESCRIBE_MODEL = "gemini-3.1-flash-lite"
-_FAST_DESCRIBE_FALLBACKS = ("gemini-3.5-flash-lite", "gemma-4-31b-it")
+_FAST_DESCRIBE_MODEL = "gemini-3.5-flash-lite"
+_FAST_DESCRIBE_FALLBACKS = ("gemini-3.1-flash-lite", "gemma-4-31b-it")
 
 STATUS_GENERATED = "rubric_generated"
 STATUS_NOT_COACHABLE = "skipped_not_coachable"

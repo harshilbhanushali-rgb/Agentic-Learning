@@ -59,6 +59,10 @@ layer_d:
 embedding:
   cache_enabled: true
   cache_path: embed_cache.db
+  backend: local
+  gemini_model: gemini-embedding-2
+  gemini_dimensions: 768
+  gemini_batch_size: 100
 """
 
 

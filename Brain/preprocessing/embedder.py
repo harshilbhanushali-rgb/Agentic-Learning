@@ -1,4 +1,5 @@
 from __future__ import annotations
+import time
 from pathlib import Path
 import numpy as np
 import torch
@@ -11,6 +12,9 @@ _MODEL_NAME = "BAAI/bge-base-en-v1.5"
 _QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 _DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 _BATCH_SIZE = 256 if _DEVICE == "cuda" else 64
+# Floor for the OOM backoff in _encode. Below this, a batch is small enough that an
+# OOM is about the model or the machine, not the batch, so failing loudly is right.
+_MIN_BATCH_SIZE = 8
 
 _model: SentenceTransformer | None = None
 
@@ -22,10 +26,138 @@ def _get_model() -> SentenceTransformer:
     return _model
 
 def _encode(texts: list[str], prefix: str) -> list[list[float]]:
+    """Dispatch to whichever backend tuning.yaml selects. The only fork in this module."""
+    backend = get_tuning().embedding.backend
+    if backend == "local":
+        return _encode_local(texts, prefix)
+    if backend == "gemini":
+        return _encode_gemini(texts, prefix)
+    raise ValueError(f"unknown embedding backend {backend!r}; expected 'local' or 'gemini'")
+
+
+def _encode_local(texts: list[str], prefix: str) -> list[list[float]]:
+    """Encode with an automatic batch-size backoff on CUDA OOM.
+
+    _BATCH_SIZE is tuned for the sentence-length CLAUSES Layer A embeds. Layer D
+    (ego_trap) embeds whole SPEAKER TURNS, which are far longer -- 256 of them at
+    bge's 512-token limit overflowed a 6GB card, so a fixed batch size makes the
+    embedder's usability depend on which layer is calling it.
+
+    Halving on OOM rather than exposing a knob, because the right batch size is a
+    property of the machine and the text length, not a decision the caller can
+    reasonably make. Embeddings are unaffected: batching only groups the forward
+    passes, so the vectors -- and therefore the cache -- are identical either way.
+    """
     model = _get_model()
     inputs = [prefix + t for t in texts] if prefix else texts
-    vecs = model.encode(inputs, batch_size=_BATCH_SIZE, normalize_embeddings=True, show_progress_bar=False)
-    return vecs.tolist()
+    batch = _BATCH_SIZE
+    while True:
+        try:
+            vecs = model.encode(
+                inputs, batch_size=batch, normalize_embeddings=True, show_progress_bar=False
+            )
+            return vecs.tolist()
+        except torch.OutOfMemoryError:
+            if batch <= _MIN_BATCH_SIZE:
+                raise
+            batch //= 2
+            # Hand the freed blocks back, or the next attempt inherits the
+            # fragmentation that caused this one to fail.
+            if _DEVICE == "cuda":
+                torch.cuda.empty_cache()
+            print(f"[embedder] CUDA OOM — retrying at batch_size={batch}")
+
+# --- hosted backend -------------------------------------------------------------------
+#
+# bge encodes query-vs-document by PREPENDING a text prefix. Gemini expresses the same
+# asymmetry as a task type, so the prefix is translated rather than sent as text -- sending
+# bge's instruction sentence to Gemini would embed the instruction itself.
+_GEMINI_TASK = {_QUERY_PREFIX: "RETRIEVAL_QUERY", "": "RETRIEVAL_DOCUMENT"}
+
+# Same split gemma.py draws: a quota error means this key is done, so rotate immediately
+# rather than sleeping on it; a transient error means retry the same key with backoff.
+_LIMIT_MARKERS = ("429", "resource_exhausted", "quota", "rate limit", "exhausted")
+_TRANSIENT_MARKERS = ("500", "503", "504", "deadline", "unavailable", "internal",
+                      "connection", "timeout", "timed out", "disconnect")
+_MAX_ROUNDS = 5
+
+
+def _classify(err: Exception) -> str:
+    text = str(err).lower()
+    if any(m in text for m in _LIMIT_MARKERS):
+        return "limit"
+    if any(m in text for m in _TRANSIENT_MARKERS):
+        return "transient"
+    return "fatal"
+
+
+def _encode_gemini(texts: list[str], prefix: str) -> list[list[float]]:
+    """Hosted embeddings, rotating across every configured API key.
+
+    KEY ROTATION, not just retry. With a hard requests-per-day cap, a second key is a
+    second day's quota -- so a limit error rotates keys immediately instead of sleeping,
+    and only when EVERY key has hit a limit in the same round does it back off and start
+    the chain again. Mirrors call_gemma's escalate-then-rotate structure so both surfaces
+    behave the same way under quota pressure.
+
+    Vectors are always L2-normalised here. Gemini only normalises its full-width output,
+    so a truncated Matryoshka vector arrives un-normalised -- and everything downstream in
+    this codebase computes cosine as a bare dot product. Skipping this would not raise;
+    it would silently shift every similarity in the pipeline.
+    """
+    from google import genai
+    from config import load_config
+
+    cfg = get_tuning().embedding
+    keys = list(load_config().gemma_api_keys) or [load_config().gemma_api_key]
+    task = _GEMINI_TASK.get(prefix, "RETRIEVAL_DOCUMENT")
+
+    out: list[list[float]] = []
+    for start in range(0, len(texts), cfg.gemini_batch_size):
+        batch = texts[start:start + cfg.gemini_batch_size]
+        vectors, last_err = None, None
+        for attempt in range(_MAX_ROUNDS):
+            for n, key in enumerate(keys):
+                try:
+                    resp = genai.Client(api_key=key).models.embed_content(
+                        model=cfg.gemini_model,
+                        contents=batch,
+                        config={"task_type": task,
+                                "output_dimensionality": cfg.gemini_dimensions},
+                    )
+                    vectors = [e.values for e in resp.embeddings]
+                    break
+                except Exception as e:                      # noqa: BLE001 - classified below
+                    last_err, kind = e, _classify(e)
+                    if kind == "fatal":
+                        raise
+                    print(f"[embedder] key {n + 1}/{len(keys)} {kind} error: {e}")
+            if vectors is not None:
+                break
+            wait = 2 ** (attempt + 1)
+            print(f"[embedder] all {len(keys)} keys unavailable; waiting {wait}s")
+            time.sleep(wait)
+        if vectors is None:
+            raise RuntimeError(f"embedding failed after {_MAX_ROUNDS} rounds: {last_err}")
+
+        arr = np.asarray(vectors, dtype=np.float32)
+        arr /= (np.linalg.norm(arr, axis=1, keepdims=True) + 1e-10)
+        out.extend(arr.tolist())
+    return out
+
+
+def _cache_model_key() -> str:
+    """What the cache is keyed on. MUST carry the dimension.
+
+    A 768-truncated vector and a 3072 vector come from the same model name but are
+    different vectors, so keying on the name alone would serve one where the other was
+    asked for -- silently, and only for texts that happened to be cached already.
+    """
+    cfg = get_tuning().embedding
+    if cfg.backend == "local":
+        return _MODEL_NAME
+    return f"{cfg.gemini_model}@{cfg.gemini_dimensions}"
+
 
 def _embed_matrix(texts: list[str], prefix: str = "") -> np.ndarray:
     """Embed with a disk cache so re-running a stage does not re-encode the corpus.
@@ -44,11 +176,12 @@ def _embed_matrix(texts: list[str], prefix: str = "") -> np.ndarray:
         return np.asarray(_encode(texts, prefix), dtype=np.float32)
 
     cache = embed_cache.get_cache(Path(__file__).parent.parent / cfg.cache_path)
-    cached = cache.get_many(_MODEL_NAME, prefix, texts)
+    model_key = _cache_model_key()
+    cached = cache.get_many(model_key, prefix, texts)
     missing = [i for i in range(len(texts)) if i not in cached]
     if missing:
         fresh = _encode([texts[i] for i in missing], prefix)
-        cache.put_many(_MODEL_NAME, prefix, [texts[i] for i in missing], fresh)
+        cache.put_many(model_key, prefix, [texts[i] for i in missing], fresh)
         cached.update({i: np.asarray(v, dtype=np.float32) for i, v in zip(missing, fresh)})
     return np.stack([cached[i] for i in range(len(texts))])
 
