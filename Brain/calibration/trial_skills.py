@@ -133,8 +133,29 @@ def min_members(standard: dict) -> int:
     return math.ceil(standard["min_obs"] * _MEASURED_MILESTONES / _MEASURED_ATTEMPTS)
 
 
+def usable_item_fraction(groups: list[dict], floor: int) -> float:
+    """Fraction of ITEMS sitting in a group big enough to carry an axis.
+
+    The median has a blind spot at small K, found 2026-08-13: three groups over 405 items
+    split [1, 10, 394] has a median of 10 and nearly clears a floor of 12, while describing
+    nothing -- one mega-blob and two scraps. A median only means "the typical skill is well
+    populated" once there are enough groups for a middle to be meaningful.
+
+    This has no such hole. A mega-blob split scores near zero here because the two scraps
+    hold almost no items and the blob is one axis, not many.
+    """
+    if not groups:
+        return 0.0
+    total = sum(g["size"] for g in groups)
+    return sum(g["size"] for g in groups if g["size"] >= floor) / total if total else 0.0
+
+
 def meets_standard(row: dict, standard: dict) -> bool:
-    """A sweep row satisfies a standard only if BOTH the count and the median hold."""
+    """A sweep row satisfies a standard only if BOTH the count and the median hold.
+
+    NOTE the median's small-K blind spot documented in usable_item_fraction -- report that
+    alongside this, and prefer it when K is small.
+    """
     return (row["n_skills"] <= standard["max_k"]
             and row["median_size"] >= min_members(standard))
 
@@ -180,9 +201,20 @@ def select_judge_thresholds(rows: list[dict]) -> list[float]:
         return []
     picked = {max(r["threshold"] for r in rows)}
     for standard in POWER_STANDARDS:
-        ok = [r["threshold"] for r in rows if r["n_skills"] <= standard["max_k"]]
+        # Select on the FULL standard, not just the K bound. Selecting on K alone was a
+        # real hole found 2026-08-13: median rises as the threshold falls, so every point
+        # that actually satisfied the power gate sat BELOW everything being judged, and
+        # validity was never measured where the gate passed. Harmless in the runs that
+        # exposed it -- those points were degenerate, all 405 items in one or two groups --
+        # but only by luck.
+        ok = [r["threshold"] for r in rows if meets_standard(r, standard)]
         if ok:
             picked.add(max(ok))
+        # Keep the K-only point too: it is where validity is highest among candidates that
+        # at least have a workable skill count, and it bounds the curve from the other end.
+        k_only = [r["threshold"] for r in rows if r["n_skills"] <= standard["max_k"]]
+        if k_only:
+            picked.add(max(k_only))
     return sorted(picked)
 
 

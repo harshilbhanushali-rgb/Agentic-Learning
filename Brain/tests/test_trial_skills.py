@@ -99,6 +99,43 @@ def test_a_threshold_fails_a_standard_when_the_median_skill_is_too_thin():
     assert not ts.meets_standard(row, standard)
 
 
+def test_a_mega_blob_split_scores_near_zero_usable_items():
+    """The median's blind spot at small K, measured 2026-08-13: three groups over 405
+    items split [1, 10, 394] has a median of 10 and nearly clears a floor of 12 while
+    describing nothing. Every non-degenerate threshold in all three real runs had this
+    shape -- one blob and a tail, at every granularity."""
+    groups = [{"size": 1}, {"size": 10}, {"size": 394}]
+
+    # The blob itself clears the floor, but it is ONE axis, not many.
+    assert ts.usable_item_fraction(groups, floor=12) == pytest.approx(394 / 405)
+    # And the two real candidate skills hold almost nothing.
+    assert sum(g["size"] for g in groups if 12 <= g["size"] < 100) == 0
+
+
+def test_a_healthy_split_puts_most_items_on_usable_axes():
+    groups = [{"size": 30}, {"size": 28}, {"size": 25}, {"size": 2}]
+
+    assert ts.usable_item_fraction(groups, floor=12) == pytest.approx(83 / 85)
+
+
+def test_usable_fraction_of_nothing_is_zero_not_a_crash():
+    assert ts.usable_item_fraction([], floor=12) == 0.0
+
+
+def test_judge_thresholds_include_a_point_that_meets_the_FULL_standard():
+    """Selecting on the K bound alone was a real hole: median rises as the threshold
+    falls, so every point satisfying the power gate sat BELOW everything being judged and
+    validity was never measured where it mattered."""
+    rows = [{"threshold": 0.60, "n_skills": 3, "median_size": 40.0},   # meets full standard
+            {"threshold": 0.70, "n_skills": 11, "median_size": 2.0},   # meets K only
+            {"threshold": 0.95, "n_skills": 300, "median_size": 1.0}]
+
+    picked = ts.select_judge_thresholds(rows)
+
+    assert 0.60 in picked, "the point that actually satisfies the power gate must be judged"
+    assert 0.70 in picked, "the K-only point bounds the curve from the other end"
+
+
 def test_a_threshold_passes_only_when_both_the_count_and_the_median_hold():
     standard = {"key": "full_change", "min_obs": 25, "max_k": 35}
 

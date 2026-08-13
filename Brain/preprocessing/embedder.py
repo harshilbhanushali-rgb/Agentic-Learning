@@ -117,10 +117,21 @@ def _encode_local(texts: list[str], prefix: str) -> list[list[float]]:
 # asymmetry as a task type, so the prefix is translated rather than sent as text -- sending
 # bge's instruction sentence to Gemini would embed the instruction itself.
 #
-# SYMMETRIC_PREFIX is a sentinel, never prepended to any text. Comparing a trigger to its
-# own response is symmetric, so both sides must share one task space -- scoring one as a
-# query and the other as a document measures the task split rather than the model. bge has
-# no equivalent, so the local backend treats the sentinel as no prefix.
+# *** task_type IS INERT ON gemini-embedding-2 -- MEASURED 2026-08-13. ***
+# All four valid values (RETRIEVAL_DOCUMENT / RETRIEVAL_QUERY / SEMANTIC_SIMILARITY /
+# CLUSTERING) return BYTE-IDENTICAL vectors, cosine 1.0000. It is not being dropped: the
+# SDK rejects unknown config keys with a pydantic error and the API rejects an invalid
+# task_type with a 400, so the enum is validated and then simply has no effect on this
+# model. Consequence: **Gemini has no query/document asymmetry at all**, unlike bge, whose
+# embed_query genuinely produces a different vector. Any design that leans on that split
+# -- layer_b matching a short utterance against an abstract scenario description -- loses
+# the mechanism entirely on this backend, it does not merely change it.
+#
+# The mapping is kept because it is correct for bge and may be honoured by other models;
+# it is just currently a no-op here. Do not "fix" a result by changing task_type.
+#
+# SYMMETRIC_PREFIX is a sentinel, never prepended to any text. bge has no equivalent, so
+# the local backend treats the sentinel as no prefix.
 SYMMETRIC_PREFIX = "\x00symmetric\x00"
 _GEMINI_TASK = {_QUERY_PREFIX: "RETRIEVAL_QUERY", "": "RETRIEVAL_DOCUMENT",
                 SYMMETRIC_PREFIX: "SEMANTIC_SIMILARITY"}
@@ -274,10 +285,17 @@ def _encode_gemini(texts: list[str], prefix: str) -> list[list[float]]:
     the chain again. Mirrors call_gemma's escalate-then-rotate structure so both surfaces
     behave the same way under quota pressure.
 
-    Vectors are always L2-normalised here. Gemini only normalises its full-width output,
-    so a truncated Matryoshka vector arrives un-normalised -- and everything downstream in
-    this codebase computes cosine as a bare dot product. Skipping this would not raise;
-    it would silently shift every similarity in the pipeline.
+    Vectors are L2-normalised here defensively. MEASURED 2026-08-13: this model already
+    returns unit vectors at EVERY width (3072/1536/768/256), so the normalisation is
+    currently a no-op -- an earlier comment here claimed truncated output arrives
+    un-normalised, which is false for gemini-embedding-2. It stays because everything
+    downstream computes cosine as a bare dot product, so a model that ever returned
+    un-normalised vectors would corrupt every similarity silently rather than raising.
+
+    Also measured: Matryoshka truncation is EXACT. Asking the API for 768 and slicing the
+    first 768 values off a 3072 vector give cosine 1.00000. So one call at full width
+    yields every narrower width for free, and changing your mind about dimensions never
+    requires re-embedding a corpus.
     """
     from config import load_config
 

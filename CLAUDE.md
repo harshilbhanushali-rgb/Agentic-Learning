@@ -884,6 +884,26 @@ grouping was always an embedding question. It was tested rather than argued.
 - **The controls held identically across all three runs** — judge null 12/12 rejected and
   positive control 1.00 every time — so the instrument was stable while the treatments
   varied. That is what makes this a conclusion rather than three failures.
+- **THE REAL SHAPE OF THE FAILURE, found 2026-08-13 by re-reading the sweeps rather than
+  re-running anything: the behaviour distribution has NO MIDDLE.** At every non-degenerate
+  threshold in all three runs, mean group size vastly exceeds median — bge t=0.65 is K=3
+  median 12 **mean 135**; v2 t=0.575 is K=3 median 10 **mean 135**; v1+gemini sits at K=2
+  median 202 from t=0.50 to 0.70. That is one enormous undifferentiated blob plus a tail of
+  singletons, **at every granularity**. There is no threshold anywhere producing, say, 15
+  groups of ~27 items. Coarsen and the blob eats everything; tighten and it shatters into
+  singletons. This explains why all three attempts failed *identically* despite varying the
+  embedder and the prompt — they were searching a space with no intermediate structure in it.
+  A better statement of the result than the one-off count, and it is free to verify from the
+  saved artifacts.
+- **Two harness bugs found at the same time, both now fixed, both of which make the gate
+  STRICTER — which is why the verdict survives them.** (1) `select_judge_thresholds` picked
+  on the K bound ALONE, but median rises as the threshold falls, so every point that
+  actually satisfied the power gate sat *below* everything judged and validity was never
+  measured where the gate passed. Harmless in these runs only because those points were
+  degenerate (K=1-2 holding all 405), i.e. harmless by luck. (2) **The median has a blind
+  spot at small K**: three groups split `[1, 10, 394]` has median 10 and nearly clears a
+  floor of 12 while describing nothing. Use `usable_item_fraction` (share of ITEMS in a
+  group at or above the floor) alongside it — a mega-blob split cannot fool that.
 - **What survives: a PARTIAL vocabulary.** The head is genuine — `explains a mechanism` (29),
   `asks open questions` (10), `call mechanics` (8), `builds rapport` (4), `proposes a next
   step` (3) — roughly 6-27 skills covering ~25% of milestones, with the rest in
