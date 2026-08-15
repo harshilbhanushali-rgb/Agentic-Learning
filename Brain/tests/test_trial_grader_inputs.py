@@ -84,6 +84,37 @@ def test_every_condition_records_which_estimator_made_its_interval():
     assert tg.CI_ESTIMATOR == "pooled_w_over_resampled_items"
 
 
+def _scored(item, kind, source, verdicts):
+    return [{"item_id": f"{item}_{kind}", "kind": kind, "source_scenario": source,
+             "scenario_key": source, "verdict": v, "judged_by": "m"} for v in verdicts]
+
+
+def test_summarise_conditions_reports_the_pooled_d_and_stamps_its_estimator():
+    recs = (_scored("1", "matched", "s1", ["full_hit", "miss"])
+            + _scored("1", "unrelated", "s1", ["miss", "miss"])
+            + _scored("2", "matched", "s2", ["partial_hit", "miss"])
+            + _scored("2", "unrelated", "s2", ["partial_hit", "miss"]))
+    out = tg.summarise_conditions({"blind": recs}, np.random.default_rng(0))["blind"]
+    assert out["w_matched"] == pytest.approx((1 + 0.5) / 4)
+    assert out["w_unrelated"] == pytest.approx(0.5 / 4)
+    assert out["D"] == pytest.approx(3.0)
+    assert out["ci_estimator"] == tg.CI_ESTIMATOR
+    assert out["attempts"] == 8
+
+
+def test_summarise_conditions_refuses_to_fabricate_a_sign_test_without_source_scenario():
+    """Three pre-sign-test artifacts hold records with no `source_scenario`. Recomputing
+    them must yield an explicit 'unavailable' marker, never a pairing under the partner's
+    name -- which would compare two different responses."""
+    recs = _scored("1", "matched", "s1", ["full_hit"]) + _scored("1", "unrelated", "s1",
+                                                                 ["miss"])
+    for r in recs:
+        del r["source_scenario"]
+    out = tg.summarise_conditions({"blind": recs}, np.random.default_rng(0))["blind"]
+    assert "unavailable" in out["sign_test"]
+    assert out["sign_test"]["wins"] == 0 and out["sign_test"]["decided"] == 0
+
+
 def test_weighted_counts_a_partial_as_half():
     assert tg.weighted(1, 1, 4) == pytest.approx(0.375)
     assert tg.weighted(0, 0, 0) == 0.0

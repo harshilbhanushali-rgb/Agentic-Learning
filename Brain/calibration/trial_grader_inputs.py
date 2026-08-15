@@ -143,6 +143,14 @@ def _args():
                    help="route chat through the Joveo gateway instead of AI Studio.")
     p.add_argument("--fresh", action="store_true", help="ignore the checkpoint")
     p.add_argument("--load", action="store_true", help="re-report the artifact, free")
+    p.add_argument("--recompute", action="store_true",
+                   help="re-derive W/D/CI/sign-test from the CHECKPOINT and rewrite the "
+                        "artifact. FREE and safe BY CONSTRUCTION: it never builds items, so "
+                        "it cannot reach Postgres or the chat API. Use this to correct a "
+                        "statistic. A plain re-run is NOT the safe way -- items are rebuilt "
+                        "from flags the artifact does not record (--holdout, --conditions), "
+                        "and if one is guessed wrong `n_items` stops matching the checkpoint "
+                        "and the run silently starts SCORING again.")
     return p.parse_args()
 
 
@@ -281,6 +289,48 @@ def bootstrap_d(by_item_matched: dict, by_item_unrelated: dict, rng: np.random.G
     return float(np.percentile(ds, 2.5)), float(np.percentile(ds, 97.5))
 
 
+def summarise_conditions(done: dict[str, list], boot: np.random.Generator) -> dict:
+    """Per-condition W, D, CI and sign test -- everything derived from the scored records.
+
+    Split out of main() so the derivation can be re-run from a checkpoint alone, which is
+    what makes correcting a statistic free. Rebuilding items needs Postgres, and any flag
+    that shapes them which the artifact does not record (--holdout, --conditions) will, if
+    guessed wrong, make `n_items` stop matching the checkpoint -- at which point the run
+    stops resuming and starts scoring.
+    """
+    conditions: dict[str, dict] = {}
+    for cname, recs in done.items():
+        by_kind = defaultdict(list)
+        per_item = defaultdict(list)
+        for r in recs:
+            by_kind[r["kind"]].append(r)
+            per_item[(r["kind"], r["item_id"])].append(r)
+        wm = item_w(by_kind["matched"])
+        wu = item_w(by_kind["unrelated"])
+        im = {k[1].rsplit("_", 1)[0]: item_w(v) for k, v in per_item.items()
+              if k[0] == "matched"}
+        iu = {k[1].rsplit("_", 1)[0]: item_w(v) for k, v in per_item.items()
+              if k[0] == "unrelated"}
+        # The CI resamples COUNTS, not the per-item W values above -- W has to be recomputed
+        # from summed counts to stay the same (pooled) estimator as `D`. The per-item W maps
+        # are still reported, because the sign test and the per-scenario detail read them.
+        cm = {k[1].rsplit("_", 1)[0]: item_counts(v) for k, v in per_item.items()
+              if k[0] == "matched"}
+        cu = {k[1].rsplit("_", 1)[0]: item_counts(v) for k, v in per_item.items()
+              if k[0] == "unrelated"}
+        lo, hi = bootstrap_d(cm, cu, boot)
+        conditions[cname] = {
+            "w_matched": wm, "w_unrelated": wu,
+            "D": (wm / wu) if wu > 0 else float("inf"),
+            "ci_lo": lo, "ci_hi": hi, "ci_estimator": CI_ESTIMATOR,
+            "attempts": len(recs),
+            "models": dict(Counter(r["judged_by"] for r in recs)),
+            "sign_test": sign_test(recs),
+            "per_item_matched": im, "per_item_unrelated": iu,
+        }
+    return conditions
+
+
 def report(p: dict) -> None:
     print("\n" + "=" * 90)
     print("DOES SHOWING THE GRADER THE SITUATION MAKE IT DISCRIMINATE?")
@@ -394,6 +444,21 @@ def main() -> None:
     ckpt = CKPT if not a.tag else CKPT.with_name(f"grader_inputs_trial_{a.tag}_ckpt.json")
     if a.load:
         report(json.loads(out.read_text(encoding="utf-8-sig")))
+        return
+    if a.recompute:
+        prev = json.loads(out.read_text(encoding="utf-8-sig"))
+        ck = json.loads(ckpt.read_text(encoding="utf-8-sig"))
+        if ck.get("n_items") != prev.get("n_items"):
+            raise SystemExit(f"REFUSING: checkpoint holds {ck.get('n_items')} items but the "
+                             f"artifact records {prev.get('n_items')} -- different runs.")
+        payload = dict(prev)
+        payload["conditions"] = summarise_conditions(
+            ck["records"], np.random.default_rng(prev["seed"]))
+        payload["recomputed_from_checkpoint"] = True
+        out.write_text(json.dumps(payload, indent=1, default=float), encoding="utf-8")
+        report(payload)
+        print(f"\nrewrote {out.name} from {ckpt.name}")
+        print("Zero chat calls, zero Postgres, zero embedding requests.")
         return
     conds = ({c: CONDITIONS[c] for c in a.conditions.split(",")} if a.conditions
              else dict(CONDITIONS))
@@ -556,35 +621,7 @@ def main() -> None:
                "smoke": bool(a.smoke), "d_pass": D_PASS,
                "partner_method": method, "sample_keys": sample_keys,
                "conditions": {}}
-    for cname, recs in done.items():
-        by_kind = defaultdict(list)
-        per_item = defaultdict(list)
-        for r in recs:
-            by_kind[r["kind"]].append(r)
-            per_item[(r["kind"], r["item_id"])].append(r)
-        wm = item_w(by_kind["matched"])
-        wu = item_w(by_kind["unrelated"])
-        im = {k[1].rsplit("_", 1)[0]: item_w(v) for k, v in per_item.items()
-              if k[0] == "matched"}
-        iu = {k[1].rsplit("_", 1)[0]: item_w(v) for k, v in per_item.items()
-              if k[0] == "unrelated"}
-        # The CI resamples COUNTS, not the per-item W values above -- W has to be recomputed
-        # from summed counts to stay the same (pooled) estimator as `D`. The per-item W maps
-        # are still reported, because the sign test and the per-scenario detail read them.
-        cm = {k[1].rsplit("_", 1)[0]: item_counts(v) for k, v in per_item.items()
-              if k[0] == "matched"}
-        cu = {k[1].rsplit("_", 1)[0]: item_counts(v) for k, v in per_item.items()
-              if k[0] == "unrelated"}
-        lo, hi = bootstrap_d(cm, cu, boot)
-        payload["conditions"][cname] = {
-            "w_matched": wm, "w_unrelated": wu,
-            "D": (wm / wu) if wu > 0 else float("inf"),
-            "ci_lo": lo, "ci_hi": hi, "ci_estimator": CI_ESTIMATOR,
-            "attempts": len(recs),
-            "models": dict(Counter(r["judged_by"] for r in recs)),
-            "sign_test": sign_test(recs),
-            "per_item_matched": im, "per_item_unrelated": iu,
-        }
+    payload["conditions"] = summarise_conditions(done, boot)
     out.write_text(json.dumps(payload, indent=1, default=float), encoding="utf-8")
     report(payload)
     print(f"\nwrote {out}")
