@@ -294,7 +294,8 @@ Status of every item, and the observations that exist nowhere else.
 | R4b (control discarded `merged`, found auditing R4) | **DONE** `b7d4e94` | control 2,725 -> 5,159 turns |
 | R4c (reference must be size-matched, found auditing R4) | **DONE** `b7d4e94` | yes — both arms +16-17 points |
 | R4d (docstring cherry-pick + config/overwrite guards) | **DONE** `b7d4e94` | no — honesty and guards only |
-| R5-R12, R15 | **NOT STARTED** | — |
+| R5 (F13 position-verified join) | **DONE** `ca4c257` | no — LATENT guard; artifact byte-identical |
+| R6-R12, R15 | **NOT STARTED** | — |
 
 **R4 is the first item where auditing MY OWN FIX found defects that changed the answer
 twice.** The fix's own tests passed throughout; a separate adversarial pass over the fix is
