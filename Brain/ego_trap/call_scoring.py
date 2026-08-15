@@ -39,6 +39,10 @@ from .milestone_scoring import (
 _SCORING_MODEL = "gemini-3.1-flash-lite"
 _SCORING_FALLBACKS = ("gemini-3.5-flash-lite", "gemma-4-31b-it")
 _SCORING_MAX_OUTPUT_TOKENS = 16384
+# Provenance for an injected transport whose caller named no model. Deliberately a visible
+# marker rather than None: None reads as "not recorded yet" and would fall back to the
+# call_gemma global, which is how a gateway verdict acquires an AI Studio model's name.
+_INJECTED_UNKNOWN = "injected-transport(model unspecified)"
 
 
 @dataclass(frozen=True)
@@ -339,8 +343,14 @@ def score_call(transcript_turns: list[tuple[str, str]], blocks: list[ScenarioBlo
             continue
         # An injected transport must carry its own provenance; production (chat=None)
         # passes None and keeps reading LAST_MODEL_USED exactly as before.
+        #
+        # `model or _INJECTED_UNKNOWN`, never a bare `model`: `model` defaults to None, so
+        # a caller that injects `chat` WITHOUT naming a model would fall through to
+        # LAST_MODEL_USED and inherit the stale AI Studio name again -- the very defect
+        # this parameter exists to remove. An honest "unspecified" beats a false name.
         results, warnings = parse_response(
-            raw, expected, chunk, scored_by=(model if chat is not None else None))
+            raw, expected, chunk,
+            scored_by=((model or _INJECTED_UNKNOWN) if chat is not None else None))
         all_results.extend(results)
         all_warnings.extend(warnings)
     for w in all_warnings:

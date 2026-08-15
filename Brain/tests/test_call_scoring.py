@@ -374,3 +374,24 @@ def test_score_call_passes_the_model_through_when_the_transport_is_injected(monk
     assert results, "fixture produced no results"
     assert {r.get("scored_by") for r in results} == {"gateway-model"}, (
         [r.get("scored_by") for r in results])
+
+
+def test_an_injected_transport_NEVER_falls_back_to_the_global(monkeypatch):
+    """Found auditing the R7a fix: `model` defaults to None, so a caller that injects a
+    transport without naming a model fell through to LAST_MODEL_USED and inherited the
+    stale AI Studio name -- the exact defect the parameter exists to remove.
+    """
+    monkeypatch.setattr(call_scoring._gemma, "LAST_MODEL_USED", "stale-ai-studio-model",
+                        raising=False)
+    blocks = [_block("s0")]
+    turns = [("Naren", "hello there everyone"), ("Client", "hi")]
+
+    def fake_chat(prompt):
+        return [{"situation_id": "S0", "milestones": [{"id": "M1", "verdict": "miss"}]}]
+
+    results, _ = call_scoring.score_call(turns, blocks, _config(),
+                                         scenarios_per_request=1, chat=fake_chat)
+    got = {r.get("scored_by") for r in results}
+    assert got == {call_scoring._INJECTED_UNKNOWN}, got
+    assert "stale-ai-studio-model" not in got, (
+        "an injected transport must never inherit provenance from the call_gemma global")
