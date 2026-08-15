@@ -1,6 +1,10 @@
 # Layer D scores a call, not a reply — and the customer decides what counts (2026-08-15)
 
-Status: **approved in brainstorming, not implemented.** Nothing below is built.
+Status: **approved, and the scorer is now BUILT — shipped OFF.** `layer_d.scoring_unit`
+defaults to `moment`, so production is byte-identical; `ego_trap/call_scoring.py`,
+`PROMPT_STEP3_CALL_LEVEL_BATCH` and 21 tests exist. **The gate below has NOT passed**: it is
+running as of 2026-08-15 and no result is recorded here yet. The onboarding review (§5) and
+its table are NOT built — nothing in `db/schema.sql` has changed.
 
 Depends on `2026-08-15-grader-inputs-design.md`, which established that the scorer works.
 Read its Confirmation section before this one.
