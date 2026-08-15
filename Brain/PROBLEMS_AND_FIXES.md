@@ -1356,6 +1356,138 @@ needs no ground truth, costs ~100 calls, and decides whether the judge is the bo
 inputs are. That is 0.1% of the rebuild and it gates the rebuild's entire value — the same argument
 that had just saved 400 calls one level down.
 
+## Layer D was grading whichever turn happened to be last (2026-08-15)
+
+Pre-registration: `docs/superpowers/specs/2026-08-15-layer-d-client-move-segmentation-design.md`.
+
+When a client speaks several turns in a row - a pause, a continued thought, a transcriber
+splitting one sentence, or a colleague interjecting - the code looks for a reply after *each* turn
+and stops at the next client turn. So every turn but the last gets an empty reply window and is
+recorded as **"the CSM never responded"**.
+
+Measured over the 100 scored calls: of 5,731 client turns, 2,484 are marked "no response", and
+**2,449 of those (98.6%) are simply followed by another client turn.** 35 are the last turn of the
+call. **Not one is genuine silence.** It was never measuring whether the CSM responded - only
+whether a turn happened to be last in its block.
+
+That retires a recorded claim: "36% of gap events are recognition failures, no response existed to
+score", which had been cited as a cause of the low hit rate.
+
+### The damage that actually matters is not the failure count
+
+Only the block's last turn gets graded. So the real question is thrown away and a fragment is
+matched to a topic and scored:
+
+```text
+1. "How often is the information in those dashboards going to be updated?"
+2. "Or expected."
+3. "To be updated?"          <- this is what gets graded
+```
+
+That happens on **177 exchanges (5.5%)**, and **1,343 substantive client turns** are discarded
+corpus-wide.
+
+### The same bug is in the knowledge base, and it corrects a premise we started from
+
+This work began from the assumption that the expert-side inputs were clean. **They are not.**
+`extract_pairs` uses the identical stopping rule, so only the last turn of a block can produce a
+pair. Over the expert's 416 calls: **443 pairs (6.6%) are lost outright** - a real question and a
+real answer, both discarded - and **1,316 more (28%)** drop earlier substantive turns, losing
+3,891 turns of context.
+
+The earlier conclusion still survives, for a specific reason: `extract_pairs` requires the trigger
+to be substantive, so those pairs are *lossy*, never *filler-triggered*. The ceiling's inputs were
+degraded, not corrupted. **Left unfixed on purpose** - repairing it forces a full pipeline re-run,
+which reshuffles clusters, orphans every stored milestone score and moves the baseline. The 443
+lost pairs are worth bundling into a future rebuild that is happening anyway.
+
+### A measurement built to size the damage ended up choosing the fix
+
+To find out whether those 1,316 stored pairs are anchored to the wrong turn, each expert reply was
+compared against every substantive turn in its block, with a **derangement null** (score each
+reply against a *different* block's turns) so "the coupling is informative" had to be earned.
+
+It was: the stored trigger wins **43.2%** against a null of **35.3%**, lift **+0.079** with a 95%
+interval of [+0.042, +0.116]. But the disagreements are near-ties - median margin 0.063, only 3.8%
+above 0.20 - which is the signature of *the reply addressing the whole block* rather than of a
+badly chosen turn. Reading the 20 largest cases, **9 of 10 are genuinely mis-anchored**.
+
+Then the useful part. Split the blocks by who is speaking:
+
+| turns compared | chance | one speaker | several speakers |
+| --- | --- | --- | --- |
+| 2 | 0.500 | **0.514** | 0.672 |
+| 3 | 0.333 | **0.353** | 0.440 |
+| 4 | 0.250 | **0.230** | 0.316 |
+
+Within **one** speaker's turns the reply attaches to no particular turn - **at chance at every
+size**. That is not a null result; it is evidence the run is *one move* and the reply addresses all
+of it. Across **different** speakers the reply tracks the last one, above chance at every size, and
+the difference survives controlling for block size. So the rule for what to stitch came out of the
+data instead of taste: **group a block's turns by speaker, never across speakers.**
+
+### Four candidate rules, then a fifth that the samples suggested
+
+A read-only harness compared them on 3,247 answered exchanges using the production matcher, with
+no Gemma calls and no writes:
+
+| arm | what becomes the graded text | scored | lost | gained | net |
+| --- | --- | --- | --- | --- | --- |
+| today | the block's last turn | 937 | - | - | - |
+| B | the whole move, stitched | 964 | 40 | 67 | +27 |
+| C | drop turns under 5 content words, then stitch | 837 | **156** | 56 | **-100** |
+| D | drop turns whose own best match is a junk bin, then stitch | 1009 | 9 | 81 | **+72** |
+| E | D, but only where today's rule produces nothing | 1018 | **0** | 81 | **+81** |
+
+**The worry that stitching would drag text toward the junk bins is refuted.** The real-minus-junk
+margin does not fall as turns are merged - it is flat for B and *rises* for D (+0.037 -> +0.043 ->
++0.048). Similarity stays inside the calibrated band, so **nothing in `tuning.yaml` needs
+recalibrating**, which was the main risk to the rest of the pipeline.
+
+**Arm C is the ninth consecutive failure of a per-item threshold filter in this project.** A word
+count deletes more than it saves and empties 886 moves outright. Its perfect "substantive" score is
+circular - that is the property it filters on. Same shape as the eight sink-rescue signals, and
+consistent with the known finding that length-based rules discard exactly the terse expert moves
+this pipeline exists to capture.
+
+### And the trial found something bigger than the bug it was testing
+
+**Layer D's accept/reject decision is a coin flip far more often than anyone had recorded.**
+Measuring the gap between the best real topic and the best junk bin: **14.5% of decisions sit
+within 0.01 of flipping, 28.3% within 0.02, 40.7% within 0.03.**
+
+That reframes the whole table. Of arm D's **9 losses, 8 (89%) are coin flips**, so its regressions
+are mostly noise rather than damage - but of its **81 gains, 27 (33%)** are too, so the firm gain
+is about **+54, not +72**. Today's rule admits fragments like *"I think you can have, like, a."*
+for the same reason. This sits beside the already-measured fact that the winning topic beats the
+runner-up by about 0.01 cosine. **It is unexamined, and it is arguably a larger problem than the
+segmentation bug this work set out to fix.**
+
+### Three process notes, all earned the hard way
+
+**A gate written carelessly can contradict its own design.** The first draft of the
+pre-registration promised the scored count would be "identical by construction". It is not: better
+text embeds differently, clears the junk-bin comparison differently, and *moves the denominator*.
+Caught in self-review before any run. The fix was to split the comparison into a matched
+population whose text does not change (the control) and the population where it does (where any
+effect must live).
+
+**A rate without its denominator misled us for one full report.** The first table counted arm D's
+1,687 empty rows against it and made D look like it destroyed trigger quality (41.2% substantive).
+Recomputed on the population that matters - exchanges actually scored - D is **85.8%** against
+today's **85.4%**, with longer triggers. Same defect as the ceiling arms' population asymmetry, one
+week later.
+
+**Every count-based metric in this trial prefers keeping more text**, so none of them could ever
+say "you have merged too much". Only reading could, and it did: arm D deletes real content when a
+turn's own best match is a junk bin, and a few of its regressions are genuine losses of good
+questions. That is the third time an un-failable metric has appeared in this project.
+
+**Nothing was shipped.** No production file changed, no configuration key added, no database row
+written. The choice between arm D (fixes 8 more broken exchanges, can disturb working ones) and
+arm E (cannot disturb anything, leaves 23 permanently graded on a fragment) is still open, and the
+grade itself is still unmeasured - that needs the paid run.
+
 ## Summary: what's true today
 
 - The pipeline clusters data with math first and only spends LLM calls judging the survivors — much cheaper and more consistent than asking an LLM to invent everything from scratch.
@@ -1575,3 +1707,7 @@ test that looked like it did is confounded past repair: its definition of "a rea
 moment" comes from the old taxonomy, and its two biggest sources are posture scenarios that
 fail the null test. It cannot tell "missing real coaching" from "correctly declining the old
 taxonomy's noise."
+- **Layer D was grading whichever client turn happened to be last in its block, and the "the CSM ignored this" count was fiction.** Of 2,484 recorded non-responses, 2,449 are just a turn followed by more client speech and **zero** are real silence. Worse than the miscount: the real question gets thrown away and a fragment like *"To be updated?"* is what gets graded, on 177 exchanges. The same stopping rule sits in the knowledge-base builder too, where it **loses 443 expert question-and-answer pairs outright** and strips context from 1,316 more - deliberately left alone, since fixing it forces a full rebuild.
+- **A measurement built to size that damage ended up choosing the fix, which is the pattern worth copying.** Comparing each expert reply against every turn in its block (against a scrambled null, so the signal had to be earned) showed that within *one* speaker's turns the reply attaches to no particular turn - at chance at every block size - while across *different* speakers it clearly tracks whoever spoke last. So the rule "stitch a person's own turns together, never across people" came out of the data rather than from taste, and it needed no new threshold.
+- **The fear that stitching turns together would blur the text toward the junk bins was tested and refuted** - the real-minus-junk margin stays flat or *improves* as more turns are merged, and similarity stays inside the calibrated band, so no existing threshold needs re-tuning. Of five candidate rules the word-count filter was the worst: it deletes more than it saves, and is now the **ninth** consecutive failure of a per-item threshold filter here. Judging a whole cluster works; scoring one item against a cutoff does not.
+- **The trial found something bigger than the bug it was testing: Layer D's accept/reject decision is close to a coin flip on a large share of every run** - 14.5% of decisions sit within 0.01 of flipping and 28.3% within 0.02. So a third of any arm's apparent improvement is noise, today's rule admits outright fragments, and **no future Layer D comparison should treat a difference of a few dozen exchanges as real.** Unexamined, and it sits beside the known fact that the winning topic beats the runner-up by about 0.01.

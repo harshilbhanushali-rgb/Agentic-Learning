@@ -1,4 +1,4 @@
-# Client-move segmentation — Layer D scores the wrong client turn (2026-08-13)
+# Client-move segmentation — Layer D scores the wrong client turn (2026-08-15)
 
 **Status: PRE-REGISTRATION. No code written, no Gemma call spent.** Every threshold, control,
 gate and stopping condition below is fixed before the first run. The evidence base in §2 was
@@ -374,3 +374,70 @@ another 461 requests.
 - It does not repair `extract_pairs` (§2.2, §4).
 - It does not touch wall 2. A better-segmented trigger does not create axes to report on; 405
   milestones at a median of 7 observations is unchanged by anything here.
+
+---
+
+## Status update — the four-arm trial RAN (2026-08-15). Free gates measured; nothing shipped.
+
+Harness `calibration/trial_client_move_arms.py`, artifact `artifacts/client_move_arms.json`,
+log `logs/trial_client_move_arms.log`. 3,247 answered exchanges, 161 scenarios (85 coachable /
+76 sink). Zero Gemma, Postgres session `SET default_transaction_read_only = on`, no production
+file modified. Every admit decision made by production `score_client_turns` + `select_signal`.
+
+**A fifth arm was added after reading samples:** **E** = use the baseline trigger wherever the
+baseline already admits, and only intervene where it produces nothing. Precedent is the response-
+taxonomy auto-pass's "never disturb an already-homed pair", which held on real data.
+
+| arm | trigger rule | scored | lost | gained | net | of the 177 filler cases, fixed |
+| --- | --- | --- | --- | --- | --- | --- |
+| baseline | block's last turn | 937 | – | – | – | 0 |
+| B | whole move, stitched | 964 | 40 | 67 | +27 | 36 |
+| C | `_is_substantive` filter, then stitch | 837 | **156** | 56 | **−100** | 35 |
+| D | junk-bin filter per turn, then stitch | 1009 | 9 | 81 | **+72** | 37 |
+| E | D, but only where baseline admits nothing | 1018 | **0** | 81 | **+81** | 29 |
+
+**The dilution risk this design worried about is REFUTED.** Coachable-minus-sink margin by turns
+merged does not fall — B is flat (+0.038/+0.034/+0.040/+0.035) and D *rises*
+(+0.037/+0.043/**+0.048**/+0.041). Admitted-trigger cosine stays inside the calibrated band
+(p10 .501 / p50 .581 / p90 .648): baseline p50 0.569, B 0.578, C 0.585, D 0.576. **No threshold
+requires recalibration**, which was the main risk to the rest of `tuning.yaml`.
+
+**Arm C is rejected, and it is the ninth consecutive failure of a per-item threshold filter here.**
+It deletes more than it saves (−156/+56) and empties 886 moves outright. Its 100% substantive rate
+is trivially true — that is the property it filters on. Consistent with the eight sink-rescue
+signals and with `response_word_count`'s known bias against terse expert moves.
+
+**NEW AND ARGUABLY LARGER THAN THE DEFECT THIS SPEC ADDRESSES: Layer D's admit/reject rule is a
+near-tie for a large share of every run.** |best coachable − best sink| on the baseline arm:
+**14.5% of decisions sit within 0.01 of flipping, 28.3% within 0.02, 40.7% within 0.03.** So:
+
+- of arm D's **9 losses, 8 (89%) are coin flips** — its regressions are mostly noise, not damage
+- of arm D's **81 gains, 27 (33%) are coin flips** — the firm gain is **~+54, not +72**
+- baseline itself admits fragments (`'I think you can have, like, a.'`) for the same reason
+
+**This is unexamined and is recorded as an open finding**, sibling to the measured fact that the
+Layer B/D top1-vs-top2 scenario margin is ~0.01 cosine. Any future Layer D number should carry
+this fragility, and no arm difference under ~30 exchanges should be read as real.
+
+**Caveat on arm D, stated rather than buried:** D's per-turn filter and D's gate apply the SAME
+rule, so D's admission is effectively "does this block contain any coachable-matching turn" — a
+**looser gate** than baseline's "is the last turn coachable-matching". Part of D's gain is gate
+relaxation, not purely better trigger text. Arm E does not have this property.
+
+**Reading (C1) — the aggregates could not have caught these.** Arm D deletes genuinely real
+content when a turn's own best match is a sink (`"we'll definitely forward those as soon as they
+come up"`, `"in terms of communications, we can talk with the Jovio team through email"`). All 11
+of D's regressions were read: a few are genuine (`'do you guys have a list of which sources would
+be easy to apply'` is admitted alone and rejected once stitched), and 8 of 9 scored losses are
+coin flips.
+
+**Harness error worth not repeating:** the first report's `subst.trig` column counted arm D's
+1,687 empty rows in the denominator and made D look like it destroyed trigger quality (41.2%).
+Recomputed on the population that actually matters — the **scored** set — D is 85.8% substantive
+against baseline's 85.4%, with a longer median trigger (51 vs 45 words). **A rate is meaningless
+without stating its denominator**, the same defect as the ceiling arms' population asymmetry.
+
+**Still unmeasured: the weighted score.** Everything above is free; G5/G6/G7 need the ~230-call
+run. §1.1's prediction stands unchanged.
+
+**Nothing is shipped. No production file changed, no `tuning.yaml` key added, no DB row written.**
