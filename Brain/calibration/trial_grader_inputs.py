@@ -236,19 +236,42 @@ def item_w(records: list[dict]) -> float:
     return weighted(h, p, len(records))
 
 
+def item_counts(records: list[dict]) -> tuple[int, int, int]:
+    """(full_hits, partial_hits, attempts) for one item -- the terms W is built from."""
+    h = sum(1 for r in records if r["verdict"] == "full_hit")
+    p = sum(1 for r in records if r["verdict"] == "partial_hit")
+    return h, p, len(records)
+
+
 def bootstrap_d(by_item_matched: dict, by_item_unrelated: dict, rng: np.random.Generator):
-    """95% CI for D, resampling ITEMS. Milestones inside an item share a response."""
+    """95% CI for D, resampling ITEMS. Milestones inside an item share a response.
+
+    THE RESAMPLED W IS POOLED, exactly as the point estimate is. Each item contributes its
+    (hits, partial, attempts) and W is recomputed from the summed counts, so an item holding
+    six milestones weighs six times an item holding one -- which is what
+    `W = (full + 0.5*partial)/attempts` means and what the pre-registration fixed.
+
+    It previously averaged per-item W values unweighted, a DIFFERENT estimator from the
+    point estimate it was quantifying. Measured on the shipped artifacts the two disagree by
+    -0.02 to +1.9, and in `confirmB` the resulting interval [2.116, 3.645] excluded its own
+    point estimate of 2.114.
+
+    Takes (hits, partial, attempts) triples, not pre-divided W values: the division has to
+    happen AFTER the resampled counts are summed, so a per-item W cannot be un-averaged.
+    """
     keys = sorted(set(by_item_matched) & set(by_item_unrelated))
     if not keys:
         return float("nan"), float("nan")
-    m = np.array([by_item_matched[k] for k in keys], dtype=float)
+    m = np.array([by_item_matched[k] for k in keys], dtype=float)      # (K, 3)
     u = np.array([by_item_unrelated[k] for k in keys], dtype=float)
     ds = []
     for _ in range(BOOTSTRAP):
         pick = rng.integers(0, len(keys), size=len(keys))
-        mu, uu = m[pick].mean(), u[pick].mean()
-        if uu > 0:
-            ds.append(mu / uu)
+        mh, mp, mn = m[pick].sum(axis=0)
+        uh, up, un = u[pick].sum(axis=0)
+        wu = weighted(uh, up, un)
+        if wu > 0:
+            ds.append(weighted(mh, mp, mn) / wu)
     if not ds:
         return float("nan"), float("nan")
     return float(np.percentile(ds, 2.5)), float(np.percentile(ds, 97.5))
@@ -539,7 +562,14 @@ def main() -> None:
               if k[0] == "matched"}
         iu = {k[1].rsplit("_", 1)[0]: item_w(v) for k, v in per_item.items()
               if k[0] == "unrelated"}
-        lo, hi = bootstrap_d(im, iu, boot)
+        # The CI resamples COUNTS, not the per-item W values above -- W has to be recomputed
+        # from summed counts to stay the same (pooled) estimator as `D`. The per-item W maps
+        # are still reported, because the sign test and the per-scenario detail read them.
+        cm = {k[1].rsplit("_", 1)[0]: item_counts(v) for k, v in per_item.items()
+              if k[0] == "matched"}
+        cu = {k[1].rsplit("_", 1)[0]: item_counts(v) for k, v in per_item.items()
+              if k[0] == "unrelated"}
+        lo, hi = bootstrap_d(cm, cu, boot)
         payload["conditions"][cname] = {
             "w_matched": wm, "w_unrelated": wu,
             "D": (wm / wu) if wu > 0 else float("inf"),

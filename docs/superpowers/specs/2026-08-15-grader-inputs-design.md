@@ -167,10 +167,15 @@ gradings each. Same items across all four conditions.
 
 | condition | W matched | W unrelated | D | 95% CI |
 | --- | --- | --- | --- | --- |
-| `blind` (control) | 0.176 | 0.029 | **6.00** | [3.26, 24.31] |
-| `label` | 0.172 | 0.038 | 4.48 | [2.92, 13.48] |
-| `turn` | 0.170 | 0.026 | 6.64 | [3.03, 22.26] |
-| `full` | 0.203 | 0.035 | 5.84 | [4.17, 22.51] |
+| `blind` (control) | 0.176 | 0.029 | **6.00** | [3.13, 17.11] |
+| `label` | 0.172 | 0.038 | 4.48 | [2.69, 9.06] |
+| `turn` | 0.170 | 0.026 | 6.64 | [3.34, 21.54] |
+| `full` | 0.203 | 0.035 | 5.84 | [3.26, 15.75] |
+
+> CIs recomputed 2026-08-15 (F11/R3a) with the pooled estimator, so they now quantify the
+> `D` beside them. Every point estimate is unchanged; the intervals narrow (the old ones were
+> widened by unweighted per-item averaging). **The reading is unchanged: still no ordering,
+> still heavily overlapping.**
 
 **Situating the grader does nothing.** No ordering, CIs heavily overlapping. DEFECT 2 is a
 real code fact and is NOT the binding constraint. Do not spend on it again.
@@ -215,8 +220,8 @@ run, leakage-clean stratum, `gemini-3.1-flash-lite` pinned, ~230 calls total.
 
 | run | wins | losses | ties | win share | p | pooled D |
 | --- | --- | --- | --- | --- | --- | --- |
-| A (seed 42) | 48 | 14 | 7 | **77.4%** | 1.7e-05 | 2.92 [2.05, 3.68] |
-| B (seed 7) | 51 | 11 | 7 | **82.3%** | 2.8e-07 | 2.11 [2.12, 3.64] |
+| A (seed 42) | 48 | 14 | 7 | **77.4%** | 1.7e-05 | 2.92 [2.22, 3.99] |
+| B (seed 7) | 51 | 11 | 7 | **82.3%** | 2.8e-07 | 2.11 [1.67, 2.73] |
 
 **Both clear the pre-registered bar. Only 7 of 69 ties**, so the "everything scores zero on
 both sides" degenerate case did not occur and the test is genuinely informative.
@@ -238,9 +243,24 @@ different problem, and the instrument to test fixes against now exists.
   human labels settle that.
 - All of it is the OLD taxonomy and OLD rubrics. The turn-mode 38 have no rubrics, so nothing
   here speaks to them.
-- Known harness inconsistency, unfixed: printed `D` is pooled (total hits / total attempts)
+- ~~Known harness inconsistency, unfixed: printed `D` is pooled (total hits / total attempts)
   while the bootstrap CI is over per-item means. Run B is 2.11 pooled vs 2.75 mean-of-items,
-  which is why its CI appears to exclude its own point estimate. The sign test is unaffected.
+  which is why its CI appears to exclude its own point estimate.~~ **FIXED 2026-08-15
+  (F11/R3a).** The bootstrap now recomputes `W` from the summed counts of the resampled
+  items, i.e. the same pooled estimator as the point estimate, so an item holding six
+  milestones weighs six times one holding a single milestone — which is what
+  `W = (full + 0.5*partial)/attempts` means. Run B's interval becomes **[1.67, 2.73]** and
+  contains its 2.11. Every `D` in this document is unchanged; only the intervals moved, and
+  the free recompute ran off the intact checkpoints. **The sign test never used the bootstrap
+  and is untouched, so the 77.4% / 82.3% headline does not depend on any of this.**
+  - **One reading DOES change, for run B only.** Its old interval [2.12, 3.64] sat entirely
+    above the pre-registered `D >= 2.0`; the corrected [1.67, 2.73] straddles it. B's PASS on
+    the pooled ratio is therefore marginal rather than clear. This costs nothing here, because
+    the section above already retired `D >= 2.0` as mis-specified and moved the headline to
+    the sign test for exactly the reason the correction illustrates — the pooled ratio is
+    fragile.
+  - The measured pooled-vs-per-item gap ran from **-1.51 to +1.87** across the six shipped
+    artifacts, so this was never a rounding-level inconsistency.
 
 ### Harness bugs found and fixed during the run, all recoverable only because of checkpoints
 
