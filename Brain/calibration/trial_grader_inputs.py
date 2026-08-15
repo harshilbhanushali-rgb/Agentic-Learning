@@ -98,6 +98,10 @@ CONDITIONS = {
 PIN_MODEL = "gemini-3.5-flash-lite"
 D_PASS = 2.0                      # inverse of score_naren_ceiling._T_INSTRUMENT = 0.5
 BOOTSTRAP = 2000
+# Stamped into every condition so an artifact says which estimator produced its interval.
+# An artifact written before 2026-08-15 carries per-item-mean CIs and no such field, and the
+# two are not comparable -- see bootstrap_d.
+CI_ESTIMATOR = "pooled_w_over_resampled_items"
 # PRE-REGISTERED FOR THE CONFIRMATION RUN, before it was launched. The pooled ratio D is
 # NOT the bar -- its denominator is near zero and its CI came out [1.59, 10.02]. The bar is
 # the per-scenario paired count, which divides by nothing: the right rubric must beat the
@@ -291,6 +295,8 @@ def report(p: dict) -> None:
         if not a:
             continue
         ci = f"[{a['ci_lo']:.2f}, {a['ci_hi']:.2f}]"
+        if a.get("ci_estimator", "") != CI_ESTIMATOR:
+            ci += " !"          # pre-2026-08-15 per-item-mean interval; not comparable
         models = ", ".join(f"{k.split('-')[-2] if k else '?'}:{v}"
                            for k, v in sorted(a["models"].items(), key=lambda x: -x[1])[:2])
         flag = "  PASS" if a["D"] >= D_PASS else ""
@@ -573,7 +579,8 @@ def main() -> None:
         payload["conditions"][cname] = {
             "w_matched": wm, "w_unrelated": wu,
             "D": (wm / wu) if wu > 0 else float("inf"),
-            "ci_lo": lo, "ci_hi": hi, "attempts": len(recs),
+            "ci_lo": lo, "ci_hi": hi, "ci_estimator": CI_ESTIMATOR,
+            "attempts": len(recs),
             "models": dict(Counter(r["judged_by"] for r in recs)),
             "sign_test": sign_test(recs),
             "per_item_matched": im, "per_item_unrelated": iu,

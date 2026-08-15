@@ -78,6 +78,12 @@ def test_no_overlapping_items_yields_nan_not_a_fabricated_interval():
     assert lo != lo and hi != hi
 
 
+def test_every_condition_records_which_estimator_made_its_interval():
+    """An artifact whose CI came from the pre-2026-08-15 per-item mean is not comparable to
+    one from the pooled bootstrap, and nothing in the file used to say which it was."""
+    assert tg.CI_ESTIMATOR == "pooled_w_over_resampled_items"
+
+
 def test_weighted_counts_a_partial_as_half():
     assert tg.weighted(1, 1, 4) == pytest.approx(0.375)
     assert tg.weighted(0, 0, 0) == 0.0
