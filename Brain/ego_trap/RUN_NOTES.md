@@ -2,8 +2,24 @@
 
 Tracks gap-analysis results across pipeline runs so V1 (Gemma-direct) and V2
 (statistical clustering) scenario/rubric sets can be compared on the same
-CSM transcripts. Layer D (Ego Trap) itself doesn't change between runs —
-only the `scenarios`/`rubrics` rows it scores against do.
+CSM transcripts.
+
+> **The "Layer D itself doesn't change between runs" assumption that used to head this
+> file no longer holds.** Layer D was realigned with the main pipeline on 2026-08-10
+> (see CLAUDE.md's "Layer D (Ego Trap) realigned with the main pipeline" section):
+> sinks are now excluded from the gemma-mode prompt, the absolute similarity floor was
+> replaced by the sink-comparison rule, `milestone_id` is positional rather than
+> `order`-derived, and benchmark references read `scenario_keys[]` ranked by cosine.
+> **Runs 1 / 1b below therefore compare against a DIFFERENT Layer D than any run after
+> that date** — treat the boundary as a hard break, not a continuous series.
+>
+> Config in the dated entries below is written as `STEP_0_MODE=...` / `EGO_TRAP_*` env
+> vars, which is accurate for when those runs happened. Those vars are retired:
+> every Layer D knob now lives in `Brain/tuning.yaml` under `layer_d:`, and
+> `ops/run_ego_trap.py` refuses to start if one is still set in `.env`.
+>
+> The Layer D tables were empty as of 2026-08-10 (`gap_events` = 0 rows), so no run
+> below is still reproducible from the DB — only from these notes.
 
 ## Run 1 — V1 pipeline (Gemma-direct)
 
@@ -66,6 +82,7 @@ reject on the responder's identity/name.
 **Actual root cause, confirmed by reading `rec3.txt` at the real `signal_turn_index`
 values:** the 0.35 similarity threshold is matching topic-irrelevant small talk to
 real scenarios. Concretely:
+
 - Turn 1 (`"I'm good. Thank you."` — opening pleasantries) matched
   `managed_service_vs_direct_access` at ≥0.35. The paired CSM turn is about being
   off-camera — Gemma correctly scored every milestone a miss because there's

@@ -2,11 +2,18 @@
 """Clears Ego Trap Layer D data: Postgres tables + its SQLite checkpoints.
 Does NOT touch Naren's brain data (scenarios/rubrics/kb_pairs/calls) — Ego Trap
 reads those, it doesn't own them. Run from Brain/ with the venv active:
-python clear_ego_trap_data.py
+python ops/clear_ego_trap_data.py
+
+NOTE: no `if __name__ == "__main__"` guard -- importing this module WIPES the Ego Trap
+tables. Never import it to test or inspect it; run it deliberately or not at all.
 """
 import sqlite3
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Brain/ is this file's grandparent -- on sys.path so `config` resolves.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 load_dotenv()
 
@@ -24,7 +31,7 @@ pg.commit()
 pg.close()
 print("Postgres cleared: gap_events, milestone_performance, signal_recognition_gaps, csms")
 
-db_path = Path(__file__).parent / "checkpoints.db"
+db_path = Path(__file__).resolve().parent.parent / "checkpoints.db"
 if db_path.exists():
     c = sqlite3.connect(db_path)
     c.execute("DELETE FROM checkpoints WHERE layer LIKE 'ego_trap%'")

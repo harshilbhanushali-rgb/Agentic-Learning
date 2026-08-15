@@ -176,9 +176,23 @@ CREATE TABLE IF NOT EXISTS csms (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- milestone_id is synthesized as f"M{order}" from rubrics.milestones (no stable id in that JSONB)
+-- milestone_id is the milestone's 1-BASED POSITION in rubrics.milestones, formatted
+-- f"M{i+1}" by ego_trap.milestone_scoring.milestone_ids. The array position is the only
+-- stable identity available: that JSONB has no id field, v1-fallback rubrics have no
+-- guaranteed 'order' key at all (Gemma's raw output is stored unvalidated), and two
+-- milestones sharing an 'order' value would merge into ONE row under this PK, silently
+-- fusing two distinct milestones' counters. v2's own 'order' is already dense 1-based
+-- over the same list, so positional ids match it exactly for every v2 rubric.
+--
+-- CAVEAT: upsert_rubric's ON CONFLICT (scenario_id) keeps rubric_id stable while
+-- replacing milestones, so a Layer C re-run can make "M2" mean a different milestone
+-- while rows here keep accumulating under it. Run ops/clear_ego_trap_data.py after any
+-- Layer C re-run.
+--
 -- hits = full_hit count only; partial_hits tracks partial_hit count separately.
 -- Weighted score is computed at query time: (hits + 0.5 * partial_hits) / attempts.
+-- Never stored -- it changes every time attempts increments. ego_trap.gap_output
+-- derives miss_rate as its exact complement, and severity from that.
 CREATE TABLE IF NOT EXISTS milestone_performance (
     csm_id         TEXT NOT NULL REFERENCES csms(csm_id),
     rubric_id      INTEGER NOT NULL REFERENCES rubrics(rubric_id),
