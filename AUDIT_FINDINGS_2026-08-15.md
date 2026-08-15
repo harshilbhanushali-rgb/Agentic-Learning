@@ -295,7 +295,8 @@ Status of every item, and the observations that exist nowhere else.
 | R4c (reference must be size-matched, found auditing R4) | **DONE** `b7d4e94` | yes — both arms +16-17 points |
 | R4d (docstring cherry-pick + config/overwrite guards) | **DONE** `b7d4e94` | no — honesty and guards only |
 | R5 (F13 position-verified join) | **DONE** `ca4c257` | no — LATENT guard; artifact byte-identical |
-| R6-R12, R15 | **NOT STARTED** | — |
+| R6 (F7 tag + refuse-to-overwrite) | **DONE** `31899f9` | no — guard; F7 was HALF implemented, not none |
+| R7-R12, R15 | **NOT STARTED** | — |
 
 **R4 is the first item where auditing MY OWN FIX found defects that changed the answer
 twice.** The fix's own tests passed throughout; a separate adversarial pass over the fix is
