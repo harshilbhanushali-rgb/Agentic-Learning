@@ -375,8 +375,10 @@ def main() -> None:
                 "SELECT p.scenario_key, p.pair_id, p.trigger_text, p.response_text, "
                 "c.filename, p.call_id "
                 "FROM public.kb_pairs p JOIN public.calls c ON c.call_id = p.call_id "
-                "WHERE p.scenario_key = ANY(%s) AND length(trim(p.trigger_text)) > 20 "
-                "AND length(trim(p.response_text)) > 20", (list(scen),))
+                # F4: NO LENGTH FILTER. This query defines primary_calls, and Layer C's real
+                # clause pool filters on scenario_key alone -- a call whose only primary
+                # contribution had a short trigger IS leaked and must not be called clean.
+                "WHERE p.scenario_key = ANY(%s)", (list(scen),))
             pool: dict[str, list[dict]] = defaultdict(list)
             primary_calls: dict[str, set] = defaultdict(set)
             for k, pid, trg, rsp, fn, cid in cur.fetchall():
@@ -449,6 +451,12 @@ def main() -> None:
                     "benchmark_response": "\n\n".join(
                         r["response_text"] for r in bench[:2]),
                 })
+    # F9: SEPARATE THE ARMS INTO DIFFERENT REQUESTS. items was built matched-then-unrelated
+    # per response and batch_size is even, so both arms of every response landed in ONE
+    # prompt -- the grader saw the same response twice, against two rubrics, side by side,
+    # and could contrast them. Production never does that, so it inflates D. Ordering by kind
+    # first guarantees a matched item and its unrelated twin are never in the same batch.
+    items.sort(key=lambda it: (it["kind"], it["item_id"]))
     n_resp = len(items) // 2
     print(f"{n_resp} responses -> {len(items)} items per condition "
           f"({len(items)*len(conds)} scorings, "
