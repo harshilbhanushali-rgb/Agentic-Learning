@@ -128,6 +128,38 @@ def phrase_tokens(keyword: str) -> tuple[str, ...]:
     return tuple(_WORD.findall(keyword.lower()))
 
 
+def top_keywords_of(keyword_string: str) -> list[str]:
+    """The cluster's top-K c-TF-IDF keywords. ONE definition, used by every consumer.
+
+    It was written twice with the slice and the strip in different orders, which differed
+    only on empty slots -- BERTopic emits fewer than K keywords for 2 clusters -- and an
+    empty slot can only ever read as missing anyway. Two expressions for one list is how the
+    two ends of a lookup drift apart, which is the whole of F14.
+    """
+    return [w.strip() for w in keyword_string.split(",")][:TOP_KEYWORDS]
+
+
+def _phrase_table(keywords: list[str]) -> dict[tuple[str, ...], str]:
+    """Token tuple -> keyword, refusing to let one keyword shadow another.
+
+    Keywords are keyed by their normalised tokens, so two distinct keyword STRINGS that
+    normalise identically would leave the loser matching nothing at all -- a silent drop
+    indistinguishable from "this phrase never occurs". Measured today: 614 keywords give 609
+    distinct non-empty tuples and ZERO non-empty collisions, so this only ever fires if the
+    tokenisation changes (R15 would, by making `2021` and `dont` tokenise).
+    """
+    table: dict[tuple[str, ...], str] = {}
+    for k in keywords:
+        toks = phrase_tokens(k)
+        if not toks:
+            continue            # e.g. a purely numeric keyword under the current _WORD
+        if toks in table and table[toks] != k:
+            raise SystemExit(f"KEYWORD COLLISION: {table[toks]!r} and {k!r} both normalise "
+                             f"to {toks!r}; one would silently match nothing.")
+        table[toks] = k
+    return table
+
+
 def keyword_turns(texts: list[str], keywords: list[str]) -> dict[str, list[int]]:
     """keyword -> indices of the turns containing it, phrases matched as token SEQUENCES.
 
@@ -136,10 +168,8 @@ def keyword_turns(texts: list[str], keywords: list[str]) -> dict[str, list[int]]
     artifact stores each cluster's keyword string.
     """
     wanted: dict[int, dict[tuple[str, ...], str]] = defaultdict(dict)
-    for k in keywords:
-        toks = phrase_tokens(k)
-        if toks:
-            wanted[len(toks)][toks] = k
+    for toks, k in _phrase_table(keywords).items():
+        wanted[len(toks)][toks] = k
     hits: dict[str, list[int]] = {k: [] for k in keywords}
     for i, t in enumerate(texts):
         ws = _WORD.findall(t.lower())
@@ -161,8 +191,8 @@ def keyword_pos_rates(docs, keywords: list[str]) -> tuple[dict[str, float], dict
     capitalisation. `docs` is an iterable of spaCy Docs so the caller keeps ownership of the
     pipeline and of when the model is released.
     """
-    lens = sorted({len(phrase_tokens(k)) for k in keywords if phrase_tokens(k)})
-    table = {phrase_tokens(k): k for k in keywords if phrase_tokens(k)}
+    table = _phrase_table(keywords)
+    lens = sorted({len(t) for t in table})
     propn_hit: Counter[str] = Counter()
     propn_tot: Counter[str] = Counter()
     cap_hit: Counter[str] = Counter()
@@ -382,8 +412,7 @@ def main() -> None:
     # cluster's keyword string -- which is also what lets the POS pass stay ahead of the UMAP
     # fit while still scoring multiword keywords. Safe only because the position-verified join
     # below asserts these are byte-identical to the recomputed ones and exits if they are not.
-    wanted_keywords = sorted({w.strip() for r in adj_rows
-                              for w in r["keywords"].split(",")[:TOP_KEYWORDS] if w.strip()})
+    wanted_keywords = sorted({k for r in adj_rows for k in top_keywords_of(r["keywords"])})
     n_multi = sum(1 for k in wanted_keywords if len(phrase_tokens(k)) > 1)
     print(f"[keywords] {len(wanted_keywords)} distinct top-{TOP_KEYWORDS} keywords, "
           f"{n_multi} multiword ({n_multi/max(len(wanted_keywords),1)*100:.0f}%) -- BERTopic "
@@ -470,7 +499,7 @@ def main() -> None:
         labs = [pool_acct[i] for i in c["idxs"] if pool_acct[i]]
         top, share, n_acc = concentration(labs)
         nmean, np99 = null_band(pool_labels, len(labs), rng)
-        kws = [w.strip() for w in c["keywords"].split(",")][:TOP_KEYWORDS]
+        kws = top_keywords_of(c["keywords"])
         for w in kws:
             if w not in kw_cache:
                 kw_cache[w] = keyword_account_share(w)

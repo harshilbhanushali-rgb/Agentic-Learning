@@ -54,6 +54,28 @@ def test_punctuation_and_case_do_not_break_a_phrase_match():
     assert hits["happy dance"] == [0]
 
 
+def test_two_keywords_normalising_alike_raise_rather_than_shadow_each_other():
+    """Keywords are keyed by token tuple, so a collision would leave the loser matching
+    nothing -- indistinguishable from 'this phrase never occurs'. Measured zero non-empty
+    collisions today; R15's tokeniser change is exactly what could introduce one."""
+    with pytest.raises(SystemExit, match="KEYWORD COLLISION"):
+        fp.keyword_turns(["a b"], ["happy dance", "Happy  Dance!"])
+
+
+def test_keywords_that_normalise_to_nothing_are_skipped_not_collided():
+    """Purely numeric keywords all normalise to (), which is not a collision -- they are
+    excluded equally and simply read as missing."""
+    hits = fp.keyword_turns(["we spent 2021 on it"], ["2021", "18", "spent"])
+    assert hits["2021"] == [] and hits["18"] == []
+    assert hits["spent"] == [0]
+
+
+def test_top_keywords_of_is_the_single_definition():
+    """Both consumers must slice and strip identically; they used to differ on empty slots."""
+    assert fp.top_keywords_of("okay okay, okay, ") == ["okay okay", "okay", ""]
+    assert fp.top_keywords_of("a, b, c, d") == ["a", "b", "c"]
+
+
 def test_phrase_tokens_normalises_the_keyword():
     assert fp.phrase_tokens("happy dance") == ("happy", "dance")
     assert fp.phrase_tokens("pixel") == ("pixel",)
