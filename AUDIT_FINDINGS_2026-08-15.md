@@ -274,6 +274,77 @@ Two facts that fell out of the same query and are not defects in this file:
 | --- | --- | --- | --- |
 | R12 | align `PROMPT_STEP3_CALL_LEVEL_BATCH` with the verifier's role rule, make `scored_roles` a flag, make quote matching span-aware (F2) | ~60 calls | Check 2 is corrupted, not failed. Fixed it reads ~83.5%, ~88% with the span fix - **still under the 95% bar. The gate fails either way.** Do it for a defensible record, not for a different answer. |
 
+---
+
+# REMEDIATION LOG — 2026-08-15, R1 through R3
+
+Status of every item, and the observations that exist nowhere else.
+
+| item | status | did a published number move? |
+| --- | --- | --- |
+| R1 (F6 union denominator) | **DONE** `d5e930a` `e455abd` | yes — union 47.9% -> 45.8% |
+| R14 (rubric population, found auditing R1) | **DONE** `be1e506` | yes — union -> 44.7% aggregate, 43% mean |
+| R2a (F14 bigram keywords) | **DONE** `1a0302a` `77bdfe5` | yes — corr 0.182 -> 0.047, 0.616 -> 0.393 |
+| R2b (F15 NaN handling) | **DONE** `979aed5` `5f07632` | no — guard; ordering within ties now stable |
+| R2c (F15 multiplicity) | **DONE** `a7ebf31` | no — new reporting only |
+| R15 (tokeniser mismatch, found auditing R2a) | **OPEN** | not yet — 87 keywords still unmeasured |
+| R3a (F11 estimator mismatch) | **DONE** `1dbbc27` `0117820` `03d250d` | intervals only; one printed verdict flipped |
+| R3b (F11 unbounded resamples) | **DONE** `7b048cb` | one interval: [3.13,17.11] -> [3.12,17.39] |
+| R4-R12 | **NOT STARTED** | — |
+
+**No conclusion anywhere in the project changed.** Every correction moved in the direction
+that already supported the conclusion drawn, which is itself worth noting: nine corrections,
+zero reversals.
+
+## Observations recorded nowhere else
+
+- **`confirmB` shipped a CI that excluded its own point estimate** — `[2.116, 3.645]` around
+  `D = 2.114`. Not hypothetical; it was in the artifact and in the spec's table.
+- **A plain re-run of `trial_grader_inputs.py` can silently start SPENDING.** `main()` rebuilds
+  items *before* consulting the checkpoint, the checkpoint resumes only on an exact `n_items`
+  match, and the flags that shape items (`--holdout`, `--conditions`, `--per-scenario`) are not
+  recorded in the artifact — which is **F8/R8**, still open. For `clean_v2` a wrong guess costs
+  ~180 calls, because its checkpoint holds only `blind` while the default is all four
+  conditions. `--recompute` (added here) re-derives everything from the checkpoint and cannot
+  reach Postgres or chat.
+- **`np.percentile` turns one `+inf` into `NaN`** via linear interpolation (`inf - inf`),
+  silently converting "the upper bound is unbounded" into "no answer". Only a distribution
+  containing an inf takes the nearest-rank fallback, so published finite intervals stay
+  bit-identical.
+- **The printed Signal C ranking in `flag_proper_noun_clusters` was input-order-dependent, and
+  NOT because of NaN.** Three coachable clusters share `propn_rate` 0.3333 and six share 0.0;
+  a stable sort leaves ties wherever the input put them. Fixing "the NaN" would have left the
+  real cause in place.
+- **`max` is a fragile aggregator over a variable-size set.** It can only rise as more keywords
+  become visible, so the published `r=0.616` was partly measuring how many keywords the harness
+  could see. Mean moved far less (0.705 -> 0.587). Any correlation quoted from that artifact
+  must state its aggregator; neither is computed by the script at all.
+- **`clean_v2` IS the moment trial** (73 scenarios / 2,976 attempts / D=1.15 / 52.8%), i.e. the
+  result this file calls real. **The design spec never records it** — the spec still ends
+  "CONCLUSION: the criteria scorer discriminates" on the confirmA/B runs this file lists as
+  superseded. Documentation gap, deliberately not silently edited.
+- **Two rubrics hold zero criteria**, so any per-rubric statistic runs over 82, not 84.
+- **F16's silent drop never fired**: 378 perf groups in, 378 out, zero unparseable ids, zero
+  positions beyond a rubric, zero missing rubric_ids.
+
+## Measurement lessons from doing the remediation itself
+
+- **Four of my own analysis scripts produced false alarms**, none of which would have been
+  caught by the code being audited. In order: a "keyword collision ACTIVE BUG" that both call
+  sites already guarded; a NaN attribution that was really a tie; a `101 of 129 scoreable` that
+  was counting distinct `scenario_key`s when **33 keys are duplicated across clusters**; and a
+  test asserting an upper bound that a CORRECT estimator also fails. **Aggregating by a
+  non-unique key, and collapsing a multi-case situation to a boolean, are as easy to do in the
+  audit tooling as in the thing audited.**
+- **State which tests pass BOTH ways.** Every fix here reports how many of its tests fail
+  against the pre-fix code, verified by reimplementing the old behaviour and re-running the
+  same assertions. Twice a headline test passed both ways and had to be rebuilt — a test named
+  for a property it does not constrain is worse than no test.
+- **Back up the artifact before a recompute, then diff every field.** That is what proved each
+  fix was contained (`milestones` rows identical, checkpoints byte-identical) and what caught
+  the one change I had not predicted (`sign_test` going from absent to an explicit
+  "unavailable" marker on three pre-sign-test artifacts).
+
 ## Explicitly NOT to be rerun
 
 - **Moment trial** - `D = 1.15`, 52.8% over 73 scenarios / 2,976 attempts, clean harness. This is the real result and it confirms the ceiling's original 1.2:1.

@@ -1476,6 +1476,45 @@ Harnesses `calibration/trial_pool_unit_gemini.py`, `trial_adjudicate_gemini.py`,
   substantive, so neither is a defence. A rubric for "Happy Dance" transfers to no other
   client. Cheap unrun check: flag clusters whose top keywords are a proper noun.
 
+### Measurement-harness remediation, R1-R3 (2026-08-15)
+
+Driven by `AUDIT_FINDINGS_2026-08-15.md`'s rerun table; per-item status and the full
+observation list live there. Nine corrections, **zero conclusions reversed** — every one moved
+in the direction that already supported the conclusion drawn. What generalises:
+
+- **`calibration/trial_grader_inputs.py --recompute` exists, and a plain re-run does NOT.**
+  `main()` rebuilds items *before* consulting the checkpoint; the checkpoint resumes only on an
+  exact `n_items` match; and `--holdout` / `--conditions` / `--per-scenario` are **not recorded
+  in the artifact** (that is F8, still open). Guess one wrong and the run stops resuming and
+  starts SCORING — ~180 paid calls for `clean_v2` alone, whose checkpoint holds only `blind`
+  while the default is all four conditions. `--recompute` re-derives W/D/CI/sign-test from the
+  checkpoint and cannot reach Postgres or chat. Use it for any statistic correction.
+- **`np.percentile` silently returns NaN if the sample contains one `+inf`** — linear
+  interpolation computes `inf - inf`. That converts "the upper bound is unbounded" into "no
+  answer". Guard with a nearest-rank fallback *only* when a non-finite value is present, so
+  finite results stay bit-identical to anything already published.
+- **A zero denominator in a bootstrap is TWO cases.** `matched>0, unrelated=0` is an unbounded
+  ratio and belongs in the distribution (it is the largest value; dropping it truncates the
+  interval). `both=0` is `0/0` and carries no information — exclude it, but COUNT it. Sharing
+  one branch is how a CI becomes conditional without saying so.
+- **`max` over a variable-size set is a fragile aggregator**: it can only rise as more members
+  become visible, so it partly measures coverage rather than the quantity. Prefer mean, and
+  always state the aggregator — `flag_proper_noun_clusters`' published `r=0.616` was
+  `max`-over-coachable and neither correlation is computed by the script at all.
+- **A point estimate and its CI must use ONE estimator.** `confirmB` shipped `[2.116, 3.645]`
+  around a `D` of `2.114` because `D` was pooled while the bootstrap averaged per-item values.
+  Measured gap across six artifacts: -1.51 to +1.87.
+- **Ties, not NaN, make a printed ranking input-order-dependent.** A stable sort leaves equal
+  keys wherever the input put them; three clusters share `propn_rate` 0.3333 and six share 0.0.
+  Break ties on a stable key or the ranking is not reproducible.
+- **Audit tooling fails the same way as the code it audits.** Four of my own analysis scripts
+  produced false alarms this session, including counting distinct `scenario_key`s when 33 keys
+  are duplicated across clusters, and collapsing a four-case situation to a boolean. Check a
+  flagged defect *has a consequence* before fixing it.
+- **Say which tests pass BOTH ways.** Verify a new test fails against the pre-fix code by
+  reimplementing the old behaviour and re-running the same assertions; twice here a headline
+  test passed both ways and had to be rebuilt.
+
 ### Layer A pool unit: the taxonomy was built from sentence fragments (2026-08-14/15)
 
 Spec: `docs/superpowers/specs/2026-08-14-layer-a-pool-unit-design.md` (Status updates 1-7 and a
