@@ -297,6 +297,31 @@ def paired_means(rows: list[dict], a: str, b: str) -> tuple[float, float, int, i
     return ma, mb, len(ok), len(rows) - len(ok)
 
 
+def multiplicity_note(rows: list[dict], coach: list[dict], flagged: list[dict],
+                      null_reps: int) -> str:
+    """How many p99 flags are expected by chance, and how coarse the p99 itself is.
+
+    Every cluster is tested against its own null at p99, so ~1% of them are expected to
+    exceed it with no pathology at all. A flag count printed without that expectation invites
+    reading noise as a finding -- and here the expectation happens to DEFEND the result
+    rather than undercut it, which is exactly why it should be stated either way.
+    """
+    exp_all = len(rows) * 0.01
+    exp_coach = len(coach) * 0.01
+    above = max(1, round(null_reps * 0.01))
+    return (
+        f"  MULTIPLICITY: {len(rows)} clusters are each tested against their own null at p99,\n"
+        f"    so ~{exp_all:.1f} flags across all of them, and ~{exp_coach:.1f} of the "
+        f"{len(coach)} coachable, are expected BY CHANCE.\n"
+        f"    Observed among coachable: {len(flagged)} -- "
+        f"{len(flagged)/max(exp_coach, 1e-9):.0f}x the chance expectation, so the flag set as "
+        f"a whole is not noise\n"
+        f"    (which does NOT license any INDIVIDUAL flag -- the verdict on each still comes "
+        f"from reading its turns).\n"
+        f"    Note the p99 is itself estimated from only {null_reps} draws, so ~{above} draw(s) "
+        f"sit above it and the effective alpha is coarse.")
+
+
 def report(payload: dict, show: int) -> None:
     rows = payload["clusters"]
     coach = [r for r in rows if r["kind"] == "scenario"]
@@ -338,9 +363,10 @@ def report(payload: dict, show: int) -> None:
     flagged = [r for r in coach if not is_missing(r["top_account_share"])
                and r["exceeds_null_p99"]]
     print("\n" + "=" * 92)
-    print(f"THE 38 COACHABLE, RANKED BY ACCOUNT CONCENTRATION LIFT "
+    print(f"THE {len(coach)} COACHABLE, RANKED BY ACCOUNT CONCENTRATION LIFT "
           f"({len(flagged)} exceed their own null's p99)")
     print("=" * 92)
+    print(multiplicity_note(rows, coach, flagged, payload.get("null_reps", NULL_REPS)))
     print(f"{'scenario_key':<46}{'turns':>6}{'cal':>4}{'top acct':>9}{'null':>7}"
           f"{'lift':>7}{'acc':>5}  top keywords")
     for r in sorted(coach, key=rank_key("lift")):

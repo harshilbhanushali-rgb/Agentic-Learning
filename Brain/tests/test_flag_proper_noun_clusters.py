@@ -172,6 +172,23 @@ def test_the_lift_subtracts_means_taken_over_the_same_rows():
     assert unpaired_a != pytest.approx(a), "the unpaired mean must actually differ here"
 
 
+def test_multiplicity_note_states_the_chance_expectation_and_the_null_resolution():
+    rows = [{"i": i} for i in range(245)]
+    coach = rows[:38]
+    flagged = coach[:21]
+    note = fp.multiplicity_note(rows, coach, flagged, null_reps=400)
+    assert "245" in note and "2.5" in note, "expected false flags across all clusters"
+    assert "0.4" in note, "expected false flags among the coachable"
+    assert "400" in note, "the p99's own resolution must be stated"
+    assert "21" in note
+
+
+def test_multiplicity_note_does_not_claim_an_individual_flag_is_real():
+    """The aggregate beating chance says nothing about any one cluster."""
+    note = fp.multiplicity_note([{}] * 245, [{}] * 38, [{}] * 21, null_reps=400)
+    assert "INDIVIDUAL" in note and "reading its turns" in note
+
+
 def test_paired_means_with_nothing_scoreable_is_nan_not_zero():
     rows = [{"share": float("nan"), "null": 0.2}]
     a, b, n_ok, n_missing = fp.paired_means(rows, "share", "null")
