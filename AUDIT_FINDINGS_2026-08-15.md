@@ -152,3 +152,71 @@ Recorded so they are not re-checked.
   motivated `size_matched_partner` does not reproduce there in aggregate.
 - **Tie handling** in both sign tests matches what the reports claim.
 - **Division-by-zero / NaN** guarded everywhere except F15's two paths.
+
+
+---
+
+## Second audit (2026-08-15): the fixes were themselves audited, and two of my reports were wrong
+
+### CHECK 2's 55.5% IS MY ROLE POLICY, NOT FABRICATION
+Same shipped artifact, three role policies, reproduced independently:
+
+| role policy | pooled check 2 |
+| --- | --- |
+| pre-fix logic (no role check on `at_turn`) | 82.0% |
+| **as shipped, `("NAREN",)`** | **55.5%** |
+| `("NAREN","JOVEO_OTHER")` | **83.5%** |
+
+Cited-turn mix: **NAREN 161 / JOVEO_OTHER 74 / CLIENT 14** - so 56 of 89 failures are a Joveo
+colleague, not the client.
+
+**The cause is a prompt/verifier mismatch of my own making.** `PROMPT_STEP3_CALL_LEVEL_BATCH`
+says *"Every turn number you give must be a turn where the CSM is speaking"*, but the
+transcript the model sees is labelled `NAREN` / `JOVEO_OTHER` / `CLIENT` - **no turn is
+labelled `CSM`**, and nothing tells it only `NAREN` counts. The model is failed for guessing at
+a rule never stated. Genuine client-quote fabrication is ~4-6%, not ~45%.
+
+**Check 2 is UNINTERPRETABLE as run, not FAILED.** Neither number is the answer until the
+prompt and the verifier enforce the same rule and the run is repeated. `scored_roles` must
+become a recorded, printed flag rather than a literal at the call site.
+
+### F2 IS OVER-CORRECTED: 43% of the "fabricated" list is false accusation
+Switching from a joined-window match to per-turn matching also rejects quotes spanning a turn
+boundary - **8 of 150 `at_turn` credits** - and because `found_elsewhere` is per-turn too, they
+print under *"appear NOWHERE in the transcript (fabricated)"*. **9 of the 21 quotes so labelled
+are verbatim in the transcript**, independently confirmed. Every fabrication count reported
+today is inflated by this.
+
+### F1's RECORDED CONSEQUENCE IS RETRACTED
+The old expression was `tuple({roles} & {"NAREN","CSM","OTHER_JOVEO"}) or ("NAREN",)` - the
+intersection **already discarded** both bad names, so it always evaluated to `("NAREN",)`. The
+misspelling never admitted or rejected anything; the fix is correct as code but a **behavioural
+no-op**. "24% rejected purely on a misspelling / 30 of 49 failures" came from the first audit
+and was propagated into this file without being checked.
+
+### Other confirmed defects in the fixes
+- **Gateway provenance is null and the transport is recorded nowhere.** `scored_by` is `None`
+  for every verdict; neither artifact nor report records that `--gateway` was used.
+- **`max_output_tokens` is halved on the gateway path** - 8192 vs the 16384 the scorers set.
+  Latent here only because the run used `--per-call 1`; output length is the documented
+  binding constraint and truncation silently manufactures misses.
+- **The gateway forces `response_format=json_object` while all three Step 3 prompts ask for a
+  top-level ARRAY.** Worked this run; unverified for the array shape.
+- **F9's sort makes every batch single-arm**, so a dropped batch removes items from one arm
+  only; `D`'s point estimate then pools unequal populations while its CI uses the paired
+  subset. Twin separation also **fails when `n_resp < batch_size`** - exactly the `--smoke`
+  path.
+- **The `criteria_per_arm` guard was recorded FIXED but never touched** (git-verified
+  byte-identical); it still measures a different population than check 1 tests.
+- **Chunk-failure tolerance is safe downstream but uncounted**, biased toward long prompts, and
+  made permanent by the checkpoint; a bare `except Exception` now swallows quota exhaustion.
+- **`trigger_turns` caps `[:4]` before filtering NULLs** - the same filter-vs-cap ordering the
+  commit warns about four lines below.
+
+### Verified CORRECT
+F3 (benchmark exclusion, both arms, filter-then-cap), F5 (per-scenario collapse, and the gate
+reads it), F10 (gates on the worse arm), NULL turn omission, `scenarios_per_request` following
+`--per-call`, failures carrying their call id, F9 twin separation for `n_resp >= batch_size`,
+F4's holdout widening, and **production byte-identical when `chat` is omitted**. The three new
+tests are non-vacuous - all three fail against the pre-fix code - but nothing pins the
+span-boundary case, so F2's over-correction is untestable by the suite.
