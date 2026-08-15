@@ -253,7 +253,18 @@ Ordered cheapest-first. `REMEDIATION_PROMPT.md` drives this list one item at a t
 
 | # | fix | rerun | why the current number is wrong |
 | --- | --- | --- | --- |
-| R14 | `diagnose_rubric_level.py` rubric POPULATION, not just the per-rubric denominator | one read-only DB run (`_fetch_rows` already SELECTs the whole `rubrics` table, so no new query) | R1 fixed the denominator *within* a rubric and left the denominator *across* rubrics biased. `unions` is built from the perf rows, so a rubric Layer D never attempted contributes nothing and vanishes: **78 of the 84 live rubrics appear, and the 6 missing ones' criteria are not in the 395.** Every union is conditional on "Layer D reached this rubric" and so is an over-estimate for the rubric table. Direction is the same as R1 - correcting it lowers the union again and further strengthens the dead-criteria reading. The artifact cannot fix this: an unattempted rubric is absent from it by construction. |
+| R14 | `diagnose_rubric_level.py` rubric POPULATION, not just the per-rubric denominator | one read-only DB run (`_fetch_rows` already SELECTs the whole `rubrics` table, so no new query) | R1 fixed the denominator *within* a rubric and left the denominator *across* rubrics biased. `unions` is built from the perf rows, so a rubric Layer D never attempted contributes nothing and vanishes: **78 of the 84 live rubrics appear, and the 6 missing ones' criteria are not in the 395.** Every union is conditional on "Layer D reached this rubric" and so is an over-estimate for the rubric table. Direction is the same as R1 - correcting it lowers the union again and further strengthens the dead-criteria reading. The artifact cannot fix this: an unattempted rubric is absent from it by construction. **MEASURED 2026-08-15, read-only: 84 rubrics / 405 criteria; union aggregate 45.8% -> 44.7%, mean 45% -> 43%, median 43% -> 39%. 27 criteria never scored. 23 of 82 non-empty rubrics have not one criterion ever satisfied. Conclusion unchanged and strengthened.** |
+
+Two facts that fell out of the same query and are not defects in this file:
+
+- **Two rubrics hold ZERO criteria** - `operational_burden_expression` and
+  `integration_governance_and_constraints_discovery`, both v1. Their union is undefined (0/0)
+  and any per-rubric mean must exclude them or silently score them 0.
+- **F16 did not fire, at all.** The join's three drop paths were measured over the live tables:
+  378 groups in, 378 out, zero unparseable ids, zero positions beyond their rubric, zero
+  rubric_ids missing from `rubrics`. No rubric was created after it was scored. The silent-drop
+  hazard is real in the code and inactive in this data - so F16 stays open as a guard to add,
+  but no published number is affected by it.
 
 ## Paid - and currently NOT worth it
 

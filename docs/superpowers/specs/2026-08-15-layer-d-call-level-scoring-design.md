@@ -20,29 +20,46 @@ Today Layer D scores a rep's reply against criteria distilled from an expert's c
 | weighted score, all attempts | **0.078** |
 | criteria never satisfied by anyone, ever (>= 6 attempts) | **87 of 221 = 39%** |
 | attempts those consume, returning zero | **994 of 4,181 = 24%** |
-| share of a rubric's criteria hit by *somebody* (union), mean | **45%** |
-| the same union, aggregate over all criteria | **181 of 395 = 46%** |
-| criteria with no `milestone_performance` row at all | **17 of 395** |
+| share of a rubric's criteria hit by *somebody* (union), aggregate | **181 of 405 = 45%** |
+| the same union, mean per rubric | **43%** |
+| rubrics where NOT ONE criterion is ever satisfied | **23 of 82** |
+| criteria never scored at all | **27 of 405** |
 
-> **Both denominators here are conditional on "Layer D reached this rubric".** 84 rubrics are
-> live; only **78** appear, because a rubric with zero attempted criteria produces no rows and
-> is absent entirely — so its criteria are not among the 395 and the 6 missing rubrics are
-> invisible. Every union below is therefore an over-estimate of the union across the rubric
-> table. Correcting that needs the rubric table, i.e. a DB read, so it is filed as its own item
-> rather than folded in here.
+> **Union corrected twice on 2026-08-15 (F6/R1, then R14), both times downward.** It was first
+> computed over the 378 criteria carrying a `milestone_performance` row rather than the 395 in
+> the rubrics Layer D reached (R1), and then over those 78 rubrics rather than the **84** that
+> exist (R14) — a rubric Layer D never reached produces no rows and vanishes from the
+> denominator entirely. Read against the whole rubric table:
 >
-> The 17 are "no perf row", which is *mostly* but not provably "never attempted": **13 sit at
-> interior positions** (e.g. M1/M5/M11 of 13) that a rubric changing after the run cannot
-> explain, and **4 are tail positions** in 3 rubrics where `upsert_rubric` replacing
-> `milestones` under a stable `rubric_id` is not excluded (F16).
+> | | published | R1 | **R14 (actual)** |
+> | --- | --- | --- | --- |
+> | aggregate | 47.9% | 45.8% | **44.7%** |
+> | mean | 46% | 45% | **43%** |
+> | median | 46% | 43% | **39%** |
+> | denominator | 378 attempted criteria | 395 in reached rubrics | **405 in all rubrics** |
 >
-> Union corrected 2026-08-15 (F6/R1). It had been computed over the 378 criteria that carry a
-> `milestone_performance` row rather than the 395 in the rubrics; a criterion nobody attempted
-> was certainly never hit, so excluding it inflated the union. Mean 46% -> 45%, median 46% ->
-> 43%, aggregate 47.9% -> 45.8%. Every change is downward, so it **strengthens** the dead-criteria
-> reading below and weakens the denominator-inflation one. Nothing else in this table moved:
-> `W`, the 87 dead criteria and the 994 attempts are computed over attempted criteria only and
-> are untouched.
+> **Which figure answers which question.** For the A-vs-B split below, use the reached-rubric
+> figure (45.8%) — it is restricted to rubrics that were actually exercised, so it speaks to
+> whether criteria are *satisfiable*. For "how much of the rubric corpus is doing any work",
+> use the all-rubric figure (44.7%), which also carries the coverage gap. They differ little in
+> aggregate because the 6 unreached rubrics are tiny (10 criteria between them), but far more
+> per rubric, where an unreached rubric counts as a flat zero.
+>
+> Measured directly, read-only, 2026-08-15: **84 rubrics / 405 criteria**; Layer D reached 78 of
+> them and scored 378 criteria; **27 criteria were never scored** (17 inside reached rubrics, 10
+> in the 6 it never reached). **Two rubrics — `operational_burden_expression` and
+> `integration_governance_and_constraints_discovery` — hold zero criteria**, so their union is
+> undefined and they are excluded from the per-rubric statistics (82, not 84).
+>
+> **F16 did not fire, and the staleness caveat is retired.** The join drops rows on three paths
+> and counts none of them; measured, all three are **zero** — 378 groups in, 378 out, no
+> unparseable id, no position beyond its rubric. So the 17 are genuinely unscored, not silently
+> dropped, and the earlier "4 tail positions might be staleness" hedge is resolved: no rubric was
+> created after it was scored, no rubric shrank, and the 405-criterion total has been stable
+> since the 2026-08-10 rewrite, which preserved every count.
+>
+> Nothing else in this table moved. `W`, the 87 dead criteria and the 994 attempts are computed
+> over attempted criteria only and are untouched by either correction.
 
 Two candidate causes were tested and **both rejected**:
 
