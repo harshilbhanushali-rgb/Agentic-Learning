@@ -220,3 +220,44 @@ reads it), F10 (gates on the worse arm), NULL turn omission, `scenarios_per_requ
 F4's holdout widening, and **production byte-identical when `chat` is omitted**. The three new
 tests are non-vacuous - all three fail against the pre-fix code - but nothing pins the
 span-boundary case, so F2's over-correction is untestable by the suite.
+
+
+---
+
+# WHAT NEEDS A RERUN
+
+Ordered cheapest-first. `REMEDIATION_PROMPT.md` drives this list one item at a time.
+
+## Free - no LLM, no paid API. Vectors and artifacts are cached.
+
+| # | fix | rerun | why the current number is wrong |
+| --- | --- | --- | --- |
+| R1 | `diagnose_rubric_level.py` union denominator (F6) | recompute from `rubric_level_diagnosis.json` | uses ATTEMPTED criteria, not the rubric's. 0.479 as computed vs 0.458 true. Conclusion (dead criteria) is UNCHANGED and in fact strengthened. |
+| R2 | `flag_proper_noun_clusters.py` bigram keywords (F14) + NaN propagation (F15) | recompute from `proper_noun_clusters.json` | Signals B and C are NaN for every multiword keyword - including `happy dance`, the motivating example. **Signal A and the 6-of-38 headline are unaffected.** |
+| R3 | `trial_grader_inputs.py` bootstrap CI (F11) + pooled-vs-per-item estimator | recompute from `grader_inputs_trial_clean_v2.json` | discards zero-denominator resamples, so the CI is conditional; point estimate and CI use different estimators. |
+| R4 | `null_test_taxonomy.py` composition-matched null (F12) | rerun the script (~15 min, cached vectors) | the null is size-matched but NOT composition-matched, and the arms accept different turn fractions (46.7% vs 35.6%), so it favours whichever taxonomy accepts fewer turns. **The 20% vs 29% comparison is not readable until this is fixed.** |
+| R5 | `null_test_taxonomy.py` position-verified join (F13) | same rerun as R4 | verifies cluster COUNT only; its sibling verifies n_items/calls/keywords position-for-position. |
+
+## Code-only - fix and test, nothing to rerun
+
+| # | fix | why |
+| --- | --- | --- |
+| R6 | `--tag` + refuse-to-overwrite in `trial_call_scoring.py` (F7) | recorded FIXED and never implemented. A 45-call artifact was already destroyed by a 30-call run under the same filename. |
+| R7 | gateway provenance + `max_output_tokens` | `scored_by` is `None` on the gateway path and no artifact records the transport; `chat_json`'s 8192 default halves the 16384 the scorers set. |
+| R8 | checkpoint keys (F8) | neither trial's key includes model, transport, `--holdout` or condition subset, so a resume can blend them invisibly. |
+| R9 | `criteria_per_arm` guard population | recorded FIXED, git-verified untouched; measures a different population than check 1 tests. |
+| R10 | `trigger_turns` `[:4]` before NULL filter | same filter-vs-cap ordering the commit warns about four lines below. |
+| R11 | F9 batch balance reporting | single-arm batches mean one dropped batch unbalances the arms; nothing counts failures. Twin separation also fails when `n_resp < batch_size` - the `--smoke` path. |
+
+## Paid - and currently NOT worth it
+
+| # | fix | rerun | verdict |
+| --- | --- | --- | --- |
+| R12 | align `PROMPT_STEP3_CALL_LEVEL_BATCH` with the verifier's role rule, make `scored_roles` a flag, make quote matching span-aware (F2) | ~60 calls | Check 2 is corrupted, not failed. Fixed it reads ~83.5%, ~88% with the span fix - **still under the 95% bar. The gate fails either way.** Do it for a defensible record, not for a different answer. |
+
+## Explicitly NOT to be rerun
+
+- **Moment trial** - `D = 1.15`, 52.8% over 73 scenarios / 2,976 attempts, clean harness. This is the real result and it confirms the ceiling's original 1.2:1.
+- **Call gate check 1** - 81.0%, arms scored in separate requests, unaffected by every finding.
+- **87 dead criteria / 24% wasted effort** - derived twice by independent routes.
+- **The earlier 77.4% / 82.3%** - an artifact of both arms sharing a prompt. Superseded. Do not rerun, do not cite.
