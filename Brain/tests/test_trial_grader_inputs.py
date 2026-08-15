@@ -49,7 +49,7 @@ def test_the_ci_brackets_the_pooled_d_and_not_the_per_item_mean():
     assert d_pooled == pytest.approx(0.4615, abs=1e-4)
     assert d_per_item == pytest.approx(1.5)
 
-    lo, hi = tg.bootstrap_d(cm, cu, np.random.default_rng(0))
+    lo, hi, _, _ = tg.bootstrap_d(cm, cu, np.random.default_rng(0))
     assert lo <= d_pooled <= hi, "the interval must contain its own point estimate"
     # `lo` is what discriminates. Resampling 8 items of which 2 are big is high-variance, so
     # the UPPER end legitimately reaches ~2.0 under the correct estimator too and asserting
@@ -61,8 +61,40 @@ def test_the_ci_brackets_the_pooled_d_and_not_the_per_item_mean():
 def test_a_single_item_repeated_gives_a_degenerate_but_finite_interval():
     cm = {"A": (1, 0, 2)}
     cu = {"A": (1, 0, 4)}
-    lo, hi = tg.bootstrap_d(cm, cu, np.random.default_rng(1))
+    lo, hi, n_unb, n_und = tg.bootstrap_d(cm, cu, np.random.default_rng(1))
     assert lo == pytest.approx(2.0) and hi == pytest.approx(2.0)
+    assert (n_unb, n_und) == (0, 0)
+
+
+def test_an_unbounded_resample_is_kept_as_inf_not_discarded():
+    """W(unrelated)=0 with W(matched)>0 means D is unbounded -- the LARGEST value in the
+    distribution. Discarding it truncates the interval from the top, which is what made the
+    old CI conditional on W(unrelated) > 0."""
+    cm = {"A": (1, 0, 1)}
+    cu = {"A": (0, 0, 1)}                       # unrelated never scores
+    lo, hi, n_unb, n_und = tg.bootstrap_d(cm, cu, np.random.default_rng(0))
+    assert n_unb == tg.BOOTSTRAP, "every resample of this pool is unbounded"
+    assert n_und == 0
+    assert lo == float("inf") and hi == float("inf")
+
+
+def test_a_zero_over_zero_resample_is_excluded_and_counted_not_called_infinite():
+    """Both arms scoring nothing is 0/0 -- no information about D. Calling it +inf would
+    bias the interval upward; dropping it silently is what F11 was."""
+    cm = {"A": (0, 0, 1)}
+    cu = {"A": (0, 0, 1)}
+    lo, hi, n_unb, n_und = tg.bootstrap_d(cm, cu, np.random.default_rng(0))
+    assert (n_unb, n_und) == (0, tg.BOOTSTRAP)
+    assert lo != lo and hi != hi, "no usable resample -> NaN, not a fabricated interval"
+
+
+def test_the_two_degenerate_cases_do_not_share_a_branch():
+    """One pool yields both kinds; they must be counted separately."""
+    cm = {"A": (1, 0, 1), "B": (0, 0, 1)}
+    cu = {"A": (0, 0, 1), "B": (0, 0, 1)}       # unrelated never scores, either item
+    _, _, n_unb, n_und = tg.bootstrap_d(cm, cu, np.random.default_rng(3))
+    assert n_unb > 0 and n_und > 0
+    assert n_unb + n_und == tg.BOOTSTRAP
 
 
 def test_bootstrap_needs_counts_not_pre_divided_w():
@@ -74,7 +106,8 @@ def test_bootstrap_needs_counts_not_pre_divided_w():
 
 
 def test_no_overlapping_items_yields_nan_not_a_fabricated_interval():
-    lo, hi = tg.bootstrap_d({"A": (1, 0, 2)}, {"B": (1, 0, 2)}, np.random.default_rng(0))
+    lo, hi, _, _ = tg.bootstrap_d({"A": (1, 0, 2)}, {"B": (1, 0, 2)},
+                                  np.random.default_rng(0))
     assert lo != lo and hi != hi
 
 

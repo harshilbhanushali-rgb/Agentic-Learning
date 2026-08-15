@@ -270,23 +270,50 @@ def bootstrap_d(by_item_matched: dict, by_item_unrelated: dict, rng: np.random.G
 
     Takes (hits, partial, attempts) triples, not pre-divided W values: the division has to
     happen AFTER the resampled counts are summed, so a per-item W cannot be un-averaged.
-    """
+
+    A resample whose UNRELATED arm scores nothing is not one case but two, and they must not
+    share a branch:
+      * matched scored something -> D is genuinely UNBOUNDED. These are the largest-D
+        resamples in the distribution, so discarding them truncates the interval from the
+        top and makes it conditional on `W(unrelated) > 0`. They are kept as +inf.
+      * matched scored nothing either -> 0/0, which carries no information about D at all
+        and cannot be given a value. Excluded, and COUNTED, never silently dropped.
+    Measured over the six shipped artifacts: one unbounded resample in the pilot's `blind`
+    condition, none anywhere else. Both counts are returned so a report can state them.
+    """  # noqa: D208
     keys = sorted(set(by_item_matched) & set(by_item_unrelated))
     if not keys:
-        return float("nan"), float("nan")
+        return float("nan"), float("nan"), 0, 0
     m = np.array([by_item_matched[k] for k in keys], dtype=float)      # (K, 3)
     u = np.array([by_item_unrelated[k] for k in keys], dtype=float)
     ds = []
+    n_unbounded = n_undefined = 0
     for _ in range(BOOTSTRAP):
         pick = rng.integers(0, len(keys), size=len(keys))
         mh, mp, mn = m[pick].sum(axis=0)
         uh, up, un = u[pick].sum(axis=0)
-        wu = weighted(uh, up, un)
+        wu, wm = weighted(uh, up, un), weighted(mh, mp, mn)
         if wu > 0:
-            ds.append(weighted(mh, mp, mn) / wu)
+            ds.append(wm / wu)
+        elif wm > 0:
+            ds.append(float("inf"))
+            n_unbounded += 1
+        else:
+            n_undefined += 1
     if not ds:
-        return float("nan"), float("nan")
-    return float(np.percentile(ds, 2.5)), float(np.percentile(ds, 97.5))
+        return float("nan"), float("nan"), n_unbounded, n_undefined
+    arr = np.asarray(ds, dtype=float)
+    if np.isfinite(arr).all():
+        # The overwhelmingly common path, kept on numpy's linear interpolation so the
+        # intervals stay bit-identical to every one already published.
+        return (float(np.percentile(arr, 2.5)), float(np.percentile(arr, 97.5)),
+                n_unbounded, n_undefined)
+    # An unbounded resample is present, and linear interpolation across one computes
+    # `inf - inf` = NaN -- silently turning "the upper bound is unbounded" into "no answer".
+    # Nearest-rank has no such subtraction and is, if anything, conservative.
+    return (float(np.percentile(arr, 2.5, method="lower")),
+            float(np.percentile(arr, 97.5, method="higher")),
+            n_unbounded, n_undefined)
 
 
 def summarise_conditions(done: dict[str, list], boot: np.random.Generator) -> dict:
@@ -318,11 +345,13 @@ def summarise_conditions(done: dict[str, list], boot: np.random.Generator) -> di
               if k[0] == "matched"}
         cu = {k[1].rsplit("_", 1)[0]: item_counts(v) for k, v in per_item.items()
               if k[0] == "unrelated"}
-        lo, hi = bootstrap_d(cm, cu, boot)
+        lo, hi, n_unb, n_und = bootstrap_d(cm, cu, boot)
         conditions[cname] = {
             "w_matched": wm, "w_unrelated": wu,
             "D": (wm / wu) if wu > 0 else float("inf"),
             "ci_lo": lo, "ci_hi": hi, "ci_estimator": CI_ESTIMATOR,
+            "ci_resamples": BOOTSTRAP,
+            "ci_unbounded_resamples": n_unb, "ci_undefined_resamples": n_und,
             "attempts": len(recs),
             "models": dict(Counter(r["judged_by"] for r in recs)),
             "sign_test": sign_test(recs),
@@ -347,6 +376,9 @@ def report(p: dict) -> None:
         ci = f"[{a['ci_lo']:.2f}, {a['ci_hi']:.2f}]"
         if a.get("ci_estimator", "") != CI_ESTIMATOR:
             ci += " !"          # pre-2026-08-15 per-item-mean interval; not comparable
+        n_unb, n_und = a.get("ci_unbounded_resamples"), a.get("ci_undefined_resamples")
+        if n_unb or n_und:
+            ci += f" ~{n_unb}/{n_und}"   # unbounded (kept as inf) / undefined 0-0 (excluded)
         models = ", ".join(f"{k.split('-')[-2] if k else '?'}:{v}"
                            for k, v in sorted(a["models"].items(), key=lambda x: -x[1])[:2])
         flag = "  PASS" if a["D"] >= D_PASS else ""

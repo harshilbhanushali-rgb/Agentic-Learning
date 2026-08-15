@@ -167,15 +167,21 @@ gradings each. Same items across all four conditions.
 
 | condition | W matched | W unrelated | D | 95% CI |
 | --- | --- | --- | --- | --- |
-| `blind` (control) | 0.176 | 0.029 | **6.00** | [3.13, 17.11] |
+| `blind` (control) | 0.176 | 0.029 | **6.00** | [3.12, 17.39] |
 | `label` | 0.172 | 0.038 | 4.48 | [2.69, 9.06] |
 | `turn` | 0.170 | 0.026 | 6.64 | [3.34, 21.54] |
 | `full` | 0.203 | 0.035 | 5.84 | [3.26, 15.75] |
 
-> CIs recomputed 2026-08-15 (F11/R3a) with the pooled estimator, so they now quantify the
+> CIs recomputed 2026-08-15 (F11/R3a+R3b) with the pooled estimator, so they now quantify the
 > `D` beside them. Every point estimate is unchanged; the intervals narrow (the old ones were
 > widened by unweighted per-item averaging). **The reading is unchanged: still no ordering,
 > still heavily overlapping.**
+>
+> `blind` also carries the only degenerate resample in any of the six artifacts: 1 of 2,000
+> had `W(unrelated) = 0` while matched scored, i.e. an UNBOUNDED `D`. The old bootstrap
+> discarded it — dropping the largest value in the distribution and truncating the interval
+> from the top. Kept as `+inf`, the upper bound moves 17.11 -> 17.39. Every other condition in
+> every artifact is bit-identical, so this is the entire footprint of R3b.
 
 **Situating the grader does nothing.** No ordering, CIs heavily overlapping. DEFECT 2 is a
 real code fact and is NOT the binding constraint. Do not spend on it again.
