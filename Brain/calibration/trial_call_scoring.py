@@ -72,6 +72,40 @@ from calibration import ARTIFACTS_DIR
 
 OUT = ARTIFACTS_DIR / "call_scoring_trial.json"
 CKPT = ARTIFACTS_DIR / "call_scoring_trial_ckpt.json"
+
+
+def paths_for(tag: str | None, smoke: bool) -> tuple[Path, Path]:
+    """Artifact + checkpoint paths for a run. THE TAG MUST APPLY TO BOTH.
+
+    A tag on the checkpoint but not the output is a real defect this project has already
+    hit: the cheap run resumes separately and then overwrites the expensive run's artifact
+    anyway. `--smoke` tags itself, so a 3-call path test CANNOT reach the real filename --
+    a structural fix, rather than trusting whoever runs it next to pass --tag.
+    """
+    t = tag or ("smoke" if smoke else "")
+    suffix = f"_{t}" if t else ""
+    return (ARTIFACTS_DIR / f"call_scoring_trial{suffix}.json",
+            ARTIFACTS_DIR / f"call_scoring_trial{suffix}_ckpt.json")
+
+
+def guard_overwrite(out: Path, n_calls: int, smoke: bool, force: bool) -> None:
+    """Refuse to let a SMALLER run replace a bigger one. A 45-call artifact was already
+    destroyed by a 30-call run under this exact filename; only its numbers survive, in prose.
+    """
+    if not out.exists() or force:
+        return
+    try:
+        prev = json.loads(out.read_text(encoding="utf-8-sig"))
+    except (json.JSONDecodeError, OSError):
+        return                                   # unreadable: nothing to protect
+    if prev.get("smoke") and not smoke:
+        return                                   # replacing a path test is always fine
+    if prev.get("n_calls", 0) > n_calls:
+        raise SystemExit(
+            f"REFUSING TO OVERWRITE {out.name}: it holds a {prev['n_calls']}-call run "
+            f"(model {prev.get('model')}, seed {prev.get('seed')}, "
+            f"per_call {prev.get('per_call')}) and this run has only {n_calls}. "
+            f"Use --tag NAME to write beside it, or --force to replace it.")
 PIN_MODEL = "gemini-3.1-flash-lite"
 BAR_SIGN, BAR_QUOTE = 0.70, 0.95
 
@@ -90,6 +124,12 @@ def _args():
                         "stalls long runs on 429 backoff.")
     p.add_argument("--fresh", action="store_true")
     p.add_argument("--load", action="store_true")
+    p.add_argument("--tag", default=None,
+                   help="write to call_scoring_trial_TAG.json AND its checkpoint, so a "
+                        "control run cannot overwrite the headline artifact. --smoke "
+                        "tags itself.")
+    p.add_argument("--force", action="store_true",
+                   help="allow replacing an artifact built from MORE calls than this run")
     return p.parse_args()
 
 
@@ -179,6 +219,9 @@ def report(P: dict) -> None:
         print("  *** SMOKE RUN -- PATH TEST ONLY. THESE NUMBERS ARE NOT INTERPRETABLE. ***")
     print(f"  seed {P.get('seed')} | per-call {P.get('per_call')} | "
           f"holdout=leakage-clean calls | partner={P.get('partner_method')}")
+    if P.get("tag"):
+        print(f"  *** TAGGED RUN '{P['tag']}' ({P.get('artifact')}) -- this is NOT the "
+              f"headline artifact. ***")
 
     # F5: the gate reads the PER-SCENARIO test. The per-pair one is printed for continuity
     # with earlier runs but repeats scenarios, so its n is not its effective n.
@@ -271,8 +314,9 @@ def report(P: dict) -> None:
 
 def main() -> None:
     a = _args()
+    out, ckpt = paths_for(a.tag, a.smoke)
     if a.load:
-        report(json.loads(OUT.read_text(encoding="utf-8-sig")))
+        report(json.loads(out.read_text(encoding="utf-8-sig")))
         return
 
     from config import load_config
@@ -289,6 +333,9 @@ def main() -> None:
     n_calls = 3 if a.smoke else a.calls
     if a.smoke:
         print("SMOKE -- 3 calls. Path test only, numbers NOT interpretable.\n")
+    # EARLY, before a single paid call. Checking only at write time would refuse the run
+    # AFTER spending the whole budget on it -- the guard must cost nothing to hit.
+    guard_overwrite(out, n_calls, bool(a.smoke), a.force)
 
     url = cfg.database_url + ("&" if "?" in cfg.database_url else "?") + "hostaddr=18.138.49.39"
     with psycopg.connect(url, autocommit=True, connect_timeout=20) as conn:
@@ -345,8 +392,8 @@ def main() -> None:
           f"EXACT size-matched partner")
 
     done = {}
-    if CKPT.exists() and not a.fresh:
-        ck = json.loads(CKPT.read_text(encoding="utf-8-sig"))
+    if ckpt.exists() and not a.fresh:
+        ck = json.loads(ckpt.read_text(encoding="utf-8-sig"))
         if ck.get("picked") == picked:
             done = ck["done"]
             print(f"[resume] {len(done)} calls already scored\n")
@@ -428,7 +475,7 @@ def main() -> None:
                                               scored_roles=(SpeakerRole.NAREN.name,))
             for arm in ("matched", "unrelated")}
         done[fn] = res
-        CKPT.write_text(json.dumps({"picked": picked, "done": done}, default=str),
+        ckpt.write_text(json.dumps({"picked": picked, "done": done}, default=str),
                         encoding="utf-8")
         print(f"  [{idx}/{len(picked)}] {fn[:20]} scored", flush=True)
 
@@ -496,6 +543,7 @@ def main() -> None:
 
     P = {"n_calls": len(done), "n_pairs": len(pairs), "model": a.model, "seed": a.seed,
          "smoke": bool(a.smoke), "partner_method": method,
+         "tag": a.tag or ("smoke" if a.smoke else None), "artifact": out.name,
          "criteria_per_arm": {"matched": float(np.mean(n_m)) if n_m else float("nan"),
                               "unrelated": float(np.mean(n_u)) if n_u else float("nan")},
          "check1": sign_test(pairs),
@@ -511,9 +559,10 @@ def main() -> None:
          "verdicts": {k: dict(v) for k, v in verdicts.items()},
          "W": {k: _w(v) for k, v in verdicts.items()},
          "samples": samples, "raw": done}
-    OUT.write_text(json.dumps(P, indent=1, default=float), encoding="utf-8")
+    guard_overwrite(out, len(done), bool(a.smoke), a.force)
+    out.write_text(json.dumps(P, indent=1, default=float), encoding="utf-8")
     report(P)
-    print(f"\nwrote {OUT}\nNOTHING was written to Postgres.")
+    print(f"\nwrote {out}\nNOTHING was written to Postgres.")
 
 
 if __name__ == "__main__":
