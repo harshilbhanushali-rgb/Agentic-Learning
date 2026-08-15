@@ -71,3 +71,78 @@ R1–R3 are pure recomputes from artifacts already on disk — they cannot fail 
 they correct three published numbers. R4–R5 share one script run. R6–R11 are code-only guards
 that stop the same class of defect recurring. R12 is the only item that costs money and is the
 only one whose verdict is already known.
+
+
+---
+
+# R13 — NEW WORK, only after R1-R11: the anti-pattern forced choice
+
+Not a remediation item. This is the one genuinely new idea to come out of 2026-08-15, and it
+is recorded here so it is not lost. **Do not start it until R1-R11 are done and reported.**
+
+## Why it is different from the five approaches that already failed
+
+Every previous attempt asked a model to **grade a response against criteria**, judged alone.
+That has now failed five times, and the clean measurement is `D = 1.15` — the grader cannot
+judge one playbook in isolation.
+
+It *can* discriminate when given two things to compare (77-82% when both arms shared a
+prompt). The reason that was useless is that **production has no second thing** — inventing a
+distractor turns the task into topic-matching, which subject matter alone decides.
+
+`rubrics.anti_patterns` removes that objection. Measured 2026-08-15:
+
+- **All 84 rubrics have them; 113 total, ~1.4 per rubric** (v1 avg 1.3, v2 avg 1.4).
+- They are **specific**, not generic: *"Over-reliance on generic terminology ('we have a
+  process for that') without providing a visual or sequential walkthrough"*; *"Presuming the
+  client's value drivers instead of using diagnostic questions to uncover them."*
+- Crucially they are **the opposite end of the same axis as a milestone in the same
+  situation** — "presuming value drivers" vs "asking diagnostic questions".
+
+So the forced choice — *did they do the good version or the bad version of this move?* — has
+**two real options that both exist in production, both on-topic, in one situation.** Topic
+cannot decide it, and nothing is invented.
+
+## What must be held loosely
+
+- Every anti-pattern is tagged `[inferred]` with `confidence: "inferred, unverified"`
+  (required by `PROMPT_LAYER_C_V1`). They are model guesses, never clustered from evidence
+  the way milestones are.
+- **Nothing has ever read this column**, so their quality is entirely unmeasured.
+- CLAUDE.md dismisses them — but as an *alternative scoring target*, i.e. "score anti-patterns
+  instead of milestones". That is a different and weaker use than the forced choice. The
+  dismissal does not carry over; say so explicitly rather than quietly contradicting it.
+- 113 across 84 rubrics is thin against ~5 milestones each.
+
+## Pre-register BEFORE running. Structural null, which is the whole attraction.
+
+    unit        one (response, scenario) pair
+    presentation the milestone and the anti-pattern, in BOTH orders (position swap)
+    options     "did the good version" / "did the bad version" / "cannot tell"
+    arms        MATCHED   response + its own scenario's (milestone, anti-pattern) pair
+                UNRELATED same response + a DIFFERENT scenario's pair  <- the null
+    sample      ~60 responses, leakage-clean stratum, seeded and stratified over
+                posture vs subject-matter. Never the first N.
+    ~240 scorings, ~60-80 calls, zero Postgres writes, model pinned, transport recorded.
+
+    C1  position-swap agreement on MATCHED >= 0.75.
+        THIS IS THE FIRST GATE AND THE CHEAPEST KILL. Head-to-head's equivalent came out at
+        0.669 and that failure alone ended it. If the judge reverses itself when the two
+        options are swapped, nothing downstream is interpretable — stop there.
+    C2  matched agreement exceeds unrelated agreement by >= 0.15.
+        The unrelated arm is the null: neither option is about this response's topic, so a
+        judge that is reading the response should be markedly less consistent there.
+    C3  "cannot tell" rate on UNRELATED must be materially higher than on MATCHED.
+        A judge that never declines on an unrelated pair is not reading the response, it is
+        pattern-matching the options. Report the rate; do not gate on it.
+
+    FAIL on C1, or C2 below 0.15, and the anti-pattern route closes with the other five.
+    A FAIL is a real result and must be reported as one.
+
+## Rules carried over
+
+- Both arms must differ in **exactly one thing** — the scenario the pair comes from. Same
+  response, same order, same model, same transport. Print every property that differs.
+- The 50% baseline is structural, so unlike every criteria trial there is nothing to argue
+  about — but only if the "cannot tell" option exists and its rate is reported.
+- Read 10 real samples before believing any aggregate.
