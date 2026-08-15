@@ -13,12 +13,23 @@ Also reads the source transcript files to reconstruct each sampled pair's turns,
 since preceding_turn_is_question needs the turn immediately before the trigger
 and kb_pairs only stores call_id + turn_index, not the turn list itself.
 
+The labeled sample (text, label, reason, every computed signal, and the raw
+trigger/response embeddings) is persisted to --output as JSON after each real
+run -- the original version of this script printed a report and discarded the
+per-pair data, so testing a new signal idea meant re-spending the Gemma cost.
+Pass --load to re-report against a previously saved file with zero DB and zero
+Gemma calls -- this is the intended way to try a new shared/trigger_quality.py
+signal against this same ground truth later.
+
 Usage (from Brain/, venv active):
-    python label_trigger_quality_sample.py [recordings_dir]
+    python calibration/label_trigger_quality_sample.py [recordings_dir] [--output PATH]
+    python calibration/label_trigger_quality_sample.py --load PATH
     (recordings_dir defaults to "recordings" -- the directory the live corpus
-    was built from, per CLAUDE.md's "First full-corpus production run")
+    was built from, per CLAUDE.md's "First full-corpus production run";
+    --output defaults to "labeled_trigger_quality_sample.json")
 """
 from __future__ import annotations
+import json
 import random
 import sys
 import time
@@ -30,16 +41,28 @@ if sys.path and sys.path[0] not in ("", "."):
 
 import numpy as np
 
+# Brain/ is this file's parent -- put it on sys.path so the shared packages
+# (config, shared, v1, v2, preprocessing) resolve whether this script is run
+# directly (python calibration/x.py) or imported (from calibration import x).
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
+from calibration import ARTIFACTS_DIR
+
 from config import load_config
+from preprocessing import embedder
 from preprocessing.transcript_parser import load_roster, parse_transcript
 from shared import storage
 from shared import trigger_quality as tq
 from shared.gemma import call_gemma
 from shared.prompts import PROMPT_TRIGGER_QUALITY_JUDGE
+from shared.scenario_vectors import build_scenario_vecs
 
 _SAMPLE_TARGET = 150
 _BATCH_SIZE = 5
 _GEMMA_CALL_DELAY = 5  # seconds -- matches v2/layer_c.py's free-tier pacing
+_DEFAULT_OUTPUT = ARTIFACTS_DIR / "labeled_trigger_quality_sample.json"
 
 
 def _load_sink_bound_pairs(conn) -> list[dict]:
@@ -127,6 +150,24 @@ def _label_batch(pairs: list[dict], config) -> None:
             p["reason"] = verdict.get("reason", "") if verdict else "NO GEMMA VERDICT"
 
 
+def _save_sample(sample: list[dict], path: Path) -> None:
+    path.write_text(json.dumps(sample, indent=2), encoding="utf-8")
+
+
+def _load_sample(path: Path) -> list[dict]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _sink_real_centroids(scenario_map: dict) -> tuple[np.ndarray, np.ndarray]:
+    """(sink_centroids, real_centroids) arrays for sink_real_margin -- scenario
+    description vectors standing in for centroids, same convention
+    compare_sink_rescue.py already uses for the response-similarity read."""
+    keys, vecs = build_scenario_vecs(scenario_map)
+    S = np.array(vecs)
+    is_coachable = np.array([bool(scenario_map[k].get("is_coachable", True)) for k in keys])
+    return S[~is_coachable], S[is_coachable]
+
+
 def _percentiles(values: list[float]) -> str:
     if not values:
         return "n/a (empty)"
@@ -155,6 +196,20 @@ def _report(sample: list[dict]) -> None:
     print("  coachable    :", _percentiles([p["response_word_count"] for p in coachable]))
     print("  not coachable:", _percentiles([p["response_word_count"] for p in not_coachable]))
 
+    print("\nsink_real_margin(trigger) split by label -- max(cos(trigger,sink)) - "
+          "max(cos(trigger,real)); higher = more filler-like. A relative margin "
+          "(mirrors relative_margin's own shape), unlike the absolute floors rounds "
+          "1-2 already failed with:")
+    print("  coachable    :", _percentiles([p["sink_real_margin"] for p in coachable]))
+    print("  not coachable:", _percentiles([p["sink_real_margin"] for p in not_coachable]))
+
+    print("\ntrigger_response_coupling split by label -- cosine(trigger, response) "
+          "directly, a signal shape distinct from either text's similarity to a "
+          "scenario centroid (which is what density and the response-similarity "
+          "floor both measured, and both failed to separate on):")
+    print("  coachable    :", _percentiles([p["trigger_response_coupling"] for p in coachable]))
+    print("  not coachable:", _percentiles([p["trigger_response_coupling"] for p in not_coachable]))
+
     q_pairs = [p for p in judged if p["preceding_is_question"] is not None]
     q_coachable = [p for p in q_pairs if p["coachable"]]
     q_not = [p for p in q_pairs if not p["coachable"]]
@@ -178,10 +233,27 @@ def _report(sample: list[dict]) -> None:
 
 
 def main() -> None:
-    recordings_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("recordings")
+    args = sys.argv[1:]
+    if "--load" in args:
+        idx = args.index("--load")
+        load_path = Path(args[idx + 1])
+        sample = _load_sample(load_path)
+        print(f"Loaded {len(sample)} previously-labeled pair(s) from {load_path} "
+              f"-- no DB or Gemma calls made.")
+        _report(sample)
+        return
+
+    output_path = _DEFAULT_OUTPUT
+    if "--output" in args:
+        idx = args.index("--output")
+        output_path = Path(args[idx + 1])
+        del args[idx:idx + 2]
+    recordings_dir = Path(args[0]) if args else Path("recordings")
 
     config = load_config()
     conn = storage.get_connection(config.database_url)
+    scenario_rows = storage.get_scenarios(conn)
+    scenario_map = {r["scenario_key"]: r for r in scenario_rows}
     sink_pairs = _load_sink_bound_pairs(conn)
 
     print(f"Loaded {len(sink_pairs)} sink-bound pair(s) across the live corpus.")
@@ -199,7 +271,11 @@ def main() -> None:
 
     _label_batch(sample, config)
 
-    for p in sample:
+    trigger_vecs = embedder.embed_query([p["trigger_text"] for p in sample])
+    response_vecs = embedder.embed_document([p["response_text"] for p in sample])
+    sink_centroids, real_centroids = _sink_real_centroids(scenario_map)
+
+    for p, trigger_vec, response_vec in zip(sample, trigger_vecs, response_vecs):
         p["density_trigger"] = tq.concrete_content_density(p["trigger_text"])
         p["density_response"] = tq.concrete_content_density(p["response_text"])
         p["response_word_count"] = tq.content_word_count(p["response_text"])
@@ -207,6 +283,17 @@ def main() -> None:
         p["preceding_is_question"] = (
             tq.preceding_turn_is_question(turns, p["turn_index"]) if turns is not None else None
         )
+        p["trigger_vec"] = trigger_vec
+        p["response_vec"] = response_vec
+        p["sink_real_margin"] = tq.sink_real_margin(
+            np.array(trigger_vec), sink_centroids, real_centroids
+        )
+        p["trigger_response_coupling"] = tq.trigger_response_coupling(
+            np.array(trigger_vec), np.array(response_vec)
+        )
+
+    _save_sample(sample, output_path)
+    print(f"Saved {len(sample)} labeled pair(s) (incl. raw embeddings) to {output_path}")
 
     _report(sample)
 

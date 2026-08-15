@@ -14,9 +14,9 @@ No re-embedding, no re-clustering, no re-deriving cluster membership: every numb
 used here was already computed and stored by diagnose_sink_pool.py.
 
 Usage (from Brain/, venv active):
-    python graduate_sink_topics.py --dry-run           # Gemma call + prints, zero DB writes
-    python graduate_sink_topics.py                      # writes for real
-    python graduate_sink_topics.py --clusters cluster_5  # graduate just one
+    python calibration/graduate_sink_topics.py --dry-run           # Gemma call + prints, zero DB writes
+    python calibration/graduate_sink_topics.py                      # writes for real
+    python calibration/graduate_sink_topics.py --clusters cluster_5  # graduate just one
 """
 from __future__ import annotations
 import argparse
@@ -28,6 +28,15 @@ from pathlib import Path
 if sys.path and sys.path[0] not in ("", "."):
     sys.path[0] = ""
 
+# Brain/ is this file's parent -- put it on sys.path so the shared packages
+# (config, shared, v1, v2, preprocessing) resolve whether this script is run
+# directly (python calibration/x.py) or imported (from calibration import x).
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
+from calibration import ARTIFACTS_DIR
+
 from config import load_config
 from shared import cluster_evidence, scenario_vectors, storage, topic_grouping
 from shared.gemma import call_gemma
@@ -35,7 +44,7 @@ from shared.prompts import PROMPT_GRADUATE_SINK_TOPIC
 from shared.tuning import load_tuning
 from v2.layer_c import run_layer_c_v2
 
-_CLUSTERS_FILE = Path("sink_pool_clusters.json")
+_CLUSTERS_FILE = ARTIFACTS_DIR / "sink_pool_clusters.json"
 _TARGET_CLUSTER_IDS = ["cluster_5", "cluster_8"]
 _GEMMA_CALL_DELAY = 5
 

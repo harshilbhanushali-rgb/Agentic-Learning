@@ -21,9 +21,9 @@ Does NOT decide whether to build a permanent recurring pass -- that is a distinc
 design, contingent on what this run finds.
 
 Usage (from Brain/, venv active):
-    python dry_run_response_taxonomy.py
-    python dry_run_response_taxonomy.py --no-gemma
-    python dry_run_response_taxonomy.py --load dry_run_response_taxonomy.json
+    python calibration/dry_run_response_taxonomy.py
+    python calibration/dry_run_response_taxonomy.py --no-gemma
+    python calibration/dry_run_response_taxonomy.py --load dry_run_response_taxonomy.json
 """
 from __future__ import annotations
 import argparse
@@ -37,6 +37,15 @@ if sys.path and sys.path[0] not in ("", "."):
 
 import numpy as np
 
+# Brain/ is this file's parent -- put it on sys.path so the shared packages
+# (config, shared, v1, v2, preprocessing) resolve whether this script is run
+# directly (python calibration/x.py) or imported (from calibration import x).
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
+from calibration import ARTIFACTS_DIR
+
 from config import load_config
 from shared import storage
 from shared.response_taxonomy import (
@@ -44,7 +53,7 @@ from shared.response_taxonomy import (
 )
 from shared.tuning import load_tuning
 
-_DEFAULT_OUTPUT = Path("dry_run_response_taxonomy.json")
+_DEFAULT_OUTPUT = ARTIFACTS_DIR / "dry_run_response_taxonomy.json"
 
 
 def _parse_args():

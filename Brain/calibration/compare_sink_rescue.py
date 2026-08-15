@@ -29,6 +29,13 @@ if sys.path and sys.path[0] not in ("", "."):
 
 import numpy as np
 
+# Brain/ is this file's parent -- put it on sys.path so the shared packages
+# (config, shared, v1, v2, preprocessing) resolve whether this script is run
+# directly (python calibration/x.py) or imported (from calibration import x).
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
 from config import load_config
 from preprocessing import embedder
 from shared import storage

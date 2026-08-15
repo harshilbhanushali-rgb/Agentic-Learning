@@ -231,6 +231,8 @@ SQLite `checkpoints.db` — item convention: `"ALL"` for Layer A, call stem (e.g
 - `ops/run_ego_trap.py` fires Gemma calls back-to-back across transcripts with no pacing — `STEP_0_MODE=gemma` doubles call volume (Step 0 + Step 3 per transcript) and increases 429/503 retry-backoff stalls (`gemma.py`'s backoff can add up to 62s per call)
 - Adding a column to an existing table requires an explicit `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` in `schema.sql` alongside the updated `CREATE TABLE IF NOT EXISTS` literal — `db/init_db.py` only creates missing tables, it never alters existing ones
 - **There are TWO separate substantive-text filters and they do not share a knob.** `v1/layer_b._is_substantive` uses its own module constant `_MIN_CONTENT_WORDS = 5`; `shared/cluster_evidence.is_substantive` takes its threshold from `tuning.yaml`'s `layer_a.min_content_words`. Editing `tuning.yaml` does **not** change Layer B pair extraction — change the constant in `layer_b.py` for that
+- **Both substantive filters delete the word "Indeed", and one of them is live — measured 2026-08-14.** They count `t.is_alpha and not t.is_stop` against spaCy `en_core_web_lg`'s stoplist, and **`'indeed' in nlp.Defaults.stop_words` is `True`** (both cased forms). In a recruitment-advertising corpus that removes the name of a major job board from every sentence it appears in, while `ZipRecruiter` and `Greenhouse` are *not* stopwords — so the filter is inconsistent across competitors in the same domain. Measured: `"So right now we post everything manually to Indeed and ZipRecruiter."` keeps only `['right','post','manually','ZipRecruiter']` = **4, below the floor of 5** (`everything` and `now` go too). This is not hypothetical — **`layer_b._is_substantive` is ACTIVE and gates every trigger/response pair entering `kb_pairs`**, so genuinely substantive domain content can fall below the bar and never reach the KB. NOT FIXED. Note the trap in the obvious fix: whitelisting domain terms is exactly the "threshold must never be a curated list" anti-pattern this file forbids elsewhere, so this needs a different substantive test rather than a stopword exception list. Also blocks calibrating any new content-word floor (e.g. a chunk-gluing rule) until resolved
+- **`layer_a.min_content_words: 5` is INERT in production — measured 2026-08-14.** `v2/layer_a.py::run_layer_a_v2` calls `build_client_clause_pool(all_turns)` with **no argument**, so the signature default `min_content_words: int = 0` wins and no pre-filter runs on the CLIENT clause pool. The tuning value is honoured only by `calibration/dry_run_layer_a.py`'s opt-in `--prefilter` flag. A configured key that reads as authoritative while doing nothing is the same failure class as the retired `ego_trap/settings.py`. Left off deliberately: enabling it would move a second variable in any Layer A pool experiment
 - `storage.get_scenarios` **must** select `is_coachable` and `cluster_kind`. It backs `_load_scenario_map`, which is the checkpoint-resume path — without them a resumed run treats every mechanics sink as coachable and generates rubrics for backchannel
 - `layer_c`'s `min_milestone_calls_floor: 3` means a scenario whose responses span fewer than 3 calls can never satisfy the support gate, so it always falls through to the V1 Gemma fallback. That is intended (V1 still produces a rubric), but it means small scenarios are not clustered — don't read it as a bug
 - V2 Layer A adjudication deliberately makes **no DB calls inside the Gemma loop**; all scenarios are written in one pass afterwards. Holding a Postgres connection across ~200 sequential Gemma calls invites the `IdleInTransactionSessionTimeout` / SSL-drop failure mode. Don't add an `upsert` back into that loop
@@ -1069,6 +1071,16 @@ while keeping both keys live, pass `fallback_enabled=True, fallback_models=()`.
   Pinecone: `is_coachable` is not in the `"triggers"` namespace metadata, so the filter is not
   expressible there.
 
+> **WALL 1 IS REOPENED (2026-08-15).** The claim below rests on the ceiling's 1.2:1, which is
+> now retracted as an arm-construction artifact — see the RETRACTED block in the ceiling
+> section. Measured symmetrically and leakage-clean, the scorer discriminates in 77-82% of
+> scenarios across two draws. **Wall 2 (no vocabulary) and the head-to-head failure (C1 0.669,
+> C4 0.835 replicated) both stand** — those did not depend on the ceiling. What falls is
+> specifically "the criteria scorer cannot tell a matched rubric from an unrelated one". The
+> replacement problem is the LEVEL: `W(matched)` is 0.089-0.095 leakage-clean, i.e. the
+> criteria are unpassable even by their own author. **Read the rest of this paragraph as the
+> state of belief before that measurement, kept for the reasoning it records.**
+
 **Where this leaves the profile effort: BOTH WALLS ARE NOW CLOSED BY MEASUREMENT.** Wall 1
 (the ruler) has had criteria scoring, the four-arm rebuild and head-to-head all fail
 pre-registered gates. Wall 2 (the axes) has no vocabulary at any granularity with enough
@@ -1292,6 +1304,32 @@ rubric.
 | CSM reference | 0.074 | **below the control** |
 
 **Signal-to-null is 1.2 : 1, reproduced three independent times** (0.114/0.090, 0.116/0.095).
+
+> **RETRACTED 2026-08-15 — the 1.2:1 is an ARM-CONSTRUCTION ARTIFACT, not a property of the
+> grader.** Measured by `calibration/trial_grader_inputs.py` on the same live rubrics: with
+> matched and unrelated scored on **identical responses** (and those responses drawn from the
+> leakage-clean secondary-label stratum), the grader discriminates **77.4% and 82.3% of
+> scenarios** across two independent response draws (48-14-7 and 51-11-7 of 69 scenarios,
+> p=1.7e-5 and 2.8e-7, 3,540 gradings each, `gemini-3.1-flash-lite` pinned). Pooled ratio
+> 2.92 / 2.11 against this page's 1.27. **The cause is the ceiling's own documented
+> asymmetry**: arm B scored `a1_sample` rows — PRIMARY-label responses, the strongest
+> exemplars of their scenario — against a partner rubric, while A3 drew secondary-label rows.
+> A strong substantive response satisfies generic criteria from anywhere, so the null was
+> inflated by how it was sampled. `W(B)=0.090` vs this trial's `W(unrelated)=0.032-0.042` on
+> the same kind of comparison. The AMENDED note below already suspected this and named the
+> missing arm "B3"; that arm now exists. **Do not cite 1.2:1 as evidence the scorer cannot
+> discriminate.**
+>
+> **What does NOT change: the LEVEL.** Leakage-clean `W(matched)` is **0.089-0.095** — Naren
+> satisfies ~9% of criteria written from his own calls. The binding constraint is that the
+> criteria are unpassable, not that the grader is blind to which rubric it holds. That is a
+> different problem and it is untouched.
+>
+> **Also refuted, and cheap to not repeat: DEFECT 2 (the grader never sees the client turn,
+> scenario or milestone `label`) is REAL as a code fact but is NOT the binding constraint.**
+> `situated_fields` supplies all three; discrimination went 6.00 (blind) -> 6.64 (turn) /
+> 4.48 (label) / 5.84 (all three) with heavily overlapping CIs — no ordering, no effect.
+> Spec: `docs/superpowers/specs/2026-08-15-grader-inputs-design.md`.
 Both pre-registered failure conditions fired.
 
 **AMENDED 2026-08-13 — that ratio compares two arms that do NOT share a response population, and
@@ -1342,6 +1380,299 @@ Both gates fired, nothing was written to the DB, and the flag stays `false`.
 `calibration/compare_criteria_ab.py` runs this comparison against any snapshot schema, joins
 on `(rubric_id, milestone_id, csm_id)`, lists per-milestone winners/losers, and **checks
 attempt-count drift** — refusing to call it a clean wording-only comparison above 15%.
+
+
+### Gemini backend via the Joveo gateway, and the adjudicator bottleneck (2026-08-15)
+
+Spec: `docs/superpowers/specs/2026-08-14-layer-a-pool-unit-design.md` Status update 10.
+Harnesses `calibration/trial_pool_unit_gemini.py`, `trial_adjudicate_gemini.py`,
+`export_cluster_batches.py`, `aggregate_cluster_verdicts.py`, on top of
+`calibration/trial_gateway.py`. **Zero Postgres writes; the live 161 scenarios untouched.**
+
+- **NEVER batch the gateway's `/embeddings`.** It silently returns FEWER vectors than inputs,
+  intermittently -- the same request batches or collapses depending on when it is sent, and it
+  hits SHORT text hardest, which is 29% of this corpus. Throughput comes from CONCURRENCY
+  (one text per request, N workers), which cannot reintroduce the collapse. Measured: 24k
+  requests at ~46 req/s with 20 workers, ~8 minutes.
+- **Fetch the NATIVE width (3072) and truncate locally; key the cache on the native width.**
+  Matryoshka validated at corpus scale -- `cos(api_768, renormalised first-768-of-3072)` over
+  **11,977 real turns, min 1.000000**. Keying the cache on the ANALYSIS width would make
+  `--width 768` miss every row and re-pay 24k requests.
+- **3072 BEATS 768 for clustering, contradicting `compare_embedders.py`.** That file recorded
+  `gemini_768` beating `gemini_3072` (0.686 vs 0.672 on `sink_real_margin`) and it does NOT
+  transfer -- that measured per-trigger centroid margins, this measures cluster quality after
+  UMAP+HDBSCAN. 3072 wins at every merge threshold from 0.92 up. Requesting 768 directly would
+  have shipped the worse config with no way to notice.
+- **`merge_cosine_threshold` on this backend is 0.97, not bge's 0.92.** Gemini's centroid band
+  is p10 0.722 **p50 0.810** p90 0.886; at 0.92 only 136 clusters survive with a 1,790-item
+  blob. Turn-vs-turn spread is 0.130 vs bge's 0.141 -- the compressed-space worry did NOT
+  materialise. Two backends, two values, ONE config key.
+- **Gemini clustering REPRODUCES EXACTLY across processes** (292 raw -> 245 merged in four
+  separate runs, verified position-for-position on turn count). Deterministic embeddings
+  remove one of the two sources of the run-to-run variance documented for bge.
+- **GEMMA AND NINE BLIND JUDGES AGREE 100% ON WHAT TO DISCARD -- and an earlier claim here
+  that Gemma "over-sinks 14.6% of the corpus" was MY ANALYSIS BUG, now retracted.** Cross-tab
+  over 245 min-16 clusters: of the **138 clusters Gemma genuinely sank (mechanics+logistics),
+  judges want ZERO**. The apparent 56-cluster disagreement was entirely `merge_into`
+  decisions, which `_KIND_BY_DECISION` maps to `kind="merged"` -- a duplicate FOLDED INTO an
+  existing scenario, i.e. RETAINED -- while my aggregator tested `kind == "scenario"` and
+  counted them as sinks. Retention is **107/245 clusters, 41.0% of turns**: 38 distinct
+  scenarios enriched by 69 merged duplicates. The only real disagreement runs the other way
+  (15 clusters Gemma kept that judges would drop), so Gemma is marginally PERMISSIVE.
+  **A prompt fix (`--turn-aware`, in the harness, OFF) was built for the phantom problem and
+  moved agreement 76% -> 76% with 12-in/7-out churn; that null result is what exposed the
+  bug.** A fix aimed at a real defect does not leave its target metric exactly where it began.
+- **An ANALYSIS script manufactures findings as readily as a measurement script.** Four
+  guards existed on the data path (blind judging, position-verified joins, path tests, a
+  pre-registered gate) and none on the analysis path; the bug was one equality test against a
+  four-valued enum, two of whose values mean "retained". **When a category has more than two
+  outcomes, print the full cross-tab instead of collapsing to a boolean** -- the cross-tab
+  makes this class of error impossible to miss.
+- **The content-free proxy is sound.** With merges counted correctly all three measures agree:
+  proxy 39.6% subject-bearing, blind judges 38% coachable, Gemma retention 43.7%. It is an
+  excellent junk detector (>=70% content-free -> judges call **1%** coachable) and a
+  serviceable quality measure. An earlier "the proxy was directionally wrong" verdict, based
+  on comparing it to Gemma's `scenario`-only count, is withdrawn -- that comparison excluded
+  the 69 merged clusters.
+- **Finer granularity is BETTER, contrary to intuition:** min 16 beats min 50 on coherence
+  (84% vs 75%), coachability (38% vs 33%) and coachable turn volume (35.1% vs 31.0%).
+- **Blind the judges.** A judge shown the verdict grades the label, not the cluster. Same
+  discipline as the head-to-head trial's position-swapped judging.
+- Adjudication **must stay SEQUENTIAL**: the prompt carries "NEAREST SCENARIOS ALREADY
+  ACCEPTED" and that accumulating list IS the duplicate-detection mechanism (69 merges fired
+  at min 16). Concurrency was right for embeddings -- independent requests -- and is wrong
+  here. Ordered dependency, not throughput.
+- Turn-mode scenarios come out with VERBATIM keyphrases without any prompt change
+  (`'launching this RFP'`, `'cost per activation'`, `'radius search'`) against production's
+  analyst-speak (`'platform nuances'`, `'feature capabilities'`) -- whole turns give the model
+  real client language to quote.
+
+- **VALIDATED AGAINST LAYER D, not against itself** (`calibration/validate_taxonomy_vs_layerd.py`,
+  free, read-only, both taxonomies embedded with the SAME model so only the taxonomy differs).
+  Over **6,468 real CSM client turns**: production accepts 46.7% as signals, the turn-mode
+  taxonomy 35.6% -- and reading the 1,071 turns production accepts that turn mode sinks, 4 of 6
+  sampled are correctly rejected. **Production routes `"If."` and `"I'm not sure."` to coachable
+  scenarios** -- specifically `client_validates_proposed_scenario` and
+  `client_expresses_uncertainty`, the posture scenarios that fail the random-null test. The two
+  agree on 78% of turns. Turn mode strands **0** scenarios with no rubric (production strands 1)
+  and its weakest has 8 distinct calls.
+- **The top1-top2 matching margin is ~0.01 cosine in BOTH taxonomies** (p50 0.009-0.010, mean
+  0.0147 vs 0.0164). Every Layer B/D scenario assignment rests on the winner beating the
+  runner-up by a hair. Unexamined, and arguably a bigger problem than which taxonomy is used.
+- **A coverage test whose ground truth is the OLD taxonomy CANNOT be read at face value.**
+  Sampling 600 turns from the 84 scenarios `gap_events` fired against, production keeps 85.3%
+  and turn mode 74.0% -- but the moments are defined BY production, and the top two sources
+  (`client_requests_operational_visualization` 184 events,
+  `client_validates_proposed_scenario` 131) are posture scenarios that fail the null test. The
+  test cannot separate "misses real coaching" from "correctly declines the old taxonomy's
+  noise". An unbiased version needs labels independent of both -- e.g. the 589 verified moments
+  in `artifacts/h2h_moments.json`, which need no rubric and no scenario assignment. NOT RUN.
+- **PROPER-NOUN CLUSTERS SURVIVE THE UNIT CHANGE and make any coachable COUNT soft.**
+  `implementing_and_maintaining_tracking_pixels` is really "the Happy Dance account": its top
+  c-TF-IDF keywords are `happy dance, dance, happy`, and of 12 sampled turns only ~5 concern
+  pixels -- the rest are timelines, field changes, banter and an Oracle/Workday tangent. Gemma
+  named it for the pixels visible in its six samples; the binding is the client name. Same as
+  the `jovio` cluster. Both Gemma AND the blind judges accept these because the samples look
+  substantive, so neither is a defence. A rubric for "Happy Dance" transfers to no other
+  client. Cheap unrun check: flag clusters whose top keywords are a proper noun.
+
+### Layer A pool unit: the taxonomy was built from sentence fragments (2026-08-14/15)
+
+Spec: `docs/superpowers/specs/2026-08-14-layer-a-pool-unit-design.md` (Status updates 1-7 and a
+**CONCERNS REGISTER** with every concern's verbatim wording and its resolution status). Harnesses
+`calibration/trial_pool_unit.py`, `calibration/spot_check_adjudication.py`,
+`calibration/scenario_coherence.py`. **Shipped OFF: `layer_a.pool_unit: clause`, production
+byte-identical.** ~8 Gemma calls spent in total, zero DB writes.
+
+**The finding that started it: two thirds of the live taxonomy is statistically indistinguishable
+from a random pile of client turns.** Against a size-matched random null (which had never been
+taken), scenarios score 0.740 vs the null's 0.706 -- a +0.033 lift, below the harness's own 0.05
+bar. **Only 21 of 68 rankable scenarios beat their own null, and 20 of those 21 are
+subject-matter -- exactly 1 of 24 posture (`client_*`) scenarios clears it.** Independently
+reproduces, for free, the population split the paid ceiling run found.
+
+> **TWO CORRECTIONS (2026-08-15), neither of which overturns the headline.**
+>
+> **(1) The 31% is NOT the fair baseline; 20% is.** That figure was measured in bge on
+> clause-formed scenarios scored with *turn* vectors -- cross-embedder AND cross-unit, the
+> double-count this spec's own symmetry rule forbids. `calibration/null_test_taxonomy.py`
+> re-measures both taxonomies through one embedder, one pool, one assignment rule and one
+> null: **production 16/82 = 20%**, turn mode 11/38 = 29%. Note the ABSOLUTE counts go the
+> other way -- production yields 16 scenarios that beat their null, turn mode 11.
+>
+> **(2) The metric is LENGTH-CONFOUNDED at scenario level, which was asserted-not-measured.**
+> `calibration/audit_null_instrument.py`: `corr(lift, content-free share)` is **-0.55 / -0.82**
+> (so it does NOT reward junk -- the cluster-level failure does not carry over, and that half
+> of the assertion survives), but `corr(lift, mean word count)` is **+0.65 / +0.64**. The null
+> is size-matched and NOT composition-matched, so a random draw is a *mixture* of 3-word
+> backchannel and 100-word explanations -- maximally dispersed -- and any scenario homogeneous
+> in turn SHAPE beats it. Proof by one row: **`client_direct_denial`, 98% content-free, mean
+> 3.7 words, beats its null at +0.066 = rank 2 of 82.** A scenario of "No." passes. Length
+> alone recovers only 6/11 and 7/16 of the passers, so it is a confound rather than the whole
+> metric. **Fix before relying on it again: draw the null matched to each scenario's own length
+> distribution.** Until then treat "beats a random null" as "is homogeneous in shape", and note
+> it under-credits real situations expressed in short turns -- the same bias
+> `2026-08-05-layer-b-combined-signal-analysis-design.md` found penalises terse expert moves.
+
+**Root cause, same "the unit of decision was the bug" family as the Layer C blind-writer and Layer
+D segmentation defects: `v2/layer_a.py` clusters CLAUSES while `layer_b` matches TURNS.** One turn
+("Yeah. That makes sense. So for the ATS integration, do we need a pixel?") enters the pool as TWO
+items, one carrying no subject. **43,566 of 73,771 clause-pool items (59.1%) are content-free** --
+that is the raw material every posture scenario is built from.
+
+- **"Clause" is a misnomer.** `preprocessing/segmenter.py` = spaCy sentences with `len(sent) < 4`
+  tokens dropped. A hardcoded token count, and the de facto posture filter: it drops `"No."` (2)
+  and `"Got it."` (3) but keeps `"That makes sense."` (4). **The segmenter is SHARED with
+  `v2/layer_c.py:77`** (`ARCHITECTURE.md:172`) -- changing its cutoff would silently rewrite Layer
+  C's milestone pool. Turn mode does not call it at all, which is what proves Layer C is untouched.
+
+**Measured, full 416-call corpus, each arm at its OWN derived threshold** (clause 0.85, turn 0.92):
+
+| | clause (production) | turn |
+| --- | --- | --- |
+| pool items | 73,771 | 23,949 |
+| content-free | 59.1% | **32.8%** |
+| surviving clusters | 171 | 191 |
+| **subject-bearing (<30% content-free)** | **8 (4.7%)** | **71 (37.2%)** |
+| junk (>=70% content-free) | 98 (57.3%) | 78 (40.8%) |
+| corr(negation rate, content-free) | -0.149 | **-0.744** |
+| largest cluster (both are `budget, spend, cost`) | 2,209 items / 74% of calls / 45% empty | 568 / 45% / 10% |
+
+- **The gain is the UNIT, not the threshold -- both arms swept 0.85-0.95 and the bands NEVER
+  overlap.** Clause peaks at 7.2% and freezes: 0.85->0.95 adds 65 clusters and the subject-bearing
+  count stays at **16**, every new one junk, and its 2,209-item blob never splits (merging can fuse,
+  never split). Turn plateaus 37.0-37.7%.
+- **Turn mode's merge equivalent of 0.85 is 0.92, derived by READING groups, and count-matching
+  would have picked 0.90 wrongly** -- at 0.90 six business topics fused into one 560-item blob
+  (job boards + RFP + ad stack + programmatic + CRM + employer branding), the same failure
+  `merge_cosine_threshold`'s original calibration recorded at clause-level 0.80. At 0.92 they split
+  while the 14-raw `yeah/yep` and 8-raw `okay/alright` families still unify -- validated in both
+  directions. **Do NOT write 0.92 into `tuning.yaml`: there is one key and 0.85 is correct for the
+  shipped `clause` unit.**
+- **`fit_topic_model`'s `min_cluster_size = max(3, min(n // 10, 50))` is a hardcoded COUNT of 50
+  for any corpus >= 500 items**, so granularity depends on pool SIZE: 0.068% of the clause pool but
+  0.209% of the turn pool, a 3x stiffer bar. It now takes an optional override (default `None` =
+  legacy). **Any comparison of two pools with different item counts MUST pass a scale-matched
+  value** -- the first turn arm ran at 50 and produced 74 raw clusters vs clause's 237, which read
+  as "turn mode is coarser". At the matched 16 it produces **246**, slightly MORE. That conclusion
+  was withdrawn twice, once for this and once for the merge threshold.
+- **Gemma catches camouflaged junk -- the main risk does not reproduce.** `jovio, jovia, jovio team`
+  is 563 substantive-looking turns across 50% of the corpus at only 4% content-free, glued by the
+  company's own name. Gemma sinks it as `mechanics` ("conversational introductions, participant
+  coordination, meeting housekeeping"), on LESS context than production supplies, and without the
+  coverage warning (50% sits under `ubiquity_ceiling: 0.60`). `PROMPT_LAYER_A_V2_TRIAGE`'s *"Judge
+  the utterances, not the keywords"* is what does it -- a defence that existed but had never been
+  tested against junk that looks substantive, because clause mode never produced any. 7/8 on the
+  spot-check.
+- **The posture x subject grain arrives at ADJUDICATION, not clustering.** 5 of 5 accepted clusters
+  produced a description carrying both -- `budget_and_spend_constraints` = *"clients expressing
+  hesitation or constraints around marketing spend, budget allocation and ROI justification"*.
+  Looking only at clusters (subject-only, mixed stance inside) said the grain was absent; that was
+  the wrong place to look. Gemma cannot write stance from fragments -- `"That makes sense."` x630
+  offers nothing but the stance, which is precisely how `client_expresses_uncertainty` is produced.
+  So the proposed "second pass splitting clusters by stance" is **retracted as unnecessary**. n=5.
+- **Long turns: two probes, two different questions, BOTH true -- and the first one alone reads as
+  a false all-clear.** 4,201 turns >= 100 words = 17.5% of turns but **52.4% of all client words**.
+  (1) They do NOT damage the cluster they join -- they land in the CLEANEST ones, 5.4% content-free
+  at 100-199 words vs **76.8%** at 0-9 words, `r = -0.834`, and noise plateaus at 58-60% above 25
+  words so they are no worse-clustered than medium turns. (2) But content INSIDE them IS orphaned:
+  splitting assigned turns back into sentences, **59.1% of sentences in a 100-199 word turn fit a
+  DIFFERENT cluster better (>=0.05 cosine) against a 21.9% short-turn floor** -- ~37 points from
+  length. The turn lands correctly for its DOMINANT topic while its secondary topics go
+  unrepresented. **But 72.7% of that 59% is FILLER rejoining backchannel clusters -- which is the fix
+  WORKING, not harm** (read samples: `"All was all well."` wants `thats good, good`; `"I'm like,
+  okay."` wants `okay okay`). Narrowing to substantive sentences whose preferred AND assigned
+  clusters are both subject-bearing gives **genuine subject loss = 2,483 of 31,522 sentences
+  (7.88%), monotonic in length: 0.00% at 0-9 words, 8.61% at 50-99, 13.75% at 100-199, 18.70% at
+  200+** -- and that is an UPPER bound (one sampled "loss" was scheduling content admitted by the
+  `< 30% content-free` filter, the `jovio` false-positive class). The clearest genuine case is a
+  sentence about **Indeed Connect** stranded in the `ukg` ATS cluster when it wanted the job-board
+  one. **`Approach C` (chunk long turns into topic-bearing pieces, never emitting a stance-only
+  fragment) stays live but ranked LOW:** single-digit gains, a new calibrated knob, and the
+  `"Indeed"` fix as a prerequisite, versus the ~60%-of-substantive-turns noise problem which is an
+  order of magnitude bigger and needs only Concern 6. **The trade is real and not a regression:**
+  clause mode has zero orphaning precisely because every sentence is its own item, which is the
+  mechanism that manufactures posture clusters. **The concern went CLOSED -> REOPENED -> SETTLED;
+  the three reasons matter more than the label.**
+- **`~60% of every substantive turn (>25 words) becomes HDBSCAN noise` and never enters the
+  taxonomy** -- 11,701 of 23,949. Uniform above 25 words, so not a long-turn issue and not
+  chunkable. Same coarse-clustering family as the sink pool's 47.3% noise. Unscoped.
+- **Live production for comparison: 161 scenarios, 85 coachable (52.8%), 76 sinks, 84 rubrics --
+  but only 31% of rankable scenarios beat a random null.** The `is_coachable` label is materially
+  more optimistic than the evidence supports. **(31% corrected to 20% on 2026-08-15 -- see the
+  two-corrections block above.)**
+
+**The proper-noun check ran (2026-08-15), and the check this spec PROPOSED would not have found
+its own confirmed example.** `calibration/flag_proper_noun_clusters.py`, free, zero writes;
+artifact `proper_noun_clusters.json`. The account is recoverable directly -- the modal non-joveo
+email domain on each Avoma `.speakers.json` roster -- so "are the top keywords a proper noun" can
+be replaced by the question actually at stake: *does this cluster's evidence come from one
+client*. 355 of 400 calls carry an account across 112 accounts. Cluster membership was re-attached
+by reproducing the adjudication ordering and **verified position-for-position on n_items, calls
+and keywords (245/245)**; a size-matched Monte-Carlo null prices in the corpus's own skew
+(`uber.com` alone is 19.6% of accounted turns).
+
+- **`corr(proper-noun rate of top keywords, account lift) = 0.182` -- the proposed check is
+  nearly unrelated to account-boundness.** It MISSES `implementing_and_maintaining_tracking_pixels`
+  (`happy dance` is a bigram absent from the unigram POS table; `dance`/`happy` are ordinary words
+  spaCy tags PROPN 46% of the time) and FALSELY flags `navigating_rfp_and_procurement` -- 100%
+  PROPN keywords (`kim`, `rfp`), **66 accounts, 120 calls, the most broadly-evidenced coachable
+  scenario there is** -- plus `ats_migration_and_ecosystem_complexity` (`workday, isims, taleo`:
+  industry-standard vendors, 12 accounts). Proper-noun-ness measures whether a word is a NAME, not
+  whether it belongs to ONE CLIENT. The signal that works is keyword-account concentration
+  (r=0.616): `cie`=100%, `veterinarians`=100%, `lexi`=100%, `raytheon`=96%, `dance`=96%.
+- **21 of 38 coachable clusters exceed their own null's p99; by reading, 7 should not be in the
+  count.** 6 are account-bound (tracking_pixels = 95% Uber and really vendor coordination;
+  experiential_branding = 98% RTX; managing_non_technical_stakeholders = 100% Banfield, glued by
+  two colleagues' FIRST NAMES; niche_board_roi = 100% Banfield veterinary vocabulary;
+  creative_candidate_engagement; ats_and_middleware_integration_architecture). 11 more are general
+  situations with single-account evidence -- a different disease. 3 are statistically over the bar
+  but substantively broad (`candidate_application_...` is 29% vs a 19% null across 33 accounts).
+- **`compensation_and_variable_structuring` is NOT A CLIENT CONVERSATION AT ALL.** It is job
+  interviews across 9 calls -- *"You wanna know how much I was earning at Radiance?"*, *"I'm
+  currently at one 55 base"*. Its modal account is `gmail.com` and 14 of 20 sampled turns have no
+  client domain, which is the tell. **It also PASSES the null test at rank 3 of 38** -- interviews
+  are internally coherent -- so neither instrument catches it alone.
+- **Sinks are NOT account-contaminated**: +2.7% mean lift with 11% flagged, against coachable's
+  +29.6% and 55%. The contamination is entirely in what Gemma ACCEPTS, consistent with the blind
+  judges agreeing 100% on what to discard.
+- Sibling domains collapse: `scale.com`/`contractors.scale.com` are one account, so
+  `optimizing_cost_per_activation_and_worker_quality` is **100%** one account, not the 74% printed.
+- **Net: 9 of 38 survive both the null test and reading.** 38 -> 31 after removing junk, 11 pass
+  the null, 2 of those 11 are junk. Quote 9, not 38, and note the null half is length-confounded.
+
+**Measurement lessons, all three earned the hard way this session:**
+
+- **A measurement script must call the production entry point with the production arguments.** Two
+  scratchpad scripts each disagreed with production by ~20%: spaCy loaded with
+  `tagger`/`attribute_ruler`/`lemmatizer` disabled **moves sentence boundaries** (88,431 clauses vs
+  the true 73,771), and `parse_transcript` without the Avoma `roster` argument misclassifies
+  speakers (28,905 CLIENT turns vs the true 23,949). Both inflated ~20% and neither was visible
+  without a production cross-check. Prefer a harness that imports production code.
+- **Coherence-lift-over-a-null is NOT a cluster-quality gate -- it rewards the junk.**
+  `corr(lift, content-free fraction) = +0.527` in the clause arm and +0.555 in the turn arm; junk
+  clusters average +0.160 lift against real ones' +0.107, because a pile of "that's huge" is
+  lexically tighter than a real discussion of markets. At CLUSTER level it asks "did HDBSCAN run",
+  not "is this a situation". It remains valid at SCENARIO level, where members are whole turns.
+- **The content-free proxy has a false-positive class it cannot see:** a cluster of
+  substantive-but-unrelated turns (`jovio`) counts as subject-bearing. So **37.2% is an upper
+  bound** and must never be quoted as "71 coherent scenarios". The clause arm's 4.7% carries the
+  same flaw, so the comparison holds.
+- **Before believing a rate, ask what fraction of it is the behaviour you were TRYING to cause.**
+  Both metrics that misled this session failed that question: coherence-lift rewarded junk
+  (+0.527 with content-free fraction) and the raw orphan rate was 72.7% filler rejoining filler,
+  i.e. the fix working. In both cases reading a handful of real samples exposed it where the
+  aggregate could not.
+- **A probe answers the question it was built to ask and NO adjacent one.** The long-turn probe
+  measured destination quality (clean clusters) and it was read as content retention; a second probe
+  showed 59% of the content inside those turns belongs elsewhere. State what a measurement CANNOT
+  answer in the same breath as its result.
+- **Every quantitative prediction about the pool got the RATIO right and the QUALITY direction
+  wrong** (content-free 58.9% vs 59.1% with counts 20% off; long turns 17.6% vs 17.5% with the harm
+  inverted). Measure the effect; never infer it from the size of the population.
+- The turn pool spans **400 calls, not 416** -- 16 transcripts contribute zero CLIENT turns. Every
+  trial computed `call_coverage` and the support floor against 416, so coverage is slightly
+  understated and the floor is 9 rather than 8. Too small to move a conclusion; unexamined.
 
 ### Brain Architecture Notes
 

@@ -11,6 +11,13 @@ from shared.scenario_vectors import build_scenario_vecs as _build_scenario_vecs
 from shared.scenario_vectors import build_primary_topic_vecs as _build_primary_topic_vecs
 from shared.tuning import load_tuning
 from shared import trigger_quality as tq
+# The relative top-K rule now lives in shared/ so ego_trap and the calibration
+# harnesses can apply it without importing v1/. Re-imported under the old private
+# names because callers outside this module reach for them directly
+# (calibration/compare_matching_subset.py does `from v1.layer_b import _topk_pick`).
+from shared.relative_match import flat_pick as _flat_pick
+from shared.relative_match import is_sink_flags
+from shared.relative_match import topk_pick as _topk_pick
 
 _MIN_CONTENT_WORDS = 5
 
@@ -104,7 +111,7 @@ def assign_scenarios(
 
     tuning = load_tuning().layer_b
     scenario_keys, scenario_vecs = _build_scenario_vecs(scenario_map)
-    is_sink = [not scenario_map[k].get("is_coachable", True) for k in scenario_keys]
+    is_sink = is_sink_flags(scenario_map, scenario_keys)
 
     T = np.array(trigger_vecs)
     S = np.array(scenario_vecs)
@@ -137,33 +144,6 @@ def assign_scenarios(
         _assign(pair, kept or [scenario_keys[best_j]])
 
     return trigger_vecs
-
-
-def _topk_pick(
-    sims: np.ndarray,
-    keys: list[str],
-    is_sink_arr: list[bool],
-    cap: int,
-    margin: float,
-    restrict_to: set[int] | None = None,
-) -> list[str] | None:
-    """Shared relative top-K rule: rank `keys` by `sims`, keep entries within
-    `margin` of the best among the (optionally restricted) non-sink candidates,
-    capped at `cap`. Always keeps at least the best. Returns None if no
-    candidate survives the sink/restrict filter -- the caller decides the
-    fallback in that case.
-    """
-    order = np.argsort(sims)[::-1]
-    candidates = [
-        int(j) for j in order
-        if not is_sink_arr[int(j)] and (restrict_to is None or int(j) in restrict_to)
-    ]
-    if not candidates:
-        return None
-    best_j = candidates[0]
-    cutoff = margin * float(sims[best_j])
-    kept = [keys[j] for j in candidates[:cap] if float(sims[j]) >= cutoff]
-    return kept or [keys[best_j]]
 
 
 def assign_scenarios_two_stage(
@@ -200,7 +180,7 @@ def assign_scenarios_two_stage(
 
     tuning = load_tuning().layer_b
     scenario_keys, scenario_vecs = _build_scenario_vecs(scenario_map)
-    is_sink = [not scenario_map[k].get("is_coachable", True) for k in scenario_keys]
+    is_sink = is_sink_flags(scenario_map, scenario_keys)
     pt_of = [scenario_map[k].get("primary_topic_key") for k in scenario_keys]
 
     pt_keys, pt_vecs = _build_primary_topic_vecs(primary_topic_map)
@@ -272,31 +252,6 @@ def assign_scenarios_two_stage(
     return trigger_vecs
 
 
-def _flat_pick(
-    sims: np.ndarray,
-    keys: list[str],
-    is_sink_arr: list[bool],
-    cap: int,
-    margin: float,
-) -> list[str]:
-    """Reproduces assign_scenarios's own per-pair sink-short-circuit + relative-margin
-    logic on an arbitrary similarity vector, so assign_scenarios_with_sink_rescue can
-    apply it to a trigger, response, or blended vector without duplicating the loop
-    body per strategy. assign_scenarios itself is left untouched -- this is a new
-    helper for the new function, not a refactor of the calibrated one.
-    """
-    order = np.argsort(sims)[::-1]
-    best_j = int(order[0])
-    if is_sink_arr[best_j]:
-        return [keys[best_j]]
-    cutoff = margin * float(sims[best_j])
-    kept = [
-        keys[int(j)] for j in order[:cap]
-        if float(sims[int(j)]) >= cutoff and not is_sink_arr[int(j)]
-    ]
-    return kept or [keys[best_j]]
-
-
 def assign_scenarios_with_sink_rescue(
     pairs: list[dict],
     scenario_map: dict[str, dict],
@@ -347,7 +302,7 @@ def assign_scenarios_with_sink_rescue(
 
     tuning = load_tuning().layer_b
     scenario_keys, scenario_vecs = _build_scenario_vecs(scenario_map)
-    is_sink = [not scenario_map[k].get("is_coachable", True) for k in scenario_keys]
+    is_sink = is_sink_flags(scenario_map, scenario_keys)
 
     T = np.array(trigger_vecs)
     R = np.array(response_vecs)

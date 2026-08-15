@@ -16,16 +16,16 @@ Postgres only to read scenarios and kb_pairs. Embeddings hit embed_cache.db
 See docs/superpowers/specs/2026-07-28-layer-c-rubric-depth-design.md.
 
 Usage (from Brain/, venv active):
-    python dry_run_layer_c_clustering.py                  # full report, all variants
-    python dry_run_layer_c_clustering.py --detail 10       # also print clause text
+    python calibration/dry_run_layer_c_clustering.py                  # full report, all variants
+    python calibration/dry_run_layer_c_clustering.py --detail 10       # also print clause text
                                                             # for the best variant,
                                                             # for 10 scenarios
-    python dry_run_layer_c_clustering.py --controls 10     # control sample size
+    python calibration/dry_run_layer_c_clustering.py --controls 10     # control sample size
 
     # UMAP found real signal but also promoted backchannel to milestone status
     # in the largest scenarios (the relevance filter at percentile=40 wasn't
     # strict enough). Sweep stricter percentiles, UMAP variant only:
-    python dry_run_layer_c_clustering.py --sweep-percentile 40,50,60,70,75,80
+    python calibration/dry_run_layer_c_clustering.py --sweep-percentile 40,50,60,70,75,80
 """
 from __future__ import annotations
 
@@ -33,6 +33,13 @@ import argparse
 
 import numpy as np
 from hdbscan import HDBSCAN
+
+# Brain/ is this file's parent -- put it on sys.path so the shared packages
+# (config, shared, v1, v2, preprocessing) resolve whether this script is run
+# directly (python calibration/x.py) or imported (from calibration import x).
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
 
 from config import load_config
 from preprocessing import embedder, segmenter

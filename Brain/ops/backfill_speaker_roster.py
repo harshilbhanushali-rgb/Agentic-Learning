@@ -28,15 +28,15 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from dotenv import load_dotenv
-load_dotenv(Path(__file__).parent / ".env")
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 import httpx
 
 AVOMA_BASE_URL = "https://api.avoma.com"
-RECORDINGS_DIR = Path(__file__).parent / "recordings"
+RECORDINGS_DIR = Path(__file__).resolve().parent.parent / "recordings"
 RATE_LIMIT_DELAY = 0.5
 
 

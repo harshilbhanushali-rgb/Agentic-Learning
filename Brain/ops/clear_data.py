@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 """Clears all pipeline data: Postgres tables + SQLite checkpoints.
-Run from Brain/ with the venv active: python clear_data.py
+Run from Brain/ with the venv active: python ops/clear_data.py
+
+NOTE: this module has no `if __name__ == "__main__"` guard -- importing it WIPES the
+database. Never import it to test or inspect it; run it deliberately or not at all.
 """
 import sqlite3
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Brain/ is this file's grandparent -- on sys.path so `config` resolves.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 load_dotenv()
 
@@ -23,7 +30,7 @@ pg.commit()
 pg.close()
 print("Postgres cleared: rubrics, kb_pairs, scenarios, primary_topics, calls")
 
-db_path = Path(__file__).parent / "checkpoints.db"
+db_path = Path(__file__).resolve().parent.parent / "checkpoints.db"
 if db_path.exists():
     c = sqlite3.connect(db_path)
     c.execute("DELETE FROM checkpoints")

@@ -120,3 +120,104 @@ helper) actually ships.
 Nothing here changes production behavior, `tuning.yaml`, or any pipeline module. The output of this
 script is a decision about which approach to pursue next (adopt-worthy combined signal, or escalate
 to approach B) — not code that ships on its own.
+
+## Status update (2026-08-05): combining does not beat the best single signal — Approach A closed
+
+`Brain/analyze_combined_signal.py` ran against the persisted 150-pair sample. Full output not
+logged to a file (short, reproduced here in full):
+
+- **`response_word_count` and `trigger_response_coupling` are essentially uncorrelated** — Pearson
+  r=0.087 overall (p=0.29, not significant), r=-0.087 among coachable pairs, r=0.198 among
+  not-coachable pairs. Not redundant; genuinely independent information, exactly the precondition
+  that would make combining worthwhile.
+- **`length_ratio` (response/trigger content-word-count ratio) is a real signal on its own — AUC
+  0.748** — better than `trigger_response_coupling` (0.617), but *weaker* than raw
+  `response_word_count` (0.853). The asymmetry hypothesis (short filler trigger → long substantive
+  response) is real but the ratio form throws away information the raw count keeps.
+- **The combined logistic-regression score does not beat the best single signal — AUC 0.845 vs.
+  `response_word_count` alone at 0.853.** Despite the near-zero correlation above, stacking all
+  three features produced an *in-sample* fit slightly below plain length. At threshold 0.5 it gives
+  precision 0.841 / recall 0.587 (flags 44/150) — a real, usable-looking operating point in
+  isolation, but not better than what length alone already offers (precision 0.731 / recall 0.778
+  at a raw word-count threshold of 30, or 0.820 / 0.651 at 40 — see below).
+
+**Verdict: Approach A is closed, per its own stated bar** ("if the combined AUC materially exceeds
+0.853 ... otherwise escalate to approach B"). It didn't exceed 0.853 — it landed slightly under it.
+No new deterministic gate is adopted from this analysis; `length_ratio` is not proposed as a
+`shared/trigger_quality.py` addition, since it underperforms a signal already in that module.
+
+**One side-finding surfaced by this exercise, not a result of combining**: `response_word_count`
+*alone*, with a plain threshold, produces a precision/recall profile (e.g. 0.731/0.778 at
+threshold=30) that reads as materially better in aggregate than anything rounds 1-2 of the
+sink-rescue design achieved (round 1: ~95% rescue rate, mostly wrong; round 2's `or_rule`: 39.5%
+rescue / 41.9% collateral damage). That prompted a direct re-check on the merits, not just principle
+— reading the 18 false positives and 14 false negatives at threshold=30 verbatim (same discipline
+every other signal in this effort was held to):
+
+- **False positives (long, flagged not-coachable) are systematically administrative/logistics/small
+  talk that happens to run long** — meeting wrap-ups, scheduling, a rambling non-answer to a
+  technical workaround request, sports small talk. This is exactly the "long rambling non-answer"
+  failure mode the original design predicted for length, now confirmed directly.
+- **False negatives (short, flagged coachable) are systematically the sharpest, most valuable
+  content in the sample** — tight strategic pivots and discovery questions in 10-20 words ("Would
+  that be part of the 200 schools... or is that only for The US?"; "That's not a recommended best
+  practice... they do require a city"; a specific quarter-over-quarter growth figure in 10 words).
+  Length doesn't just miss noise here — it specifically discards the kind of terse, expert-brevity
+  coaching move a rubric most needs to capture, penalizing exactly the skill this whole pipeline
+  exists to teach.
+
+**Verdict, superseding the "decision for the next conversation" framing above: length is rejected on
+the merits, not just on principle.** The aggregate precision/recall numbers were real, but they hid
+a bias that actively works against the pipeline's own purpose — a gate that reliably throws away
+concise expertise is worse than one that's merely imprecise. `response_word_count` is not adopted as
+a sink-rescue gate. Combined with Approach A's own negative result above, all six signal shapes
+tried across this whole effort (absolute cosine floors ×2 rounds, content density, sink_real_margin,
+trigger_response_coupling, and now length alone / length_ratio / the combined score) have each
+failed a real measurement, most for a specific, named, sample-verified reason rather than merely "AUC
+too low."
+
+## Approach B (2026-08-05): turn position in the call — a real signal, still doesn't fix the core problem
+
+Motivated by the false positives above reading as structurally clustered near the end of a call
+(wrap-ups, sign-offs), `Brain/analyze_turn_position.py` tested whether a trigger's position within
+its call — content-blind, purely structural — separates coachable from junk. Zero Gemma calls;
+re-parses each sampled call's transcript (same `transcript_parser` call `label_trigger_quality_sample.py`
+already makes) to get each call's total turn count, joins against the persisted sample's own
+`call_id`/`turn_index`.
+
+- **`normalized_position`** (0=start, 1=end) alone: AUC 0.479 — no signal, because junk clusters at
+  *both* edges (greetings at the start, wrap-up at the end), which a plain monotonic AUC can't see.
+- **`edge_distance`** (`min(normalized_position, 1 - normalized_position)`, i.e. distance from the
+  *nearest* edge) tests the U-shaped hypothesis directly: **AUC 0.636** — a real signal, on par with
+  `trigger_response_coupling`. Reading the 10 pairs with `edge_distance < 0.1` confirmed it
+  qualitatively: 8 of 10 were logistics/wrap-up/sign-off/pleasantries exactly as predicted; the 2
+  exceptions were genuine content that happened to sit near an edge (an opening self-introduction, a
+  late-call product explanation) — real counterexamples, not disqualifying ones.
+- **Combining `response_word_count` + `edge_distance`** (near-zero correlation, r=-0.034 — genuinely
+  independent information) pushed AUC to **0.876**, the first time in this entire effort that
+  combining beat the single best signal (0.853). Two of the exact false positives read in the length
+  analysis above were also near-edge, suggesting a real mechanism: `edge_distance` can correct
+  long-but-junk wrap-up responses that length alone misclassifies.
+
+**But reading the combined score's false positives/negatives at threshold=0.5 found the aggregate
+gain does not fix length's disqualifying flaw.** The false negatives are, to a large degree, the
+*same* terse strategic pivots and discovery questions found before (13-40 words: "would this be for a
+particular skill intersection?"; "do you think the brand safety aspect... is gonna be an overkill?";
+several pair IDs literally recur from the length-only false-negative list) — `edge_distance` doesn't
+help these, since they aren't necessarily near an edge, and length still dominates the fitted score
+enough to sink them. Several false positives also survive (technical-workaround requests,
+agenda-setting, wrap-up) — including one case (pair 26411) where `edge_distance` correctly flagged
+near-edge risk (0.04) but the response's raw word count (87) was still enough to push the combined
+score above threshold anyway.
+
+**Verdict: `edge_distance` is a real, qualitatively-confirmed signal, but combining it with length
+does not rescue length's core problem — it improves the aggregate number while leaving the specific,
+named failure mode (discarding concise expert coaching) largely intact.** This is not adopted as a
+sink-rescue gate. Eight signal shapes have now been measured across this whole effort (absolute
+cosine floors ×2 rounds, content density, `sink_real_margin`, `trigger_response_coupling`, length /
+length_ratio / length-margin-combo, `edge_distance` alone, and length+`edge_distance` combined); each
+failed for a specific, sample-verified reason. Whether to keep searching for a further positional/
+structural signal, accept a version of length+edge_distance despite its known bias, or reconsider the
+previously-deferred Gemma-per-pair option (the one thing in this whole effort proven to actually
+understand what a response says, rather than approximate it structurally) is the open decision for
+the next step — not resolved here.

@@ -544,3 +544,63 @@ pivot. **`label_trigger_quality_sample.py` did not persist its labeled sample to
 either of these against the same ground truth requires re-running the script (a comparable Gemma
 cost to this run) with persistence added first. Left as the explicit next step for a future session,
 not attempted here.
+
+## Status update 5 (2026-08-05): the two remaining leads measured — both weak-at-best; sink-rescue is exhausted
+
+`label_trigger_quality_sample.py` was extended to persist its labeled sample — text, label, reason,
+every computed signal, and the raw trigger/response embeddings — to
+`labeled_trigger_quality_sample.json` after each real run, and to accept `--load PATH` to re-report
+against a saved file with **zero DB reads and zero Gemma calls**. This closes the exact gap Status
+update 4 flagged: a future signal idea no longer requires re-spending the Gemma cost, only rerunning
+against the file already on disk.
+
+Re-run against the same live `public` schema (150 pairs, same stratified sampling): this pass landed
+63 coachable / 87 not coachable, close to but not identical to Status update 4's 62/88 — expected
+Gemma sampling variance in the judge call itself (the same nonzero-temperature adjudication variance
+already documented elsewhere in this codebase for Layer A coachability, not a bug in this script).
+Full output: `Brain/label_trigger_quality_sample_20260805_v2.log`.
+
+Both leads were reported the same way density was (percentiles split by label), plus a second,
+more defensible number: **AUC** — the probability a random coachable pair scores higher than a
+random not-coachable pair (0.5 = no signal, 1.0 = perfect separation). Percentile tables that look
+encouraging on inspection can still carry almost no discriminating power; AUC makes that impossible
+to paper over. For calibration, `response_word_count` (the one signal Status update 4 found actually
+separates, but doesn't fit this design's hypothesis) scores **AUC 0.853** in this exact sample, and
+`concrete_content_density(response)` — already shown to be a dead end — scores **AUC 0.523**,
+i.e. indistinguishable from chance.
+
+**`sink_real_margin` points the correct direction but is far too weak to use.** Percentiles:
+coachable p10=0.005/p25=0.010/**p50=0.025**/p75=0.055/p90=0.070; not coachable
+p10=0.005/p25=0.013/**p50=0.032**/p75=0.064/p90=0.108 — not-coachable sits higher at every single
+percentile (correct: a higher margin means more filler-like), unlike density's directionless
+overlap. But **AUC is only 0.437** (not-coachable outscores coachable only ~56.3% of the time) —
+both distributions are compressed into a narrow band near zero, because scenario-description
+centroids for real topics and for sinks both sit far from any individual trigger in 768-dimension
+embedding space, leaving little room between them relative to the noise. No operating point
+separates the two populations usefully.
+
+**`trigger_response_coupling` is the best embedding-based signal tried in this entire effort, and
+still isn't usable.** Percentiles: coachable p10=0.424/p25=0.458/**p50=0.538**/p75=0.604/p90=0.684;
+not coachable p10=0.377/p25=0.430/**p50=0.493**/p75=0.557/p90=0.622 — coachable sits higher at every
+percentile, a real, consistent shift, unlike density's near-identical medians. **AUC = 0.617** — a
+genuine signal, clearly above chance, and directionally exactly what the design's own reasoning
+predicted (a pair whose response is actually answering its trigger should cohere with it more than a
+backchannel pair whose "response" is really just the next disconnected thing said). But 0.617 sits
+far closer to density's 0.523 (no signal) than to length's 0.853 (real signal) — not remotely close
+to a value any threshold adopted elsewhere in this codebase (`relative_margin`, `merge_cosine_threshold`,
+the Layer C percentile/fraction grid) was ever calibrated at.
+
+**Verdict: escape hatch invoked a second time. Neither lead is adopted, and the sink-rescue effort
+as a whole is exhausted.** Three independent signal families have now been measured against real
+production data and/or real ground-truth labels — absolute cosine floors (rounds 1-2), non-embedding
+content density (the pivot), and embedding-relationship signals (`sink_real_margin` and
+`trigger_response_coupling`, this update) — and every one has failed to reach a usable operating
+point. `sink_rescue_density_threshold`, `_borderline_floor`, and `_min_words` remain `UNCALIBRATED
+placeholder`; no new tuning keys are added for either signal measured here, since neither earned
+one. `sink_rescue_strategy` stays `none`; `matching_strategy` stays `flat`. This closes the search
+for a gating signal for this problem rather than proceeding to a fourth attempt. The one signal
+repeatedly shown to actually separate in this labeled sample — response length /
+`content_word_count`, AUC 0.853 — measures verbosity, not the content-specificity or
+conversational-structure property this whole design exists to detect, and remains an explicitly
+separate, unadopted, unscoped lead, exactly as it was left in Status update 4, not a rescue of this
+effort.

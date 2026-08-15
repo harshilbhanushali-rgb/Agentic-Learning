@@ -1118,6 +1118,140 @@ compress the things being observed.
 
 ---
 
+## The rule this project kept re-learning: filter both arms or measure the filter (2026-08-13)
+
+Pre-registration: `docs/superpowers/specs/2026-08-13-head-to-head-comparison-design.md`.
+
+Criteria scoring closed, so the successor approach drops criteria entirely: retrieve the expert's
+real reply to the nearest comparable client moment and ask a judge which reply handled the moment
+better. A useless judge scores 50%, so for the first time in this effort the null is arithmetic
+rather than arguable.
+
+### It was found by reading eight samples, not by any aggregate
+
+The moment-set builder applied the substantive-text filter to the CSM's client *trigger* and not
+to the CSM's *response*. `layer_b.extract_pairs` applies it to **both** sides, so every expert
+response in `kb_pairs` is substantive by construction. The consequence: **19.8% of CSM replies
+entered the comparison as `"Yeah."` or `"Yep."`** against expert replies that structurally cannot
+be that thin — one item in five was never a comparison at all, and each was a free win for the
+expert.
+
+Aggregates did not show it. The retrieval gate passed, the funnel looked reasonable, the cosine
+band looked right. What showed it was reading the eight verbatim pairs the harness prints at its
+own checkpoint, where two of eight CSM replies were `"Good. Okay."` and `"Yeah."`
+
+The fix was one filter. It removed 145 of 734 moments — and **halved the length confound as a side
+effect**, median log length ratio −0.68 → −0.34. That is the giveaway worth remembering: an
+asymmetric filter is never only about the rows it drops, because the rows it wrongly admits are
+skewed on every other axis too.
+
+### Then the same question was asked of the whole project, and the answer was uncomfortable
+
+The general rule: **any filter applied to one arm must apply to the other, or the comparison
+measures the filter.** Checked against every comparison harness here, four already carried a
+bespoke defence for exactly this — the attempt-drift refusal above 15%, the volume-matched placebo,
+the as-written control on identical items, and the rule that coverage arms must report unconditional
+`W` because a fourth verdict shrinks their denominator. **Four independent defences, one unnamed
+rule.** That is why the instances kept recurring: each was fixed locally and never generalised.
+
+And the most load-bearing measurement in the project has it. `score_naren_ceiling.py` builds arm A1
+and arm B from **the same sampled rows**, so those two are population-symmetric — but arm A3 draws
+from a different pool entirely (secondary-label rows), with `A1 ∩ A3` measuring **45 pair_ids** out
+of 371 / 346. The validity gate is applied as `W(B) >= 0.5 * W(A3)`, straight across that boundary:
+
+| comparison | ratio | B as a share of matched | gate |
+| --- | --- | --- | --- |
+| A3 / B — the figure cited everywhere | 1.61 : 1 | 62% | **fails** |
+| A1 / B — same responses both sides | 2.26 : 1 | 44% | **passes** |
+
+**The instrument-validity verdict flips depending on which arm pair you read.** And no pair is both
+leakage-clean and population-symmetric: A1 is leaked, so 2.26 is inflated by precisely what A3
+exists to remove, while A3-vs-B is confounded by population. The arm that would settle it —
+`a3_sample` scored against the partner rubric — was never built, at a cost of roughly 94 calls.
+
+**The conclusion still stands, on other evidence.** The four-arm trial failed independently at
+1.04 / 0.89 / 1.09 against a fair same-model, same-clustering baseline, and *those* arms do share a
+population. So "criteria cannot be made to discriminate on this corpus" survives — but it should be
+cited to that trial, not to a ratio between two different populations, and "1.2 : 1" is softer than
+it reads. Arm B is also model-split (793 `gemini-3.1` + 1040 `gemini-3.5`), so the exact ratio moves
+with the subset chosen: full-arm B is 0.0709 against the 0.090 same-model subset that was published.
+
+### Two harness bugs that only running could catch
+
+The moment-set builder was `py_compile`-clean and passed an import check that resolves every
+imported name — the check added specifically because two earlier launches died on a missing import
+and a positional slice. It still failed twice on first run: a **reversed argument order**
+(`is_sink_flags(keys, map)` for `is_sink_flags(map, keys)`), and a **NaN base rate** from reusing a
+helper whose per-query call-holdout emptied every candidate pool when handed one synthetic call id.
+
+The second is the dangerous one. It printed **`FAIL: retrieval does NOT carry topical signal across
+corpora`** — a confident verdict, in the right format, computed from nothing, on the stopping
+condition that would have killed the whole design. Corrected, the same measurement passes at
+0.791 against a 0.631 base rate, 95% CI on the lift [+0.130, +0.190].
+
+## The control that caught a spectacular false positive (2026-08-13)
+
+Same pre-registration as above. With criteria scoring closed, the last live idea was to stop
+grading against written criteria altogether: take a client moment from a CSM call, retrieve the
+expert's real reply to the nearest comparable moment, and ask a blinded judge which reply handled
+it better. The appeal was that a useless judge scores 50% — for the first time in this effort the
+null was arithmetic rather than something to argue about.
+
+### The design's own worry turned out to be the thing that killed it
+
+The expert never spoke into *this* client's moment. His reply can only ever arrive as a
+**transplant** from a nearby moment, while the CSM's reply is always **native** to the moment being
+judged. That asymmetry was identified during design, and a control was built to measure it rather
+than reason about it: take one of the expert's own moments, hold out his whole call, and pit **his
+real reply against a retrieved reply of his own.** Same person on both sides, so any win for the
+native side *is* the cost of transplanting.
+
+**Native won 83.5% of the time**, replicated across two independent runs to within 0.008.
+
+Now apply that to the headline. The CSM is always native; the expert is always transplanted. So the
+measurement would have reported **"the CSM outperforms the expert"** by a wide margin — a result
+that would have looked like excellent news and been pure retrieval artifact. The control caught it
+**before the headline was ever computed**, and the headline was never run.
+
+Three checks closed the obvious escape routes. It is not length — the length-matched subset shows
+0.875, *higher* than the overall figure. It is not position bias — the raw slot-1 win rate is
+0.485–0.520, essentially none. And it is not fixable by better retrieval — the penalty falls from
+0.90 to 0.79 across retrieval-quality quartiles and never reaches the bar.
+
+### And a second, deeper failure that no design change touches
+
+Ask the same judge the same question with the two replies swapped, and it reverses itself on about
+**20%** of items. Only about a third of its decisions carry information. That is a property of the
+judge, not of the pairing, so a perfectly symmetric comparison would still be read through it.
+
+The corroborating detail is the sensitivity control: the judge picks the matched reply over a
+**deliberately unrelated** one only 75/25. A judge that can barely separate relevant from
+irrelevant was never going to separate good from better between two competent replies — the same
+shape as the criteria scorer's 1.2 : 1, weakly above chance and not an instrument.
+
+### What the run cost and what it produced
+
+About 250 calls, of which the expensive headline was never spent because the gate stopped it. In
+exchange: a clean, pre-registered, replicated negative on the last live idea, with the failure
+mechanism identified rather than guessed.
+
+Two things survive as assets for any future approach. **589 verified client moments across 98
+calls**, content-hashed and frozen — built without any rubric, `milestone_performance` row or
+Layer D run, because the unit is a moment. And a **retrieval step that demonstrably works in both
+directions**, including the first measurement of the trigger-to-trigger similarity band in this
+repo. Retrieval was never the problem.
+
+### The provenance lesson, learned twice in one evening
+
+The first run recorded *which* model produced each verdict: nowhere. The judge chain silently
+downgrades under rate limits, so the result was un-auditable in exactly the way the ceiling run's
+arm B is. Re-running with the model pinned and both API keys live still blended 8–18% of batches —
+now visible instead of invisible, and the decisive control was the least blended of the three.
+
+Pinning the model also surfaced a coupling worth remembering: **disabling the model fallback also
+disables key rotation**, because the two share one error path, so a run that believes it is using
+two keys quietly uses one. Model choice and key rotation look independent and are not.
+
 ## Summary: what's true today
 
 - The pipeline clusters data with math first and only spends LLM calls judging the survivors — much cheaper and more consistent than asking an LLM to invent everything from scratch.
@@ -1147,3 +1281,5 @@ compress the things being observed.
 - **A cheap, permanent lesson about expensive work:** never let a free operation gate the persistence of an expensive one. One scored run finished all 95 LLM calls and then lost every result, because the results were assembled into a structure containing one small database lookup and written to disk only afterwards — and the connection had gone idle across ~55 minutes of LLM calls. Flush paid results first; treat everything after as best-effort.
 - **"The background task was reported stopped" is not evidence a process died.** Believing it cost a full run: two Layer D runs ended up sharing one database, and both the run log and the comparison script reported success on corrupted data. Check the OS process list, not the harness.
 - **Known open issue, partially addressed by a real, running mechanism now (previously "not yet fixed"):** ~39.7% of trigger-response pairs get filed to a junk "sink" and permanently excluded from every rubric, based on the trigger's wording alone — reading a sample found roughly half of those discarded pairs are actually real coachable content whose *response* (not trigger) carried the value. Eight different attempts to fix this by changing how a pair gets *matched* were all tried and rejected. The fix that actually worked changes the *taxonomy* instead: a permanent pass that finds genuinely recurring sink content and graduates it into a brand-new real scenario, requiring the same content to survive 3 independent re-clusterings before it's trusted enough to write. Proven for real on 2026-08-08: 164 pairs rescued into 4 new scenarios, with zero already-homed pairs disturbed. Currently switched off pending further review — this closes a meaningful slice of the gap, not the whole 39.7%, since only content that clusters cleanly and repeatedly can ever qualify.
+- **The rule this project kept re-learning, now named: filter both arms, or the comparison measures the filter.** Four separate harnesses had each grown a bespoke defence for exactly this — an attempt-drift refusal, a volume-matched placebo, an as-written control on identical items, and a rule that coverage arms report an unconditional denominator — and because the rule itself was never written down, the instance kept recurring. It was caught again in the new pairwise harness by **reading eight verbatim samples**, not from any aggregate: the substantive-text filter was applied to the CSM's client turn but not to the CSM's reply, while the expert's side is filtered on both, so **19.8% of comparisons pitted `"Yeah."` against a real answer** and handed the expert a free win. Fixing it also **halved the length gap** between the two sides, which is the part worth generalising — an asymmetric filter is never only about the rows it drops, because the rows it wrongly admits are skewed on every other axis too. **And the most load-bearing measurement in the project has the same defect:** the ceiling harness compares its clean arm against its control across two different response populations (45 shared pair_ids out of ~350), and the instrument-validity verdict **flips** on which arm pair you read — 1.61 : 1 and failing across populations, 2.26 : 1 and passing within one. No arm pair is both leakage-clean and population-symmetric, and the arm that would settle it was never built. The overall "criteria cannot discriminate" verdict survives on the four-arm trial's independent failure, whose arms do share a population — but it should be cited to that trial, and the widely-quoted 1.2 : 1 is softer than it reads.
+- **Both walls are now closed by measurement, and the last attempt was killed by its own control.** Head-to-head comparison — drop criteria entirely, retrieve the expert's real reply to the nearest comparable client moment, and ask a blinded judge which reply handled it better — was attractive because a useless judge scores 50%, so the null was arithmetic instead of arguable. It failed for **two independent reasons**. First, the expert never spoke into *this* client's moment, so his reply can only ever arrive as a transplant while the CSM's is always native: a control pitting the expert's own real reply against a retrieved reply of his own — same person both sides — found **native wins 83.5%**, replicated to within 0.008. The headline would therefore have announced *"the CSM outperforms the expert"* as a pure retrieval artifact, and the control caught it **before the headline was ever computed**. It is not length (the length-matched subset is *higher* at 0.875), not position (no slot bias at all), and not curable by better retrieval (0.90 → 0.79 across quality quartiles, never reaching the bar). Second, and deeper: the judge **reverses itself on ~20% of items when the two replies are swapped**, so only about a third of its decisions carry information — a property of the judge that no pairing design repairs, corroborated by its picking a matched reply over a *deliberately unrelated* one at only 75/25. **Four approaches, four pre-registered gates, four failures**, each with a specific measured cause; a fifth variant of "get a model to referee" is not the next step, because the referee is what keeps failing. What survives is reusable: **589 verified client moments** across 98 calls, frozen and content-hashed, needing no rubric or Layer D run, and a retrieval step that demonstrably works in both directions. Cost: ~250 calls, with the expensive headline never spent.

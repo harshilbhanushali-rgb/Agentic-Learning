@@ -32,10 +32,10 @@ so a later idea against this same data is free -- the discipline the sink-rescue
 effort adopted only after having to re-spend Gemma for want of it.
 
 Usage (from Brain/, venv active):
-    python diagnose_sink_pool.py
-    python diagnose_sink_pool.py --no-gemma          # clusters + stats only, zero cost
-    python diagnose_sink_pool.py --load sink_pool_clusters.json
-    python diagnose_sink_pool.py --min-cluster-size 12   # exploration only, see below
+    python calibration/diagnose_sink_pool.py
+    python calibration/diagnose_sink_pool.py --no-gemma          # clusters + stats only, zero cost
+    python calibration/diagnose_sink_pool.py --load sink_pool_clusters.json
+    python calibration/diagnose_sink_pool.py --min-cluster-size 12   # exploration only, see below
 """
 from __future__ import annotations
 import argparse
@@ -52,6 +52,15 @@ if sys.path and sys.path[0] not in ("", "."):
 
 import numpy as np
 
+# Brain/ is this file's parent -- put it on sys.path so the shared packages
+# (config, shared, v1, v2, preprocessing) resolve whether this script is run
+# directly (python calibration/x.py) or imported (from calibration import x).
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
+from calibration import ARTIFACTS_DIR
+
 from config import load_config
 from preprocessing import embedder
 from shared import cluster_evidence, storage
@@ -65,8 +74,8 @@ _BATCH_SIZE = 5           # clusters per Gemma call -- mirrors label_trigger_qua
 _GEMMA_CALL_DELAY = 5     # seconds -- matches v2/layer_c.py's free-tier pacing
 _SAMPLES_PER_CLUSTER = 4  # verbatim pairs shown to Gemma and printed per cluster
 _SAMPLE_CHARS = 300
-_DEFAULT_OUTPUT = Path("sink_pool_clusters.json")
-_LABELED_SAMPLE = Path("labeled_trigger_quality_sample.json")
+_DEFAULT_OUTPUT = ARTIFACTS_DIR / "sink_pool_clusters.json"
+_LABELED_SAMPLE = ARTIFACTS_DIR / "labeled_trigger_quality_sample.json"
 
 # Escape-hatch thresholds, fixed in the spec BEFORE the data existed so they cannot be
 # chosen to fit the result. These are stop conditions, not operating points -- nothing
