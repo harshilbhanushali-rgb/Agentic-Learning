@@ -1526,10 +1526,53 @@ reproduces, for free, the population split the paid ceiling run found.
 > in turn SHAPE beats it. Proof by one row: **`client_direct_denial`, 98% content-free, mean
 > 3.7 words, beats its null at +0.066 = rank 2 of 82.** A scenario of "No." passes. Length
 > alone recovers only 6/11 and 7/16 of the passers, so it is a confound rather than the whole
-> metric. **Fix before relying on it again: draw the null matched to each scenario's own length
-> distribution.** Until then treat "beats a random null" as "is homogeneous in shape", and note
-> it under-credits real situations expressed in short turns -- the same bias
+> metric. **FIXED 2026-08-16 (R4, commit `b7d4e94`) -- see the block below.** It
+> under-credits real situations expressed in short turns -- the same bias
 > `2026-08-05-layer-b-combined-signal-analysis-design.md` found penalises terse expert moves.
+
+> **R4 (2026-08-16): the null is now length-matched, and the corrected answer is 22% / 29%
+> -- so the recorded conclusion survives a much better instrument. Every number in the
+> TWO CORRECTIONS block above was produced by the pre-R4 null; cite these instead.**
+>
+> | arm | published (pre-R4) | corrected |
+> | --- | --- | --- |
+> | production | 16/82 = 20% | **18/82 = 22%** |
+> | turn mode | 11/38 = 29% | **11/38 = 29%** |
+> | control (HDBSCAN's own clusters) | -- | **20/38 = 53%** |
+>
+> **The real finding is the GAP, not either share:** groups known to be coherent reach 53%
+> where both taxonomies sit at 22-29%. Turn mode staying ahead of production survives the
+> correction.
+>
+> - **The null draws matched to each entry's own word-count profile.** Accepted turns run
+>   69.1 / 80.9 words against the pool's 45.7, so the old whole-pool draw handed credit for
+>   turn SHAPE. It **reduces** the confound, it does not remove it: `corr(lift, mean words)`
+>   goes +0.65 -> **+0.37** (production) and +0.64 -> **+0.25** (turn mode). Read every
+>   result as *length-adjusted*, never length-free. `client_direct_denial` still clears,
+>   at rank 4 rather than 2 -- a pile of "No." is coherent even against other short turns.
+> - **The reference must be SIZE-MATCHED, and this is the trap that ate three headlines.**
+>   `lift` FALLS as n rises (corr **-0.510** inside the control) while `z` RISES with n (the
+>   null's spread collapses ~1/sqrt(n)), so **no single threshold of either kind is fair
+>   across entries spanning n=8 to n=1,326.** A flat control median understated both arms by
+>   16-17 points. Each entry is now compared against the median lift of the 7 control
+>   entries nearest it in log-size; the control scored under its own rule lands at 53%, the
+>   ~50% it must.
+> - **Do NOT re-derive the bar as "position within the entry's own null distribution"** --
+>   the shape `flag_proper_noun_clusters.py` uses. Tried and refuted: a trivial +0.012
+>   excess scores z~15 and nearly everything passes. The approximation is sound (8/8 against
+>   a real 400-draw empirical p99); the STATISTIC is wrong for the question. Significance is
+>   not effect size.
+> - **The positive control had been built by `kind == "scenario"`, discarding the 69
+>   `merged` clusters (2,434 turns against the 2,725 it kept).** `merged` means RETAINED --
+>   the same collapse-to-boolean that produced the phantom "Gemma over-sinks 14.6%" finding,
+>   recurring in a second file. Control membership 2,725 -> 5,159 turns.
+> - **`share_eligible` is reported but is NOT arm-comparable** -- that null draws from
+>   exactly the union of the entries being scored, so it re-picks ~n^2/N of an entry's own
+>   members: 13.9% (turn mode) vs 7.1% (production).
+> - **Two intermediate readings taken during this work, "1% vs 0%" and "5% vs 0%", were
+>   artifacts of defects in the fix itself and are retracted.** Both were caught by auditing
+>   the fix rather than by the fix's own tests, which is the argument for auditing every
+>   correction with the same taxonomy used on the original.
 
 **Root cause, same "the unit of decision was the bug" family as the Layer C blind-writer and Layer
 D segmentation defects: `v2/layer_a.py` clusters CLAUSES while `layer_b` matches TURNS.** One turn

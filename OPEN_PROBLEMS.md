@@ -162,7 +162,7 @@ Two distinctions run through the whole file and are stated explicitly in each en
 
 ## 2. Layer A — the taxonomy
 
-### Only 20% of live production scenarios beat a random null (corrected from 31%)
+### Only 22% of live production scenarios beat a random null (31% -> 20% -> 22%, now on a fixed instrument)
 - **What we know:** Against a size-matched random null — which had never been taken before
   2026-08-14 — most of the live taxonomy is statistically indistinguishable from a random pile of
   client turns. **The originally published "21 of 68 rankable = 31%" was corrected on 2026-08-15
@@ -174,12 +174,23 @@ Two distinctions run through the whole file and are stated explicitly in each en
   21 passers, 20 were subject-matter and **exactly 1 of 24 posture (`client_*`) scenarios**
   cleared it. Live production is 161 scenarios / 85 coachable (52.8%) / 76 sinks / 84 rubrics, so
   the `is_coachable` label is materially more optimistic than the evidence supports.
-- **What we don't:** What the true share is once the null instrument is fixed (see §6 — it is
-  length-confounded, `corr(lift, mean word count) = +0.65 / +0.64`, and `client_direct_denial`
-  at 98% content-free and mean 3.7 words passes at rank 2 of 82). Until then "beats a random
-  null" means "is homogeneous in shape", not "is a real situation".
-- **Cost to resolve:** Free — re-draw the null matched to each scenario's own length
-  distribution and re-run `null_test_taxonomy.py`.
+- **RESOLVED 2026-08-16 (R4, commit `b7d4e94`) — the null is length-matched and the corrected
+  answer is production 18/82 = 22%, turn mode 11/38 = 29%, against a positive control
+  (HDBSCAN's own clusters, merges included) at 20/38 = 53%.** The recorded conclusion did not
+  reverse; the instrument behind it did. **The real finding is the GAP** — groups known to be
+  coherent reach 53% where both taxonomies sit at 22–29%.
+- **What we still don't:** the confound is REDUCED, not removed — `corr(lift, mean words)`
+  falls +0.65 → **+0.37** (production) and +0.64 → **+0.25** (turn mode), so every result here
+  is *length-adjusted*, not length-free. `client_direct_denial` still clears, at rank 4 rather
+  than 2: a pile of "No." is coherent even against other short turns. And the whole measure is
+  of the population MATCHING gathers, so a low score cannot distinguish "not a real topic"
+  from "real topic, wrong turns routed into it" — see the routing item below.
+- **Two traps recorded so they are not re-entered:** (1) `lift` FALLS with n (corr −0.510
+  inside the control) while `z` RISES with n, so **no single threshold of either kind is fair**
+  across entries spanning n=8 to n=1,326 — the reference must be size-matched, and a flat one
+  understated both arms by 16–17 points. (2) Do **not** re-derive the bar as position within
+  the entry's own null distribution; a trivial +0.012 excess scores z≈15. Significance is not
+  effect size.
 - **Where it's recorded:** CLAUDE.md, "Layer A pool unit" + its TWO CORRECTIONS block;
   `docs/superpowers/specs/2026-08-14-layer-a-pool-unit-design.md` ("The finding that started
   this").

@@ -290,11 +290,34 @@ Status of every item, and the observations that exist nowhere else.
 | R15 (tokeniser mismatch, found auditing R2a) | **OPEN** | not yet — 87 keywords still unmeasured |
 | R3a (F11 estimator mismatch) | **DONE** `1dbbc27` `0117820` `03d250d` | intervals only; one printed verdict flipped |
 | R3b (F11 unbounded resamples) | **DONE** `7b048cb` | one interval: [3.13,17.11] -> [3.12,17.39] |
-| R4-R12 | **NOT STARTED** | — |
+| R4 (F12 composition-matched null) | **DONE** `b7d4e94` | yes — production 20% -> 22%; conclusion unchanged |
+| R4b (control discarded `merged`, found auditing R4) | **DONE** `b7d4e94` | control 2,725 -> 5,159 turns |
+| R4c (reference must be size-matched, found auditing R4) | **DONE** `b7d4e94` | yes — both arms +16-17 points |
+| R4d (docstring cherry-pick + config/overwrite guards) | **DONE** `b7d4e94` | no — honesty and guards only |
+| R5-R12, R15 | **NOT STARTED** | — |
+
+**R4 is the first item where auditing MY OWN FIX found defects that changed the answer
+twice.** The fix's own tests passed throughout; a separate adversarial pass over the fix is
+what caught them. Two intermediate headlines were reported and retracted before the final
+number settled — see the retraction note below.
 
 **No conclusion anywhere in the project changed.** Every correction moved in the direction
 that already supported the conclusion drawn, which is itself worth noting: nine corrections,
 zero reversals.
+
+## R4 retraction note — two headlines reported and withdrawn
+
+Recorded because the withdrawal is the useful part, not the final number.
+
+| reading | where it came from | status |
+| --- | --- | --- |
+| production 20% / turn mode 29% | the shipped whole-pool null | superseded, instrument was unfair |
+| **"1% vs 0%"** | length-matched null + the INHERITED `lift >= 0.05` bar | **retracted** — bar was calibrated against the easier null and never migrated |
+| **"5% vs 0%"** | a flat control median as reference | **retracted** — the control's entries are ~4x smaller than the arms they judge |
+| **production 22% / turn mode 29% / control 53%** | length-matched null + merges folded in + size-matched reference | current |
+
+Both retracted readings passed the fix's own tests. Only a separate adversarial pass over
+the fix caught them, which is the whole argument for step 6 of the procedure.
 
 ## Observations recorded nowhere else
 
@@ -323,6 +346,22 @@ zero reversals.
   result this file calls real. **The design spec never records it** — the spec still ends
   "CONCLUSION: the criteria scorer discriminates" on the confirmA/B runs this file lists as
   superseded. Documentation gap, deliberately not silently edited.
+- **Every statistic over variable-size groups here moves WITH SIZE, in both directions, and
+  that is what ate two headlines.** `lift` falls as n rises (corr **-0.510** inside the
+  control) because bigger groups are more diverse; `z` rises with n because the null's spread
+  collapses ~1/sqrt(n). So a fixed lift bar is too harsh on big entries, a fixed z bar passes
+  everything big, and a reference drawn from a population of a different size scale is unfair
+  in whichever direction the sizes differ. **Any threshold applied across entries spanning
+  n=8 to n=1,326 must be conditional on n.**
+- **Significance is not effect size, and the validation can be sound while the statistic is
+  wrong.** The z gate was checked against a real 400-draw empirical p99 and agreed 8/8 — the
+  approximation was fine. It was still the wrong question: at n in the hundreds everything is
+  significant. Validating the estimator says nothing about whether the estimand is the one you
+  want.
+- **The `kind == "scenario"` enum collapse recurred in a SECOND file** (`null_test_taxonomy`'s
+  control arm), a year of scar tissue after it produced the phantom "Gemma over-sinks 14.6%"
+  finding in the first. A four-valued enum tested as a boolean is not a one-off mistake; grep
+  for the pattern rather than trusting that the lesson stuck.
 - **Two rubrics hold zero criteria**, so any per-rubric statistic runs over 82, not 84.
 - **F16's silent drop never fired**: 378 perf groups in, 378 out, zero unparseable ids, zero
   positions beyond a rubric, zero missing rubric_ids.
