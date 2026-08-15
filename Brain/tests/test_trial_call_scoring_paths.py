@@ -103,3 +103,26 @@ def test_a_missing_or_unreadable_artifact_does_not_block_a_run(tmp_path):
     bad = tmp_path / "bad.json"
     bad.write_text("{not json", encoding="utf-8")
     tcs.guard_overwrite(bad, n_calls=1, smoke=False, force=False)
+
+
+# -- transport parity (audit R7b) -----------------------------------------------------------
+
+def test_the_gateway_uses_the_SAME_output_ceiling_as_the_ai_studio_path():
+    """chat_json defaults to 8192; the scorer sets 16384. Not passing it halves the budget
+    on ONE ARM of a transport comparison -- and truncation does not raise here, it returns
+    fewer scenarios or fewer milestone ids, which reconcile to "not occurred" or default to
+    "miss". Truncation therefore MANUFACTURES MISSES that look like real verdicts.
+    """
+    import inspect
+    from ego_trap.call_scoring import _SCORING_MAX_OUTPUT_TOKENS
+    from calibration.trial_gateway import GatewayClient
+
+    gateway_default = inspect.signature(GatewayClient.chat_json).parameters["max_tokens"].default
+    assert gateway_default != _SCORING_MAX_OUTPUT_TOKENS, (
+        "fixture assumption gone: the gateway default now equals the scorer's ceiling, so "
+        "this test no longer demonstrates anything")
+
+    src = inspect.getsource(tcs._gateway_chat)
+    assert "max_tokens=_SCORING_MAX_OUTPUT_TOKENS" in src, (
+        f"the gateway wrapper must pass the scorer's ceiling ({_SCORING_MAX_OUTPUT_TOKENS}), "
+        f"not inherit chat_json's default ({gateway_default})")

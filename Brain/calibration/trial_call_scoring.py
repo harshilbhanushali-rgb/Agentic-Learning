@@ -144,10 +144,18 @@ def _gateway_chat(model: str):
     trial_adjudicate_gemini.py already relies on.
     """
     from calibration.trial_gateway import GatewayClient
+    from ego_trap.call_scoring import _SCORING_MAX_OUTPUT_TOKENS
     gw = GatewayClient()
 
     def _chat(prompt: str):
-        parsed, _ = gw.chat_json(prompt, model=model, temperature=0.2)
+        # THE OUTPUT CEILING MUST MATCH THE AI STUDIO PATH. chat_json defaults to 8192,
+        # HALF of what the scorer sets, and not passing it silently halves the budget on
+        # one arm of a transport comparison. Output length is the documented binding
+        # constraint here, and truncation does not error -- it returns fewer scenarios or
+        # fewer milestone ids, which reconcile to "not occurred" or default to "miss".
+        # Truncation therefore MANUFACTURES MISSES that look like real verdicts.
+        parsed, _ = gw.chat_json(prompt, model=model, temperature=0.2,
+                                 max_tokens=_SCORING_MAX_OUTPUT_TOKENS)
         return parsed
     return _chat
 
