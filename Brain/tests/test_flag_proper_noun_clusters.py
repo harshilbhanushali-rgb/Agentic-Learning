@@ -145,6 +145,40 @@ def test_is_missing_catches_nan_and_none_but_not_zero():
     assert not fp.is_missing(0.0), "0% concentration is a real measurement, not a gap"
 
 
+def test_is_missing_catches_numpy_nan_of_every_width():
+    """np.float64 subclasses float but np.float32 does NOT, so an isinstance check calls a
+    float32 NaN present and readmits the row it was written to exclude."""
+    np = pytest.importorskip("numpy")
+    assert fp.is_missing(np.float64("nan"))
+    assert fp.is_missing(np.float32("nan"))
+    assert not fp.is_missing(np.float32(0.0))
+    assert not fp.is_missing("not a number"), "a non-number is not a missing number"
+
+
+def test_the_lift_subtracts_means_taken_over_the_same_rows():
+    """Dropping each field's own missing rows and then subtracting is the asymmetric-arms
+    defect -- the printed lift would compare two different populations."""
+    rows = [
+        {"share": 0.9, "null": 0.2},
+        {"share": float("nan"), "null": 0.2},     # scoreable on null only
+        {"share": 0.1, "null": float("nan")},     # scoreable on share only
+        {"share": 0.5, "null": 0.2},
+    ]
+    a, b, n_ok, n_missing = fp.paired_means(rows, "share", "null")
+    assert (n_ok, n_missing) == (2, 2)
+    assert a == pytest.approx(0.7)                # (0.9 + 0.5) / 2, NOT (0.9+0.1+0.5)/3
+    assert b == pytest.approx(0.2)
+    unpaired_a, _, _ = fp.mean_scoreable(rows, "share")
+    assert unpaired_a != pytest.approx(a), "the unpaired mean must actually differ here"
+
+
+def test_paired_means_with_nothing_scoreable_is_nan_not_zero():
+    rows = [{"share": float("nan"), "null": 0.2}]
+    a, b, n_ok, n_missing = fp.paired_means(rows, "share", "null")
+    assert (n_ok, n_missing) == (0, 1)
+    assert a != a and b != b
+
+
 def test_missing_values_sort_last_not_wherever_the_input_happened_to_put_them():
     rows = [_cluster("nan_one", float("nan"), lift=float("nan")),
             _cluster("high", 0.9, lift=0.9),

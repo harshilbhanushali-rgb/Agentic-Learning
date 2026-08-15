@@ -249,8 +249,18 @@ def null_band(pool_labels: np.ndarray, size: int, rng, reps: int = NULL_REPS):
 def is_missing(v) -> bool:
     """NaN or None. `float('nan') > x` is False, so an unscoreable cluster silently reads as
     'did not exceed the null' and disappears into the not-flagged pile. Every consumer of a
-    possibly-missing value must therefore ask this explicitly."""
-    return v is None or (isinstance(v, float) and math.isnan(v))
+    possibly-missing value must therefore ask this explicitly.
+
+    Duck-typed rather than `isinstance(v, float)`: np.float64 subclasses float but np.float32
+    does NOT, so an isinstance check silently calls a float32 NaN present and readmits exactly
+    the row it was written to exclude.
+    """
+    if v is None:
+        return True
+    try:
+        return math.isnan(v)
+    except TypeError:                       # not a number at all -- not a missing number
+        return False
 
 
 def rank_key(field: str):
@@ -271,6 +281,20 @@ def mean_scoreable(rows: list[dict], field: str) -> tuple[float, int, int]:
     vals = [r[field] for r in rows if not is_missing(r[field])]
     n_missing = len(rows) - len(vals)
     return (float(np.mean(vals)) if vals else float("nan"), len(vals), n_missing)
+
+
+def paired_means(rows: list[dict], a: str, b: str) -> tuple[float, float, int, int]:
+    """Means of `a` and `b` over the rows scoreable on BOTH, so their difference is paired.
+
+    Dropping each field's own missing rows independently and then subtracting the two means
+    is the asymmetric-arms defect: the printed lift would be a difference between two
+    different populations. Today no row is missing either field, so this is a guard -- but it
+    is a guard against a number that would look completely ordinary.
+    """
+    ok = [r for r in rows if not is_missing(r[a]) and not is_missing(r[b])]
+    ma = float(np.mean([r[a] for r in ok])) if ok else float("nan")
+    mb = float(np.mean([r[b] for r in ok])) if ok else float("nan")
+    return ma, mb, len(ok), len(rows) - len(ok)
 
 
 def report(payload: dict, show: int) -> None:
@@ -295,10 +319,9 @@ def report(payload: dict, show: int) -> None:
         sub = [r for r in rows if r["kind"] == kind]
         if not sub:
             continue
-        obs, n_ok, n_miss = mean_scoreable(sub, "top_account_share")
-        nul, _, _ = mean_scoreable(sub, "null_mean")
+        obs, nul, n_ok, n_miss = paired_means(sub, "top_account_share", "null_mean")
         over = sum(1 for r in sub if not is_missing(r["top_account_share"])
-                   and r["exceeds_null_p99"])
+                   and not is_missing(r["null_mean"]) and r["exceeds_null_p99"])
         print(f"{kind:<12}{len(sub):>5}{n_ok:>7}{obs:>16.1%}{nul:>11.1%}{obs-nul:>+8.1%}"
               f"{over:>7} ({over/max(n_ok,1)*100:>3.0f}%)")
         if n_miss:
