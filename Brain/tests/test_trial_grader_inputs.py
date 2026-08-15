@@ -151,3 +151,57 @@ def test_summarise_conditions_refuses_to_fabricate_a_sign_test_without_source_sc
 def test_weighted_counts_a_partial_as_half():
     assert tg.weighted(1, 1, 4) == pytest.approx(0.375)
     assert tg.weighted(0, 0, 0) == 0.0
+
+
+# -- checkpoint identity (audit F8 / remediation R8a) ---------------------------------------
+
+class _Args:
+    """Minimal stand-in for argparse's namespace."""
+
+    def __init__(self, **kw):
+        defaults = dict(model="gemini-3.1-flash-lite", gateway=False, holdout=False,
+                        per_scenario=3, batch_size=6, seed=42, conditions="", tag="",
+                        sample=20)
+        defaults.update(kw)
+        for k, v in defaults.items():
+            setattr(self, k, v)
+
+
+def test_identity_records_everything_that_changes_what_a_record_MEANS():
+    ident = tg.checkpoint_identity(_Args(), 120)
+    assert ident["n_items"] == 120
+    for field in ("model", "transport", "holdout", "per_scenario", "batch_size", "seed"):
+        assert field in ident, f"{field} missing -- a resume could blend it invisibly"
+
+
+def test_holdout_changes_the_identity_even_though_n_items_is_IDENTICAL():
+    """The defect in one line: --holdout changes WHICH rows are drawn, not HOW MANY.
+
+    Under the old `n_items`-only key a leakage-clean run and a leaky one matched, so a
+    resume reused leaky records under a clean label -- silently.
+    """
+    leaky = tg.checkpoint_identity(_Args(holdout=False), 120)
+    clean = tg.checkpoint_identity(_Args(holdout=True), 120)
+    assert leaky["n_items"] == clean["n_items"] == 120, "same count, by construction"
+    assert leaky != clean, "the identity MUST separate them"
+
+
+def test_transport_and_model_separate_two_otherwise_identical_runs():
+    a = tg.checkpoint_identity(_Args(gateway=False), 120)
+    b = tg.checkpoint_identity(_Args(gateway=True), 120)
+    c = tg.checkpoint_identity(_Args(model="other-model"), 120)
+    assert a != b and a != c
+
+
+def test_conditions_and_tag_are_deliberately_NOT_in_the_identity():
+    """Records are stored per condition name, so a different subset adds or skips whole
+    entries rather than reinterpreting one; --tag already routes to a separate file."""
+    base = tg.checkpoint_identity(_Args(), 120)
+    assert base == tg.checkpoint_identity(_Args(conditions="blind"), 120)
+    assert base == tg.checkpoint_identity(_Args(tag="control"), 120)
+
+
+def test_the_mismatch_message_names_the_field_that_differs():
+    msg = tg._identity_mismatch(tg.checkpoint_identity(_Args(holdout=False), 120),
+                                 tg.checkpoint_identity(_Args(holdout=True), 120))
+    assert "holdout" in msg and "checkpoint=False" in msg and "run=True" in msg, msg

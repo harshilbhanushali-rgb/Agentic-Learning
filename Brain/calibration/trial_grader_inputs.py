@@ -154,6 +154,33 @@ def _args():
     return p.parse_args()
 
 
+def checkpoint_identity(a, n_items: int) -> dict:
+    """Everything that changes what a STORED RECORD MEANS.
+
+    The key was `n_items` alone -- one integer. `--holdout` in particular changes WHICH
+    rows are drawn, not HOW MANY, so a leakage-clean run and a leaky one produce the same
+    count and a resume would reuse leaky records under a clean label. `--model`,
+    `--gateway`, `--seed`, `--per-scenario` and `--batch-size` are all likewise invisible.
+
+    `--conditions` is deliberately ABSENT: records are stored per condition name, so a
+    different subset adds or skips whole entries rather than silently reinterpreting one.
+    `--sample` is absent because it only feeds `n_items`, which is already here.
+    """
+    return {"n_items": n_items,
+            "model": a.model,
+            "transport": "joveo_gateway" if a.gateway else "ai_studio",
+            "holdout": bool(a.holdout),
+            "per_scenario": a.per_scenario,
+            "batch_size": a.batch_size,
+            "seed": a.seed}
+
+
+def _identity_mismatch(stored: dict, current: dict) -> str:
+    keys = sorted(set(stored) | set(current))
+    return "; ".join(f"{k}: checkpoint={stored.get(k)!r} run={current.get(k)!r}"
+                     for k in keys if stored.get(k) != current.get(k))
+
+
 def _gateway_chat(model: str):
     """A `chat` callable backed by the Joveo gateway instead of Google AI Studio.
 
@@ -612,12 +639,27 @@ def main() -> None:
     chat = _gateway_chat(a.model) if a.gateway else None
     if a.gateway:
         print(f'[transport] Joveo gateway, model {a.model}')
+    identity = checkpoint_identity(a, len(items))
     done: dict[str, list] = {}
     if ckpt.exists() and not a.fresh:
         ck = json.loads(ckpt.read_text(encoding="utf-8-sig"))
-        if ck.get("n_items") == len(items):
-            done = ck["records"]
-            print(f"[resume] {list(done)} already scored\n")
+        stored = ck.get("identity")
+        if stored is None:
+            # A pre-R8 checkpoint recorded only n_items, so it cannot be shown to have
+            # been produced under THIS configuration. Refuse rather than pick either bad
+            # option silently: resuming may blend runs, and not resuming starts SPENDING.
+            raise SystemExit(
+                f"{ckpt.name} predates the identity key and cannot be verified against "
+                f"this run.\n  --recompute  re-derive the statistics from it (FREE, "
+                f"cannot reach the API)\n  --fresh      discard it and score again "
+                f"(COSTS ~{-(-len(items)//a.batch_size)*len(conds)} calls)")
+        if stored != identity:
+            raise SystemExit(
+                f"CHECKPOINT IS FROM A DIFFERENT RUN -- {_identity_mismatch(stored, identity)}"
+                f"\nResuming would relabel those records as this run's. Use --tag NAME to "
+                f"keep them apart, or --fresh to discard and rescore.")
+        done = ck["records"]
+        print(f"[resume] {list(done)} already scored\n")
 
     for cname, fields in conds.items():
         if cname in done:
@@ -644,8 +686,10 @@ def main() -> None:
                                  "judged_by": r.get("scored_by")})
             print(f"  [{cname}] {bi}/{len(batches)}", flush=True)
         done[cname] = recs
-        ckpt.write_text(json.dumps({"n_items": len(items), "records": done}, default=str),
-                        encoding="utf-8")
+        # `n_items` stays at the top level for readers of older checkpoints; `identity`
+        # is what the resume guard actually verifies.
+        ckpt.write_text(json.dumps({"n_items": len(items), "identity": identity,
+                                    "records": done}, default=str), encoding="utf-8")
 
     boot = np.random.default_rng(a.seed)
     payload = {"n_scenarios": len(sample_keys), "n_responses": n_resp,
