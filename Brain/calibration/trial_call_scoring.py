@@ -211,7 +211,12 @@ def report(P: dict) -> None:
     print("CALL-LEVEL SCORING -- PRE-REGISTERED GATE")
     print("=" * 86)
     print(f"  {P['n_calls']} calls, {P['n_pairs']} (call, scenario) pairs, "
-          f"model {P['model']}")
+          f"model {P['model']} via {P.get('transport', 'UNRECORDED')}")
+    by = Counter(m.get("scored_by") for res in P.get("raw", {}).values()
+                 for arm in ("matched", "unrelated") for m in res.get(arm, []))
+    if by:
+        print(f"  scored_by across every verdict: {dict(by)}"
+              + ("   <- provenance NOT recorded for these" if None in by else ""))
 
     # F7: the run's configuration must be VISIBLE, not buried in the JSON. A 3-call path test
     # rendered identically to a real run and only opening the artifact revealed which it was.
@@ -544,6 +549,9 @@ def main() -> None:
     P = {"n_calls": len(done), "n_pairs": len(pairs), "model": a.model, "seed": a.seed,
          "smoke": bool(a.smoke), "partner_method": method,
          "tag": a.tag or ("smoke" if a.smoke else None), "artifact": out.name,
+         # WHICH TRANSPORT ANSWERED. Without this the artifact cannot say whether a verdict
+         # came from AI Studio or the gateway, and `model` alone does not distinguish them.
+         "transport": "joveo_gateway" if a.gateway else "ai_studio",
          "criteria_per_arm": {"matched": float(np.mean(n_m)) if n_m else float("nan"),
                               "unrelated": float(np.mean(n_u)) if n_u else float("nan")},
          "check1": sign_test(pairs),

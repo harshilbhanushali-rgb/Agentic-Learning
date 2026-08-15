@@ -324,3 +324,53 @@ def test_per_form_rates_are_reported_separately():
     assert v["by_kind"]["at_turn"]["rate"] == 1.0        # turn 2 is the CSM
     assert v["by_kind"]["across_turns"]["rate"] == 0.0   # turns 1 and 3 are the CLIENT
     assert v["cited_speaker_mix"]["CLIENT"] == 2
+
+
+# --- provenance (audit R7a) -----------------------------------------------
+
+def test_an_injected_transport_stamps_ITS_model_not_a_stale_global(monkeypatch):
+    """`scored_by` came from _gemma.LAST_MODEL_USED, a global set only by call_gemma.
+
+    On the gateway path call_gemma never runs, so that global is None at best -- and
+    STALE at worst: an earlier AI Studio call in the same process would attribute gateway
+    verdicts to a model that did not answer them. A false provenance is worse than a
+    missing one, because nothing looks wrong.
+    """
+    monkeypatch.setattr(call_scoring._gemma, "LAST_MODEL_USED", "stale-ai-studio-model",
+                        raising=False)
+    blocks = [_block("s0")]
+    _, expected = call_scoring.build_situations_block(blocks)
+    reply = [{"situation_id": "S0", "milestones": [{"id": "M1", "verdict": "full_hit"}]}]
+
+    results, _ = call_scoring.parse_response(reply, expected, blocks,
+                                             scored_by="gateway-model")
+    assert {r.get("scored_by") for r in results} == {"gateway-model"}
+
+
+def test_production_provenance_is_unchanged_when_no_override_is_given(monkeypatch):
+    """chat=None must keep reading LAST_MODEL_USED exactly as before."""
+    monkeypatch.setattr(call_scoring._gemma, "LAST_MODEL_USED", "ai-studio-model",
+                        raising=False)
+    blocks = [_block("s0")]
+    _, expected = call_scoring.build_situations_block(blocks)
+    reply = [{"situation_id": "S0", "milestones": [{"id": "M1", "verdict": "full_hit"}]}]
+
+    results, _ = call_scoring.parse_response(reply, expected, blocks)
+    assert {r.get("scored_by") for r in results} == {"ai-studio-model"}
+
+
+def test_score_call_passes_the_model_through_when_the_transport_is_injected(monkeypatch):
+    """End to end through score_call: the injected model must reach every verdict."""
+    monkeypatch.setattr(call_scoring._gemma, "LAST_MODEL_USED", "stale-ai-studio-model",
+                        raising=False)
+    blocks = [_block("s0")]
+    turns = [("Naren", "hello there everyone"), ("Client", "hi")]
+
+    def fake_chat(prompt):
+        return [{"situation_id": "S0", "milestones": [{"id": "M1", "verdict": "miss"}]}]
+
+    results, _ = call_scoring.score_call(turns, blocks, _config(), scenarios_per_request=1,
+                                         model="gateway-model", chat=fake_chat)
+    assert results, "fixture produced no results"
+    assert {r.get("scored_by") for r in results} == {"gateway-model"}, (
+        [r.get("scored_by") for r in results])

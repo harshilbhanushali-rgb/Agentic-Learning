@@ -112,7 +112,8 @@ def build_situations_block(chunk: list[ScenarioBlock], skip_uncoachable: bool = 
 
 
 def parse_response(raw, expected: dict[str, list[tuple[str, dict]]],
-                   chunk: list[ScenarioBlock]) -> tuple[list[dict], list[str]]:
+                   chunk: list[ScenarioBlock],
+                   scored_by: str | None = None) -> tuple[list[dict], list[str]]:
     """Reconcile the model's reply against what was asked. Returns (results, warnings).
 
     A scenario the model never mentioned is treated as NOT OCCURRED rather than as all-miss.
@@ -123,7 +124,12 @@ def parse_response(raw, expected: dict[str, list[tuple[str, dict]]],
     """
     rows = raw if isinstance(raw, list) else (raw or {}).get("results", [])
     by_sid = {str(r.get("situation_id")): r for r in rows if isinstance(r, dict)}
-    scored_by = _gemma.LAST_MODEL_USED
+    # `_gemma.LAST_MODEL_USED` is a module global set ONLY by call_gemma. When the
+    # transport is injected (the gateway path) call_gemma never runs, so this is `None`
+    # at best -- and STALE at worst: any earlier AI Studio call in the same process would
+    # stamp gateway verdicts with a model that did not answer them, which is a false
+    # provenance rather than a missing one. The caller passes the model it configured.
+    scored_by = scored_by or _gemma.LAST_MODEL_USED
     results: list[dict] = []
     warnings: list[str] = []
 
@@ -331,7 +337,10 @@ def score_call(transcript_turns: list[tuple[str, str]], blocks: list[ScenarioBlo
                                 "scored_by": None, "chunk_failed": True, "milestones": []}
                                for b in chunk)
             continue
-        results, warnings = parse_response(raw, expected, chunk)
+        # An injected transport must carry its own provenance; production (chat=None)
+        # passes None and keeps reading LAST_MODEL_USED exactly as before.
+        results, warnings = parse_response(
+            raw, expected, chunk, scored_by=(model if chat is not None else None))
         all_results.extend(results)
         all_warnings.extend(warnings)
     for w in all_warnings:
