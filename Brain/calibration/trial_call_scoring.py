@@ -154,8 +154,17 @@ def _gateway_chat(model: str):
         # constraint here, and truncation does not error -- it returns fewer scenarios or
         # fewer milestone ids, which reconcile to "not occurred" or default to "miss".
         # Truncation therefore MANUFACTURES MISSES that look like real verdicts.
-        parsed, _ = gw.chat_json(prompt, model=model, temperature=0.2,
-                                 max_tokens=_SCORING_MAX_OUTPUT_TOKENS)
+        parsed, meta = gw.chat_json(prompt, model=model, temperature=0.2,
+                                    max_tokens=_SCORING_MAX_OUTPUT_TOKENS)
+        # `scored_by` on this path records the model we REQUESTED, whereas the AI Studio
+        # path records the one that ANSWERED after fallback. Rather than thread a second
+        # return value through production's `chat` contract, verify the two agree -- the
+        # head-to-head runs blended 8-18% of batches across models under rate limits, so
+        # a silent substitution here is not hypothetical.
+        served = meta.get("served_model")
+        if served and served != model:
+            print(f"  ! transport: requested {model} but {served} answered -- scored_by "
+                  f"will name the REQUESTED model", flush=True)
         return parsed
     return _chat
 

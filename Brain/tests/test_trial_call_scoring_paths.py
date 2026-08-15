@@ -15,6 +15,7 @@ No network, no DB, no LLM: pure path arithmetic and a tmp_path JSON file.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -126,3 +127,27 @@ def test_the_gateway_uses_the_SAME_output_ceiling_as_the_ai_studio_path():
     assert "max_tokens=_SCORING_MAX_OUTPUT_TOKENS" in src, (
         f"the gateway wrapper must pass the scorer's ceiling ({_SCORING_MAX_OUTPUT_TOKENS}), "
         f"not inherit chat_json's default ({gateway_default})")
+
+
+def test_chat_json_meta_carries_the_served_model_without_breaking_callers():
+    """The response reports which model ANSWERED; callers were discarding it.
+
+    It rides in the existing meta dict so all five `parsed, _ = gw.chat_json(...)` call
+    sites keep working -- a third return value would have broken every one of them.
+    """
+    import inspect
+    from calibration import trial_gateway
+
+    src = inspect.getsource(trial_gateway.GatewayClient.chat_json)
+    assert 'meta["served_model"] = data.get("model")' in src
+    assert "return json.loads(content), meta" in src, (
+        "chat_json must still return exactly two values")
+
+    # every caller still destructures two values
+    for mod in ("trial_call_scoring", "trial_adjudicate_gemini", "trial_grader_inputs"):
+        text = (Path(trial_gateway.__file__).parent / f"{mod}.py").read_text(
+            encoding="utf-8-sig")
+        for line in text.splitlines():
+            if "gw.chat_json(" in line and "=" in line:
+                lhs = line.split("=")[0]
+                assert lhs.count(",") == 1, f"{mod}: {line.strip()}"

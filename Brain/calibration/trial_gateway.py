@@ -253,7 +253,14 @@ class GatewayClient:
         if not content:
             raise GatewayError(f"empty completion from {model}")
         try:
-            return json.loads(content), data.get("usage") or {}
+            # `served_model` rides along in the meta dict because the response reports
+            # which model ACTUALLY answered, and callers were discarding it -- leaving
+            # gateway provenance as "what we asked for" while the AI Studio path records
+            # "what replied after fallback". Added to the existing dict rather than as a
+            # third return value so none of the five callers change.
+            meta = dict(data.get("usage") or {})
+            meta["served_model"] = data.get("model")
+            return json.loads(content), meta
         except json.JSONDecodeError as e:
             raise GatewayError(f"non-JSON from {model}: {e}\nRaw: {content[:400]}") from e
 
