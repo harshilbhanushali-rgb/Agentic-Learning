@@ -84,9 +84,32 @@ def _args():
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--model", default=PIN_MODEL)
     p.add_argument("--smoke", action="store_true", help="3 calls. Path test; NOT interpretable.")
+    p.add_argument("--gateway", action="store_true",
+                   help="route chat through the Joveo gateway instead of AI Studio. "
+                        "Same prompt, same JSON contract; avoids the per-key quota that "
+                        "stalls long runs on 429 backoff.")
     p.add_argument("--fresh", action="store_true")
     p.add_argument("--load", action="store_true")
     return p.parse_args()
+
+
+def _gateway_chat(model: str):
+    """A `chat` callable backed by the Joveo gateway instead of Google AI Studio.
+
+    WHY: AI Studio's per-key quota stalls these runs -- observed repeatedly as
+    "hit a rate/quota limit ... Rotating to key #2", with gemma.py's backoff adding up to
+    62s per call. The gateway is the transport the Layer A Gemini work already used for
+    ~245 sequential adjudication calls. Only the transport differs: both force JSON and
+    both parse with json.loads, so the contract is identical -- the equivalence
+    trial_adjudicate_gemini.py already relies on.
+    """
+    from calibration.trial_gateway import GatewayClient
+    gw = GatewayClient()
+
+    def _chat(prompt: str):
+        parsed, _ = gw.chat_json(prompt, model=model, temperature=0.2)
+        return parsed
+    return _chat
 
 
 def weighted(ms: list[dict]) -> float:
@@ -305,6 +328,9 @@ def main() -> None:
     print(f"{len(scen)} scenarios with rubrics; {len(eligible)} calls are leakage-clean for "
           f">= {a.per_call} scenarios")
 
+    chat = _gateway_chat(a.model) if a.gateway else None
+    if a.gateway:
+        print(f'[transport] Joveo gateway, model {a.model}')
     rng = random.Random(a.seed)
     picked = rng.sample(eligible, min(n_calls, len(eligible)))
 
@@ -387,7 +413,7 @@ def main() -> None:
                 continue
             out, warns = call_scoring.score_call(
                 turns, blocks, cfg, scenarios_per_request=max(1, a.per_call),
-                model=a.model, fallback_models=())
+                model=a.model, fallback_models=(), chat=chat)
             res[arm] = out
             if warns:
                 res.setdefault("warnings", []).extend(warns)

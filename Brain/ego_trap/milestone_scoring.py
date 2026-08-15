@@ -167,6 +167,7 @@ def score_milestones_batch(
     situated_fields: frozenset[str] | None = None,
     model: str | None = None,
     fallback_models: tuple[str, ...] | None = None,
+    chat=None,
 ) -> list[list[dict]]:
     """One Gemma call scores every milestone across all items at once.
 
@@ -315,12 +316,19 @@ def score_milestones_batch(
             situation_note=note, items_block="\n\n".join(blocks))
     else:
         prompt = PROMPT_STEP3_MILESTONE_SCORE_BATCH.format(items_block="\n\n".join(blocks))
-    raw = call_gemma(
-        prompt, config.gemma_api_keys,
-        model=model or _SCORING_MODEL,
-        fallback_models=(_SCORING_FALLBACKS if fallback_models is None else fallback_models),
-        max_output_tokens=_SCORING_MAX_OUTPUT_TOKENS,
-    )
+    # `chat` INJECTS THE TRANSPORT. None is production's path (AI Studio via call_gemma) and
+    # is unchanged; a trial may pass a callable returning parsed JSON, e.g. the Joveo gateway,
+    # whose quota is not the per-key AI Studio one that stalls long runs on 429 backoff.
+    if chat is not None:
+        raw = chat(prompt)
+    else:
+        raw = call_gemma(
+            prompt, config.gemma_api_keys,
+            model=model or _SCORING_MODEL,
+            fallback_models=(_SCORING_FALLBACKS if fallback_models is None
+                             else fallback_models),
+            max_output_tokens=_SCORING_MAX_OUTPUT_TOKENS,
+        )
     scored_by = _gemma.LAST_MODEL_USED
     raw_list = raw if isinstance(raw, list) else raw.get("results", [])
     by_id = {r["id"]: r for r in raw_list if "id" in r}
@@ -542,8 +550,8 @@ def score_coverage_batch(items: list[dict], config: Config) -> list[list[dict]]:
         PROMPT_STEP3_COVERAGE_SCORE_BATCH.format(items_block="\n\n".join(blocks)),
         config.gemma_api_keys,
         model=_SCORING_MODEL, fallback_models=_SCORING_FALLBACKS,
-        max_output_tokens=_SCORING_MAX_OUTPUT_TOKENS,
-    )
+            max_output_tokens=_SCORING_MAX_OUTPUT_TOKENS,
+        )
     scored_by = _gemma.LAST_MODEL_USED
     raw_list = raw if isinstance(raw, list) else raw.get("results", [])
     by_id = {r["id"]: r for r in raw_list if isinstance(r, dict) and "id" in r}

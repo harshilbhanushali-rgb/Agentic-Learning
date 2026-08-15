@@ -288,8 +288,17 @@ def verify_evidence(results: list[dict], turns: list[tuple[str, str]],
 def score_call(transcript_turns: list[tuple[str, str]], blocks: list[ScenarioBlock],
                config: Config, scenarios_per_request: int = 3,
                skip_uncoachable: bool = False, model: str | None = None,
-               fallback_models: tuple[str, ...] | None = None) -> tuple[list[dict], list[str]]:
-    """Score one call against several candidate scenarios. The only impure function here."""
+               fallback_models: tuple[str, ...] | None = None,
+               chat=None) -> tuple[list[dict], list[str]]:
+    """Score one call against several candidate scenarios. The only impure function here.
+
+    `chat` INJECTS THE TRANSPORT. Default None uses call_gemma against Google AI Studio,
+    which is production's path and is unchanged. A trial may pass a callable taking the
+    prompt and returning parsed JSON -- e.g. the Joveo gateway, whose quota is not the
+    AI Studio per-key one that stalls long runs on 429 backoff. Only the transport differs:
+    both force JSON and both parse with json.loads, the same equivalence
+    trial_adjudicate_gemini.py already relies on.
+    """
     transcript = format_transcript(transcript_turns)
     all_results: list[dict] = []
     all_warnings: list[str] = []
@@ -300,13 +309,16 @@ def score_call(transcript_turns: list[tuple[str, str]], blocks: list[ScenarioBlo
         prompt = PROMPT_STEP3_CALL_LEVEL_BATCH.format(
             transcript=transcript, situations_block=situations)
         try:
-            raw = call_gemma(
-                prompt, config.gemma_api_keys,
-                model=model or _SCORING_MODEL,
-                fallback_models=(_SCORING_FALLBACKS if fallback_models is None
-                                 else fallback_models),
-                max_output_tokens=_SCORING_MAX_OUTPUT_TOKENS,
-            )
+            if chat is not None:
+                raw = chat(prompt)
+            else:
+                raw = call_gemma(
+                    prompt, config.gemma_api_keys,
+                    model=model or _SCORING_MODEL,
+                    fallback_models=(_SCORING_FALLBACKS if fallback_models is None
+                                     else fallback_models),
+                    max_output_tokens=_SCORING_MAX_OUTPUT_TOKENS,
+                )
         except Exception as e:                                          # noqa: BLE001
             # A whole transcript plus several rubrics is a long generation, and a single
             # malformed reply (gemma.py parses with a strict json.loads, so trailing content

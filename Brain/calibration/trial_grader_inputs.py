@@ -135,9 +135,30 @@ def _args():
                         "with this trial's symmetric matched/unrelated pairing this is the "
                         "arm CLAUDE.md records as never built -- leakage-clean AND "
                         "population-symmetric at the same time.")
+    p.add_argument("--gateway", action="store_true",
+                   help="route chat through the Joveo gateway instead of AI Studio.")
     p.add_argument("--fresh", action="store_true", help="ignore the checkpoint")
     p.add_argument("--load", action="store_true", help="re-report the artifact, free")
     return p.parse_args()
+
+
+def _gateway_chat(model: str):
+    """A `chat` callable backed by the Joveo gateway instead of Google AI Studio.
+
+    WHY: AI Studio's per-key quota stalls these runs -- observed repeatedly as
+    "hit a rate/quota limit ... Rotating to key #2", with gemma.py's backoff adding up to
+    62s per call. The gateway is the transport the Layer A Gemini work already used for
+    ~245 sequential adjudication calls. Only the transport differs: both force JSON and
+    both parse with json.loads, so the contract is identical -- the equivalence
+    trial_adjudicate_gemini.py already relies on.
+    """
+    from calibration.trial_gateway import GatewayClient
+    gw = GatewayClient()
+
+    def _chat(prompt: str):
+        parsed, _ = gw.chat_json(prompt, model=model, temperature=0.2)
+        return parsed
+    return _chat
 
 
 def weighted(hits: int, partial: int, attempts: int) -> float:
@@ -462,6 +483,9 @@ def main() -> None:
           f"({len(items)*len(conds)} scorings, "
           f"~{-(-len(items)//a.batch_size)*len(CONDITIONS)} calls)\n")
 
+    chat = _gateway_chat(a.model) if a.gateway else None
+    if a.gateway:
+        print(f'[transport] Joveo gateway, model {a.model}')
     done: dict[str, list] = {}
     if ckpt.exists() and not a.fresh:
         ck = json.loads(ckpt.read_text(encoding="utf-8-sig"))
@@ -480,7 +504,7 @@ def main() -> None:
             try:
                 scored = milestone_scoring.score_milestones_batch(
                     batch, cfg, situated_fields=fields or None,
-                    model=a.model, fallback_models=())
+                    model=a.model, fallback_models=(), chat=chat)
             except Exception as e:                                   # noqa: BLE001
                 print(f"  ! [{cname}] batch {bi}/{len(batches)} FAILED: {str(e)[:140]}",
                       flush=True)
