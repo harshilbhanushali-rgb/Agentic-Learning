@@ -62,21 +62,45 @@ OUT = ARTIFACTS_DIR / "rubric_level_diagnosis.json"
 MIN_ATTEMPTS_TO_CALL_DEAD = 6      # score_naren_ceiling._MIN_ATTEMPTS_TO_INDICT, reused
 
 
+def union_rows(rows: list[dict]) -> list[dict]:
+    """Per rubric: what share of its criteria does SOMEBODY satisfy at least once?
+
+    THE DENOMINATOR IS THE RUBRIC'S CRITERIA COUNT (`n`), not the number of criteria that
+    happen to carry a milestone_performance row (`n_attempted`). Layer D never attempts
+    every criterion -- 17 of 395 in the shipped artifact -- and a criterion nobody attempted
+    was certainly never hit, so dropping it from the denominator inflates the union (0.479
+    vs the true 0.458 in aggregate) and pushes the diagnosis toward cause A when the
+    evidence is for cause B.
+    """
+    by_rubric: dict[int, list] = defaultdict(list)
+    for r in rows:
+        by_rubric[r["rubric_id"]].append(r)
+    unions = []
+    for rid, ms in by_rubric.items():
+        alive = sum(1 for m in ms if m["ever_hit"])
+        w = (sum(m["hits"] for m in ms) + 0.5 * sum(m["partial"] for m in ms)) / max(
+            sum(m["attempts"] for m in ms), 1)
+        # max() so a malformed row can never yield a union above 1.
+        n = max(int(ms[0].get("n_criteria_in_rubric") or 0), len(ms))
+        unions.append({"rubric_id": rid, "scenario_key": ms[0]["scenario_key"],
+                       "n": n, "n_attempted": len(ms), "alive": alive,
+                       "union": alive / n, "w": w})
+    return unions
+
+
 def _args():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--show", type=int, default=10, help="criteria printed per category")
-    p.add_argument("--load", action="store_true", help="re-report the artifact, free")
+    p.add_argument("--load", action="store_true",
+                   help="recompute the whole report from the artifact's stored per-criterion "
+                        "rows -- free, no DB. Rewrites only the DERIVED summary fields; the "
+                        "paid `milestones` rows are carried through verbatim.")
     return p.parse_args()
 
 
-def main() -> None:
-    a = _args()
-    if a.load:
-        p = json.loads(OUT.read_text(encoding="utf-8-sig"))
-        print(json.dumps({k: v for k, v in p.items() if k != "milestones"}, indent=1))
-        return
-
+def _fetch_rows() -> list[dict]:
+    """Per-criterion rows straight from Postgres. The only non-free path."""
     from config import load_config
     import psycopg
 
@@ -118,13 +142,26 @@ def main() -> None:
             "attempts": c["attempts"], "hits": c["hits"], "partial": c["partial"], "w": w,
             "ever_hit": (c["hits"] + c["partial"]) > 0,
         })
+    return rows
 
+
+def report(rows: list[dict], show: int, source: str) -> dict:
+    """Print the diagnosis and return the summary payload. Pure apart from stdout."""
+    unions = union_rows(rows)
     tot_att = sum(r["attempts"] for r in rows)
     tot_h = sum(r["hits"] for r in rows)
     tot_p = sum(r["partial"] for r in rows)
+    tot_crit = sum(x["n"] for x in unions)
+    tot_attempted = sum(x["n_attempted"] for x in unions)
     print("=" * 86)
     print("WHY IS THE HIT RATE ~9%?  splitting denominator inflation from dead criteria")
     print("=" * 86)
+    print(f"  source: {source}")
+    print(f"  DENOMINATORS: {len(unions)} rubrics holding {tot_crit} criteria; "
+          f"{tot_attempted} of them ({tot_attempted/max(tot_crit,1):.1%}) were attempted at "
+          f"least once by Layer D,")
+    print(f"                so {tot_crit - tot_attempted} criteria have no "
+          f"milestone_performance row at all and were never hit by anybody.")
     print(f"  {len(rows)} criteria scored, {tot_att} attempts, "
           f"{tot_h} full + {tot_p} partial  ->  W = {(tot_h + 0.5*tot_p)/tot_att:.3f}")
 
@@ -137,24 +174,16 @@ def main() -> None:
           f"{len(dead)/max(len(scoreable),1)*100:.0f}%")
     print(f"  they consume {sum(r['attempts'] for r in dead)} of {tot_att} attempts "
           f"({sum(r['attempts'] for r in dead)/tot_att*100:.0f}%) and return zero")
-    for r in sorted(dead, key=lambda x: -x["attempts"])[:a.show]:
+    for r in sorted(dead, key=lambda x: -x["attempts"])[:show]:
         print(f"    {r['attempts']:>4} tries, 0 hits | [{r['label'][:34]}] "
               f"{r['description'][:96]}")
 
     # --- CAUSE A: is the rubric a union scored as a checklist? -------------------------
-    by_rubric: dict[int, list] = defaultdict(list)
-    for r in rows:
-        by_rubric[r["rubric_id"]].append(r)
-    unions = []
-    for rid, ms in by_rubric.items():
-        alive = sum(1 for m in ms if m["ever_hit"])
-        w = (sum(m["hits"] for m in ms) + 0.5 * sum(m["partial"] for m in ms)) / max(
-            sum(m["attempts"] for m in ms), 1)
-        unions.append({"rubric_id": rid, "scenario_key": ms[0]["scenario_key"],
-                       "n": len(ms), "alive": alive, "union": alive / len(ms), "w": w})
     u = np.array([x["union"] for x in unions])
     print(f"\n--- CAUSE A: UNION vs PER-REPLY ---")
     print(f"  Per rubric, what share of its criteria are hit by SOMEBODY at least once?")
+    print(f"    aggregate {sum(x['alive'] for x in unions)}/{tot_crit} = "
+          f"{sum(x['alive'] for x in unions)/max(tot_crit,1):.1%}")
     print(f"    mean {u.mean():.0%}   median {np.median(u):.0%}   "
           f"p25 {np.percentile(u,25):.0%}   p75 {np.percentile(u,75):.0%}")
     print(f"    rubrics where EVERY criterion is reachable: "
@@ -173,19 +202,39 @@ def main() -> None:
         print(f"\n  corr(criteria per rubric, W) = {np.corrcoef(n[ok], w[ok])[0,1]:+.3f}"
               "   <- negative supports cause A")
 
-    print(f"\n--- the criteria that DO get hit (top {a.show}) ---")
-    for r in sorted(scoreable, key=lambda x: -x["w"])[:a.show]:
+    print(f"\n--- the criteria that DO get hit (top {show}) ---")
+    for r in sorted(scoreable, key=lambda x: -x["w"])[:show]:
         print(f"    W={r['w']:.2f} ({r['attempts']:>3} tries) [{r['label'][:30]}] "
               f"{r['description'][:88]}")
 
-    OUT.write_text(json.dumps({
+    return {
         "total_attempts": tot_att, "W": (tot_h + 0.5 * tot_p) / tot_att,
-        "n_criteria": len(rows), "n_scoreable": len(scoreable), "n_dead": len(dead),
+        "n_criteria": len(rows), "n_criteria_in_rubrics": tot_crit,
+        "n_criteria_never_attempted": tot_crit - tot_attempted,
+        "n_scoreable": len(scoreable), "n_dead": len(dead),
         "dead_share": len(dead) / max(len(scoreable), 1),
         "dead_attempts": sum(r["attempts"] for r in dead),
+        "union_aggregate": sum(x["alive"] for x in unions) / max(tot_crit, 1),
         "union_mean": float(u.mean()), "union_median": float(np.median(u)),
         "milestones": rows, "rubrics": unions,
-    }, indent=1, default=float), encoding="utf-8")
+    }
+
+
+def main() -> None:
+    a = _args()
+    if a.load:
+        prev = json.loads(OUT.read_text(encoding="utf-8-sig"))
+        rows = prev["milestones"]
+        payload = report(rows, a.show, f"{OUT.name} (recomputed offline, no DB)")
+        # The paid per-criterion rows are carried through untouched; only the derived
+        # summary is recomputed, so this can never destroy an expensive run.
+        assert payload["milestones"] == rows
+        payload["derived_recomputed_from_artifact"] = True
+    else:
+        rows = _fetch_rows()
+        payload = report(rows, a.show, "public.milestone_performance + public.rubrics")
+
+    OUT.write_text(json.dumps(payload, indent=1, default=float), encoding="utf-8")
     print(f"\nwrote {OUT}")
 
 

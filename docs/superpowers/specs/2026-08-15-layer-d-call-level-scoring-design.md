@@ -20,11 +20,21 @@ Today Layer D scores a rep's reply against criteria distilled from an expert's c
 | weighted score, all attempts | **0.078** |
 | criteria never satisfied by anyone, ever (>= 6 attempts) | **87 of 221 = 39%** |
 | attempts those consume, returning zero | **994 of 4,181 = 24%** |
-| share of a rubric's criteria hit by *somebody* (union), mean | **46%** |
+| share of a rubric's criteria hit by *somebody* (union), mean | **45%** |
+| the same union, aggregate over all criteria | **181 of 395 = 46%** |
+| criteria Layer D never attempted even once | **17 of 395** |
+
+> Union corrected 2026-08-15 (F6/R1). It had been computed over the 378 criteria that carry a
+> `milestone_performance` row rather than the 395 in the rubrics; a criterion nobody attempted
+> was certainly never hit, so excluding it inflated the union. Mean 46% -> 45%, median 46% ->
+> 43%, aggregate 47.9% -> 45.8%. Every change is downward, so it **strengthens** the dead-criteria
+> reading below and weakens the denominator-inflation one. Nothing else in this table moved:
+> `W`, the 87 dead criteria and the 994 attempts are computed over attempted criteria only and
+> are untouched.
 
 Two candidate causes were tested and **both rejected**:
 
-- **Rubric size.** `corr(criteria per rubric, W) = -0.09`. Large rubrics are not
+- **Rubric size.** `corr(criteria per rubric, W) = -0.10`. Large rubrics are not
   disproportionately punished, so the score is not simply diluted by long checklists.
 - **Once-per-call moves scored against every reply.** Per-reply credit 14.9% vs **per-call
   16.7%** — and of the 87 dead criteria, **zero** were credited anywhere in any call. They are
