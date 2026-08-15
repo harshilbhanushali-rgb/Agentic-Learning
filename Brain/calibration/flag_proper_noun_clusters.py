@@ -121,6 +121,78 @@ def account_map(recordings: str) -> tuple[dict[str, str], dict[str, str]]:
     return acct, reason
 
 
+def phrase_tokens(keyword: str) -> tuple[str, ...]:
+    """A c-TF-IDF keyword as its normalised token tuple. BERTopic runs ngram_range=(1,2),
+    so ~40% of the top-3 keywords are bigrams and a unigram-only lookup misses all of them."""
+    return tuple(_WORD.findall(keyword.lower()))
+
+
+def keyword_turns(texts: list[str], keywords: list[str]) -> dict[str, list[int]]:
+    """keyword -> indices of the turns containing it, phrases matched as token SEQUENCES.
+
+    One sliding pass over the corpus restricted to the keywords actually asked for, rather
+    than a scan per keyword: the wanted set is known up front because the adjudication
+    artifact stores each cluster's keyword string.
+    """
+    wanted: dict[int, dict[tuple[str, ...], str]] = defaultdict(dict)
+    for k in keywords:
+        toks = phrase_tokens(k)
+        if toks:
+            wanted[len(toks)][toks] = k
+    hits: dict[str, list[int]] = {k: [] for k in keywords}
+    for i, t in enumerate(texts):
+        ws = _WORD.findall(t.lower())
+        for n, table in wanted.items():
+            seen = set()
+            for j in range(len(ws) - n + 1):
+                g = tuple(ws[j:j + n])
+                if g in table and g not in seen:
+                    seen.add(g)
+                    hits[table[g]].append(i)
+    return hits
+
+
+def keyword_pos_rates(docs, keywords: list[str]) -> tuple[dict[str, float], dict[str, float]]:
+    """PROPN rate and mid-sentence capitalisation rate per keyword, phrases included.
+
+    A phrase counts as PROPN on an occurrence when EVERY one of its tokens is tagged PROPN,
+    which reduces to the unigram definition at n=1 rather than being a second rule. Same for
+    capitalisation. `docs` is an iterable of spaCy Docs so the caller keeps ownership of the
+    pipeline and of when the model is released.
+    """
+    lens = sorted({len(phrase_tokens(k)) for k in keywords if phrase_tokens(k)})
+    table = {phrase_tokens(k): k for k in keywords if phrase_tokens(k)}
+    propn_hit: Counter[str] = Counter()
+    propn_tot: Counter[str] = Counter()
+    cap_hit: Counter[str] = Counter()
+    cap_tot: Counter[str] = Counter()
+    for doc in docs:
+        toks, prev_end = [], True
+        for tok in doc:
+            if not tok.is_alpha:
+                prev_end = tok.text in ".!?"
+                continue
+            toks.append((tok.text.lower(), tok.pos_ == "PROPN",
+                         tok.text[:1].isupper(), not prev_end))
+            prev_end = False
+        for n in lens:
+            for j in range(len(toks) - n + 1):
+                w = toks[j:j + n]
+                k = table.get(tuple(x[0] for x in w))
+                if k is None:
+                    continue
+                propn_tot[k] += 1
+                if all(x[1] for x in w):
+                    propn_hit[k] += 1
+                if all(x[3] for x in w):        # mid-sentence: capitalisation is a signal
+                    cap_tot[k] += 1
+                    if all(x[2] for x in w):
+                        cap_hit[k] += 1
+    _MIN = 3
+    return ({k: propn_hit[k] / propn_tot[k] for k in propn_tot if propn_tot[k] >= _MIN},
+            {k: cap_hit[k] / cap_tot[k] for k in cap_tot if cap_tot[k] >= _MIN})
+
+
 def concentration(labels: list[str]) -> tuple[str, float, int]:
     if not labels:
         return "", float("nan"), 0
@@ -259,6 +331,17 @@ def main() -> None:
     # documented failure is address-space FRAGMENTATION, not exhaustion (it has failed at
     # 2.7GB free). Claiming that block while the heap is still clean, rather than after a
     # 24k x 3072 UMAP fit has churned it, is the cheap way not to find out.
+    # The keywords are known BEFORE clustering because the adjudication artifact stores each
+    # cluster's keyword string -- which is also what lets the POS pass stay ahead of the UMAP
+    # fit while still scoring multiword keywords. Safe only because the position-verified join
+    # below asserts these are byte-identical to the recomputed ones and exits if they are not.
+    wanted_keywords = sorted({w.strip() for r in adj_rows
+                              for w in r["keywords"].split(",")[:TOP_KEYWORDS] if w.strip()})
+    n_multi = sum(1 for k in wanted_keywords if len(phrase_tokens(k)) > 1)
+    print(f"[keywords] {len(wanted_keywords)} distinct top-{TOP_KEYWORDS} keywords, "
+          f"{n_multi} multiword ({n_multi/max(len(wanted_keywords),1)*100:.0f}%) -- BERTopic "
+          f"runs ngram_range=(1,2), so these must be matched as phrases")
+
     propn_rate: dict[str, float] = {}
     cap_rate: dict[str, float] = {}
     if not a.no_spacy:
@@ -266,29 +349,12 @@ def main() -> None:
         print("[pos] tagging the turn pool (parser/ner off -- no segmentation happens here, "
               "so this cannot touch Layer C's clause pool) ...", flush=True)
         nlp = spacy.load("en_core_web_lg", disable=["parser", "ner", "lemmatizer"])
-        prop_n: Counter[str] = Counter()
-        tot_n: Counter[str] = Counter()
-        cap_n: Counter[str] = Counter()
-        capable_n: Counter[str] = Counter()
-        for doc in nlp.pipe(texts, batch_size=64):
-            prev_end = True
-            for tok in doc:
-                if not tok.is_alpha:
-                    prev_end = tok.text in ".!?"
-                    continue
-                lo = tok.text.lower()
-                tot_n[lo] += 1
-                if tok.pos_ == "PROPN":
-                    prop_n[lo] += 1
-                if not prev_end:                    # mid-sentence: capitalisation is a signal
-                    capable_n[lo] += 1
-                    if tok.text[:1].isupper():
-                        cap_n[lo] += 1
-                prev_end = False
-        propn_rate = {w: prop_n[w] / n for w, n in tot_n.items() if n >= 3}
-        cap_rate = {w: cap_n[w] / capable_n[w] for w in capable_n if capable_n[w] >= 3}
-        print(f"[pos] {len(tot_n)} token types; {sum(1 for v in propn_rate.values() if v>=0.5)} "
-              f"are PROPN in >=50% of their occurrences")
+        propn_rate, cap_rate = keyword_pos_rates(nlp.pipe(texts, batch_size=64),
+                                                 wanted_keywords)
+        rated = sum(1 for k in wanted_keywords if k in propn_rate)
+        print(f"[pos] {rated}/{len(wanted_keywords)} keywords occur >=3 times and are rated; "
+              f"{sum(1 for v in propn_rate.values() if v >= 0.5)} are PROPN in >=50% of "
+              f"their occurrences")
         del nlp
 
     vecs = embed_cached(texts, workers=20)                  # fully cached: no requests
@@ -339,13 +405,12 @@ def main() -> None:
     print(f"[join] verified position-for-position on n_items, calls and keywords "
           f"({len(clusters)}/{len(clusters)})")
 
-    # --- Signal B setup: which calls each keyword appears in ------------------------------
-    turn_words = [set(_WORD.findall(t.lower())) for t in texts]
+    # --- Signal B setup: which turns each keyword appears in -------------------------------
+    kw_turns = keyword_turns(texts, wanted_keywords)
 
     def keyword_account_share(word: str) -> float:
         """Share of accounted turns containing `word` that come from one account."""
-        labs = [pool_acct[i] for i, ws in enumerate(turn_words)
-                if word in ws and pool_acct[i]]
+        labs = [pool_acct[i] for i in kw_turns.get(word, ()) if pool_acct[i]]
         return concentration(labs)[1] if labs else float("nan")
 
     kw_cache: dict[str, float] = {}

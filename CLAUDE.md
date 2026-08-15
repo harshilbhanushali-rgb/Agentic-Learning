@@ -1612,15 +1612,50 @@ by reproducing the adjudication ordering and **verified position-for-position on
 and keywords (245/245)**; a size-matched Monte-Carlo null prices in the corpus's own skew
 (`uber.com` alone is 19.6% of accounted turns).
 
-- **`corr(proper-noun rate of top keywords, account lift) = 0.182` -- the proposed check is
+- **`corr(proper-noun rate of top keywords, account lift) = 0.047` -- the proposed check is
   nearly unrelated to account-boundness.** It MISSES `implementing_and_maintaining_tracking_pixels`
-  (`happy dance` is a bigram absent from the unigram POS table; `dance`/`happy` are ordinary words
-  spaCy tags PROPN 46% of the time) and FALSELY flags `navigating_rfp_and_procurement` -- 100%
-  PROPN keywords (`kim`, `rfp`), **66 accounts, 120 calls, the most broadly-evidenced coachable
-  scenario there is** -- plus `ats_migration_and_ecosystem_complexity` (`workday, isims, taleo`:
-  industry-standard vendors, 12 accounts). Proper-noun-ness measures whether a word is a NAME, not
-  whether it belongs to ONE CLIENT. The signal that works is keyword-account concentration
-  (r=0.616): `cie`=100%, `veterinarians`=100%, `lexi`=100%, `raytheon`=96%, `dance`=96%.
+  and FALSELY flags `navigating_rfp_and_procurement` -- 100% PROPN keywords (`kim`, `rfp`),
+  **66 accounts, 120 calls, the most broadly-evidenced coachable scenario there is** -- plus
+  `ats_migration_and_ecosystem_complexity` (`workday, isims, taleo`: industry-standard vendors,
+  12 accounts). Proper-noun-ness measures whether a word is a NAME, not whether it belongs to
+  ONE CLIENT. The signal that works is keyword-account concentration (r=0.587, mean-aggregated):
+  `cie`=100%, `veterinarians`=100%, `lexi`=100%, **`happy dance`=100%**, `raytheon`=96%,
+  `dance`=96%.
+- **CORRECTED 2026-08-15 (F14/R2a) -- every correlation in the bullet above moved, the verdict
+  did not.** BERTopic runs `ngram_range=(1,2)` but the harness looked keywords up against a set
+  of UNIGRAMS per turn, so **296 of 735 top-3 keyword slots (40%) matched nothing and came out
+  NaN in both Signal B and Signal C** -- `happy dance` among them. Matching keywords as token
+  SEQUENCES rescues 217 slots across 187 distinct keywords. **Signal A is untouched: 0 of 245
+  clusters moved on `top_account_share`, `lift` or `exceeds_null_p99`, so the 21-of-38 headline
+  and the 9-of-38 reading below stand.** What moved:
+
+  | | published | corrected |
+  | --- | --- | --- |
+  | corr(propn rate, lift), coachable | +0.182 | **+0.047** |
+  | corr(keyword-account, lift), **max**-aggregated | +0.616 | **+0.393** |
+  | corr(keyword-account, lift), **mean**-aggregated | +0.705 | **+0.587** |
+  | clusters with a NaN propn rate | 16 | 4 |
+
+  The old parenthetical -- *"`happy dance` is a bigram absent from the unigram POS table"* -- was
+  describing a HARNESS BUG as if it were a property of the data. The phrase rates **0.669 PROPN**
+  and is **100% one account**, the most account-bound phrase in the corpus. The check still misses
+  the cluster (rank 7 of 38 by propn rate, up from 10), so the conclusion survives for a different
+  reason than the one recorded.
+- **`max` was the wrong aggregator and that is why 0.616 fell so far.** Max over a cluster's top-3
+  keyword concentrations can only RISE as more keywords become visible, so fixing F14 saturates it
+  toward 1.0 and destroys the variance the correlation needs -- the number was partly measuring how
+  many keywords the harness could see. Mean moves far less (0.705 -> 0.587) and is what the bullet
+  now quotes. **Neither figure is computed by the script**; both were derived outside it and the
+  aggregation was never recorded, which is why pinning `0.616` to `max`-over-coachable took a
+  four-way sweep. Any future correlation quoted from this artifact must state its aggregator.
+- **Still NaN after the fix: 87 distinct keywords, from a DIFFERENT cause -- filed as R15, not
+  fixed here.** `_WORD` (`[a-z][a-z0-9'\-]*`) is not sklearn's `CountVectorizer` pattern
+  (`(?u)\b\w\w+\b`), which is what built the keyword vocabulary. It keeps apostrophes inside a
+  token, so the vocabulary's `dont` / `dont know` / `alright theres` can never match `don't`, and
+  it requires a leading letter, so `18` / `2021` / `20 20` never match. 15 of the 86 absent
+  keywords ARE found under sklearn's own pattern. Same defect family as F14 -- the lookup
+  tokeniser must be the vectoriser's tokeniser -- but a separate change that moves existing
+  non-NaN values, so it needs its own measurement.
 - **21 of 38 coachable clusters exceed their own null's p99; by reading, 7 should not be in the
   count.** 6 are account-bound (tracking_pixels = 95% Uber and really vendor coordination;
   experiential_branding = 98% RTX; managing_non_technical_stakeholders = 100% Banfield, glued by

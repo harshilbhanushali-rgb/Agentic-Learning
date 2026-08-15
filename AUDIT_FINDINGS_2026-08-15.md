@@ -266,6 +266,8 @@ Two facts that fell out of the same query and are not defects in this file:
   hazard is real in the code and inactive in this data - so F16 stays open as a guard to add,
   but no published number is affected by it.
 
+| R15 | `flag_proper_noun_clusters.py` lookup tokeniser must be the VECTORISER's tokeniser | rerun the script (free, ~10 min) | Found while fixing F14/R2a. `_WORD` is `[a-z][a-z0-9'\-]*`; the keyword vocabulary comes from sklearn `CountVectorizer`'s `(?u)\b\w\w+\b`. Apostrophes stay inside a token, so the vocabulary's `dont` / `dont know` / `agree dont` / `alright theres` can never match `don't`; and a leading letter is required, so `18` / `2021` / `20 20` never match. **87 distinct keywords are still NaN after R2a; 15 of the 86 absent ones ARE found under sklearn's own pattern.** Same family as F14, but it moves existing non-NaN values too, so it needs its own before/after. |
+
 ## Paid - and currently NOT worth it
 
 | # | fix | rerun | verdict |
