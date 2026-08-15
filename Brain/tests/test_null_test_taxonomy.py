@@ -141,6 +141,51 @@ def test_gate_and_null_names_stay_in_sync():
     assert nt.NULLS[0] == "whole", "the pre-fix null must stay first and stay reported"
 
 
+# -- the join ------------------------------------------------------------------------------
+
+def _clusters_and_rows():
+    """Two clusters TIED on n_items -- the case the count-only check cannot see.
+
+    On the live artifact 200 of 245 rows share n_items with another row (23 of the 38
+    coachable ones), and three coachable pairs are directly swappable.
+    """
+    clusters = [{"idxs": [0, 1], "n": 27, "calls": 9, "keywords": "ats, integration"},
+                {"idxs": [2, 3], "n": 27, "calls": 4, "keywords": "contracts, licensing"}]
+    rows = [{"kind": "scenario", "scenario_key": "ats", "n_items": 27, "calls": 9,
+             "keywords": "ats, integration"},
+            {"kind": "scenario", "scenario_key": "contracts", "n_items": 27, "calls": 4,
+             "keywords": "contracts, licensing"}]
+    return clusters, rows
+
+
+def test_join_accepts_a_correctly_aligned_result():
+    clusters, rows = _clusters_and_rows()
+    nt.verify_join(clusters, rows)          # must not raise
+
+
+def test_join_catches_a_swap_INSIDE_a_tie_group():
+    """The whole point: counts still match, so only a field check can see this."""
+    clusters, rows = _clusters_and_rows()
+    swapped = [rows[1], rows[0]]
+    assert len(clusters) == len(swapped), "the count check passes -- that is the defect"
+    with pytest.raises(SystemExit, match="JOIN FAILED at"):
+        nt.verify_join(clusters, swapped)
+
+
+def test_join_still_catches_a_count_mismatch():
+    clusters, rows = _clusters_and_rows()
+    with pytest.raises(SystemExit, match="JOIN FAILED:"):
+        nt.verify_join(clusters, rows[:1])
+
+
+def test_join_checks_keywords_not_only_the_numbers():
+    """n_items and calls can both agree while the cluster is a different cluster."""
+    clusters, rows = _clusters_and_rows()
+    rows[0] = dict(rows[0], keywords="something, else")
+    with pytest.raises(SystemExit, match="JOIN FAILED at"):
+        nt.verify_join(clusters, rows)
+
+
 # -- the control arm's population ----------------------------------------------------------
 
 def test_merged_clusters_are_folded_in_not_discarded():

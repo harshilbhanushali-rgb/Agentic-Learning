@@ -158,6 +158,34 @@ def _args():
     return p.parse_args()
 
 
+def verify_join(clusters: list[dict], adj_rows: list[dict]) -> None:
+    """POSITION-VERIFIED JOIN. Raises unless every position agrees on n_items/calls/keywords.
+
+    The adjudication artifact stores only `i`, so membership can be re-attached ONLY by
+    reproducing the identical ordering -- verify that rather than assume it. Checking the
+    COUNT alone (`len(clusters) != len(adj)`) is blind exactly where misalignment happens:
+    `clusters.sort(key=n, reverse=True)` is a STABLE sort, so ties keep input order, and on
+    the live artifact **200 of 245 rows share n_items with another row, 23 of the 38
+    coachable ones included** -- three coachable pairs are directly swappable. A swap
+    attributes one cluster's turns to another scenario's name and every downstream number
+    becomes fiction, silently.
+
+    n_items alone leaves 200 rows ambiguous and n_items+calls still leaves 76; all three
+    together leave **0**. Mirrors flag_proper_noun_clusters.py, which has always done this.
+    """
+    if len(clusters) != len(adj_rows):
+        raise SystemExit(f"JOIN FAILED: {len(clusters)} clusters vs {len(adj_rows)} rows. "
+                         "Clustering did not reproduce; do not trust any downstream number.")
+    bad = [i for i, (c, r) in enumerate(zip(clusters, adj_rows))
+           if c["n"] != r["n_items"] or c["calls"] != r["calls"]
+           or c["keywords"] != r["keywords"]]
+    if bad:
+        raise SystemExit(f"JOIN FAILED at {len(bad)} positions (first {bad[:5]}): "
+                         "n_items/calls/keywords disagree with the adjudication artifact.")
+    print(f"[join] verified position-for-position on n_items, calls and keywords "
+          f"({len(clusters)}/{len(clusters)})")
+
+
 def fold_merged_clusters(clusters: list[dict], adj_rows: list[dict]
                          ) -> tuple[dict[str, list[int]], int, int]:
     """Control membership per scenario: its own cluster PLUS every cluster merged into it.
@@ -535,10 +563,11 @@ def main() -> None:
         if cluster_evidence.triage(st, min_support, ta.ubiquity_ceiling) == \
                 cluster_evidence.INSUFFICIENT_EVIDENCE:
             continue
-        clusters.append({"idxs": idxs, "n": st.n_items})
-    clusters.sort(key=lambda c: c["n"], reverse=True)
-    if len(clusters) != len(adj):
-        raise SystemExit(f"JOIN FAILED: {len(clusters)} vs {len(adj)}")
+        lead = max(tids, key=lambda z: len(members[z]))
+        clusters.append({"idxs": idxs, "n": st.n_items, "calls": st.distinct_calls,
+                         "keywords": ", ".join(w for w, _ in tm.get_topic(lead)[:10])})
+    clusters.sort(key=lambda c: c["n"], reverse=True)       # adjudication's own order
+    verify_join(clusters, adj)
 
     # `kind` is FOUR-valued and `merged` means RETAINED -- the cluster is folded into an
     # existing scenario, not discarded (validate_taxonomy_vs_layerd.load_new says so, and
