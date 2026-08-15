@@ -296,7 +296,10 @@ Status of every item, and the observations that exist nowhere else.
 | R4d (docstring cherry-pick + config/overwrite guards) | **DONE** `b7d4e94` | no — honesty and guards only |
 | R5 (F13 position-verified join) | **DONE** `ca4c257` | no — LATENT guard; artifact byte-identical |
 | R6 (F7 tag + refuse-to-overwrite) | **DONE** `31899f9` | no — guard; F7 was HALF implemented, not none |
-| R7-R12, R15 | **NOT STARTED** | — |
+| R7a (gateway provenance) | **DONE** `5881f93` | no — but scored_by was null for all 60 verdicts, and could have been FALSE |
+| R7b (gateway output ceiling 8192 vs 16384) | **DONE** `fb7ff41` | no — LATENT at `--per-call 1`; fires on any larger run |
+| R7c (`response_format=json_object` vs array prompts) | **OPEN** | split out of R7, not yet examined |
+| R8-R12, R15 | **NOT STARTED** | — |
 
 **R4 is the first item where auditing MY OWN FIX found defects that changed the answer
 twice.** The fix's own tests passed throughout; a separate adversarial pass over the fix is
