@@ -93,6 +93,58 @@ def test_a_keyword_below_the_occurrence_floor_is_omitted():
     assert "happy dance" not in propn
 
 
+# -- F15: a missing value must be counted, never silently absorbed -----------------------
+
+def _cluster(key, share, lift=0.1, propn=0.5, kind="scenario"):
+    return {"scenario_key": key, "kind": kind, "top_account_share": share, "lift": lift,
+            "null_mean": 0.2, "propn_rate": propn,
+            "exceeds_null_p99": (share > 0.4) if share == share else False}
+
+
+def test_a_missing_value_does_not_poison_the_summary_mean():
+    """np.mean over one NaN returns NaN and takes the whole per-kind row with it."""
+    rows = [_cluster("a", 0.6), _cluster("b", 0.4), _cluster("c", float("nan"))]
+    mean, n_used, n_missing = fp.mean_scoreable(rows, "top_account_share")
+    assert mean == pytest.approx(0.5)
+    assert (n_used, n_missing) == (2, 1)
+
+
+def test_the_missing_count_is_returned_so_the_denominator_is_reportable():
+    """A rate whose denominator is not printed is the defect this whole audit is about."""
+    rows = [_cluster("a", float("nan")), _cluster("b", float("nan"))]
+    mean, n_used, n_missing = fp.mean_scoreable(rows, "top_account_share")
+    assert (n_used, n_missing) == (0, 2)
+    assert mean != mean, "no scoreable rows must yield NaN, not a fabricated 0.0"
+
+
+def test_is_missing_catches_nan_and_none_but_not_zero():
+    assert fp.is_missing(float("nan"))
+    assert fp.is_missing(None)
+    assert not fp.is_missing(0.0), "0% concentration is a real measurement, not a gap"
+
+
+def test_missing_values_sort_last_not_wherever_the_input_happened_to_put_them():
+    rows = [_cluster("nan_one", float("nan"), lift=float("nan")),
+            _cluster("high", 0.9, lift=0.9),
+            _cluster("low", 0.1, lift=0.1)]
+    order = [r["scenario_key"] for r in sorted(rows, key=fp.rank_key("lift"))]
+    assert order == ["high", "low", "nan_one"]
+    reversed_order = [r["scenario_key"]
+                      for r in sorted(list(reversed(rows)), key=fp.rank_key("lift"))]
+    assert order == reversed_order, "order must not depend on input order"
+
+
+def test_ties_are_broken_deterministically_by_key():
+    """Three real coachable clusters share propn_rate 0.3333 and six share 0.0, so a stable
+    sort alone leaves the printed ranking dependent on input order."""
+    rows = [_cluster("zebra", 0.5, propn=0.3333), _cluster("alpha", 0.5, propn=0.3333),
+            _cluster("mango", 0.5, propn=0.3333)]
+    order = [r["scenario_key"] for r in sorted(rows, key=fp.rank_key("propn_rate"))]
+    assert order == ["alpha", "mango", "zebra"]
+    assert order == [r["scenario_key"]
+                     for r in sorted(list(reversed(rows)), key=fp.rank_key("propn_rate"))]
+
+
 def test_capitalisation_is_only_measured_mid_sentence():
     """A sentence-initial capital carries no information, so it is not counted either way."""
     start = _doc(("Happy", "PROPN"), ("Dance", "PROPN"))            # both sentence-initial-ish

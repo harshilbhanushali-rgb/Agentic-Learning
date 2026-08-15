@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from collections import Counter, defaultdict
@@ -215,6 +216,33 @@ def null_band(pool_labels: np.ndarray, size: int, rng, reps: int = NULL_REPS):
 
 # -- report -----------------------------------------------------------------------------
 
+def is_missing(v) -> bool:
+    """NaN or None. `float('nan') > x` is False, so an unscoreable cluster silently reads as
+    'did not exceed the null' and disappears into the not-flagged pile. Every consumer of a
+    possibly-missing value must therefore ask this explicitly."""
+    return v is None or (isinstance(v, float) and math.isnan(v))
+
+
+def rank_key(field: str):
+    """Sort descending on `field`, missing values LAST, ties broken by scenario_key.
+
+    Two distinct defects, both making the printed order depend on input order rather than on
+    the data: NaN compares False against everything, and there are real ties (three coachable
+    clusters share propn_rate 0.3333 and six share 0.0)."""
+    def key(r):
+        v = r[field]
+        return (1, 0.0, r["scenario_key"]) if is_missing(v) else (0, -v, r["scenario_key"])
+    return key
+
+
+def mean_scoreable(rows: list[dict], field: str) -> tuple[float, int, int]:
+    """Mean over the rows that HAVE a value, plus (n_used, n_missing) so the denominator is
+    reportable. np.mean over one NaN returns NaN and poisons an entire summary row."""
+    vals = [r[field] for r in rows if not is_missing(r[field])]
+    n_missing = len(rows) - len(vals)
+    return (float(np.mean(vals)) if vals else float("nan"), len(vals), n_missing)
+
+
 def report(payload: dict, show: int) -> None:
     rows = payload["clusters"]
     coach = [r for r in rows if r["kind"] == "scenario"]
@@ -231,44 +259,63 @@ def report(payload: dict, show: int) -> None:
           f"{payload['largest_account_share']*100:.1f}% of the pool  <- the null prices this in")
 
     print("\n--- Signal A vs its size-matched null, by adjudicated kind ---")
-    print(f"{'kind':<12}{'n':>5}{'top-acct share':>17}{'null mean':>11}{'lift':>8}"
-          f"{'> null p99':>12}")
+    print(f"{'kind':<12}{'n':>5}{'scored':>7}{'top-acct share':>17}{'null mean':>11}"
+          f"{'lift':>8}{'> null p99':>12}")
     for kind in ("scenario", "merged", "mechanics", "logistics"):
         sub = [r for r in rows if r["kind"] == kind]
         if not sub:
             continue
-        obs = np.mean([r["top_account_share"] for r in sub])
-        nul = np.mean([r["null_mean"] for r in sub])
-        over = sum(1 for r in sub if r["exceeds_null_p99"])
-        print(f"{kind:<12}{len(sub):>5}{obs:>16.1%}{nul:>11.1%}{obs-nul:>+8.1%}"
-              f"{over:>7} ({over/len(sub)*100:>3.0f}%)")
+        obs, n_ok, n_miss = mean_scoreable(sub, "top_account_share")
+        nul, _, _ = mean_scoreable(sub, "null_mean")
+        over = sum(1 for r in sub if not is_missing(r["top_account_share"])
+                   and r["exceeds_null_p99"])
+        print(f"{kind:<12}{len(sub):>5}{n_ok:>7}{obs:>16.1%}{nul:>11.1%}{obs-nul:>+8.1%}"
+              f"{over:>7} ({over/max(n_ok,1)*100:>3.0f}%)")
+        if n_miss:
+            print(f"{'':<12}{n_miss:>5} UNSCOREABLE (no accounted turn) -- excluded from the "
+                  f"mean and from the flag denominator, NOT counted as un-flagged")
 
-    flagged = [r for r in coach if r["exceeds_null_p99"]]
+    unscoreable = [r for r in coach if is_missing(r["top_account_share"])]
+    if unscoreable:
+        print(f"\n  !! {len(unscoreable)} coachable clusters have no accounted turn at all and "
+              f"cannot be judged either way:")
+        for r in unscoreable:
+            print(f"     {r['scenario_key'][:60]}  ({r['n_items']} turns)")
+
+    flagged = [r for r in coach if not is_missing(r["top_account_share"])
+               and r["exceeds_null_p99"]]
     print("\n" + "=" * 92)
     print(f"THE 38 COACHABLE, RANKED BY ACCOUNT CONCENTRATION LIFT "
           f"({len(flagged)} exceed their own null's p99)")
     print("=" * 92)
     print(f"{'scenario_key':<46}{'turns':>6}{'cal':>4}{'top acct':>9}{'null':>7}"
           f"{'lift':>7}{'acc':>5}  top keywords")
-    for r in sorted(coach, key=lambda x: -x["lift"]):
-        mark = "!" if r["exceeds_null_p99"] else " "
+    for r in sorted(coach, key=rank_key("lift")):
+        miss = is_missing(r["top_account_share"])
+        mark = "?" if miss else ("!" if r["exceeds_null_p99"] else " ")
+        share = "    n/a" if miss else f"{r['top_account_share']:>7.0%}"
+        lift = "    n/a" if miss else f"{r['lift']:>+7.0%}"
         print(f"{mark}{r['scenario_key'][:45]:<45}{r['n_items']:>6}{r['calls']:>4}"
-              f"{r['top_account_share']:>9.0%}{r['null_mean']:>7.0%}{r['lift']:>+7.0%}"
+              f"{share:>9}{r['null_mean']:>7.0%}{lift:>7}"
               f"{r['n_accounts']:>5}  {r['top_keywords_str'][:34]}")
 
     print("\n--- Signal B: the keyword that binds each flagged cluster ---")
     print(f"{'scenario_key':<40}{'account':<28}  keyword account-concentration")
-    for r in sorted(flagged, key=lambda x: -x["lift"]):
-        kws = ", ".join(f"{k}={v:.0%}" for k, v in r["keyword_account_share"].items())
+    for r in sorted(flagged, key=rank_key("lift")):
+        kws = ", ".join(f"{k}=" + ("n/a" if is_missing(v) else f"{v:.0%}")
+                        for k, v in r["keyword_account_share"].items())
         print(f"{r['scenario_key'][:39]:<39} {r['top_account'][:27]:<28}  {kws}")
 
     print("\n--- Signal C: proper-noun rate of those keywords (spaCy POS / capitalisation) ---")
-    print(f"{'scenario_key':<40}{'propn':>8}{'capitalised':>13}   keywords tagged PROPN")
-    for r in sorted(coach, key=lambda x: -x["propn_rate"])[:14]:
-        tagged = ", ".join(k for k, v in r["keyword_propn"].items() if v >= 0.5) or "-"
-        cap = r["cap_rate"]
-        print(f"{r['scenario_key'][:39]:<39}{r['propn_rate']:>8.0%}"
-              f"{cap:>13.0%}   {tagged[:34]}")
+    n_pr_missing = sum(1 for r in coach if is_missing(r["propn_rate"]))
+    print(f"{'scenario_key':<40}{'propn':>8}{'capitalised':>13}   keywords tagged PROPN"
+          + (f"   [{n_pr_missing} coachable unrated, sorted last]" if n_pr_missing else ""))
+    for r in sorted(coach, key=rank_key("propn_rate"))[:14]:
+        tagged = ", ".join(k for k, v in r["keyword_propn"].items()
+                           if not is_missing(v) and v >= 0.5) or "-"
+        pr = "     n/a" if is_missing(r["propn_rate"]) else f"{r['propn_rate']:>8.0%}"
+        cap = "          n/a" if is_missing(r["cap_rate"]) else f"{r['cap_rate']:>13.0%}"
+        print(f"{r['scenario_key'][:39]:<39}{pr}{cap}   {tagged[:34]}")
 
     print("\n" + "=" * 92)
     print(f"READ THESE -- {show} member turns from each flagged coachable cluster")
