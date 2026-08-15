@@ -150,9 +150,23 @@ def report(P: dict) -> None:
     print(f"  {P['n_calls']} calls, {P['n_pairs']} (call, scenario) pairs, "
           f"model {P['model']}")
 
-    st = P["check1"]
+    # F7: the run's configuration must be VISIBLE, not buried in the JSON. A 3-call path test
+    # rendered identically to a real run and only opening the artifact revealed which it was.
+    if P.get("smoke"):
+        print("  *** SMOKE RUN -- PATH TEST ONLY. THESE NUMBERS ARE NOT INTERPRETABLE. ***")
+    print(f"  seed {P.get('seed')} | per-call {P.get('per_call')} | "
+          f"holdout=leakage-clean calls | partner={P.get('partner_method')}")
+
+    # F5: the gate reads the PER-SCENARIO test. The per-pair one is printed for continuity
+    # with earlier runs but repeats scenarios, so its n is not its effective n.
+    st = P.get("check1_by_scenario") or P["check1"]
+    per_pair = P["check1"]
     ok1 = st["win_share"] >= BAR_SIGN and st["p_value"] < 0.05
     print(f"\nCHECK 1  discrimination (same scenario, criteria swapped)")
+    print(f"  per PAIR     ({per_pair['decided']} decided): "
+          f"{per_pair['win_share']:.1%}  p={per_pair['p_value']:.2g}   <- correlated, not the gate")
+    print(f"  per SCENARIO ({st['decided']} decided of {P.get('n_scenarios', '?')}): "
+          f"the gate")
     # THE CONFOUND GUARD. v1 and v2 both ran with a plain derangement and the arms carried
     # 5.08 vs 3.64 criteria, which alone biased the result. If these are not equal, check 1
     # is not readable and says so instead of printing a number someone will quote.
@@ -171,11 +185,28 @@ def report(P: dict) -> None:
               "    check is uninformative however the rest fall.")
 
     q = P["check2"]
-    ok2 = q["rate"] >= BAR_QUOTE if q["checked"] else False
+    # F10: the bar says "in BOTH arms" and the code pooled them. A pooled 96% can hide an arm
+    # at 88%, so the gate now reads the WORSE arm.
+    per_arm = P.get("check2_by_arm", {})
+    rates = [v["rate"] for v in per_arm.values() if v.get("checked")]
+    worst = min(rates) if rates else q["rate"]
+    ok2 = worst >= BAR_QUOTE if q["checked"] else False
     print(f"\nCHECK 2  evidence verification -- EVERY credit, both arms (free, mechanical)")
-    print(f"  {q['verified']}/{q['checked']} credits locatable in the transcript "
-          f"= {q['rate']:.1%}   forms: {q['kinds']}")
-    print(f"  bar >= {BAR_QUOTE:.0%}  ->  {'PASS' if ok2 else 'FAIL'}")
+    print(f"  pooled {q['verified']}/{q['checked']} = {q['rate']:.1%}   forms: {q['kinds']}")
+    for arm, v in sorted(per_arm.items()):
+        print(f"    {arm:<10} {v['verified']}/{v['checked']} = {v['rate']:.1%}")
+    # F1+F2: pooling the two evidence forms hid that one branch was too strict (a transposed
+    # enum name rejected 24% of citations) while the other was too lenient (no role check at
+    # all, so 12 credits quoting the CLIENT passed). Both are now role-checked; both are shown.
+    for kind, v in sorted((q.get("by_kind") or {}).items()):
+        print(f"    form {kind:<14} {v['verified']}/{v['checked']} = {v['rate']:.1%}")
+    mix = q.get("cited_speaker_mix") or {}
+    if mix:
+        print(f"    cited turns by speaker: {mix}   (scored speaker: {q.get('scored_roles')})")
+    if q.get("unknown_roles"):
+        print(f"    ! scored_roles names not present in this transcript: {q['unknown_roles']}"
+              " -- check the enum spelling")
+    print(f"  bar >= {BAR_QUOTE:.0%} on the WORSE arm  ->  {'PASS' if ok2 else 'FAIL'}")
     fab = [f for f in q["failures"] if f.get("kind") != "across_turns"
            and not f["found_elsewhere"] and f.get("quote")]
     if fab:
@@ -226,7 +257,8 @@ def main() -> None:
     from ego_trap.call_scoring import ScenarioBlock
     from shared.scenario_vectors import scenario_text
     from shared.tuning import load_tuning
-    from preprocessing.transcript_parser import parse_transcript, load_roster
+    from preprocessing.transcript_parser import (SpeakerRole, load_roster,
+                                                  parse_transcript)
     from preprocessing import embedder
     import psycopg
 
@@ -244,18 +276,20 @@ def main() -> None:
                 "WHERE s.is_coachable AND jsonb_array_length(r.milestones)>0")
             scen = {k: {"business_description": bd or "", "keyphrases": kp or [],
                         "milestones": ms} for k, bd, kp, ms in cur.fetchall()}
+            # F4: NO LENGTH FILTER. storage.get_naren_responses_for_scenario -- Layer C's
+            # actual clause pool -- filters on scenario_key alone, so a call whose only
+            # primary contribution had a short trigger IS leaked and must not be called clean.
             cur.execute(
                 "SELECT p.scenario_key, p.scenario_keys, p.trigger_text, p.response_text, "
                 "       c.filename, p.turn_index "
-                "FROM public.kb_pairs p JOIN public.calls c ON c.call_id=p.call_id "
-                "WHERE length(trim(p.trigger_text))>20")
+                "FROM public.kb_pairs p JOIN public.calls c ON c.call_id=p.call_id")
             primary_calls = defaultdict(set)
             secondary = defaultdict(list)      # (file, key) -> trigger turns
             bench = defaultdict(list)
             for pk, sks, trg, rsp, fn, ti in cur.fetchall():
                 if pk in scen:
                     primary_calls[pk].add(fn)
-                    bench[pk].append(rsp)
+                    bench[pk].append((fn, rsp))
                 for k in (sks or []):
                     if k in scen and k != pk:
                         secondary[(fn, k)].append((ti, trg))
@@ -317,11 +351,31 @@ def main() -> None:
             continue
 
         def block(key, rubric_key, trig):
+            # +1 CONVERTS STORAGE NUMBERING TO DISPLAY NUMBERING, AND OMITTING IT IS A REAL
+            # BUG THAT SHIPPED IN v1-v3. Turn.index is 0-BASED (transcript_parser:
+            # `index=len(turns)`) and kb_pairs.turn_index stores it verbatim, while
+            # format_transcript labels turns 1-based. Verified against three real pairs:
+            # turns[ti] matches the stored trigger text, turns[ti-1] never does. So every
+            # "CLIENT TURNS THAT APPEAR TO RAISE IT" pointer sent the model one turn EARLY --
+            # it was told to look at N for content that is labelled N+1, would not find what
+            # it expected, and had to search or reconstruct. A plausible contributor to the
+            # 23% unverifiable-evidence rate.
             return ScenarioBlock(
                 scenario_key=key, description=scen[key]["business_description"],
                 rubric={"milestones": scen[rubric_key]["milestones"]},
-                trigger_turns=[(ti or 0, t) for ti, t in trig[:4]],
-                benchmark_response="\n\n".join(bench.get(rubric_key, [])[:2]))
+                trigger_turns=[(ti + 1, t) for ti, t in trig[:4] if ti is not None],
+                # F3: EXCLUDE THE CALL UNDER TEST, in both arms. The unrelated arm was free
+                # to show an "expert reference answer" that is literally text spoken in the
+                # transcript being searched -- the call is leakage-clean for `k`, but under no
+                # constraint at all w.r.t. `partner[k]`. That makes matching trivially easy
+                # and depresses check 1. trial_grader_inputs already applied this exclusion;
+                # the two harnesses disagreed on the same point.
+                # The [:2] cap is applied AFTER the exclusion, not before -- and it must stay.
+                # Dropping it briefly joined every stored response for the scenario, which
+                # ballooned the prompt and made the model return two JSON documents instead of
+                # one. Filter first, then cap, or the exclusion silently changes prompt size.
+                benchmark_response="\n\n".join(
+                    [r for f2, r in bench.get(rubric_key, []) if f2 != fn][:2]))
 
         # matched / unrelated share the scenario IDENTITY; only the criteria differ.
         m_blocks = [block(k, k, tr) for k, tr in present]
@@ -332,16 +386,20 @@ def main() -> None:
             if not blocks:
                 continue
             out, warns = call_scoring.score_call(
-                turns, blocks, cfg, scenarios_per_request=3,
+                turns, blocks, cfg, scenarios_per_request=max(1, a.per_call),
                 model=a.model, fallback_models=())
             res[arm] = out
             if warns:
                 res.setdefault("warnings", []).extend(warns)
         # Verify BOTH arms, and every credit in them. v1 verified only the matched arm's
         # partial hits -- 26 of 239 credits, the biased 11%.
-        roles = tuple({r for r, _ in turns} & {"NAREN", "CSM", "OTHER_JOVEO"}) or ("NAREN",)
+        # F1: derived from the ENUM, never typed. v1 asked for "OTHER_JOVEO" (the member is
+        # JOVEO_OTHER) and "CSM" (does not exist), so the filter silently admitted only NAREN.
+        # The scored speaker here IS Naren -- a colleague's turn is not evidence HE did the
+        # thing -- so the strict set is correct, but it must be correct on purpose.
         res["evidence_check"] = {
-            arm: call_scoring.verify_evidence(res.get(arm, []), turns, csm_roles=roles)
+            arm: call_scoring.verify_evidence(res.get(arm, []), turns,
+                                              scored_roles=(SpeakerRole.NAREN.name,))
             for arm in ("matched", "unrelated")}
         done[fn] = res
         CKPT.write_text(json.dumps({"picked": picked, "done": done}, default=str),
@@ -349,7 +407,11 @@ def main() -> None:
         print(f"  [{idx}/{len(picked)}] {fn[:20]} scored", flush=True)
 
     pairs, samples = [], []
-    qc = {"checked": 0, "verified": 0, "failures": [], "kinds": {}}
+    by_scen: dict[str, list[tuple[float, float]]] = defaultdict(list)
+    qc = {"checked": 0, "verified": 0, "failures": [], "kinds": {},
+          "by_kind": {}, "cited_speaker_mix": {}, "scored_roles": [], "unknown_roles": []}
+    per_arm = {"matched": {"checked": 0, "verified": 0},
+               "unrelated": {"checked": 0, "verified": 0}}
     verdicts = {"matched": Counter(), "unrelated": Counter()}
     for fn, res in done.items():
         m = {r["scenario_key"]: r for r in res.get("matched", [])}
@@ -360,7 +422,9 @@ def main() -> None:
                     verdicts[arm][ms["verdict"]] += 1
         for k in m:
             if k in u and m[k]["milestones"] and u[k]["milestones"]:
-                pairs.append((weighted(m[k]["milestones"]), weighted(u[k]["milestones"])))
+                wm_, wu_ = weighted(m[k]["milestones"]), weighted(u[k]["milestones"])
+                pairs.append((wm_, wu_))
+                by_scen[k].append((wm_, wu_))
             for ms in m[k]["milestones"]:
                 if ms["verdict"] != "miss":
                     samples.append({"scenario_key": k, "verdict": ms["verdict"],
@@ -375,7 +439,23 @@ def main() -> None:
             qc["failures"].extend(c.get("failures", []))
             for kk, vv in (c.get("kinds") or {}).items():
                 qc["kinds"][kk] = qc["kinds"].get(kk, 0) + vv
+            for kk, vv in (c.get("by_kind") or {}).items():
+                t = qc["by_kind"].setdefault(kk, {"checked": 0, "verified": 0})
+                t["checked"] += vv["checked"]; t["verified"] += vv["verified"]
+            for kk, vv in (c.get("cited_speaker_mix") or {}).items():
+                qc["cited_speaker_mix"][kk] = qc["cited_speaker_mix"].get(kk, 0) + vv
+            qc["scored_roles"] = c.get("scored_roles") or qc["scored_roles"]
+            qc["unknown_roles"] = c.get("unknown_roles") or qc["unknown_roles"]
+            per_arm[arm]["checked"] += c.get("checked", 0)
+            per_arm[arm]["verified"] += c.get("verified", 0)
+            # F: a failure with no call id cannot be looked up in its transcript.
+            for f in c.get("failures", []):
+                f.setdefault("call", fn); f.setdefault("arm", arm)
     qc["rate"] = qc["verified"] / qc["checked"] if qc["checked"] else float("nan")
+    for v in qc["by_kind"].values():
+        v["rate"] = v["verified"] / v["checked"] if v["checked"] else float("nan")
+    for v in per_arm.values():
+        v["rate"] = v["verified"] / v["checked"] if v["checked"] else float("nan")
 
     def _w(c):
         n = sum(c.values())
@@ -392,7 +472,16 @@ def main() -> None:
          "smoke": bool(a.smoke), "partner_method": method,
          "criteria_per_arm": {"matched": float(np.mean(n_m)) if n_m else float("nan"),
                               "unrelated": float(np.mean(n_u)) if n_u else float("nan")},
-         "check1": sign_test(pairs), "check2": qc,
+         "check1": sign_test(pairs),
+         # F5: the per-PAIR test treats correlated observations as independent -- pairs repeat
+         # scenarios, and repeats share both the rubric and the partner rubric. The
+         # per-SCENARIO test is the honest effective-n, and is the one the sibling harness
+         # uses. Both are reported; the gate reads the per-scenario one.
+         "check1_by_scenario": sign_test(
+             [(float(np.mean([m for m, _ in v])), float(np.mean([u for _, u in v])))
+              for v in by_scen.values()]),
+         "n_scenarios": len(by_scen), "check2": qc, "check2_by_arm": per_arm,
+         "per_call": a.per_call,
          "verdicts": {k: dict(v) for k, v in verdicts.items()},
          "W": {k: _w(v) for k, v in verdicts.items()},
          "samples": samples, "raw": done}

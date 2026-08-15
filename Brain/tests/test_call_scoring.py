@@ -187,17 +187,20 @@ def _res(quote=None, turn=None, verdict="partial_hit", kind="at_turn", turns=Non
 
 
 def test_a_real_quote_at_the_right_turn_verifies():
-    v = call_scoring.verify_evidence(_res("bridge it with a pixel", 2), TURNS)
+    v = call_scoring.verify_evidence(_res("bridge it with a pixel", 2), TURNS,
+                                     scored_roles=("CSM",))
     assert v["checked"] == 1 and v["verified"] == 1 and v["rate"] == 1.0
 
 
 def test_whitespace_and_case_do_not_break_verification():
-    v = call_scoring.verify_evidence(_res("BRIDGE  IT   with a PIXEL", 2), TURNS)
+    v = call_scoring.verify_evidence(_res("BRIDGE  IT   with a PIXEL", 2), TURNS,
+                                     scored_roles=("CSM",))
     assert v["verified"] == 1
 
 
 def test_an_invented_quote_fails_and_is_reported_verbatim():
-    v = call_scoring.verify_evidence(_res("I guarantee a 300% lift", 2), TURNS)
+    v = call_scoring.verify_evidence(_res("I guarantee a 300% lift", 2), TURNS,
+                                     scored_roles=("CSM",))
     assert v["verified"] == 0
     assert v["failures"][0]["found_elsewhere"] is False
     assert "300%" in v["failures"][0]["quote"]
@@ -206,12 +209,14 @@ def test_an_invented_quote_fails_and_is_reported_verbatim():
 def test_a_real_quote_cited_at_the_wrong_turn_is_flagged_but_marked_found_elsewhere():
     """Distinguishing 'fabricated' from 'misattributed' matters: one is a lie, the
     other is a citation bug, and they need different responses."""
-    v = call_scoring.verify_evidence(_res("fifty thousand a quarter", 1), TURNS, window=0)
+    v = call_scoring.verify_evidence(_res("fifty thousand a quarter", 1), TURNS, window=0,
+                                     scored_roles=("CSM",))
     assert v["verified"] == 0 and v["failures"][0]["found_elsewhere"] is True
 
 
 def test_an_adjacent_turn_still_verifies_within_the_window():
-    v = call_scoring.verify_evidence(_res("bridge it with a pixel", 3), TURNS, window=2)
+    v = call_scoring.verify_evidence(_res("bridge it with a pixel", 3), TURNS, window=2,
+                                     scored_roles=("CSM",))
     assert v["verified"] == 1
 
 
@@ -231,26 +236,26 @@ def test_misses_are_not_checked():
 def test_across_turns_needs_two_real_CSM_turns():
     """Otherwise 'across_turns' becomes the hole every unevidenced credit escapes through."""
     ok = call_scoring.verify_evidence(
-        _res(kind="across_turns", turns=[2, 4]), TURNS, csm_roles=("CSM",))
+        _res(kind="across_turns", turns=[2, 4]), TURNS, scored_roles=("CSM",))
     assert ok["verified"] == 1
 
     one = call_scoring.verify_evidence(
-        _res(kind="across_turns", turns=[2]), TURNS, csm_roles=("CSM",))
+        _res(kind="across_turns", turns=[2]), TURNS, scored_roles=("CSM",))
     assert one["verified"] == 0
 
     # turns 1 and 3 are the CLIENT speaking -- citing those is not evidence the CSM did it.
     client = call_scoring.verify_evidence(
-        _res(kind="across_turns", turns=[1, 3]), TURNS, csm_roles=("CSM",))
+        _res(kind="across_turns", turns=[1, 3]), TURNS, scored_roles=("CSM",))
     assert client["verified"] == 0
 
     outside = call_scoring.verify_evidence(
-        _res(kind="across_turns", turns=[99, 100]), TURNS, csm_roles=("CSM",))
+        _res(kind="across_turns", turns=[99, 100]), TURNS, scored_roles=("CSM",))
     assert outside["verified"] == 0
 
 
 def test_evidence_kind_is_inferred_when_the_model_omits_it():
     v = call_scoring.verify_evidence(
-        _res(kind="", turns=[2, 4]), TURNS, csm_roles=("CSM",))
+        _res(kind="", turns=[2, 4]), TURNS, scored_roles=("CSM",))
     assert v["verified"] == 1 and v["kinds"] == {"across_turns": 1}
 
 
@@ -282,3 +287,40 @@ def test_score_call_puts_the_whole_transcript_in_every_request():
     prompt = spy.call_args[0][0]
     assert "[4] CSM: Right — on budget" in prompt
     assert "SITUATION S0: s0" in prompt
+
+
+def test_a_quote_from_the_CLIENT_does_not_verify_a_CSM_milestone():
+    """The audit's F2. v1 only checked the text appeared somewhere in the +/-window, and the
+    window necessarily sweeps in client turns -- 12 real credits passed while quoting the
+    client, e.g. "Would it help, Naren, if we sync same time tomorrow?" credited as a CSM
+    milestone. Locating words is not evidence the SCORED SPEAKER said them."""
+    v = call_scoring.verify_evidence(
+        _res("what do we do about the ATS integration", 1), TURNS, scored_roles=("CSM",))
+    assert v["verified"] == 0
+    assert v["failures"][0]["why"] == "quote is in the window but spoken by someone else"
+    # ... and it is still recognised as real text, not a fabrication.
+    assert v["failures"][0]["found_elsewhere"] is True
+
+
+def test_a_misspelled_scored_role_is_reported_not_silently_empty():
+    """The audit's F1. The caller asked for "OTHER_JOVEO" when the enum member is
+    JOVEO_OTHER, and for "CSM", which does not exist -- so the filter silently admitted
+    nothing, rejected 24% of citations, and raised no error."""
+    v = call_scoring.verify_evidence(
+        _res(kind="across_turns", turns=[2, 4]), TURNS, scored_roles=("OTHER_JOVEO",))
+    assert v["unknown_roles"] == ["OTHER_JOVEO"]
+    assert v["verified"] == 0
+
+
+def test_per_form_rates_are_reported_separately():
+    """Pooling hid that one branch was too strict and the other too lenient at the same
+    time, so a single rate was an under-estimate and an over-estimate at once."""
+    res = [{"scenario_key": "s", "milestones": [
+        {"milestone_id": "M1", "verdict": "full_hit", "evidence_kind": "at_turn",
+         "quote": "bridge it with a pixel", "turn": 2, "turns": [], "pattern": ""},
+        {"milestone_id": "M2", "verdict": "full_hit", "evidence_kind": "across_turns",
+         "quote": "", "turn": None, "turns": [1, 3], "pattern": "p"}]}]
+    v = call_scoring.verify_evidence(res, TURNS, scored_roles=("CSM",))
+    assert v["by_kind"]["at_turn"]["rate"] == 1.0        # turn 2 is the CSM
+    assert v["by_kind"]["across_turns"]["rate"] == 0.0   # turns 1 and 3 are the CLIENT
+    assert v["cited_speaker_mix"]["CLIENT"] == 2

@@ -187,27 +187,44 @@ def parse_response(raw, expected: dict[str, list[tuple[str, dict]]],
 
 
 def verify_evidence(results: list[dict], turns: list[tuple[str, str]],
-                    window: int = 2, csm_roles: tuple[str, ...] = ("NAREN", "CSM")) -> dict:
+                    window: int = 2, scored_roles: tuple[str, ...] = ("NAREN",)) -> dict:
     """Is every CREDIT actually locatable in the transcript? FREE, no model, no human.
 
     Checks EVERY full_hit and partial_hit, not just the ones that happen to carry a quote --
     v1 blanked the quote on full hits and so verified 26 of 239 credits, the biased 11%.
 
-    Two evidence forms, each with its own check:
-      at_turn       the quote must appear at or near the turn it claims;
-      across_turns  at least two cited turns must exist AND be CSM turns. There is no quote
-                    to match, so the check is that the cited moments are real and are the
-                    CSM speaking -- which is what stops "across_turns" becoming a hole that
-                    any unevidenced credit escapes through.
+    *** BOTH EVIDENCE FORMS ARE ROLE-CHECKED. v1 role-checked only one of them. ***
+      at_turn       the quote must appear at or near the turn it claims, IN A TURN SPOKEN BY
+                    THE PERSON BEING SCORED. v1 checked only that the text existed somewhere
+                    in the +/-window, and the window necessarily sweeps in client turns -- 12
+                    credits passed while quoting the CLIENT, e.g. "Would it help, Naren, if we
+                    sync same time tomorrow?" credited as a CSM milestone.
+      across_turns  at least two cited turns must exist AND be spoken by the person scored.
+                    No quote to match, so the check is that the cited moments are real and are
+                    the right speaker -- which stops "across_turns" becoming a hole any
+                    unevidenced credit escapes through.
+
+    `scored_roles` MUST be spelled as SpeakerRole member names. v1 asked for "OTHER_JOVEO"
+    when the member is `JOVEO_OTHER`, and for "CSM", which does not exist at all -- so the
+    filter silently admitted only NAREN, rejected 24% of cited turns on a transposition, and
+    raised nothing. Callers should derive this from the enum, never type the strings.
 
     A credit with NO usable evidence of either kind fails. That is the point: the prompt says
     a credit you cannot evidence is a miss, and this is what makes that claim enforceable.
+
+    `by_kind` breaks the rate down per form, because pooling them hid that one branch was too
+    strict (the transposition) while the other was too lenient (no role check) -- so a single
+    pooled rate was an under-estimate and an over-estimate at once.
     """
     texts = [" ".join((t or "").split()).lower() for _, t in turns]
     roles = [(r or "").upper() for r, _ in turns]
+    want = {r.upper() for r in scored_roles}
+    unknown = want - set(roles) if roles else set()
     checked = verified = 0
     failures = []
     kinds: dict[str, int] = {}
+    by_kind: dict[str, list[int]] = {}
+    speaker_mix: dict[str, int] = {}
     for r in results:
         for m in r.get("milestones", []):
             if m.get("verdict") == "miss":
@@ -218,23 +235,36 @@ def verify_evidence(results: list[dict], turns: list[tuple[str, str]],
                 kind = "at_turn" if m.get("quote") else (
                     "across_turns" if m.get("turns") else "none")
             kinds[kind] = kinds.get(kind, 0) + 1
+            tally = by_kind.setdefault(kind, [0, 0])
+            tally[0] += 1
             ok, why = False, ""
             if kind == "across_turns":
                 cited = [t for t in (m.get("turns") or []) if 1 <= t <= len(texts)]
-                csm = [t for t in cited if roles[t - 1] in csm_roles]
-                ok = len(csm) >= 2
-                why = f"{len(csm)} valid CSM turns cited of {len(m.get('turns') or [])}"
+                for t in cited:
+                    speaker_mix[roles[t - 1]] = speaker_mix.get(roles[t - 1], 0) + 1
+                good = [t for t in cited if roles[t - 1] in want]
+                ok = len(good) >= 2
+                why = (f"{len(good)} cited turns are the scored speaker, of "
+                       f"{len(m.get('turns') or [])} cited")
             else:
                 q = " ".join((m.get("quote") or "").split()).lower()
                 t = m.get("turn")
                 if q and isinstance(t, int) and 1 <= t <= len(texts):
                     lo, hi = max(0, t - 1 - window), min(len(texts), t + window)
-                    ok = q in " ".join(texts[lo:hi])
-                    why = "quote not at cited turn" if not ok else ""
+                    # Match ONLY within turns the scored speaker owns. Searching the joined
+                    # window would credit a milestone to words the client said.
+                    hits = [i for i in range(lo, hi) if q in texts[i]]
+                    for i in hits:
+                        speaker_mix[roles[i]] = speaker_mix.get(roles[i], 0) + 1
+                    ok = any(roles[i] in want for i in hits)
+                    why = ("" if ok else
+                           "quote is in the window but spoken by someone else" if hits
+                           else "quote not at cited turn")
                 else:
                     why = "no quote or no turn"
             if ok:
                 verified += 1
+                tally[1] += 1
             else:
                 q = " ".join((m.get("quote") or "").split()).lower()
                 failures.append({"scenario_key": r["scenario_key"],
@@ -245,7 +275,14 @@ def verify_evidence(results: list[dict], turns: list[tuple[str, str]],
                                  "found_elsewhere": bool(q) and any(q in x for x in texts)})
     return {"checked": checked, "verified": verified,
             "rate": verified / checked if checked else float("nan"),
-            "kinds": kinds, "failures": failures}
+            "kinds": kinds,
+            "by_kind": {k: {"checked": v[0], "verified": v[1],
+                            "rate": v[1] / v[0] if v[0] else float("nan")}
+                        for k, v in by_kind.items()},
+            "cited_speaker_mix": speaker_mix,
+            "scored_roles": sorted(want),
+            "unknown_roles": sorted(unknown),
+            "failures": failures}
 
 
 def score_call(transcript_turns: list[tuple[str, str]], blocks: list[ScenarioBlock],
@@ -262,13 +299,26 @@ def score_call(transcript_turns: list[tuple[str, str]], blocks: list[ScenarioBlo
             continue
         prompt = PROMPT_STEP3_CALL_LEVEL_BATCH.format(
             transcript=transcript, situations_block=situations)
-        raw = call_gemma(
-            prompt, config.gemma_api_keys,
-            model=model or _SCORING_MODEL,
-            fallback_models=(_SCORING_FALLBACKS if fallback_models is None
-                             else fallback_models),
-            max_output_tokens=_SCORING_MAX_OUTPUT_TOKENS,
-        )
+        try:
+            raw = call_gemma(
+                prompt, config.gemma_api_keys,
+                model=model or _SCORING_MODEL,
+                fallback_models=(_SCORING_FALLBACKS if fallback_models is None
+                                 else fallback_models),
+                max_output_tokens=_SCORING_MAX_OUTPUT_TOKENS,
+            )
+        except Exception as e:                                          # noqa: BLE001
+            # A whole transcript plus several rubrics is a long generation, and a single
+            # malformed reply (gemma.py parses with a strict json.loads, so trailing content
+            # after the array raises) must not destroy a 45-call run. It is RECORDED and
+            # COUNTED, never swallowed: the scenarios in this chunk score nothing, which
+            # parse_response already distinguishes from all-miss, and the caller is told.
+            all_warnings.append(f"CHUNK FAILED ({len(chunk)} scenario(s), "
+                                f"{[b.scenario_key for b in chunk]}): {str(e)[:160]}")
+            all_results.extend({"scenario_key": b.scenario_key, "returned": False,
+                                "scored_by": None, "chunk_failed": True, "milestones": []}
+                               for b in chunk)
+            continue
         results, warnings = parse_response(raw, expected, chunk)
         all_results.extend(results)
         all_warnings.extend(warnings)
