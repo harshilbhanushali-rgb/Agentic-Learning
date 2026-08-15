@@ -41,10 +41,26 @@ open question to establish scope"* — drawn from any scenario at all.
 **1.2:1 is what that arrangement predicts arithmetically, independent of what the rubrics
 are worth.**
 
-And the circularity is concrete, not hypothetical: `calibration/trial_layer_c_arms.py:261`
-scores its arms — including the **situated-writer** arms the whole rebuild was built to test
-— with this same blind scorer. *Situating the writer was evaluated by an instrument that
-discards situation.* That trial is one of the four failures that closed Wall 1.
+> **RETRACTED THE SAME DAY, BEFORE IMPLEMENTATION.** This section originally continued: *"the
+> circularity is concrete — `trial_layer_c_arms.py:261` scores its situated-writer arms with
+> this same blind scorer, so situating the writer was evaluated by an instrument that discards
+> situation."* **That was wrong twice over.**
+>
+> **(1) The criterion text carries the specificity, and the grader reads the criterion.** A
+> situated writer produces *"List relevant ATS platforms"* rather than *"List relevant
+> platforms"*; the extra information is in the sentence the grader is already handed, so it
+> does not need to know the scenario name to reward it. There was no circularity.
+>
+> **(2) Measured here: supplying the situation changes nothing** (blind 6.00 vs 5.84 with
+> scenario + client turn + label). A grader that cannot see the situation is not handicapped
+> in a way that affects this.
+>
+> That trial is also **population-symmetric**, unlike the ceiling — `matched` and `unrelated`
+> come from the same rows with only the rubric key swapped
+> (`trial_layer_c_arms.py:700-701`) — so it never had the flaw that invalidated the 1.2:1
+> either. **Its verdict stands. Do not re-run it on circularity grounds, and do not regenerate
+> criteria on them.** The claim is left visible rather than deleted because acting on it would
+> have cost ~250 calls.
 
 ## What this is NOT
 

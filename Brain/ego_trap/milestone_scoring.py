@@ -198,12 +198,15 @@ def score_milestones_batch(
     prompt is byte-identical to before; each field is independently switchable so
     calibration/trial_grader_inputs.py can move ONE at a time.
 
-    THE DEFECT THIS EXISTS FOR. Everything above builds an exchange out of the benchmark,
-    the CSM response and each milestone's description + detection_hint. The client turn,
-    the scenario and the milestone's own `label` are all stored and all discarded here, so
-    the grader has never been able to see the situation it is grading -- and the ceiling
-    measurement, the criteria A/B and trial_layer_c_arms.py's situated-writer arms were
-    every one of them scored through it. See PROMPT_STEP3_MILESTONE_SCORE_BATCH_SITUATED.
+    THE DEFECT THIS EXISTS FOR, AND ITS MEASURED VERDICT. Everything above builds an exchange
+    out of the benchmark, the CSM response and each milestone's description + detection_hint.
+    The client turn, the scenario and the milestone's own `label` are all stored and all
+    discarded here, so the grader cannot see the situation it is grading. That is a real code
+    fact -- and it is NOT the binding constraint: measured 2026-08-15, supplying all three
+    moved discrimination 6.00 (blind) -> 5.84, with heavily overlapping CIs and no ordering.
+    **Keep this switch OFF and do not spend on the idea again.**
+    See PROMPT_STEP3_MILESTONE_SCORE_BATCH_SITUATED for the retraction of the related
+    "trial_layer_c_arms was circular" claim, which was wrong and would have cost ~250 calls.
 
     `label` matters more than it looks: the 2026-08-10 rewrite deliberately stripped
     subject matter out of `description` ("List relevant software platforms to establish

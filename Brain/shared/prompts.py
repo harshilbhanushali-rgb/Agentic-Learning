@@ -606,9 +606,18 @@ miss, so omitting one silently penalises the CSM.
 # situation either belongs to has no way to notice the mismatch, and the 2026-08-10
 # rewrite stripped the specific instance out of the criteria, so a competent response
 # satisfies generic criteria from any scenario. 1.2:1 is what that arrangement predicts
-# arithmetically, independent of rubric quality -- and every quality verdict on this
-# codebase was measured through it, including trial_layer_c_arms.py, which scores the
-# SITUATED-writer arms with this very scorer (line 261). That is circular.
+# arithmetically, independent of rubric quality.
+#
+# AN EARLIER VERSION OF THIS COMMENT CALLED trial_layer_c_arms.py CIRCULAR FOR SCORING ITS
+# SITUATED-WRITER ARMS WITH THIS SCORER. THAT WAS WRONG, TWICE OVER, AND IS RETRACTED:
+#   (1) the CRITERION TEXT carries the specificity a situated writer adds, and the grader
+#       reads the criterion -- "List relevant ATS platforms" is more informative than "List
+#       relevant platforms" whether or not the grader knows the scenario name;
+#   (2) measured 2026-08-15, supplying the situation changes nothing (blind 6.00 vs 5.84
+#       with scenario + client turn + label).
+# That trial is also population-symmetric, unlike the ceiling: matched and unrelated are
+# built from the same rows with only the rubric key swapped (trial_layer_c_arms.py:700-701).
+# Its verdict stands. DO NOT re-run it on circularity grounds.
 #
 # EVERY WORD OF THE ORIGINAL IS PRESERVED. The only additions are {situation_note},
 # which describes exactly the fields a given condition supplies, and whatever those
