@@ -291,7 +291,7 @@ def main() -> None:
     total_calls = len(calls)
     print(f"Parsed {total_calls} transcript(s), {len(all_turns)} turns.")
 
-    clauses, call_ids = layer_a.build_client_clause_pool(all_turns)
+    clauses, call_ids = layer_a.build_client_pool(all_turns, unit=load_tuning().layer_a.pool_unit)
     print(f"CLIENT clause pool: {len(clauses)} clauses. Embedding...")
     vecs = embedder.embed_query_matrix(clauses)
     topic_model, topics = layer_a.fit_topic_model(clauses, vecs)

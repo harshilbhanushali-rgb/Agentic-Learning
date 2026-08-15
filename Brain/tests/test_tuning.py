@@ -10,6 +10,7 @@ layer_a:
   ubiquity_ceiling: 0.4
   merge_cosine_threshold: 0.88
   min_content_words: 5
+  pool_unit: clause
   grouping_method: post_hoc
   primary_topic_merge_threshold: 0.70
   response_taxonomy_purity_gate: 0.90
@@ -134,6 +135,27 @@ def test_missing_key_raises(tmp_path):
     bad = _GOOD.replace("  min_content_words: 5\n", "")
     with pytest.raises(ValueError, match="missing key"):
         load_tuning(_write(tmp_path, bad))
+
+
+def test_pool_unit_is_present_and_ships_clause():
+    """The live file must keep the legacy unit until the turn arm passes its gate.
+
+    Pinned because flipping it silently changes what the whole taxonomy is built
+    from AND invalidates merge_cosine_threshold (different cosine band), so it
+    must never move as a side effect of editing something near it.
+    """
+    t = load_tuning()
+    assert t.layer_a.pool_unit == "clause"
+
+
+def test_pool_unit_only_accepts_the_two_known_units(tmp_path):
+    """load_tuning validates keys, not values, so the guard lives in
+    build_client_pool -- this pins that a typo cannot reach the clustering.
+    """
+    from v2.layer_a import build_client_pool
+
+    with pytest.raises(ValueError, match="pool_unit"):
+        build_client_pool([], unit="sentences")
 
 
 def test_unknown_section_raises(tmp_path):

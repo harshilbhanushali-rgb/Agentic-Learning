@@ -10,9 +10,9 @@ many threshold combinations against that single result. Embeddings are cached
 on disk, so the second run onward skips encoding entirely.
 
 Usage (from Brain/, venv active):
-    python dry_run_layer_a.py --sweep      # compare threshold combinations
-    python dry_run_layer_a.py              # full report for tuning.yaml values
-    python dry_run_layer_a.py --limit 50   # quick pass over 50 transcripts
+    python calibration/dry_run_layer_a.py --sweep      # compare threshold combinations
+    python calibration/dry_run_layer_a.py              # full report for tuning.yaml values
+    python calibration/dry_run_layer_a.py --limit 50   # quick pass over 50 transcripts
 """
 from __future__ import annotations
 
@@ -22,12 +22,19 @@ from pathlib import Path
 
 import numpy as np
 
+# Brain/ is this file's parent -- put it on sys.path so the shared packages
+# (config, shared, v1, v2, preprocessing) resolve whether this script is run
+# directly (python calibration/x.py) or imported (from calibration import x).
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
 from config import load_config
 from preprocessing import embedder
 from preprocessing.transcript_parser import parse_transcript, load_roster
 from shared import cluster_evidence, topic_grouping
 from shared.tuning import load_tuning
-from v2.layer_a import build_client_clause_pool, fit_topic_model
+from v2.layer_a import build_client_pool, fit_topic_model
 
 _BAR = "=" * 78
 _PAD = " " * 31
@@ -63,6 +70,14 @@ def _parse_args():
     p.add_argument("--merge-threshold", type=float, default=None)
     p.add_argument("--support-fraction", type=float, default=None)
     p.add_argument("--ubiquity-ceiling", type=float, default=None)
+    p.add_argument("--min-cluster-size", type=int, default=0,
+                   help="override HDBSCAN min_cluster_size. REQUIRED when comparing pools of "
+                        "different item counts -- the production formula is a hardcoded 50 for "
+                        "any corpus >= 500 items, so it is 0.068%% of the clause pool but "
+                        "0.209%% of the turn pool, a 3x stiffer relative bar")
+    p.add_argument("--pool-unit", choices=["clause", "turn"], default=None,
+                   help="what ONE pool item is; default = tuning.yaml layer_a.pool_unit. "
+                        "'turn' is the arm under test -- see the 2026-08-14 pool-unit spec")
     p.add_argument("--prefilter", action="store_true",
                    help="apply the cheap min_content_words clause pre-filter")
     p.add_argument("--show", default="30", help="rows per section to print, or all")
@@ -296,14 +311,17 @@ def main() -> None:
     print(f"Parsed {total_calls} transcript(s), {len(all_turns)} turns.")
 
     min_words = ta.min_content_words if args.prefilter else 0
-    clauses, call_ids = build_client_clause_pool(all_turns, min_content_words=min_words)
+    pool_unit = args.pool_unit or ta.pool_unit
+    clauses, call_ids = build_client_pool(all_turns, unit=pool_unit,
+                                          min_content_words=min_words)
     if not clauses:
-        raise SystemExit("No CLIENT clauses found -- check transcript parsing.")
+        raise SystemExit("No CLIENT text found -- check transcript parsing.")
     note = " (pre-filtered)" if min_words else ""
-    print(f"CLIENT clause pool: {len(clauses)} clauses{note}. Embedding...")
+    print(f"CLIENT pool [unit={pool_unit}]: {len(clauses)} item(s){note}. Embedding...")
 
     vecs = embedder.embed_query_matrix(clauses)
-    topic_model, topics = fit_topic_model(clauses, vecs)
+    topic_model, topics = fit_topic_model(clauses, vecs,
+                                          min_cluster_size=args.min_cluster_size or None)
 
     members: dict[int, list[int]] = defaultdict(list)
     for i, t in enumerate(topics):

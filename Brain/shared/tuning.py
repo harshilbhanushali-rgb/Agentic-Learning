@@ -22,6 +22,7 @@ class LayerATuning:
     ubiquity_ceiling: float
     merge_cosine_threshold: float
     min_content_words: int
+    pool_unit: str
     grouping_method: str
     primary_topic_merge_threshold: float
     response_taxonomy_purity_gate: float

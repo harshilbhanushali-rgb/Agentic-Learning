@@ -16,40 +16,86 @@ _REPRESENTATIVE_SHOWN = 6
 _TOPIC_LABEL_BATCH_SIZE = 5
 
 
-def build_client_clause_pool(
+POOL_UNIT_CLAUSE = "clause"
+POOL_UNIT_TURN = "turn"
+_POOL_UNITS = (POOL_UNIT_CLAUSE, POOL_UNIT_TURN)
+
+
+def build_client_pool(
     all_turns: list[Turn],
+    unit: str = POOL_UNIT_CLAUSE,
     min_content_words: int = 0,
 ) -> tuple[list[str], list[str]]:
-    """Segment CLIENT turns into clauses, keeping the source call for each one.
+    """Build the CLIENT text pool Layer A clusters, keeping the source call per item.
 
-    Returns parallel lists (clause_texts, call_ids). The call id is what makes
-    every evidence check downstream possible -- distinct-call support cannot be
-    computed from a flat list of strings.
+    Returns parallel lists (texts, call_ids). The call id is what makes every
+    evidence check downstream possible -- distinct-call support cannot be computed
+    from a flat list of strings.
 
-    min_content_words=0 disables the cheap pre-filter (current behaviour).
+    `unit` selects what ONE item is, and it is the whole point of this function:
+
+      "clause"  spaCy sentences of >=4 tokens (legacy, shipped default).
+      "turn"    one whole CLIENT turn -- the SAME unit Layer B matches against in
+                kb_pairs.trigger_text.
+
+    Why the unit matters: clause mode severs a stance sentence from the subject it
+    arrived with, so "Yeah. That makes sense. So for the ATS integration, do we need
+    a pixel?" enters the pool as TWO items, one carrying no subject at all. 59.1% of
+    the clause pool (43,566 of 73,771) is content-free for this reason, and that is
+    the raw material every posture scenario ("client_expresses_uncertainty" and
+    friends) is built from. Measured 2026-08-14: 21/68 scenarios beat a size-matched random null, and
+    20 of those 21 are subject-matter -- 1 of 24 posture scenarios clears it.
+
+    In turn mode this function does NOT call the segmenter at all. That is
+    deliberate: segment_into_clauses is shared with v2/layer_c.py, so leaving it
+    untouched is what proves Layer C's milestone clause pool cannot shift.
+
+    min_content_words=0 disables the cheap pre-filter (production behaviour --
+    note the key layer_a.min_content_words is honoured only by the dry run's
+    --prefilter flag, see the spec).
     """
+    if unit not in _POOL_UNITS:
+        raise ValueError(
+            f"layer_a.pool_unit must be one of {_POOL_UNITS}, got {unit!r}"
+        )
+
     texts: list[str] = []
     call_ids: list[str] = []
     for turn in all_turns:
         if turn.role != SpeakerRole.CLIENT:
             continue
-        for clause in segmenter.segment_into_clauses(turn.text):
-            if min_content_words and not cluster_evidence.is_substantive(clause, min_content_words):
+        items = ([turn.text] if unit == POOL_UNIT_TURN
+                 else segmenter.segment_into_clauses(turn.text))
+        for item in items:
+            if min_content_words and not cluster_evidence.is_substantive(item, min_content_words):
                 continue
-            texts.append(clause)
+            texts.append(item)
             call_ids.append(turn.call_id)
     return texts, call_ids
 
 
-def fit_topic_model(clauses: list[str], embeddings_matrix: np.ndarray):
-    """Fit BERTopic over precomputed embeddings. Returns (topic_model, topics)."""
+def fit_topic_model(clauses: list[str], embeddings_matrix: np.ndarray,
+                    min_cluster_size: int | None = None):
+    """Fit BERTopic over precomputed embeddings. Returns (topic_model, topics).
+
+    min_cluster_size=None keeps the legacy formula, so production is unchanged.
+
+    NOTE the legacy formula is `max(3, min(n // 10, 50))`, and the `n // 10` term is
+    capped at 50 for any corpus of >= 500 items -- so for every real corpus it is a
+    hardcoded COUNT of 50, not a property of the data. That makes granularity depend
+    on pool SIZE: 50 is 0.068% of the 73,771-clause pool but 0.209% of the 23,949-turn
+    pool, a 3x stiffer relative bar. Any comparison of two pools with different item
+    counts MUST pass a scale-matched override here or it measures the bar, not the
+    pools. See docs/superpowers/specs/2026-08-14-layer-a-pool-unit-design.md.
+    """
     from bertopic import BERTopic
     from umap import UMAP
     from hdbscan import HDBSCAN
     from sklearn.feature_extraction.text import CountVectorizer
 
     n = len(clauses)
-    min_cluster_size = max(3, min(n // 10, 50))
+    if min_cluster_size is None:
+        min_cluster_size = max(3, min(n // 10, 50))
     min_samples = max(2, min_cluster_size // 3)
     umap_model = UMAP(n_components=5, n_neighbors=min(15, n - 1), min_dist=0.0, metric="cosine", random_state=42)
     hdbscan_model = HDBSCAN(min_cluster_size=min_cluster_size, min_samples=min_samples,
@@ -403,14 +449,14 @@ def run_layer_a_v2(
             f"tuning.yaml: layer_a.grouping_method must be 'post_hoc' or 'nested', "
             f"got {tuning.grouping_method!r}"
         )
-    client_clauses, call_ids = build_client_clause_pool(all_turns)
+    client_clauses, call_ids = build_client_pool(all_turns, unit=tuning.pool_unit)
 
     if not client_clauses:
-        raise ValueError("No CLIENT clauses found -- check transcript parsing.")
+        raise ValueError("No CLIENT text found -- check transcript parsing.")
 
     total_calls = len(set(call_ids))
-    print(f"[V2 Layer A] Segmented {len(client_clauses)} CLIENT clauses "
-          f"from {total_calls} call(s). Embedding...")
+    print(f"[V2 Layer A] Pooled {len(client_clauses)} CLIENT item(s) "
+          f"[unit={tuning.pool_unit}] from {total_calls} call(s). Embedding...")
     vecs = embedder.embed_query_matrix(client_clauses)
 
     topic_model, topics = fit_topic_model(client_clauses, vecs)
