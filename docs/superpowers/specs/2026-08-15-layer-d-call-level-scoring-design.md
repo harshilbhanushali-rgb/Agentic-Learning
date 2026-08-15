@@ -1,10 +1,11 @@
 # Layer D scores a call, not a reply — and the customer decides what counts (2026-08-15)
 
-Status: **approved, and the scorer is now BUILT — shipped OFF.** `layer_d.scoring_unit`
-defaults to `moment`, so production is byte-identical; `ego_trap/call_scoring.py`,
-`PROMPT_STEP3_CALL_LEVEL_BATCH` and 21 tests exist. **The gate below has NOT passed**: it is
-running as of 2026-08-15 and no result is recorded here yet. The onboarding review (§5) and
-its table are NOT built — nothing in `db/schema.sql` has changed.
+Status: **BUILT, GATED, AND REJECTED BY ITS OWN GATE (2026-08-15).** All three automated
+checks failed, decisively. `layer_d.scoring_unit` stays `moment`; the code remains behind the
+flag as the record of a measured negative, not as a thing to switch on. **Do not enable it.**
+Read "Gate result" at the bottom first — the headline is that the 1-3 turn window was
+load-bearing, not a bug. The onboarding review (§5) was never built and is NOT refuted by
+this; it is the part of the design still worth doing.
 
 Depends on `2026-08-15-grader-inputs-design.md`, which established that the scorer works.
 Read its Confirmation section before this one.
@@ -227,3 +228,66 @@ ordering.
   answer is per-customer ground truth nothing else supplies.
 - **How many expert calls a new customer needs is unmeasured.** 416 calls produced 84 rubrics;
   the floor is unknown. It does not block this work but it blocks a sales conversation.
+
+---
+
+## Gate result (2026-08-15): FAILED all three checks. Do not enable `scoring_unit: call`.
+
+`calibration/trial_call_scoring.py`, 25 leakage-clean calls, 41 (call, scenario) pairs,
+`gemini-3.1-flash-lite` pinned, ~75 requests. Artifact `call_scoring_trial.json`.
+
+| check | bar | result | |
+| --- | --- | --- | --- |
+| 1 discrimination | >= 70%, p<0.05 | **46.4%** (13W/15L/13T), p=0.85 | **FAIL** |
+| 2 quote verification | >= 95% | **80.8%** (21/26) | **FAIL** |
+| 3 `did_occur` null | >= 90% declined | **20.0%** (5/25) | **FAIL** |
+
+### The finding: the 1-3 turn window was load-bearing, not a defect
+
+**Check 1 is the one that kills it.** Under moment scoring the same comparison — matched
+rubric vs a deranged partner's, on identical inputs — wins 77.4% and 82.3% of scenarios.
+Under whole-call scoring it is **46.4% with p=0.85: a coin flip.** Widening the window did not
+add signal, it destroyed the signal that was there.
+
+The mechanism is coherent and shows up in all three checks at once. Give a model an entire
+60-minute transcript and a generic criterion and it will find *something* that loosely
+satisfies it — so the wrong rubric scores as well as the right one (check 1), a scenario that
+never arose looks like it did (check 3), and when no real evidence exists the model supplies
+some (check 2). The narrow window was acting as a **constraint that forced the criteria to be
+about this moment**, and removing it removed the only thing making them discriminating.
+
+This also reframes the earlier measurement that motivated the design. Per-call credit 16.7%
+vs per-reply 14.9% looked like a small gain for a bigger window. It is not a small gain — it
+is a small gain bought at the cost of the instrument.
+
+### Check 2 caught real fabrication on its first run, and it was verified by hand
+
+All 5 failures appear **nowhere in the transcript being scored**, not merely at the wrong
+turn. One was checked end to end: `client_requests_operational_visualization` was credited
+with *"The solution engineer is attached to a deal from day zero. Right? You're actually in
+disco…"* at turn 128 of call `e5ec576d`. That sentence is not in `e5ec576d` at any turn — it
+is in a **different** transcript, `027ed51b`, which the model was never shown. It generated
+plausible expert-sounding phrasing and attached a turn number to it.
+
+**Keep `verify_quotes` regardless of what happens to call mode.** It is free, needs no model
+and no human, and it found a 19% fabrication rate the first time it ran. Any future design
+that widens the evidence window must carry it.
+
+### `did_occur` has now failed at every grain tried
+
+Three attempts, three failures: the standalone applicability judge (1.22:1), the coverage
+judge (64.9% matched vs 65.7% unrelated), and now the coarsest possible form — *"did this
+topic come up anywhere in the last hour"*, with the full transcript in view — at 20%. The
+argument that a coarser question would be easier was reasonable and is now **measured wrong**.
+Treat any fourth variant as speculative.
+
+### What survives
+
+- **The onboarding review (§5) is untouched by this.** It never depended on call-level
+  scoring; it addresses the 39%-dead-criteria problem, which is a content problem. It is the
+  part of this design still worth building.
+- **`verify_quotes`** — keep and reuse.
+- **The gate itself.** Three automated checks, all pre-registered, cost ~75 requests and
+  stopped a change that would have silently degraded scoring to chance while producing
+  confident, quotable, fabricated coaching advice. That is the cheapest failure in this
+  effort's history.
