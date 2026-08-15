@@ -17,6 +17,7 @@ This is a plain-language history of the Brain pipeline: what it does, what went 
 | V2 + primary-topic hierarchy | 2026-07-30 → 08-02 | Added a "parent category" layer above scenarios, found and fixed two new bugs in it |
 | V2 audit pass | 2026-07-28 | Read real samples of Layer B's matching and re-validated a Layer B threshold against the true production taxonomy; found one real content-loss issue not yet fixed (see "Open findings" below) |
 | Response-taxonomy auto-pass | 2026-08-07 → 08-08 | Built a permanent, automatic version of the manual "graduate a homeless topic" fix; hit and fixed a known connection-drop bug again in the wild; ran it for real and rescued 164 pairs into 4 new real scenarios |
+| **Pool unit: the taxonomy is built from fragments** | **2026-08-14 → 08-15** | **Tested whether the SCENARIOS are sound, which four earlier efforts had assumed. Two thirds fail a random-null test. Cause: Layer A groups sentence fragments while Layer B matches whole turns, so 59% of the pool carries no subject. Fix built and shipped OFF; also moved to the Gemini backend and validated against Layer D** |
 | **The ceiling measurement** | **2026-08-11** | **Graded the expert against his own rubrics to find out whether the CSM's 3.1% means anything. It doesn't: the scorer barely tells a matched rubric from a random one. Found the real defect — the rubrics are bimodal, and contingent moves are being graded as mandatory** |
 
 ---
@@ -1252,6 +1253,109 @@ Pinning the model also surfaced a coupling worth remembering: **disabling the mo
 disables key rotation**, because the two share one error path, so a run that believes it is using
 two keys quietly uses one. Model choice and key rotation look independent and are not.
 
+## Scaling Layer D to 100 calls, and three things it exposed (2026-08-13)
+
+Every "we cannot tell" verdict so far came from ~19 CSM transcripts. 107 were already sitting
+on disk, so this was never a data-collection problem — only a processing one.
+
+### First the data had to be trustworthy, and it wasn't
+
+Speaker classification **fails open**: an unlisted Joveo colleague is scored as THE CLIENT, so
+internal chatter becomes client turns, becomes coaching signals, and lands in the gap records as
+findings about a CSM. Nothing errors. A sweep found **87 of 113 speakers unclassified**.
+
+The fix was to stop trusting a hand-kept list. Avoma's own per-meeting rosters carry an email per
+attendee, and `@joveo.com` is a fact where `is_rep` is an inference that mislabels client-side
+contractors. Naren's 412 calls already had rosters; the CSM calls had none, because the existing
+backfill assumes the filename *is* the meeting UUID while CSM files are named
+`{date}_{slug}_{uuid[:8]}`. That 8-hex prefix resolves against the meetings list, so the full UUID
+was recoverable all along — **103 of 103 fetched**.
+
+**The fetch alone would have done nothing.** `ego_trap/` never reads those roster files; it
+classifies from `csm_name` plus `JOVEO_SPEAKER_NAMES`, so the authoritative data had to be fed
+*into* that list. I found this only after fetching all 103, having nearly reported the data as
+trustworthy on the strength of files the pipeline ignores.
+
+Two smaller things measured rather than assumed: the meetings window is **end-exclusive** (the one
+transcript dated on the boundary resolved to zero matches until the end moved a day), and the
+window is now derived from the filenames, because too wide times out while too narrow silently
+resolves nothing and reads identically to "Avoma doesn't have these".
+
+### The run, and a projection of mine that was wrong
+
+100 transcripts, zero tracebacks, ~70 minutes, ~230 calls.
+
+| | 19 calls | 100 calls |
+| --- | --- | --- |
+| attempts | 889 | **4,181** |
+| milestones touched | 237 | **378** |
+| per milestone (mean) | 3.75 | 11.1 |
+| per milestone (MEDIAN) | — | **7.0** |
+| weighted | 0.074–0.080 | **0.0785** |
+
+I predicted 20–30 observations per milestone. The median is **7**, and the error generalises: I
+assumed the milestone count was fixed and only attempts would grow. It isn't — **more calls also
+surface more milestones** (237 → 378), so 5.3× the calls bought 4.7× the attempts but only 2.9× the
+observations each. A median of 25 needs **~350+ calls**, not the ~130 I quoted. Any future "how many
+calls do we need" estimate has to model the denominator growing too.
+
+The weighted score didn't move, which is the correct outcome: same rubrics, same grader, so more
+data makes the number precise rather than different.
+
+### The "CSM never responded" metric is 98.6% an artifact
+
+The response window stops at the **next client turn**. So when a client speaks several turns in a
+row — a pause, a continued thought, a transcriber splitting one utterance — every turn but the last
+gets an **empty** window and is recorded as "nobody responded" by construction.
+
+Measured free over all 100 transcripts: of 5,731 client turns, 2,484 are "none". Of those, **2,449
+(98.6%) are immediately followed by another client turn**, 35 are the last turn of the call, and
+**zero are genuine silence**.
+
+It doesn't measure whether the CSM responded. It measures whether a turn happened to be last in its
+block. **This retires the recorded claim that 36% of gap events were real non-responses**, which had
+been cited as a cause of the low hit rate.
+
+Scored milestones are unaffected — only answered turns are scored, and those are correct. The worse
+damage is *which trigger gets scored*: where a client's substantive question is turn 1 and turn 3 is
+"um, sorry, go ahead", turns 1–2 are discarded and **the filler fragment becomes the trigger** that
+gets matched to a scenario and graded.
+
+### A hypothesis tested and closed for almost nothing
+
+Every Layer C attempt assumed the scenarios were sound and the criteria were the problem. Nobody had
+tested the scenarios. If a scenario contains several distinct situations its rubric describes an
+*average* of them, and an unrelated rubric scores nearly as well because both are vague averages —
+which would produce the measured 0.114-vs-0.090 directly and make Layer A, not Layer C, the lever.
+
+A go/no-go was pinned before looking: split scenarios into tight and loose halves by internal
+coherence, and spend the paid half only if the halves differ by ≥0.05. **They differ by 0.044.
+NO-GO, ~400 calls saved.** Coherence does correlate with scenario size, so that was checked too —
+within the larger scenarios only, the separation is 0.043, unchanged. The verdict survives its own
+control.
+
+Then a free null answered the better question, since uniform coherence could mean uniformly good or
+uniformly mediocre. Shuffle every trigger's scenario assignment, hold group sizes identical,
+recompute: real scenarios score **0.7396**, shuffled ones **0.7061**. The grouping is real but
+**weak** — and the spread *between* scenarios (0.044) is larger than the signal separating a real
+scenario from a shuffled one (0.034). That kills "clean up Layer A by pruning noise clusters": the
+weakness is uniform, so there is no bad subset to remove.
+
+### Why rebuilding everything is not the next step
+
+The obvious response is to rebuild every layer on better embeddings. Against it: the head-to-head
+controls measured the **judge itself**, and it is weak independently of any input. Position-swap
+agreement is 0.669 — the same two responses in swapped order, identical inputs, and it reverses
+itself on a fifth of items. It separates a matched reply from a deliberately unrelated one only
+75/25.
+
+No taxonomy, criteria or embedding change touches either number. A rebuild would spend ~130,000
+embedding requests, reset every rubric and orphan the only clean baseline — to improve the inputs to
+a coin-flip. The cheap test first is to re-run the swap-agreement control on a larger model tier: it
+needs no ground truth, costs ~100 calls, and decides whether the judge is the bottleneck or the
+inputs are. That is 0.1% of the rebuild and it gates the rebuild's entire value — the same argument
+that had just saved 400 calls one level down.
+
 ## Summary: what's true today
 
 - The pipeline clusters data with math first and only spends LLM calls judging the survivors — much cheaper and more consistent than asking an LLM to invent everything from scratch.
@@ -1278,8 +1382,196 @@ two keys quietly uses one. Model choice and key rotation look independent and ar
 - **A better embedder helps one specific thing and is not a cure.** Hosted Gemini embeddings improved the real-vs-junk separation from 0.561 to 0.686 — a genuine win on the exact signal whose failure had been blamed on embedding space — and the 768-wide vector beat the 3072 one, so no index migration is needed. The corrected comparison passed its gate on 2 of 3 measures. Concretely: on that sample the current model files **100%** of pairs into the junk bin (which is why it scores exactly chance), while Gemini recovers **57% of the genuinely coachable ones and still rejects two thirds of the junk**.
 - **The folding question was then re-tested properly and is CLOSED — three attempts, three noes.** Each varied exactly one thing: the original prompt with the old embedder (validity 0.50), the same prompt with Gemini (0.667 — a real improvement, still under the 0.80 bar), and a prompt rewritten specifically to stop the fragmentation (0.50, i.e. worse). The rewrite worked on its target — one behaviour that had been split across thirty phrasings collapsed into a single string with twenty-nine members — and the model simply began varying a different word instead (*open* / *targeted* / *probing* / *clarifying* questions). **Close one axis of variation and it finds another.** The deciding number barely moved: one-offs 78% → 74%. What makes this a conclusion rather than three failures is that the judge passed its blinded sanity check 12/12 and scored a perfect 1.00 on its control in **all three** runs — the instrument held still while the treatments changed.
 - **An argument of mine was wrong here and is retracted.** I claimed a better embedder could not affect the folding result because the one-off count comes from matching identical sentences. That is backwards: merging differently-worded items that mean the same thing is precisely what the grouping step does. The claim would have talked us out of a legitimate experiment, so it was tested instead — and the embedder did help, just not enough.
+- **The measurement is now sound even though the instrument still isn't.** Layer D ran over 100 CSM calls instead of 19 — 4,181 scored judgements against 889, zero failures. The score itself didn't move (0.0785, inside the band already measured), which is exactly right: same rubrics, same grader, so more data makes the number *precise* rather than different. What changed is that 26 individual criteria now have enough observations to be looked at on their own for the first time.
+- **A projection of mine was wrong in a way worth remembering: observations per criterion grow SUB-LINEARLY.** I predicted 20–30 each and the median is 7. More calls don't just add attempts, they also drag previously-untouched criteria into play (237 → 378), so 5.3× the calls bought only 2.9× the observations each. Getting to a median of 25 needs ~350+ calls, not the ~130 I quoted. Any "how many calls do we need" estimate has to model the denominator growing too.
+- **The "the CSM never responded to this" metric is 98.6% an artifact and has been retiring a real explanation.** The response window stops at the next client turn, so whenever a client speaks two turns in a row — a pause, a continued thought, a transcriber splitting one sentence — the earlier turns are recorded as "nobody answered" by construction. Of 2,484 such records, 2,449 are immediately followed by another client turn and **zero** are genuine silence. The scored results are unaffected, but the failure count is meaningless, and worse: where a client's real question is in the first turn and the last is "um, sorry, go ahead", the **filler fragment becomes the thing that gets matched and graded**.
+- **One hypothesis was closed for almost nothing, and it was the right kind of cheap.** The idea that a few badly-mixed scenarios were dragging everything down was testable by splitting them into coherent and incoherent halves — but a threshold pinned *before* looking said the two halves were barely different (0.044 against a 0.05 bar), so the paid half was never bought. ~400 calls saved. A free follow-up then showed the real picture: scenarios *are* genuine groupings but only weakly so, and the variation between them is smaller than that weak signal. So there is no bad subset to prune — the softness is uniform.
+- **Rebuilding everything on a better embedder is not the next step, and the reason is the judge.** Shown the same two responses in swapped order — identical inputs — the judge reverses itself on a fifth of items, and it separates a matched reply from a deliberately unrelated one only 75/25. No change to the taxonomy, the criteria or the embeddings touches either number. A full rebuild would spend ~130,000 embedding requests and reset the only clean baseline in order to improve the inputs to a coin-flip. Re-running that one consistency check on a larger model costs ~100 calls and decides whether the judge is the bottleneck at all.
 - **A cheap, permanent lesson about expensive work:** never let a free operation gate the persistence of an expensive one. One scored run finished all 95 LLM calls and then lost every result, because the results were assembled into a structure containing one small database lookup and written to disk only afterwards — and the connection had gone idle across ~55 minutes of LLM calls. Flush paid results first; treat everything after as best-effort.
 - **"The background task was reported stopped" is not evidence a process died.** Believing it cost a full run: two Layer D runs ended up sharing one database, and both the run log and the comparison script reported success on corrupted data. Check the OS process list, not the harness.
 - **Known open issue, partially addressed by a real, running mechanism now (previously "not yet fixed"):** ~39.7% of trigger-response pairs get filed to a junk "sink" and permanently excluded from every rubric, based on the trigger's wording alone — reading a sample found roughly half of those discarded pairs are actually real coachable content whose *response* (not trigger) carried the value. Eight different attempts to fix this by changing how a pair gets *matched* were all tried and rejected. The fix that actually worked changes the *taxonomy* instead: a permanent pass that finds genuinely recurring sink content and graduates it into a brand-new real scenario, requiring the same content to survive 3 independent re-clusterings before it's trusted enough to write. Proven for real on 2026-08-08: 164 pairs rescued into 4 new scenarios, with zero already-homed pairs disturbed. Currently switched off pending further review — this closes a meaningful slice of the gap, not the whole 39.7%, since only content that clusters cleanly and repeatedly can ever qualify.
 - **The rule this project kept re-learning, now named: filter both arms, or the comparison measures the filter.** Four separate harnesses had each grown a bespoke defence for exactly this — an attempt-drift refusal, a volume-matched placebo, an as-written control on identical items, and a rule that coverage arms report an unconditional denominator — and because the rule itself was never written down, the instance kept recurring. It was caught again in the new pairwise harness by **reading eight verbatim samples**, not from any aggregate: the substantive-text filter was applied to the CSM's client turn but not to the CSM's reply, while the expert's side is filtered on both, so **19.8% of comparisons pitted `"Yeah."` against a real answer** and handed the expert a free win. Fixing it also **halved the length gap** between the two sides, which is the part worth generalising — an asymmetric filter is never only about the rows it drops, because the rows it wrongly admits are skewed on every other axis too. **And the most load-bearing measurement in the project has the same defect:** the ceiling harness compares its clean arm against its control across two different response populations (45 shared pair_ids out of ~350), and the instrument-validity verdict **flips** on which arm pair you read — 1.61 : 1 and failing across populations, 2.26 : 1 and passing within one. No arm pair is both leakage-clean and population-symmetric, and the arm that would settle it was never built. The overall "criteria cannot discriminate" verdict survives on the four-arm trial's independent failure, whose arms do share a population — but it should be cited to that trial, and the widely-quoted 1.2 : 1 is softer than it reads.
 - **Both walls are now closed by measurement, and the last attempt was killed by its own control.** Head-to-head comparison — drop criteria entirely, retrieve the expert's real reply to the nearest comparable client moment, and ask a blinded judge which reply handled it better — was attractive because a useless judge scores 50%, so the null was arithmetic instead of arguable. It failed for **two independent reasons**. First, the expert never spoke into *this* client's moment, so his reply can only ever arrive as a transplant while the CSM's is always native: a control pitting the expert's own real reply against a retrieved reply of his own — same person both sides — found **native wins 83.5%**, replicated to within 0.008. The headline would therefore have announced *"the CSM outperforms the expert"* as a pure retrieval artifact, and the control caught it **before the headline was ever computed**. It is not length (the length-matched subset is *higher* at 0.875), not position (no slot bias at all), and not curable by better retrieval (0.90 → 0.79 across quality quartiles, never reaching the bar). Second, and deeper: the judge **reverses itself on ~20% of items when the two replies are swapped**, so only about a third of its decisions carry information — a property of the judge that no pairing design repairs, corroborated by its picking a matched reply over a *deliberately unrelated* one at only 75/25. **Four approaches, four pre-registered gates, four failures**, each with a specific measured cause; a fifth variant of "get a model to referee" is not the next step, because the referee is what keeps failing. What survives is reusable: **589 verified client moments** across 98 calls, frozen and content-hashed, needing no rubric or Layer D run, and a retrieval step that demonstrably works in both directions. Cost: ~250 calls, with the expensive headline never spent.
+
+---
+
+## The taxonomy was built from sentence fragments (2026-08-14 → 08-15)
+
+Spec: `docs/superpowers/specs/2026-08-14-layer-a-pool-unit-design.md` (Status updates 1–12).
+**Nothing shipped, nothing written to the database.** The switch exists and is turned off.
+
+### The question nobody had asked
+
+Every attempt to fix the coaching scores had assumed the **scenarios** were fine and the
+**rubrics** were the problem. Four separate efforts failed against that assumption. So this
+time the question was the other one: are the scenarios themselves any good?
+
+The test is simple and it had never been run. For each scenario, measure how similar its
+member turns are to each other. That number alone means nothing — is 0.74 good? — so compare
+it against the same number of turns **picked at random from the whole corpus**. A real
+scenario should be tighter than a random pile. That comparison is called a **null**: the score
+you'd get from nothing.
+
+| | score |
+| --- | --- |
+| a random pile of client turns | **0.706** |
+| real scenarios | **0.740** |
+| **only 21 of 68 scenarios beat their own random baseline** | |
+
+**Two thirds of the live taxonomy is statistically indistinguishable from turns picked at
+random.** And the split is almost total: of the 21 that pass, **20 are subject-matter
+scenarios** (budget, ATS integration, landing pages) and **exactly 1 of 24 posture scenarios**
+(`client_direct_denial`, `client_expresses_uncertainty`) passes.
+
+### Why: the pipeline cuts client speech in half, then loses one half
+
+Layer A groups **clauses** — spaCy sentences of 4+ tokens. Layer B matches **whole turns**.
+Those are different units, and the mismatch destroys the subject matter.
+
+One client turn:
+
+> *"Yeah. That makes sense. So for the ATS integration, do we need a separate pixel?"*
+
+becomes **two separate items**: `"That makes sense."` (an attitude, no subject) and the ATS
+question (a subject). Thousands of the first kind cluster together — they genuinely do look
+alike — and the system writes that pile down as a coaching situation. **43,566 of 73,771 pool
+items (59%) carry no subject at all.** That is what `client_expresses_uncertainty` is: 630
+fragments of "I don't know" about 630 different things. No usable rubric can be written for it.
+
+Reading the actual data made it undeniable. `client_direct_denial` contains a Thanksgiving
+aside, a joke about someone's webcam freezing, and a genuine question about knockout
+questions. They share only the word "no".
+
+### The fix: stop cutting
+
+`layer_a.pool_unit: clause | turn`. In turn mode Layer A keeps each client turn whole, so the
+attitude travels with its subject. It is a **removal**, not an addition — and because turn
+mode stops calling the shared sentence-splitter entirely, Layer C (which uses the same
+splitter on Naren's answers, where splitting is correct) provably cannot be affected.
+
+| | clause (today) | turn |
+| --- | --- | --- |
+| items with no subject | 59.1% | **32.8%** |
+| clusters that are real subjects | 8 of 171 (4.7%) | **71 of 191 (37.2%)** |
+| junk clusters | 57% | 41% |
+| attitude coupled to subject | −0.149 | **−0.744** |
+
+Swept across six different grouping thresholds, **the two never overlap** — so the gain comes
+from the unit, not from a threshold that happened to suit it.
+
+### Then we changed the embedder too
+
+Moved to Gemini via the Joveo gateway (`gemini-embedding-2`, `gemini-3.5-flash-lite`). Four
+things worth keeping:
+
+- **Never batch that embedding endpoint.** It silently returns fewer vectors than you asked
+  for, *intermittently* — the same request works or fails depending on when you send it, and it
+  fails hardest on short text, which is 29% of our data. Speed comes from **concurrency** (one
+  text per request, 20 at a time: 24,000 vectors in 8 minutes), never from batching.
+- **Ask for the full-width vector and shrink it locally.** Gemini's vectors can be truncated
+  exactly — verified across 11,977 real turns, every one a perfect match. Asking for the small
+  version directly would have locked 24,000 paid requests to one size.
+- **And the wide vector won.** An earlier note in this repo recorded the small version as
+  better; that measured something else and did not transfer. Following it would have shipped
+  the worse setup with no way to notice.
+- **Every similarity threshold had to be re-derived.** Gemini's numbers sit in a different
+  range, so the grouping threshold is 0.97 here versus 0.85 for the old embedder. Two backends,
+  two correct values, one config setting — a coupling that will bite whoever flips it next.
+
+### Judging the result: nine blind readers
+
+Then the real test. The clusters were exported with **only** their sample turns and keywords —
+no verdict, no name, no description — and nine independent reviewers judged them. Blinding
+matters: a reviewer who can see the answer grades the answer, not the work.
+
+They agreed with the AI **100% on what to throw away**: of 138 clusters it discarded, the
+reviewers wanted **zero** of them back.
+
+And the surviving scenarios read like things you could coach:
+
+> `funnel_conversion_optimization` — *"rising application volumes but declining downstream
+> onboarding and activation rates, requiring root cause diagnosis"*
+
+with keyphrases lifted straight from clients — *"launching this RFP"*, *"cost per activation"*,
+*"radius search"* — against the current taxonomy's *"platform nuances"* and *"feature
+capabilities"*. Nobody changed the prompt; whole turns simply give the model real language to
+quote.
+
+### Does it help the grading tool? Partly answered
+
+| test | result |
+| --- | --- |
+| Routing 6,468 real CSM turns | new taxonomy rejects 64% as non-signals vs 53% — and reading them, the extra rejections are mostly right |
+| Scenarios left with no rubric | **0**, versus 1 today; the weakest has 8 calls behind it |
+| Coverage of moments already found | 74% vs 85% — **but this test is broken, see below** |
+
+The routing test found something uncomfortable about today's pipeline: it currently accepts
+**"If."** and **"I'm not sure."** as coaching signals, filing them under the very posture
+scenarios that fail the random-null test.
+
+### Five mistakes, all mine, and the one that cost the most
+
+This file has a tradition of recording bad experiments. Here are this session's.
+
+**1. Two throwaway scripts disagreed with production by ~20% each.** One loaded the language
+tool with parts switched off for speed, which moves where sentences break. The other forgot to
+pass the real speaker list, so ~5,000 Joveo staff turns were counted as client turns. **Rule: a
+measurement script must call the production code the production way, or its numbers aren't
+comparable to production's.**
+
+**2. I built a quality score that rewarded junk.** It measured how "tight" a cluster was — and
+piles of *"that's huge"* are tighter than real discussions about markets. It correlated **+0.53
+with emptiness**: the worse the cluster, the better it scored. Retired.
+
+**3. I ran an unfair comparison.** I let the new method require clusters three times larger,
+then concluded it "found fewer clusters." Corrected, it finds slightly more. Withdrawn.
+
+**4. I closed a concern on the wrong question.** Asked *"do long turns damage the cluster they
+join?"* (no — they land in the cleanest ones) and treated that as answering *"is content inside
+them lost?"* (yes, ~8–14%). Different questions. **A probe answers what it was built to ask and
+no adjacent thing.**
+
+**5. The expensive one: an analysis bug invented a finding, and a fix that did nothing exposed
+it.** My aggregator asked "did the AI mark this coachable?" by testing one value of a
+four-value field. Two of those values mean *retained* — a cluster recognised as a duplicate and
+folded into an existing scenario is **not** discarded. Counting those as discards produced a
+confident, wrong headline: *"the AI is over-sinking, throwing away 14.6% of the corpus."*
+
+I recorded it, designed a prompt fix for it, and ran 245 more calls. The fix moved agreement
+from 76% to **76%**. A fix aimed at a real defect does not leave its target metric exactly
+where it started — that null result is what sent me back to check, and the bug fell out
+immediately.
+
+**Rule: an analysis script manufactures findings as readily as a measurement script.** Four
+safeguards existed on the data path and none on the analysis path. **When a field has more than
+two values, print the full breakdown instead of collapsing it to yes/no.**
+
+### Also worth knowing
+
+- **`bloom_level` is dead weight.** Written on every scenario, clamped against a rule, stored —
+  and read by nothing. Its instructions are ~20 lines of every adjudication prompt.
+- **`soft_skills` can't support scoring as generated.** 59 distinct labels across 85 scenarios,
+  64% used exactly once, including `strategic probing` / `strategic listening` /
+  `strategic positioning` as three separate things. The grading tool scores CSMs against these.
+- **A live filter deletes the word "Indeed."** English treats it as a filler word, so a sentence
+  about the job board loses the job board's name. `ZipRecruiter` and `Greenhouse` survive. This
+  gates every pair entering the knowledge base today.
+- **Client names form their own clusters.** `implementing_and_maintaining_tracking_pixels` is
+  really *"the Happy Dance account"* — its top keywords are `happy dance, dance, happy`, and
+  only about 5 of 12 sampled turns concern pixels. Both the AI and the blind reviewers accept
+  these, because the samples look substantive. So the "38 coachable scenarios" count is soft.
+- **Every match is decided by a hair.** The winning scenario beats the runner-up by about
+  **0.01** — in both the old and new taxonomies. Nobody has looked at this, and it may matter
+  more than which taxonomy you pick.
+
+### Where it stands
+
+The new taxonomy is **better-formed on every structural measure**: it rejects junk the current
+one accepts, strands no scenarios, and every scenario has real evidence behind it. It is also
+**narrower** — 38 scenarios against 85, though only ~21 of those 85 beat a random pile.
+
+**It is unproven on the thing that matters.** No test here shows better coaching. The coverage
+test that looked like it did is confounded past repair: its definition of "a real coaching
+moment" comes from the old taxonomy, and its two biggest sources are posture scenarios that
+fail the null test. It cannot tell "missing real coaching" from "correctly declining the old
+taxonomy's noise."
