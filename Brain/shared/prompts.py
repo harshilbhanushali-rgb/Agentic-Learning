@@ -658,6 +658,77 @@ miss, so omitting one silently penalises the CSM.
 ]
 """
 
+# CALL-LEVEL scoring, added 2026-08-15 for layer_d.scoring_unit: call.
+# Design: docs/superpowers/specs/2026-08-15-layer-d-call-level-scoring-design.md
+#
+# WHAT CHANGES FROM THE _BATCH PROMPT ABOVE. The unit. That one scores a 1-3 turn reply
+# window; this one puts the WHOLE turn-numbered transcript in front of the model once and
+# asks about several scenarios against it. A move that lands ten turns after the client
+# raised it currently reads as a miss purely because of where the window stopped.
+#
+# WHAT DELIBERATELY DOES NOT CHANGE: the three verdicts and their definitions, word for
+# word. Changing them would make this a wording pass, which stopping condition #1 rules out,
+# and would confound "the model can see the whole call" with "the model was asked
+# differently".
+#
+# TWO ADDITIONS, EACH LOAD-BEARING:
+#
+# did_occur -- asked BEFORE the criteria, per scenario. Scenario detection deliberately
+#   OVER-INCLUDES (the top1-top2 matching margin is ~0.01 cosine, so the best match beats the
+#   runner-up by a hair and picking only the winner is close to arbitrary). Over-including is
+#   safe only if the model can decline a scenario that never arose; without this, every
+#   spurious scenario is scored as all-misses and tanks the score. Note this is a COARSER
+#   relative of a question that failed twice here -- the applicability judge (1.22:1) and the
+#   coverage judge (64.9% vs 65.7%) -- both of which asked "did this MOMENT call for this
+#   MOVE" over 1-3 turns. "Did this topic come up in the last hour", with the transcript in
+#   view, is a different question, and it is gated by its own null test.
+#
+# turn -- the transcript turn number the quote came from. With a 1-3 turn window, location is
+#   implicit; across a 60-minute call it is not. It is what makes the coaching actionable AND
+#   what makes fabrication detectable: the quote must actually appear at or near that turn,
+#   which is a string match needing no model and no human.
+PROMPT_STEP3_CALL_LEVEL_BATCH = """\
+You are evaluating how well a CSM handled specific situations across ONE complete call.
+
+Below is the full transcript with numbered turns, then several SITUATIONS that may have
+arisen in it. Each situation lists the client turns that appear to raise it, a reference
+answer from a senior expert, and the milestones to score.
+
+TRANSCRIPT:
+{transcript}
+
+SITUATIONS:
+{situations_block}
+
+For EACH situation, first decide whether it genuinely arose in this call. Judge the
+transcript, not the situation's description: the candidate list is deliberately broad and
+some situations listed will not have come up at all. If it did not arise, set
+"did_occur": false and score none of its milestones.
+
+For each situation that DID arise, score every one of its milestones using exactly one of
+three verdicts:
+- "full_hit": the milestone is fully satisfied
+- "partial_hit": the CSM attempted this milestone but the response is incomplete or weak
+- "miss": the milestone was not addressed at all
+
+The CSM may satisfy a milestone ANYWHERE in the call — before the client raises the topic,
+in a later answer, or in a summary at the end. Search the whole transcript, not only the
+turns listed under the situation.
+
+For every milestone you score, quote the CSM's own words verbatim and give the turn number
+that quote came from. If the verdict is "miss", leave both empty.
+
+Respond ONLY with valid JSON. Return EVERY situation id and, for situations that occurred,
+EVERY milestone id listed under them; a missing milestone id is recorded as a miss, so
+omitting one silently penalises the CSM.
+[
+  {{"situation_id": "<id>", "did_occur": true, "occurrence_reason": "one sentence",
+    "milestones": [
+      {{"id": "<id>", "verdict": "full_hit", "confidence": "high", "reason": "one sentence explanation", "quote": "verbatim CSM words (empty string if verdict is miss)", "turn": 0, "gap_to_ideal": "one sentence (empty string if verdict is full_hit)"}}
+    ]}}
+]
+"""
+
 # The applicability pre-check, added 2026-08-11 for Layer C's objective function.
 # Design: docs/superpowers/specs/2026-08-11-layer-c-objective-function-design.md
 #

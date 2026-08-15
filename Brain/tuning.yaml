@@ -509,6 +509,36 @@ layer_c:
 # live divergence (settings.py default 0.75 vs .env's actual 0.35). settings.py is
 # deleted; ops/run_ego_trap.py refuses to start if a retired var is still in .env.
 layer_d:
+  # What ONE scoring decision covers. Strategy selector, not a threshold.
+  #   moment -- (shipped) score a rep's reply against the criteria of the scenario matched
+  #             at that moment, over the 1-3 turn response window.
+  #   call   -- score the WHOLE transcript once per scenario chunk, so evidence may come
+  #             from anywhere in the call and each verdict carries a turn_index.
+  #
+  # NOT calibrated. Ships "moment" so production is byte-identical.
+  #
+  # WHY IT IS NOT A FIX FOR THE 9% HIT RATE, measured 2026-08-15 before this key existed:
+  # per-reply credit 14.9% vs per-CALL credit 16.7%, and of the 87 criteria never credited
+  # on any reply, ZERO were credited anywhere in any call. Widening the window recovers
+  # almost nothing -- those moves are simply never performed. This key fixes a different,
+  # real defect (a move that lands ten turns later currently reads as a miss); the level is
+  # addressed by the onboarding review, not here.
+  #
+  # SWITCHING THIS CHANGES WHAT milestone_performance.attempts MEANS -- ~25 moments collapse
+  # to ~1 call -- so W before and after are NOT comparable. Snapshot first.
+  # See docs/superpowers/specs/2026-08-15-layer-d-call-level-scoring-design.md
+  scoring_unit: moment
+
+  # How many scenarios share one call-mode request. Ignored when scoring_unit is "moment".
+  #
+  # The binding constraint is OUTPUT length, not request count: ops/rewrite_milestone_criteria.py
+  # measured that at 20 milestones per request one batch in 21 returned truncated JSON and
+  # those 20 were silently left unprocessed. At ~60 output tokens per criterion, 2-3
+  # scenarios is ~8-12 criteria ~600 tokens; all of a call's ~25 criteria at once is ~1,500+,
+  # which is where truncation already bit. A missing id is recorded as a MISS, so truncation
+  # manufactures coaching failures rather than erroring.
+  scenarios_per_request: 3
+
   # Which Step 0 signal detector runs. Strategy selector, same shape as
   # layer_b.matching_strategy -- not a threshold.
   #   gemma      -- one Gemma call per transcript sees the whole transcript plus the

@@ -8,6 +8,8 @@ from shared.tuning import LayerDTuning, load_tuning
 def _tuning(**overrides):
     base = dict(
         signal_detection_mode="gemma",
+        scoring_unit="moment",
+        scenarios_per_request=3,
         similarity_relative_margin=0.95,
         max_scenarios_per_signal=1,
         gemma_scenario_shortlist_k=0,

@@ -88,6 +88,8 @@ class LayerDTuning:
     _MAX_RUBRIC_RESPONSES), not a tuning key.
     """
     signal_detection_mode: str
+    scoring_unit: str
+    scenarios_per_request: int
     similarity_relative_margin: float
     max_scenarios_per_signal: int
     gemma_scenario_shortlist_k: int

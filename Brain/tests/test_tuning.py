@@ -45,6 +45,8 @@ layer_c:
   describe_mode: legacy
 layer_d:
   signal_detection_mode: gemma
+  scoring_unit: moment
+  scenarios_per_request: 3
   similarity_relative_margin: 0.95
   max_scenarios_per_signal: 1
   gemma_scenario_shortlist_k: 0
