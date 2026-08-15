@@ -249,6 +249,12 @@ Ordered cheapest-first. `REMEDIATION_PROMPT.md` drives this list one item at a t
 | R10 | `trigger_turns` `[:4]` before NULL filter | same filter-vs-cap ordering the commit warns about four lines below. |
 | R11 | F9 batch balance reporting | single-arm batches mean one dropped batch unbalances the arms; nothing counts failures. Twin separation also fails when `n_resp < batch_size` - the `--smoke` path. |
 
+## Found while auditing the R1 fix (2026-08-15) - needs a DB read, so not free
+
+| # | fix | rerun | why the current number is wrong |
+| --- | --- | --- | --- |
+| R14 | `diagnose_rubric_level.py` rubric POPULATION, not just the per-rubric denominator | one read-only DB run (`_fetch_rows` already SELECTs the whole `rubrics` table, so no new query) | R1 fixed the denominator *within* a rubric and left the denominator *across* rubrics biased. `unions` is built from the perf rows, so a rubric Layer D never attempted contributes nothing and vanishes: **78 of the 84 live rubrics appear, and the 6 missing ones' criteria are not in the 395.** Every union is conditional on "Layer D reached this rubric" and so is an over-estimate for the rubric table. Direction is the same as R1 - correcting it lowers the union again and further strengthens the dead-criteria reading. The artifact cannot fix this: an unattempted rubric is absent from it by construction. |
+
 ## Paid - and currently NOT worth it
 
 | # | fix | rerun | verdict |

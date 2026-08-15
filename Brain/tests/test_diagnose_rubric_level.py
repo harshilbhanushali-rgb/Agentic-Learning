@@ -83,6 +83,30 @@ def test_a_partial_hit_counts_as_alive():
     assert u["union"] == pytest.approx(0.5)
 
 
+def test_denominator_can_never_fall_below_the_attempted_count():
+    """The max() guard. A stale or malformed n_criteria_in_rubric must not yield union > 1.
+
+    Untested when the guard was written, which is how a guard becomes a silent repair.
+    """
+    rows = [
+        _row(9, "M1", n_criteria_in_rubric=1, hits=1),   # claims the rubric has 1 criterion
+        _row(9, "M2", n_criteria_in_rubric=1, hits=1),   # ...but two rows exist
+    ]
+    (u,) = drl.union_rows(rows)
+    assert u["n"] == 2
+    assert u["union"] == pytest.approx(1.0)
+    assert u["union"] <= 1.0
+
+
+def test_missing_n_criteria_falls_back_to_the_attempted_count():
+    """An artifact predating the fix has no n_criteria_in_rubric; degrade, do not crash."""
+    rows = [_row(10, "M1", n_criteria_in_rubric=3, hits=1)]
+    del rows[0]["n_criteria_in_rubric"]
+    (u,) = drl.union_rows(rows)
+    assert u["n"] == 1
+    assert u["union"] == pytest.approx(1.0)
+
+
 def test_w_is_unchanged_by_the_denominator_fix():
     """W is attempts-weighted and must keep using only rows that were actually attempted."""
     rows = [

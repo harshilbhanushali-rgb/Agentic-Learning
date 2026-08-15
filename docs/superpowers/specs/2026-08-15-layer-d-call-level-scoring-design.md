@@ -22,8 +22,20 @@ Today Layer D scores a rep's reply against criteria distilled from an expert's c
 | attempts those consume, returning zero | **994 of 4,181 = 24%** |
 | share of a rubric's criteria hit by *somebody* (union), mean | **45%** |
 | the same union, aggregate over all criteria | **181 of 395 = 46%** |
-| criteria Layer D never attempted even once | **17 of 395** |
+| criteria with no `milestone_performance` row at all | **17 of 395** |
 
+> **Both denominators here are conditional on "Layer D reached this rubric".** 84 rubrics are
+> live; only **78** appear, because a rubric with zero attempted criteria produces no rows and
+> is absent entirely — so its criteria are not among the 395 and the 6 missing rubrics are
+> invisible. Every union below is therefore an over-estimate of the union across the rubric
+> table. Correcting that needs the rubric table, i.e. a DB read, so it is filed as its own item
+> rather than folded in here.
+>
+> The 17 are "no perf row", which is *mostly* but not provably "never attempted": **13 sit at
+> interior positions** (e.g. M1/M5/M11 of 13) that a rubric changing after the run cannot
+> explain, and **4 are tail positions** in 3 rubrics where `upsert_rubric` replacing
+> `milestones` under a stable `rubric_id` is not excluded (F16).
+>
 > Union corrected 2026-08-15 (F6/R1). It had been computed over the 378 criteria that carry a
 > `milestone_performance` row rather than the 395 in the rubrics; a criterion nobody attempted
 > was certainly never hit, so excluding it inflated the union. Mean 46% -> 45%, median 46% ->

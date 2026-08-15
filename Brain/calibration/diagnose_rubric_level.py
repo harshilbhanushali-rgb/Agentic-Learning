@@ -157,11 +157,18 @@ def report(rows: list[dict], show: int, source: str) -> dict:
     print("WHY IS THE HIT RATE ~9%?  splitting denominator inflation from dead criteria")
     print("=" * 86)
     print(f"  source: {source}")
-    print(f"  DENOMINATORS: {len(unions)} rubrics holding {tot_crit} criteria; "
-          f"{tot_attempted} of them ({tot_attempted/max(tot_crit,1):.1%}) were attempted at "
-          f"least once by Layer D,")
-    print(f"                so {tot_crit - tot_attempted} criteria have no "
-          f"milestone_performance row at all and were never hit by anybody.")
+    print(f"  DENOMINATORS: {len(unions)} rubrics that Layer D ATTEMPTED AT LEAST ONE "
+          f"criterion of, holding {tot_crit} criteria;")
+    print(f"                {tot_attempted} of those ({tot_attempted/max(tot_crit,1):.1%}) "
+          f"carry a milestone_performance row, so {tot_crit - tot_attempted} were never "
+          f"attempted and")
+    print(f"                therefore never hit. NOT the rubric table: a rubric Layer D "
+          f"never touched contributes no")
+    print(f"                rows, so it is absent here entirely and its criteria are not in "
+          f"the {tot_crit}. The live count")
+    print(f"                is 84 rubrics, so {84 - len(unions)} are missing from this "
+          f"denominator and every union below")
+    print(f"                is conditional on 'Layer D reached this rubric'.")
     print(f"  {len(rows)} criteria scored, {tot_att} attempts, "
           f"{tot_h} full + {tot_p} partial  ->  W = {(tot_h + 0.5*tot_p)/tot_att:.3f}")
 
