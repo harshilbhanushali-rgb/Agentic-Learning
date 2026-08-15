@@ -17,6 +17,7 @@ from shared.prompts import (
     PROMPT_MILESTONE_APPLICABILITY_BATCH,
     PROMPT_STEP3_COVERAGE_SCORE_BATCH,
     PROMPT_STEP3_MILESTONE_SCORE_BATCH,
+    PROMPT_STEP3_MILESTONE_SCORE_BATCH_SITUATED,
     PROMPT_STEP3_SOFT_SKILL_SCORE_BATCH,
 )
 
@@ -163,6 +164,9 @@ def score_milestones_batch(
     require_validated: bool = False,
     applicable_by_item: list[set[str] | None] | None = None,
     show_benchmark: bool = True,
+    situated_fields: frozenset[str] | None = None,
+    model: str | None = None,
+    fallback_models: tuple[str, ...] | None = None,
 ) -> list[list[dict]]:
     """One Gemma call scores every milestone across all items at once.
 
@@ -189,11 +193,42 @@ def score_milestones_batch(
     whatever the topic. Withholding it also removes leak 1 entirely rather than managing
     it, which is the only reason the call-level holdout machinery exists at all.
 
+    situated_fields selects which SITUATIONAL inputs reach the grader, from
+    {"scenario", "client_turn", "label"}. None or empty is production behaviour and the
+    prompt is byte-identical to before; each field is independently switchable so
+    calibration/trial_grader_inputs.py can move ONE at a time.
+
+    THE DEFECT THIS EXISTS FOR. Everything above builds an exchange out of the benchmark,
+    the CSM response and each milestone's description + detection_hint. The client turn,
+    the scenario and the milestone's own `label` are all stored and all discarded here, so
+    the grader has never been able to see the situation it is grading -- and the ceiling
+    measurement, the criteria A/B and trial_layer_c_arms.py's situated-writer arms were
+    every one of them scored through it. See PROMPT_STEP3_MILESTONE_SCORE_BATCH_SITUATED.
+
+    `label` matters more than it looks: the 2026-08-10 rewrite deliberately stripped
+    subject matter out of `description` ("List relevant software platforms to establish
+    the scope...") while `label` kept it ("Identifying ATS Options"), so the situational
+    anchoring that rewrite removed is sitting in a field that was never sent.
+
+    model overrides the scoring model. Default None keeps _SCORING_MODEL, so production is
+    unaffected; a trial pins one model so its arms are not silently blended across two.
+
+    fallback_models=() pins that model HARD. Note it must be an empty TUPLE and not
+    call_gemma's fallback_enabled=False: that flag also disables KEY ROTATION, because a
+    failure then raises GemmaError instead of the _ModelExhausted the key loop catches.
+    Passing an empty fallback list keeps both keys live while allowing no second model --
+    which matters here, since a run that silently blends two models across its arms cannot
+    attribute a difference to the treatment. Default None keeps _SCORING_FALLBACKS.
+
     Ids are still computed over the FULL milestone list before ANY filtering, because
     milestone_id is the array POSITION; deriving them from a filtered list would renumber
     every later milestone and silently repoint existing milestone_performance rows at the
     wrong criterion.
     """
+    fields = situated_fields or frozenset()
+    unknown = fields - {"scenario", "client_turn", "label"}
+    if unknown:                      # a typo'd field must fail loudly, never silently no-op
+        raise ValueError(f"unknown situated_fields: {sorted(unknown)}")
     entries = []
     blocks = []
     for i, item in enumerate(items):
@@ -214,9 +249,14 @@ def score_milestones_batch(
             ):
                 continue
             entries.append((i, milestone_id, milestone))
+            label_line = (
+                f"      LABEL: {milestone.get('label', '')}\n"
+                if "label" in fields and milestone.get("label") else ""
+            )
             ms_lines.append(
                 f"    - id: S{i}_{milestone_id}\n"
-                f"      MILESTONE: {milestone.get('description', '')}\n"
+                + label_line
+                + f"      MILESTONE: {milestone.get('description', '')}\n"
                 f"      DETECTION HINT: {milestone.get('detection_hint', '')}"
             )
         if not ms_lines:
@@ -225,8 +265,21 @@ def score_milestones_batch(
             f"  NAREN'S BENCHMARK RESPONSE (for reference only): "
             f"{item['benchmark_response']}\n" if show_benchmark else ""
         )
+        # Situational fields, each independently switchable so the trial can move ONE at a
+        # time. The client turn is placed BEFORE the response because that is the order the
+        # exchange happened in; the scenario sits with it because both describe the moment
+        # rather than the reply.
+        situation_lines = ""
+        if "scenario" in fields and item.get("scenario_key"):
+            situation_lines += f"  SCENARIO: {item['scenario_key']}\n"
+        if "client_turn" in fields and item.get("client_utterance"):
+            situation_lines += (
+                f"  CLIENT TURN (what the response is answering): "
+                f"\"{item['client_utterance']}\"\n"
+            )
         blocks.append(
             f"- EXCHANGE {i}\n"
+            + situation_lines
             + benchmark_line
             + f"  CSM RESPONSE: \"{item['csm_response_text']}\"\n"
             f"  MILESTONES TO SCORE:\n" + "\n".join(ms_lines)
@@ -236,10 +289,33 @@ def score_milestones_batch(
     if not entries:
         return results_by_item
 
-    prompt = PROMPT_STEP3_MILESTONE_SCORE_BATCH.format(items_block="\n\n".join(blocks))
+    # Build the note from what was ACTUALLY emitted, not from what was requested. A v1
+    # rubric carries no `label` and a caller may not supply the client turn, and a note
+    # announcing a field that no exchange contains tells the model to look for something
+    # that is not there.
+    emitted = {f for f in fields
+               if (f == "scenario" and "SCENARIO:" in "".join(blocks))
+               or (f == "client_turn" and "CLIENT TURN" in "".join(blocks))
+               or (f == "label" and "LABEL:" in "".join(blocks))}
+    if emitted:
+        described = []
+        if "scenario" in emitted:
+            described.append("the SCENARIO the exchange belongs to")
+        if "client_turn" in emitted:
+            described.append("the CLIENT TURN the response is answering")
+        if "label" in emitted:
+            described.append("a short LABEL naming what each milestone is")
+        note = ("\nEach exchange also shows " + ", and ".join(described)
+                + ". Use it to judge whether the response satisfies each milestone in that "
+                  "situation.\n")
+        prompt = PROMPT_STEP3_MILESTONE_SCORE_BATCH_SITUATED.format(
+            situation_note=note, items_block="\n\n".join(blocks))
+    else:
+        prompt = PROMPT_STEP3_MILESTONE_SCORE_BATCH.format(items_block="\n\n".join(blocks))
     raw = call_gemma(
         prompt, config.gemma_api_keys,
-        model=_SCORING_MODEL, fallback_models=_SCORING_FALLBACKS,
+        model=model or _SCORING_MODEL,
+        fallback_models=(_SCORING_FALLBACKS if fallback_models is None else fallback_models),
         max_output_tokens=_SCORING_MAX_OUTPUT_TOKENS,
     )
     scored_by = _gemma.LAST_MODEL_USED

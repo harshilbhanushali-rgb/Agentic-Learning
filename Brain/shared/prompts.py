@@ -590,6 +590,65 @@ miss, so omitting one silently penalises the CSM.
 ]
 """
 
+# SITUATED variant, added 2026-08-15 for calibration/trial_grader_inputs.py.
+# Design: docs/superpowers/specs/2026-08-15-grader-inputs-design.md
+#
+# THE DEFECT IT TESTS. Read from milestone_scoring.score_milestones_batch: the entire
+# per-exchange payload is Naren's benchmark, the CSM response, and per milestone only
+# `description` + `detection_hint`. The grader never sees the CLIENT TURN, the
+# SCENARIO, or the milestone's own `label` -- all three stored and all three discarded
+# at grading time. That is the same missing-INPUT defect the Layer C rebuild found in
+# the WRITER (PROMPT_LAYER_C_MILESTONE_DESCRIBE_BATCH cannot state a precondition
+# because it has never seen a client turn), one stage later and never diagnosed.
+#
+# WHY IT MATTERS BEYOND ONE PROMPT. The ceiling run's control arm scores real responses
+# against a DELIBERATELY UNRELATED scenario's rubric. A grader that cannot see which
+# situation either belongs to has no way to notice the mismatch, and the 2026-08-10
+# rewrite stripped the specific instance out of the criteria, so a competent response
+# satisfies generic criteria from any scenario. 1.2:1 is what that arrangement predicts
+# arithmetically, independent of rubric quality -- and every quality verdict on this
+# codebase was measured through it, including trial_layer_c_arms.py, which scores the
+# SITUATED-writer arms with this very scorer (line 261). That is circular.
+#
+# EVERY WORD OF THE ORIGINAL IS PRESERVED. The only additions are {situation_note},
+# which describes exactly the fields a given condition supplies, and whatever those
+# fields add to each exchange block. Rewording the verdict rules would confound "the
+# grader can see the situation" with "the grader was asked differently" -- and a fourth
+# wording pass is what stopping condition #1 already ruled out.
+#
+# THE ONE CONFOUND, STATED RATHER THAN HIDDEN: information cannot be supplied without a
+# sentence telling the model the field is there, so the treatment is strictly
+# "situational inputs PLUS the minimal instruction to use them". There is no way to
+# separate those two and still deliver the information.
+#
+# IT DELIBERATELY DOES NOT ASK "DID THE MOMENT CALL FOR THIS MOVE." That question has
+# failed twice -- the standalone applicability judge at 1.22:1 and the coverage judge at
+# 64.9% matched vs 65.7% unrelated. The question here is unchanged from the original:
+# did the response satisfy the criterion. Only the visibility of the situation changes.
+PROMPT_STEP3_MILESTONE_SCORE_BATCH_SITUATED = """\
+You are evaluating whether CSM responses satisfy specific coaching milestones.
+
+Below are several INDEPENDENT exchanges. Each exchange has one CSM response and a list of
+milestones to score against it. Evaluate each exchange independently — do not let one
+exchange influence another, and never score a milestone against a different exchange's
+CSM response.
+{situation_note}
+Score every milestone using exactly one of three verdicts:
+- "full_hit": the milestone is fully satisfied
+- "partial_hit": the CSM attempted this milestone but the response is incomplete or weak
+- "miss": the milestone was not addressed at all
+
+EXCHANGES:
+{items_block}
+
+Respond ONLY with valid JSON — a single flat array with exactly one object per milestone
+id, across all exchanges. Return EVERY id listed above; a missing id is recorded as a
+miss, so omitting one silently penalises the CSM.
+[
+  {{"id": "<id>", "verdict": "full_hit", "confidence": "high", "reason": "one sentence explanation", "quote": "verbatim excerpt (empty string if verdict is full_hit)", "gap_to_ideal": "one sentence (empty string if verdict is full_hit)"}}
+]
+"""
+
 # The applicability pre-check, added 2026-08-11 for Layer C's objective function.
 # Design: docs/superpowers/specs/2026-08-11-layer-c-objective-function-design.md
 #
@@ -941,4 +1000,56 @@ Respond ONLY with valid JSON -- one object per id above:
     "gap_to_ideal": "what was missing, empty unless not_covered or partly_covered"
   }}
 ]
+"""
+
+
+# ---------------------------------------------------------------------------------------
+# Head-to-head pairwise comparison (docs/superpowers/specs/2026-08-13-head-to-head-
+# comparison-design.md). Replaces criteria scoring, which closed at 1.2:1 against an
+# unrelated-rubric null across three independent measurements.
+#
+# THREE INVARIANTS, EACH PINNED BY A TEST IN tests/test_head_to_head.py -- they are the
+# instrument, not stylistic choices, and a future edit must not quietly drop one:
+#
+#   1. BLINDED. No name, no role, no hint which reply came from whom. The whole design
+#      rests on the judge comparing quality rather than identifying a person.
+#   2. A VERDICT ON EVERY ITEM, never a returned subset. The objective function's
+#      applicability judge failed its own null at 1.22:1, and the diagnosis was the asking,
+#      not the question: its prompt instructed sparsity, and "return a subset" invites
+#      picking a top few and stopping.
+#   3. NO INSTRUCTION ABOUT REPLY SIZE. That bias is real -- response_word_count scored
+#      AUC 0.853 for "is this coachable" in this repo's own labelled sample -- but it is
+#      measured by the length-matched stratum in shared/head_to_head.py, not argued away
+#      here. Three wording passes have already failed in this codebase.
+#
+# Only ONE client turn is shown, the query moment's. The second reply was given at a
+# different moment, and revealing that would let the judge mark it down for provenance --
+# which is exactly what control C4 measures instead.
+PROMPT_HEAD_TO_HEAD_BATCH = """\
+You are comparing how two people replied at the same point in a business-to-business sales
+conversation about job advertising and recruitment marketing.
+
+Each item below gives one CLIENT TURN and two candidate replies to it, labelled
+"Response 1" and "Response 2". Decide which reply handles THIS client turn better.
+
+Weigh, in this order:
+  - does it engage what the client actually raised, rather than something adjacent?
+  - does it move the conversation toward a decision or a concrete next step?
+  - does it leave the client with something they can act on or now understand?
+
+These are speech transcripts, so ignore transcription noise, filler words, false starts
+and punctuation. Judge the substance of what was said.
+
+Each item has a unique "id". Judge EACH item independently -- do not let one item
+influence another. Return a verdict for every item, including ones you find hard to
+separate; "tie" exists for exactly those. Never omit an item.
+
+ITEMS:
+{items_block}
+
+Respond ONLY with valid JSON -- a single array with exactly one object per item, in this shape:
+[
+  {{"id": "<id>", "winner": "1", "reason": "one sentence justifying the decision"}}
+]
+The "winner" field must be exactly one of "1", "2" or "tie".
 """

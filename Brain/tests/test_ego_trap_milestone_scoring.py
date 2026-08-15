@@ -635,3 +635,95 @@ def test_withholding_the_benchmark_does_not_change_the_ids(mocker):
 
     prompt = gemma.call_args[0][0]
     assert "S0_M1" in prompt and "S0_M2" in prompt
+
+
+# --- situated_fields: the grader's missing situational inputs ---------------
+# Design: docs/superpowers/specs/2026-08-15-grader-inputs-design.md
+#
+# The grader has never seen the client turn, the scenario, or the milestone's own
+# `label` -- all three stored, all three dropped when the prompt is built. These tests
+# pin BOTH directions: that production stays byte-identical when the switch is off, and
+# that each field actually reaches the prompt when it is on.
+
+
+def _situated_item(milestones):
+    return {
+        "rubric": {"milestones": milestones},
+        "csm_response_text": "We support Workday and Greenhouse.",
+        "benchmark_response": "bench",
+        "client_utterance": "What ATS do you work with?",
+        "scenario_key": "ats_integration_requirement",
+    }
+
+
+def _captured_prompt(mocker, **kwargs):
+    spy = mocker.patch(
+        "ego_trap.milestone_scoring.call_gemma",
+        return_value=[{"id": "S0_M1", "verdict": "miss", "confidence": "high",
+                       "reason": "r", "quote": "", "gap_to_ideal": "g"}],
+    )
+    milestone_scoring.score_milestones_batch(
+        [_situated_item([_v2_milestone(1)])], _config(), **kwargs)
+    return spy.call_args[0][0]
+
+
+def test_production_prompt_carries_no_situational_field(mocker):
+    """The default MUST stay byte-identical to the shipped grader. If this fails, a
+    trial flag has leaked into every live Layer D run."""
+    prompt = _captured_prompt(mocker)
+    assert "LABEL:" not in prompt
+    assert "CLIENT TURN" not in prompt
+    assert "SCENARIO:" not in prompt
+    assert "Each exchange also shows" not in prompt
+    assert "What ATS do you work with?" not in prompt
+
+
+def test_label_field_reaches_the_prompt(mocker):
+    """`label` is where the 2026-08-10 rewrite's stripped subject matter still lives."""
+    prompt = _captured_prompt(mocker, situated_fields=frozenset({"label"}))
+    assert "LABEL: L1" in prompt
+    assert "CLIENT TURN" not in prompt      # one field at a time, or the trial is confounded
+    assert "SCENARIO:" not in prompt
+
+
+def test_client_turn_field_reaches_the_prompt(mocker):
+    prompt = _captured_prompt(mocker, situated_fields=frozenset({"client_turn"}))
+    assert "What ATS do you work with?" in prompt
+    assert "LABEL:" not in prompt
+
+
+def test_full_situated_carries_all_three_and_keeps_the_verdict_rules(mocker):
+    prompt = _captured_prompt(
+        mocker, situated_fields=frozenset({"scenario", "client_turn", "label"}))
+    assert "SCENARIO: ats_integration_requirement" in prompt
+    assert "What ATS do you work with?" in prompt
+    assert "LABEL: L1" in prompt
+    # The three-way scale is the thing that must NOT move -- changing it would make this
+    # a wording pass rather than an input repair.
+    for rule in ('"full_hit"', '"partial_hit"', '"miss"'):
+        assert rule in prompt
+
+
+def test_unknown_situated_field_raises_rather_than_silently_no_opping(mocker):
+    """A typo'd field name must fail loudly. A flag that reads as authoritative while
+    doing nothing is the retired ego_trap/settings.py failure class."""
+    import pytest
+    with pytest.raises(ValueError, match="unknown situated_fields"):
+        _captured_prompt(mocker, situated_fields=frozenset({"clientturn"}))
+
+
+def test_missing_situational_values_degrade_quietly(mocker):
+    """A v1 rubric has no `label` and a caller may not supply the client turn. Neither
+    may crash the grader -- the field is simply absent from that exchange."""
+    item = {"rubric": {"milestones": [{"description": "d", "detection_hint": "h"}]},
+            "csm_response_text": "r", "benchmark_response": "b"}
+    spy = mocker.patch(
+        "ego_trap.milestone_scoring.call_gemma",
+        return_value=[{"id": "S0_M1", "verdict": "miss", "confidence": "high",
+                       "reason": "r", "quote": "", "gap_to_ideal": ""}],
+    )
+    results = milestone_scoring.score_milestones_batch(
+        [item], _config(), situated_fields=frozenset({"scenario", "client_turn", "label"}))
+    assert results[0][0]["verdict"] == "miss"
+    prompt = spy.call_args[0][0]
+    assert "LABEL:" not in prompt and "CLIENT TURN" not in prompt
