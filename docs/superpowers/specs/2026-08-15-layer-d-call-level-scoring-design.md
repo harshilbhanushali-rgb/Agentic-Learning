@@ -291,3 +291,70 @@ Treat any fourth variant as speculative.
   stopped a change that would have silently degraded scoring to chance while producing
   confident, quotable, fabricated coaching advice. That is the cheapest failure in this
   effort's history.
+
+---
+
+## CORRECTION and final result (2026-08-15, third run)
+
+**The v1 and v2 discrimination numbers (46.4% and 35.0%) are RETRACTED. They were confounded
+by this harness, not by the design.** A plain derangement gave the matched arm **5.08**
+criteria per pair and the unrelated arm **3.64** — because the trial samples calls that are
+leakage-clean for a scenario, which requires that scenario to have secondary-label pairs (the
+big prominent ones, carrying more milestones), while partners were drawn from all 82. Fewer
+criteria scores higher (`corr(n criteria, W) = -0.146`), so the comparison was biased against
+the matched arm. Restricting to the 10 accidentally equal-sized pairs reversed the direction
+(0.538 vs 0.454).
+
+**The claim built on that — "whole-call scoring destroys discrimination, the 1-3 turn window
+was load-bearing" — does not survive.** It was stated as a firm finding and it was not one.
+
+Fixed by `size_matched_partner`: each scenario pairs with a content-dissimilar one carrying
+**exactly the same number of criteria**, so both arms' denominators are identical by
+construction. All 82 scenarios have such a partner, so nothing is dropped. The report now
+computes criteria-per-arm and refuses to print a readable check-1 number if they differ.
+
+### The clean result: 30 calls, 60 pairs, arms matched at 5.12 criteria/pair
+
+| check | bar | result | |
+| --- | --- | --- | --- |
+| 1 discrimination | >= 70%, p<0.05 | **58.3%** (28W/20L/12T), p=0.31 | **FAIL** |
+| 2 evidence verification | >= 95% | **77.2%** (254/329) | **FAIL** |
+
+| | W | verdicts |
+| --- | --- | --- |
+| matched | **0.523** | 145 full / 31 partial / 131 miss |
+| unrelated | **0.443** | 119 full / 34 partial / 154 miss |
+
+**What is now true, stated precisely.** The right rubric does outscore a stranger's — the
+direction is correct and the earlier inversion was an artifact. But at **58.3%, p=0.31** it is
+neither above the pre-registered bar nor statistically distinguishable from chance, against
+moment mode's 77.4% and 82.3% on the same kind of comparison. **Whole-call scoring
+discriminates materially worse than the 1-3 turn window. It does not discriminate backwards.**
+
+**Check 2 is the decisive failure, and it is unconfounded** — a mechanical string match with
+no arm comparison. **23% of credits cannot be located in the transcript at all, and 30 quotes
+appear nowhere in it.** Fabrication persisted through the v2 fixes that were supposed to
+remove its cause: allowing `across_turns` evidence (79 of 329 credits used it) did not stop
+the model inventing verbatim quotes elsewhere.
+
+**Credit inflation is unfixed.** W 0.523 against moment mode's 0.078. Requiring evidence for
+every credit was the anti-inflation mechanism and it did not work, because the model supplies
+evidence that does not survive checking.
+
+### Verdict
+
+`layer_d.scoring_unit` stays `moment`. The gate fails on evidence verification, cleanly, and
+on discrimination, weakly. **Do not enable call mode and do not attempt a v3 of the prompt** —
+three prompt revisions have now failed, and the residual failure is fabrication under a long
+context, which is not a wording problem.
+
+**The onboarding review (§5) remains untouched by all of this** and is the part of this design
+still worth building.
+
+### Method note worth keeping
+
+The v1/v2 confound is the SYMMETRIC-FILTERING failure this codebase has hit six times, in a
+new disguise: the arms were matched on *content* (deranged partners, cosine-checked) and
+nobody checked they were matched on *size*. **When two arms are compared, enumerate every
+property that differs between them, not just the one under test** — and put the check in the
+harness, which is now done.

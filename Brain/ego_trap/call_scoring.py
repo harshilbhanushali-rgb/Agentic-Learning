@@ -133,18 +133,11 @@ def parse_response(raw, expected: dict[str, list[tuple[str, dict]]],
             continue
         r = by_sid.get(sid)
         if r is None:
-            warnings.append(f"{b.scenario_key}: no verdict returned; treated as not occurred")
-            results.append({"scenario_key": b.scenario_key, "did_occur": False,
-                            "occurrence_reason": "no verdict returned", "returned": False,
+            warnings.append(f"{b.scenario_key}: no verdict returned; scored nothing")
+            results.append({"scenario_key": b.scenario_key, "returned": False,
                             "scored_by": scored_by, "milestones": []})
             continue
-        if not r.get("did_occur", True):
-            results.append({"scenario_key": b.scenario_key, "did_occur": False,
-                            "occurrence_reason": (r.get("occurrence_reason") or "").strip(),
-                            "returned": True, "scored_by": scored_by, "milestones": []})
-            continue
-
-        got = {str(m.get("id")): m for m in (r.get("milestones") or []) if isinstance(m, dict)}
+        got = {str(m.get("id")): m for m in (r.get("milestones") or []) if isinstance(m, dict)}  # noqa: E501
         missing = [mid for mid, _ in expected[sid] if mid not in got]
         if missing:
             warnings.append(f"{b.scenario_key}: {len(missing)} milestone id(s) missing "
@@ -160,25 +153,32 @@ def parse_response(raw, expected: dict[str, list[tuple[str, dict]]],
                 turn = int(turn)
             except (TypeError, ValueError):
                 turn = None
+            turns_list = [t for t in (g.get("turns") or [])
+                          if isinstance(t, int) or (isinstance(t, str) and t.isdigit())]
+            turns_list = [int(t) for t in turns_list]
             out.append({
                 "milestone_id": mid,
                 "milestone_description": m.get("description", ""),
                 "verdict": verdict,
                 "confidence": g.get("confidence") or "low",
                 "reason": (g.get("reason") or "").strip(),
-                # Evidence is meaningless on a full hit and is gated the same way
-                # score_milestones_batch gates it, so the two units stay comparable.
-                "quote": "" if verdict == "full_hit" else (g.get("quote") or "").strip(),
-                "turn": None if verdict == "full_hit" else turn,
+                # EVIDENCE IS KEPT ON FULL HITS. v1 blanked it, copying the moment scorer
+                # where evidence only explains a shortfall -- but in call mode locating the
+                # evidence IS the point, and blanking it left 200 of 239 credits unverifiable,
+                # so the fabrication check only ever saw the partial hits.
+                "evidence_kind": (g.get("evidence_kind") or "").strip(),
+                "quote": (g.get("quote") or "").strip(),
+                "turn": turn,
+                "turns": turns_list,
+                "pattern": (g.get("pattern") or "").strip(),
                 "gap_to_ideal": "" if verdict == "full_hit"
                                 else (g.get("gap_to_ideal") or "").strip(),
                 "evidence": milestone_evidence(m),
                 "scored_by": scored_by,
                 "returned": mid in got,
             })
-        results.append({"scenario_key": b.scenario_key, "did_occur": True,
-                        "occurrence_reason": (r.get("occurrence_reason") or "").strip(),
-                        "returned": True, "scored_by": scored_by, "milestones": out})
+        results.append({"scenario_key": b.scenario_key, "returned": True,
+                        "scored_by": scored_by, "milestones": out})
 
     unexpected = set(by_sid) - {f"S{i}" for i in range(len(chunk))}
     if unexpected:
@@ -186,43 +186,66 @@ def parse_response(raw, expected: dict[str, list[tuple[str, dict]]],
     return results, warnings
 
 
-def verify_quotes(results: list[dict], turns: list[tuple[str, str]],
-                  window: int = 2) -> dict:
-    """Does each cited quote actually appear at or near the turn it claims? FREE, no model.
+def verify_evidence(results: list[dict], turns: list[tuple[str, str]],
+                    window: int = 2, csm_roles: tuple[str, ...] = ("NAREN", "CSM")) -> dict:
+    """Is every CREDIT actually locatable in the transcript? FREE, no model, no human.
 
-    This is the hallucination check a large context window makes necessary and a turn number
-    makes possible. It is deliberately mechanical: no LLM judges it, so it cannot fail the
-    way every judge in this effort has. Matching is on normalised whitespace and case, over a
-    +/- `window` band, because models reflow whitespace and occasionally cite an adjacent turn.
+    Checks EVERY full_hit and partial_hit, not just the ones that happen to carry a quote --
+    v1 blanked the quote on full hits and so verified 26 of 239 credits, the biased 11%.
 
-    An empty quote is not a failure -- full hits are not required to quote.
+    Two evidence forms, each with its own check:
+      at_turn       the quote must appear at or near the turn it claims;
+      across_turns  at least two cited turns must exist AND be CSM turns. There is no quote
+                    to match, so the check is that the cited moments are real and are the
+                    CSM speaking -- which is what stops "across_turns" becoming a hole that
+                    any unevidenced credit escapes through.
+
+    A credit with NO usable evidence of either kind fails. That is the point: the prompt says
+    a credit you cannot evidence is a miss, and this is what makes that claim enforceable.
     """
     texts = [" ".join((t or "").split()).lower() for _, t in turns]
+    roles = [(r or "").upper() for r, _ in turns]
     checked = verified = 0
     failures = []
+    kinds: dict[str, int] = {}
     for r in results:
         for m in r.get("milestones", []):
-            q = " ".join((m.get("quote") or "").split()).lower()
-            if not q:
+            if m.get("verdict") == "miss":
                 continue
             checked += 1
-            t = m.get("turn")
-            if isinstance(t, int) and 1 <= t <= len(texts):
-                lo, hi = max(0, t - 1 - window), min(len(texts), t + window)
-                near = " ".join(texts[lo:hi])
+            kind = (m.get("evidence_kind") or "").strip().lower()
+            if not kind:
+                kind = "at_turn" if m.get("quote") else (
+                    "across_turns" if m.get("turns") else "none")
+            kinds[kind] = kinds.get(kind, 0) + 1
+            ok, why = False, ""
+            if kind == "across_turns":
+                cited = [t for t in (m.get("turns") or []) if 1 <= t <= len(texts)]
+                csm = [t for t in cited if roles[t - 1] in csm_roles]
+                ok = len(csm) >= 2
+                why = f"{len(csm)} valid CSM turns cited of {len(m.get('turns') or [])}"
             else:
-                near = ""
-            if q in near:
+                q = " ".join((m.get("quote") or "").split()).lower()
+                t = m.get("turn")
+                if q and isinstance(t, int) and 1 <= t <= len(texts):
+                    lo, hi = max(0, t - 1 - window), min(len(texts), t + window)
+                    ok = q in " ".join(texts[lo:hi])
+                    why = "quote not at cited turn" if not ok else ""
+                else:
+                    why = "no quote or no turn"
+            if ok:
                 verified += 1
             else:
-                anywhere = any(q in x for x in texts)
+                q = " ".join((m.get("quote") or "").split()).lower()
                 failures.append({"scenario_key": r["scenario_key"],
-                                 "milestone_id": m["milestone_id"], "turn": t,
-                                 "quote": m.get("quote", "")[:120],
-                                 "found_elsewhere": anywhere})
+                                 "milestone_id": m["milestone_id"],
+                                 "verdict": m.get("verdict"), "kind": kind,
+                                 "turn": m.get("turn"), "turns": m.get("turns"),
+                                 "quote": (m.get("quote") or "")[:120], "why": why,
+                                 "found_elsewhere": bool(q) and any(q in x for x in texts)})
     return {"checked": checked, "verified": verified,
             "rate": verified / checked if checked else float("nan"),
-            "failures": failures}
+            "kinds": kinds, "failures": failures}
 
 
 def score_call(transcript_turns: list[tuple[str, str]], blocks: list[ScenarioBlock],

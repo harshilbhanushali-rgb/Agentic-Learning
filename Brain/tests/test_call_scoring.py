@@ -97,25 +97,28 @@ def _parse(reply, blocks, skip_uncoachable=False):
     return call_scoring.parse_response(reply, expected, blocks)
 
 
-def test_did_occur_false_scores_nothing_and_is_not_a_pile_of_misses():
-    """The whole point of over-including candidate scenarios. If a declined scenario
-    came back as all-miss it would tank the score instead of being excluded."""
-    blocks = [_block("s0")]
-    results, _ = _parse([{"situation_id": "S0", "did_occur": False,
-                          "occurrence_reason": "never came up"}], blocks)
-    assert results[0]["did_occur"] is False
-    assert results[0]["milestones"] == []
-
-
-def test_a_scenario_the_model_never_mentions_is_NOT_OCCURRED_not_all_miss():
+def test_a_scenario_the_model_never_mentions_scores_NOTHING_not_all_miss():
     """A dropped id must not become a full set of fabricated coaching failures --
     that is precisely how truncation would corrupt a run."""
     blocks = [_block("s0"), _block("s1")]
-    results, warnings = _parse([{"situation_id": "S0", "did_occur": True, "milestones": [
+    results, warnings = _parse([{"situation_id": "S0", "milestones": [
         {"id": "M1", "verdict": "full_hit"}, {"id": "M2", "verdict": "miss"}]}], blocks)
     s1 = [r for r in results if r["scenario_key"] == "s1"][0]
-    assert s1["did_occur"] is False and s1["milestones"] == [] and s1["returned"] is False
+    assert s1["milestones"] == [] and s1["returned"] is False
     assert any("no verdict returned" in w for w in warnings)
+
+
+def test_did_occur_is_gone_from_the_contract():
+    """It failed at every grain tried -- 1.22:1 standalone, 64.9% vs 65.7% in the coverage
+    judge, and 20% at call level. A stray did_occur in a reply must simply be ignored, not
+    silently resurrect the old short-circuit."""
+    blocks = [_block("s0", n_milestones=1)]
+    results, _ = _parse([{"situation_id": "S0", "did_occur": False,
+                          "milestones": [{"id": "M1", "verdict": "full_hit",
+                                          "evidence_kind": "at_turn", "quote": "q",
+                                          "turn": 2}]}], blocks)
+    assert "did_occur" not in results[0]
+    assert results[0]["milestones"][0]["verdict"] == "full_hit"
 
 
 def test_a_missing_milestone_inside_a_scored_scenario_defaults_to_miss_and_warns():
@@ -135,15 +138,21 @@ def test_unrecognised_verdict_becomes_miss():
     assert results[0]["milestones"][0]["verdict"] == "miss"
 
 
-def test_evidence_is_gated_on_full_hit_exactly_as_the_moment_scorer_gates_it():
+def test_EVIDENCE_IS_KEPT_ON_FULL_HITS():
+    """DELIBERATELY THE OPPOSITE OF v1, which blanked it by copying the moment scorer.
+    There, evidence only explains a shortfall; here, locating the evidence IS the point, and
+    blanking it left 200 of 239 credits unverifiable so the fabrication check saw only 11%.
+    gap_to_ideal is still blanked on a full hit -- there is no gap to describe."""
     blocks = [_block("s0", n_milestones=2)]
-    results, _ = _parse([{"situation_id": "S0", "did_occur": True, "milestones": [
-        {"id": "M1", "verdict": "full_hit", "quote": "x", "turn": 2, "gap_to_ideal": "g"},
-        {"id": "M2", "verdict": "partial_hit", "quote": "y", "turn": 4, "gap_to_ideal": "g"}]}],
-        blocks)
+    results, _ = _parse([{"situation_id": "S0", "milestones": [
+        {"id": "M1", "verdict": "full_hit", "evidence_kind": "at_turn", "quote": "x",
+         "turn": 2, "gap_to_ideal": "g"},
+        {"id": "M2", "verdict": "partial_hit", "evidence_kind": "across_turns",
+         "turns": [3, 7], "pattern": "p", "gap_to_ideal": "g"}]}], blocks)
     full, partial = results[0]["milestones"]
-    assert full["quote"] == "" and full["turn"] is None and full["gap_to_ideal"] == ""
-    assert partial["quote"] == "y" and partial["turn"] == 4
+    assert full["quote"] == "x" and full["turn"] == 2
+    assert full["gap_to_ideal"] == ""
+    assert partial["turns"] == [3, 7] and partial["pattern"] == "p"
 
 
 def test_non_integer_turn_degrades_to_none_rather_than_crashing():
@@ -171,23 +180,24 @@ def test_a_dict_wrapped_reply_is_accepted_like_the_batch_scorer():
 
 # --- quote verification: the design's hallucination check -----------------
 
-def _res(quote, turn, verdict="partial_hit"):
-    return [{"scenario_key": "s", "did_occur": True, "milestones": [
-        {"milestone_id": "M1", "verdict": verdict, "quote": quote, "turn": turn}]}]
+def _res(quote=None, turn=None, verdict="partial_hit", kind="at_turn", turns=None):
+    return [{"scenario_key": "s", "milestones": [
+        {"milestone_id": "M1", "verdict": verdict, "evidence_kind": kind,
+         "quote": quote or "", "turn": turn, "turns": turns or [], "pattern": ""}]}]
 
 
 def test_a_real_quote_at_the_right_turn_verifies():
-    v = call_scoring.verify_quotes(_res("bridge it with a pixel", 2), TURNS)
+    v = call_scoring.verify_evidence(_res("bridge it with a pixel", 2), TURNS)
     assert v["checked"] == 1 and v["verified"] == 1 and v["rate"] == 1.0
 
 
 def test_whitespace_and_case_do_not_break_verification():
-    v = call_scoring.verify_quotes(_res("BRIDGE  IT   with a PIXEL", 2), TURNS)
+    v = call_scoring.verify_evidence(_res("BRIDGE  IT   with a PIXEL", 2), TURNS)
     assert v["verified"] == 1
 
 
 def test_an_invented_quote_fails_and_is_reported_verbatim():
-    v = call_scoring.verify_quotes(_res("I guarantee a 300% lift", 2), TURNS)
+    v = call_scoring.verify_evidence(_res("I guarantee a 300% lift", 2), TURNS)
     assert v["verified"] == 0
     assert v["failures"][0]["found_elsewhere"] is False
     assert "300%" in v["failures"][0]["quote"]
@@ -196,19 +206,52 @@ def test_an_invented_quote_fails_and_is_reported_verbatim():
 def test_a_real_quote_cited_at_the_wrong_turn_is_flagged_but_marked_found_elsewhere():
     """Distinguishing 'fabricated' from 'misattributed' matters: one is a lie, the
     other is a citation bug, and they need different responses."""
-    v = call_scoring.verify_quotes(_res("fifty thousand a quarter", 1), TURNS, window=0)
+    v = call_scoring.verify_evidence(_res("fifty thousand a quarter", 1), TURNS, window=0)
     assert v["verified"] == 0 and v["failures"][0]["found_elsewhere"] is True
 
 
 def test_an_adjacent_turn_still_verifies_within_the_window():
-    v = call_scoring.verify_quotes(_res("bridge it with a pixel", 3), TURNS, window=2)
+    v = call_scoring.verify_evidence(_res("bridge it with a pixel", 3), TURNS, window=2)
     assert v["verified"] == 1
 
 
-def test_empty_quotes_are_not_counted_as_failures():
-    """A full hit is not required to quote, so an empty quote must not depress the rate."""
-    v = call_scoring.verify_quotes(_res("", None, verdict="full_hit"), TURNS)
-    assert v["checked"] == 0 and v["failures"] == []
+def test_FULL_HITS_ARE_CHECKED_TOO():
+    """v1 blanked the quote on a full hit, so 200 of 239 credits were never verifiable and
+    the fabrication check only ever saw partial hits. A full hit with no evidence must FAIL."""
+    v = call_scoring.verify_evidence(_res(verdict="full_hit"), TURNS)
+    assert v["checked"] == 1 and v["verified"] == 0
+    assert v["failures"][0]["why"] == "no quote or no turn"
+
+
+def test_misses_are_not_checked():
+    v = call_scoring.verify_evidence(_res(verdict="miss"), TURNS)
+    assert v["checked"] == 0
+
+
+def test_across_turns_needs_two_real_CSM_turns():
+    """Otherwise 'across_turns' becomes the hole every unevidenced credit escapes through."""
+    ok = call_scoring.verify_evidence(
+        _res(kind="across_turns", turns=[2, 4]), TURNS, csm_roles=("CSM",))
+    assert ok["verified"] == 1
+
+    one = call_scoring.verify_evidence(
+        _res(kind="across_turns", turns=[2]), TURNS, csm_roles=("CSM",))
+    assert one["verified"] == 0
+
+    # turns 1 and 3 are the CLIENT speaking -- citing those is not evidence the CSM did it.
+    client = call_scoring.verify_evidence(
+        _res(kind="across_turns", turns=[1, 3]), TURNS, csm_roles=("CSM",))
+    assert client["verified"] == 0
+
+    outside = call_scoring.verify_evidence(
+        _res(kind="across_turns", turns=[99, 100]), TURNS, csm_roles=("CSM",))
+    assert outside["verified"] == 0
+
+
+def test_evidence_kind_is_inferred_when_the_model_omits_it():
+    v = call_scoring.verify_evidence(
+        _res(kind="", turns=[2, 4]), TURNS, csm_roles=("CSM",))
+    assert v["verified"] == 1 and v["kinds"] == {"across_turns": 1}
 
 
 # --- the impure entry point ----------------------------------------------
@@ -216,7 +259,7 @@ def test_empty_quotes_are_not_counted_as_failures():
 def test_score_call_chunks_and_pins_the_model(mocker):
     spy = mocker.patch(
         "ego_trap.call_scoring.call_gemma",
-        return_value=[{"situation_id": "S0", "did_occur": True,
+        return_value=[{"situation_id": "S0",
                        "milestones": [{"id": "M1", "verdict": "full_hit"},
                                       {"id": "M2", "verdict": "miss"}]}],
     )
@@ -226,8 +269,8 @@ def test_score_call_chunks_and_pins_the_model(mocker):
     assert spy.call_count == 2                       # 4 scenarios / 2 per request
     assert spy.call_args.kwargs["model"] == "pinned"
     assert spy.call_args.kwargs["fallback_models"] == ()
-    # Each request answers only S0, so the second scenario in each chunk is not-occurred.
-    assert sum(1 for r in results if r["did_occur"]) == 2
+    # Each request answers only S0, so the second scenario in each chunk scores nothing.
+    assert sum(1 for r in results if r["milestones"]) == 2
 
 
 def test_score_call_puts_the_whole_transcript_in_every_request():

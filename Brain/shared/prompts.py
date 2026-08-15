@@ -671,28 +671,43 @@ miss, so omitting one silently penalises the CSM.
 # and would confound "the model can see the whole call" with "the model was asked
 # differently".
 #
-# TWO ADDITIONS, EACH LOAD-BEARING:
+# --- REVISION 2, after v1 failed its own gate on 2026-08-15 ------------------------------
+# v1 asked did_occur first, then demanded a verbatim quote + turn for every credit. Measured:
+# discrimination 46.4% (p=0.85, a coin flip, against moment mode's 77-82%), did_occur declined
+# only 20% of scenarios that never happened, and 19% of cited quotes were fabricated -- one
+# verified by hand as a sentence from a DIFFERENT transcript the model was never shown.
 #
-# did_occur -- asked BEFORE the criteria, per scenario. Scenario detection deliberately
-#   OVER-INCLUDES (the top1-top2 matching margin is ~0.01 cosine, so the best match beats the
-#   runner-up by a hair and picking only the winner is close to arbitrary). Over-including is
-#   safe only if the model can decline a scenario that never arose; without this, every
-#   spurious scenario is scored as all-misses and tanks the score. Note this is a COARSER
-#   relative of a question that failed twice here -- the applicability judge (1.22:1) and the
-#   coverage judge (64.9% vs 65.7%) -- both of which asked "did this MOMENT call for this
-#   MOVE" over 1-3 turns. "Did this topic come up in the last hour", with the transcript in
-#   view, is a different question, and it is gated by its own null test.
+# THE AUDIT FOUND THAT TWO OF THOSE THREE WERE PARTLY SELF-INFLICTED:
+#   - the scorer credited 200 full hits / 39 partial / 151 miss = W 0.56, SEVEN TIMES moment
+#     mode's 0.078. Both arms pushed to the ceiling is what destroyed separation;
+#   - a verbatim single-turn quote was MANDATORY for every credit. A criterion satisfied by
+#     the shape of a conversation has no single quotable turn, so requiring one invites the
+#     model to invent one. The fabrication was probably manufactured by the prompt.
 #
-# turn -- the transcript turn number the quote came from. With a 1-3 turn window, location is
-#   implicit; across a 60-minute call it is not. It is what makes the coaching actionable AND
-#   what makes fabrication detectable: the quote must actually appear at or near that turn,
-#   which is a string match needing no model and no human.
+# WHAT CHANGED HERE, AND WHY EACH IS STRUCTURAL RATHER THAN A WORDING TWEAK:
+#
+# did_occur is GONE. It has now failed at every grain tried -- 1.22:1 standalone, 64.9% vs
+#   65.7% in the coverage judge, 20% here. Without it, over-including candidate scenarios is
+#   unsafe, so scenario selection falls back to matching alone. That fallback was
+#   pre-registered in the design as the consequence of this check failing.
+#
+# TWO EVIDENCE FORMS. "at_turn" for a moment that carries the credit; "across_turns" for a
+#   milestone genuinely satisfied by the arc of the call, which must still name >= 2 CSM turns
+#   and state the pattern. This is the honest version of the requirement: some milestones ARE
+#   distributed, and the previous prompt made those unprovable-therefore-fabricated.
+#
+# EVIDENCE IS MANDATORY FOR EVERY CREDIT, INCLUDING full_hit, and "a credit you cannot
+#   evidence is a miss". This is the anti-inflation mechanism and it is a CONSTRAINT, not a
+#   tone change: what cannot be located cannot be credited. Making evidence optional would
+#   make inflation worse, not better. v1 additionally DISCARDED the quote on full hits, so
+#   200 of 239 credits were never checkable at all -- that is fixed in call_scoring.
+#
+# The three verdicts and their definitions are still unchanged, word for word.
 PROMPT_STEP3_CALL_LEVEL_BATCH = """\
 You are evaluating how well a CSM handled specific situations across ONE complete call.
 
-Below is the full transcript with numbered turns, then several SITUATIONS that may have
-arisen in it. Each situation lists the client turns that appear to raise it, a reference
-answer from a senior expert, and the milestones to score.
+Below is the full transcript with numbered turns, then the SITUATIONS that arose in it. Each
+situation lists a reference answer from a senior expert and the milestones to score.
 
 TRANSCRIPT:
 {transcript}
@@ -700,34 +715,38 @@ TRANSCRIPT:
 SITUATIONS:
 {situations_block}
 
-For EACH situation, first decide whether it genuinely arose in this call. Judge the
-transcript, not the situation's description: the candidate list is deliberately broad and
-some situations listed will not have come up at all. If it did not arise, set
-"did_occur": false and score none of its milestones.
-
-For each situation that DID arise, score every one of its milestones using exactly one of
-three verdicts:
+Score every milestone using exactly one of three verdicts:
 - "full_hit": the milestone is fully satisfied
 - "partial_hit": the CSM attempted this milestone but the response is incomplete or weak
 - "miss": the milestone was not addressed at all
 
-The CSM may satisfy a milestone ANYWHERE in the call — before the client raises the topic,
-in a later answer, or in a summary at the end. Search the whole transcript, not only the
-turns listed under the situation.
+The CSM may satisfy a milestone ANYWHERE in the call - before the client raises the topic, in
+a later answer, or in a summary at the end. Search the whole transcript.
 
-For every milestone you score, quote the CSM's own words verbatim and give the turn number
-that quote came from. If the verdict is "miss", leave both empty.
+EVERY "full_hit" AND "partial_hit" MUST BE EVIDENCED, in one of exactly two ways. A credit you
+cannot evidence is a "miss".
 
-Respond ONLY with valid JSON. Return EVERY situation id and, for situations that occurred,
-EVERY milestone id listed under them; a missing milestone id is recorded as a miss, so
-omitting one silently penalises the CSM.
+  "at_turn"      one moment carries it. Give the turn number and quote the CSM's words from
+                 that turn VERBATIM - copied exactly from the transcript above, not
+                 paraphrased and not reconstructed.
+  "across_turns" the milestone is satisfied by the SHAPE of the conversation rather than any
+                 one sentence, so no single quote carries it. Give at least TWO turn numbers
+                 where the CSM does the thing, and state in one sentence what the pattern is.
+                 Use this when it is genuinely true, not when you cannot find a quote.
+
+Every turn number you give must be a turn where the CSM is speaking. If you cannot point to
+real turns, the verdict is "miss".
+
+Respond ONLY with valid JSON. Return EVERY milestone id listed; a missing id is recorded as a
+miss, so omitting one silently penalises the CSM.
 [
-  {{"situation_id": "<id>", "did_occur": true, "occurrence_reason": "one sentence",
-    "milestones": [
-      {{"id": "<id>", "verdict": "full_hit", "confidence": "high", "reason": "one sentence explanation", "quote": "verbatim CSM words (empty string if verdict is miss)", "turn": 0, "gap_to_ideal": "one sentence (empty string if verdict is full_hit)"}}
-    ]}}
+  {{"situation_id": "<id>", "milestones": [
+    {{"id": "<id>", "verdict": "full_hit", "confidence": "high", "reason": "one sentence", "evidence_kind": "at_turn", "turn": 0, "quote": "verbatim CSM words from that turn", "turns": [], "pattern": "", "gap_to_ideal": ""}},
+    {{"id": "<id>", "verdict": "partial_hit", "confidence": "medium", "reason": "one sentence", "evidence_kind": "across_turns", "turn": null, "quote": "", "turns": [12, 40, 77], "pattern": "one sentence describing the pattern", "gap_to_ideal": "one sentence"}}
+  ]}}
 ]
 """
+
 
 # The applicability pre-check, added 2026-08-11 for Layer C's objective function.
 # Design: docs/superpowers/specs/2026-08-11-layer-c-objective-function-design.md
