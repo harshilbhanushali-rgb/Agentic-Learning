@@ -262,25 +262,30 @@ def _scope(conn, baseline_schema: str) -> list[str]:
 
 
 def _pools(conn, scenario_key: str) -> tuple[list[dict], list[dict], set]:
-    """(primary rows, secondary rows, primary call_ids) for one scenario."""
+    """(primary rows, secondary rows, primary call_ids) for one scenario.
+
+    trigger_text is selected but unused here; calibration/validate_rubrics.py reuses this
+    query and needs the CLIENT turn for its applicability judge. One definition of the
+    pool beats two that can drift.
+    """
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT p.pair_id, p.response_text, c.filename, p.call_id
+            SELECT p.pair_id, p.response_text, c.filename, p.call_id, p.trigger_text
             FROM kb_pairs p JOIN calls c ON c.call_id = p.call_id
             WHERE p.scenario_key = %(k)s
             ORDER BY p.pair_id
         """, {"k": scenario_key})
         primary = [{"pair_id": r[0], "response_text": r[1], "call_filename": r[2],
-                    "call_id": r[3]} for r in cur.fetchall()]
+                    "call_id": r[3], "trigger_text": r[4]} for r in cur.fetchall()]
         cur.execute("""
-            SELECT p.pair_id, p.response_text, c.filename, p.call_id
+            SELECT p.pair_id, p.response_text, c.filename, p.call_id, p.trigger_text
             FROM kb_pairs p JOIN calls c ON c.call_id = p.call_id
             WHERE %(k)s = ANY(p.scenario_keys)
               AND p.scenario_key IS DISTINCT FROM %(k)s
             ORDER BY p.pair_id
         """, {"k": scenario_key})
         secondary = [{"pair_id": r[0], "response_text": r[1], "call_filename": r[2],
-                      "call_id": r[3]} for r in cur.fetchall()]
+                      "call_id": r[3], "trigger_text": r[4]} for r in cur.fetchall()]
     return primary, secondary, {r["call_id"] for r in primary}
 
 

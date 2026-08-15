@@ -22,8 +22,8 @@ Zero Gemma. Zero DB writes. Imports replay_layer_c_admitted's own _pass1/_route 
 it measures the same thing that arm measured, not a re-implementation.
 
 Usage (from Brain/, venv active):
-    python check_milestone_thickening.py
-    python check_milestone_thickening.py --clauses 12
+    python calibration/check_milestone_thickening.py
+    python calibration/check_milestone_thickening.py --clauses 12
 """
 from __future__ import annotations
 import argparse
@@ -34,10 +34,17 @@ if sys.path and sys.path[0] not in ("", "."):
 
 import numpy as np
 
+# Brain/ is this file's parent -- put it on sys.path so the shared packages
+# (config, shared, v1, v2, preprocessing) resolve whether this script is run
+# directly (python calibration/x.py) or imported (from calibration import x).
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+
 from config import load_config
 from shared import storage
 from shared.tuning import load_tuning
-from replay_layer_c_admitted import _load_everything, _route, _pass1
+from calibration.replay_layer_c_admitted import _load_everything, _route, _pass1
 
 
 def _parse_args():
