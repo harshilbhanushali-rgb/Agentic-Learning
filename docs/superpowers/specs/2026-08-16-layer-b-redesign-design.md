@@ -1,7 +1,12 @@
-# Layer B redesign: segmentation and routing, measured against rubrics
+# Layer B redesign: segmentation, admission and routing, measured against rubrics
 
 **Date:** 2026-08-16
 **Status:** PRE-REGISTERED — written before any arm has been built or run.
+**Revision 1 (same day, before any run):** the arm set was reorganised from "S1 in every
+treatment arm" to a promising-first shortlist, and Knob A was promoted from deferred to a
+first-class knob. Recorded here rather than silently edited, because a pre-registration amended
+after seeing results is not a pre-registration. Nothing had been built or run when this revision
+was made. The failure conditions (§5) and metrics (§4) are unchanged from revision 0.
 **Predecessors:** `2026-08-16-layer-bc-downstream-validation-design.md` (the instrument, and the
 result that reopens this), `2026-08-16-layer-a-routing-method-design.md` (the withdrawn routing
 ranking), `2026-08-04-layer-b-sink-rescue-design.md` (closed, do not re-litigate).
@@ -26,7 +31,7 @@ questions:
 | # | Decision | Where | Defects it owns |
 | --- | --- | --- | --- |
 | 1 | **Segmentation** — what is one unit of evidence | `extract_pairs` :40-70 | §2.3 consecutive client turns, §2.4 teammate discarded |
-| 2 | **Admission** — is this evidence at all | `_is_substantive` :27-31 | §2.2 81% loss, §2.8 `Indeed`, §2.9 two knobs |
+| 2 | **Admission** — is this evidence at all | `_is_substantive` :27-31, applied at :45 AND :54 | §2.2 81% loss, §2.8 `Indeed`, §2.9 two knobs |
 | 3 | **Routing** — which scenario | `assign_scenarios` :127-144 | §2.5 57.9% to sinks, §2.6 0.01 margin, §2.7 membership discarded |
 
 (§ numbers are `HANDOFF_LAYER_B_REDESIGN.md`.)
@@ -37,9 +42,9 @@ three questions, so a change to any one silently moves the other two. It also ex
 fixes failed — sink-rescue tried to fix **routing** by changing **admission**; the `delta` knob
 proposes to fix **admission** with a **routing** threshold.
 
-### 1.1 The funnel, with the two losses isolated
+### 1.1 The funnel, with the losses isolated
 
-```
+```text
 20,788 CLIENT turns
    |- gate 1  SEGMENT + ADMIT  ->  3,977 pairs         (-80.9%, 16,811 turns)
    |- gate 2  ROUTE (sink)     ->  1,673 coachable     (-57.9% of pairs)
@@ -47,163 +52,225 @@ proposes to fix **admission** with a **routing** threshold.
 ```
 
 92% of client turns never reach a rubric. **Neither gate has ever been measured against the
-output.** Sink-rescue measured gate 2 against per-pair AUC proxies; gate 1 has never been
-touched at all.
+output.** Sink-rescue measured gate 2 against per-pair AUC proxies; gate 1 has never been touched.
+
+### 1.2 The gate-1 loss has THREE causes and nobody has split them
+
+| cause | meaning | knob that owns it |
+| --- | --- | --- |
+| **(a)** | the trigger fails `_is_substantive` | **A** |
+| **(b)** | no Naren reply followed (another client spoke, only a teammate answered, call ended) | **S** |
+| **(c)** | Naren replied but every one of his turns failed `_is_substantive`, so `response_parts` was empty | **A** |
+
+**This split is a required output of build step 2** (§8) and it gates whether the `S` and `A`
+arms are worth running at all. Cause (c) is the one nobody has ever named: it is evidence lost on
+the *response* side, which is the only side Layer C consumes.
 
 ---
 
 ## 2. The one question
 
-> Does changing what Layer B treats as a unit of evidence, or how it picks a scenario, produce
-> rubrics backed by evidence from more distinct clients?
+> Does changing what Layer B treats as a unit of evidence, what it admits, or how it picks a
+> scenario, produce rubrics backed by evidence from more distinct clients?
 
 Not "more milestones". See §4.
 
 ---
 
-## 3. Arms
+## 3. The knobs
 
-Five arms, each an explicit `(segment, router)` permutation, each run in its own process against
-each of two taxonomies.
+Four knobs. Each arm changes exactly ONE from production, except the one deliberate combination
+cell (§3.6, arm 9), which is the interaction of the two winners.
 
-| arm | segment | router | isolates |
-| --- | --- | --- | --- |
-| `s0r0` | production | production | **control** — must reproduce `layer_bc_base_1.json` |
-| `s1r0` | client move | production | **segmentation alone** |
-| `s1r1` | client move | membership lookup | routing: pure lookup |
-| `s1r2` | client move | centroid, out-of-fold | routing: centroid generalisation |
-| `s1r3` | client move | 0.75·centroid + 0.25·description | routing: the old top scorer |
+### 3.1 `R1` — membership lookup
 
-`s0r0 -> s1r0` isolates segmentation. `s1r0 -> s1r{1,2,3}` isolates routing. **The two variables
-never move inside one comparison**, which is what keeps a combined trial attributable.
+Layer A already assigned a label to that exact turn. `R1` reads it. It is a lookup, not a
+prediction, which is why the withdrawn `routing_bench` ranking does not apply — that bench asked
+whether a centroid can *predict* an unseen turn's cluster.
 
-Taxonomies: `clean2_base` and `clean2_rescued`, every arm. Plus per-arm volume-matched placebos
-and one noise-floor repeat. ~15 runs total.
+**Member sets.**
+- Each adjudication row with `kind` in {`scenario`, `mechanics`, `logistics`} contributes its
+  cluster's turn indices.
+- Every row with `decision == merge_into` then **adds its indices to the target's set**.
+  `merged` means RETAINED. Collapsing that four-valued enum to a boolean produced the phantom
+  "Gemma over-sinks 14.6%" retraction and, separately, a broken null-test control. The full
+  cross-tab is printed; never a boolean.
 
-### 3.1 `S1` — the client move
+**Join.** `build_client_pool(turns, unit="turn")` is CLIENT turns in file order, so pool item `i`
+is the i-th CLIENT turn across sorted files. **`texts[i] == turn.text` is asserted for every
+item and the run aborts on any mismatch.** Precedent: `flag_proper_noun_clusters`' 245/245
+position verification.
 
-- Consecutive `CLIENT` turns merge into ONE trigger; their texts are joined in order.
-- A `NAREN`, `JOVEO_OTHER` or `UNATTRIBUTED` turn ends the move. `UNATTRIBUTED` ends it because
-  we do not know who spoke; it can never be part of a client move, exactly as it can never be a
-  trigger today.
-- The reply window is production's, unchanged: `NAREN` turns accumulate, `JOVEO_OTHER` is
-  stepped over without contributing text, anything else breaks.
-- Admission (`_is_substantive`) is production's, unchanged, applied to the merged move.
+**Route.** trigger turn -> pool index -> cluster -> scenario key. `scenario_keys` is that one
+key; no ranking, no top-K, no margin. A sink key takes production's short-circuit unchanged. A
+turn HDBSCAN left as noise falls back to `R0`.
 
-**Stated honestly up front: `S1` may barely move the pair COUNT.** In a block `c1,c2,c3` followed
-by Naren, production already emits exactly one pair (from `c3`); `S1` emits one pair too. The
-gain is (a) recovered setup text in the trigger, and (b) blocks whose last turn alone fails the
-word floor but whose merged text clears it. The funnel table (§6.4) measures this BEFORE any
-Layer C run. If it does not move, F2 fires and the arm is reported as a no-op — not as a null of
-the idea.
+**Reported:** the lookup / fallback split. If a result is really `R0`'s it must not be credited
+to membership. ~47% of the pool is noise, so this arm is a hybrid by construction.
 
-`S2` (teammate speech enters `response_text`) is DEFERRED. It breaks the "Naren's voice" premise
-every rubric rests on, which is a product decision, not a measurement one.
+### 3.2 `R2` — centroid, out-of-fold
 
-### 3.2 `R1` — membership lookup
+Same member sets as `R1`, including `merge_into`. **Sinks get centroids too**, so the sink
+decision stays inside one space.
 
-Not a prediction. Layer A already assigned a label to that exact turn; `R1` reads it.
+```text
+centroid(s, excluding call c) = (sum_s - sum_s,c) / (n_s - n_s,c)
+```
 
-- The Layer A pool (`build_client_pool(turns, unit="turn")`) is CLIENT turns in file order, so
-  the join to trigger turns is **positional**. It is asserted member-for-member
-  (`texts[i] == turn.text` for all items) and aborts on any mismatch. Precedent:
-  `flag_proper_noun_clusters.py`'s 245/245 position verification.
-- A move spanning several turns can span several clusters: **majority vote** across its member
-  turns; tie broken by the turn with the most content words; all-noise falls back to `R0`.
-- **A scenario's member set is its own cluster PLUS every cluster whose `decision == merge_into`
-  points at it.** `kind` is four-valued (`scenario` / `mechanics` / `logistics` / `merged`) and
-  `merged` means RETAINED. Collapsing that enum to a boolean has already produced two phantom
-  findings in this repo (the "Gemma over-sinks 14.6%" retraction, and again in the null-test
-  control). Handled explicitly, and the full cross-tab is printed rather than a boolean.
-- Turns Layer A left as HDBSCAN noise (~47% of the pool) fall back to `R0`. **The share of
-  triggers resolved by lookup versus fallback is reported**, because `R1` is a hybrid and a
-  result that is really `R0`'s must not be attributed to membership.
+Per-`(scenario, call)` partial sums, so the exclusion is exact and O(1) per trigger. Triggers ARE
+client turns from the pool Layer A clustered, so an in-fold centroid would reproduce membership
+having learned nothing — the self-inflation `routing_bench` marked with `*` on `knn_max` /
+`medoid` / `probe`. **The in-fold figure is computed as a diagnostic** so the size of the
+inflation is visible rather than assumed.
 
-### 3.3 `R2` — centroid, out-of-fold
+If `n_s - n_s,c == 0` — a scenario's only evidence is this call — it is removed from that
+trigger's candidate set. How often this fires is reported.
 
-- A scenario's centroid is the mean of its member turn vectors (same member set as `R1`,
-  including `merge_into` clusters).
-- **Excluding every turn from the trigger's own call.** Triggers ARE client turns from the pool
-  Layer A clustered, so an in-fold centroid would reproduce membership having learned nothing —
-  the self-inflation `routing_bench` marked with `*` on `knn_max` / `medoid` / `probe`.
-  Implemented as per-`(scenario, call)` partial sums so the exclusion is exact and O(1) per
-  trigger. The in-fold figure is also reported, as a diagnostic, so the size of the inflation is
-  visible rather than assumed.
-- **Sinks get centroids too**, so the sink decision stays inside one space.
+Routing is then production's: argmax, sink short-circuit, top-K at `relative_margin 0.95`.
 
-### 3.4 `R3` — blend
+**Known risk, recorded not hidden:** `centroid_pooled` accepted 22 of the 24 non-substantive
+turns in the 40-turn blind read (McNemar 28-12, p=0.017 against `description`). Its likely
+failure mode is admitting junk. F4 and F6 exist for this.
 
-`0.75 * cos(trigger, centroid) + 0.25 * cos(trigger, description)`, the `blend_a0.75` weighting
-from the withdrawn bench, on out-of-fold centroids. Included because it was that bench's top
-scorer and dropping it would leave the strongest prior candidate untested.
+### 3.3 `R3` — blend
 
-### 3.5 Why the withdrawn ranking does not settle this, and why this instrument can
+`0.75 * cos(trigger, centroid_oof(s)) + 0.25 * cos(trigger, description(s))`, then identical
+argmax / sink / top-K. The `blend_a0.75` weighting from the withdrawn bench, included because it
+was that bench's top scorer and is ~15 minutes of work once `R2` exists.
 
-`routing_bench` ranked arms by `coherence(P)` = mean cosine of a population to its own centroid.
-That IS the centroid arms' objective function, which is why the ranking was withdrawn. The
-counter-evidence (blind read, 40 disagreement turns: `description` 70% vs `centroid_pooled` 30%,
-McNemar 28-12, p=0.017) is a per-turn precision reading, not an outcome.
+### 3.4 `A4` — drop the RESPONSE-side floor
 
-`layer_bc_arms` scores **milestones and their evidence breadth**. Neither centroid routing nor
-description routing optimises that. It is arm-neutral for both, has a volume placebo, and a
-blind read. It is the first instrument that can rank these two methods.
+`v1/layer_b.py:54` currently gates each Naren turn:
 
-**The standing evidence against centroid is recorded here, not hidden:** its likely failure mode
-is admitting junk (`centroid_pooled` accepted 22 of the 24 non-substantive turns in that blind
-read). That is precisely what F4 (placebo) and F6 (blind read) exist to catch.
+```python
+if t.role == SpeakerRole.NAREN:
+    if _is_substantive(t.text):          # A4 removes this test
+        response_parts.append(t.text)
+```
 
-### 3.6 One trap that does NOT apply here, and why
+**Two effects, reported separately:**
 
-An earlier draft required a per-arm `relative_margin`, on the grounds that the routers have
-different cosine bands (trigger-vs-trigger p50 0.689; trigger-vs-description p50 0.550) so one
-margin means different things.
+| effect | mechanism |
+| --- | --- |
+| more text per pair | short Naren turns now contribute to `response_text` |
+| **more pairs** | `if response_parts:` currently kills a pair whose only Naren reply was short |
 
-**That is void for this trial.** CLAUDE.md records it as measured: `relative_margin` does not
-feed Layer C — Layer C keys off the single primary `scenario_key`, while the margin governs only
-the ADDITIONAL entries in `scenario_keys[]`. The only routing decisions reaching a rubric are
-(a) which scenario is top-1, an argmax, and (b) whether top-1 is a sink, a comparison inside one
-router's own space. Both are scale-free.
+**Why the obvious objection is weaker than it looks:** Layer C's segmenter already drops
+sentences under 4 tokens, so `"Yeah."` dies there regardless; the p40 relevance filter and the
+distinct-call support gate are two further defences. This floor may be doing work three later
+stages already do.
 
-`relative_margin` stays at production's `0.95` in every arm. Margin distributions are reported as
-diagnostics only and rank nothing.
+**What it recovers:** *"No, that's Indeed's API cost, not ours."* is 4 content words after
+stopword removal, and is currently deleted from the evidence.
+
+This half of `_is_substantive` has never been named in any spec or handoff in this repo.
+
+### 3.5 `A1` — drop the TRIGGER floor
+
+`v1/layer_b.py:45`. Every CLIENT turn followed by a Naren reply becomes a pair. Expect a large
+pair increase, most of it routing to sinks — which is the question: **is the word floor doing
+anything the sink decision does not already do?** Kills the `Indeed` bug by deletion rather than
+by a curated whitelist, which this repo forbids. Does not change consecutive-client behaviour;
+that is `S1`'s job.
+
+### 3.6 `A3` — corpus-percentile floor
+
+Replaces the rule, not the threshold:
+
+- content token = `is_alpha` **only**, no stoplist, so `indeed` / `ziprecruiter` / `workday` are
+  treated identically and the inconsistency disappears at its source;
+- floor = the *p*-th percentile of that count over the corpus's own turns, computed **separately
+  for CLIENT and NAREN** because the distributions differ.
+
+*p* is chosen so the **admitted fraction exactly matches production's**. `A3` is therefore
+volume-neutral by construction — same number of pairs, different selection — so any difference is
+purely the stopword dependence, and **it needs no placebo**.
+
+### 3.7 `S1` — client move
+
+A move is a **maximal run of adjacent CLIENT turns**; any non-CLIENT turn ends it, `UNATTRIBUTED`
+included (we do not know who spoke, so it cannot join a client move).
+
+```text
+turn 5  CLIENT  "We're on Workday for the ATS."             -+ ONE trigger
+turn 6  CLIENT  "Does that integrate with what you said?"   -+
+turn 7  NAREN   "Yes, we have a direct connector..."           the reply
+```
+
+`trigger_text` is the run's texts joined in order; `turn_index` is the run's FIRST turn, which
+keeps `pair_id` unique. The reply window is production's, unchanged. Admission applies to the
+merged text.
+
+**Stated honestly:** the pair COUNT barely moves — production already emits one pair per block,
+from its last turn. The gains are recovered setup text, and blocks whose last turn alone fails
+the floor but whose merged text clears it. **F2 covers the no-op case.**
+
+### 3.8 `D` — the accept/reject delta
+
+Not an arm. A sweep applied to whichever router wins.
+
+```text
+accept  iff   max(score over coachable)  -  max(score over sinks)  >=  delta
+```
+
+`delta = 0` (strict) **is production exactly** — the current rule restated. The output is a CURVE
+of (admitted volume -> usable milestones), not a point, so it cannot be miscalibrated the way a
+fixed threshold can. Existing evidence: `delta = -0.0117` buys +5.1pp recall for -2.6pp
+precision, versus -14.0pp for switching routers — but ground truth is only 80 judged turns, so it
+is thin. Runs last.
+
+### 3.9 Deferred, with reasons
+
+- **`S2`** (teammate speech enters `response_text`) — breaks the "Naren's voice" premise every
+  rubric rests on. A product decision, not a measurement one.
+- **`S3`** (previous Naren turn as routing context) — speculative.
+- **`A2`** (either-side substantive) — narrow affected population, small expected effect.
+
+### 3.10 One trap that does NOT apply, and why
+
+An earlier draft required a per-arm `relative_margin`, because the routers have different cosine
+bands (trigger-vs-trigger p50 0.689; trigger-vs-description p50 0.550).
+
+**Void.** CLAUDE.md records it as measured: `relative_margin` does not feed Layer C — Layer C
+keys off the single primary `scenario_key`, while the margin governs only the ADDITIONAL entries
+in `scenario_keys[]`. The only routing decisions reaching a rubric are (a) which scenario is
+top-1, an argmax, and (b) whether top-1 is a sink, a comparison inside one router's own space.
+Both are scale-free. `relative_margin` stays at `0.95` in every arm; margin distributions are
+diagnostics and rank nothing.
 
 ---
 
 ## 4. Metrics
 
-### 4.1 Primary, and it decides pass/fail
+### 4.1 Primary — decides pass/fail
 
 **Usable milestones: those clearing production's support gate AND backed by >= 3 DISTINCT CLIENT
 ACCOUNTS.**
 
 - Account = the modal non-`joveo.com` email domain on a call's `.speakers.json` roster. 389 of
-  393 transcripts carry one; 112 accounts over 355 accounted calls. The derivation is
-  **imported** from `calibration/flag_proper_noun_clusters.py`, never paraphrased.
-- **No router can see the account**, so this is nobody's objective function — the standing rule
-  that killed the routing ranking.
+  393 transcripts carry one; 112 accounts over 355 accounted calls. The derivation is **imported**
+  from `calibration/flag_proper_noun_clusters.py`, never paraphrased.
+- **No router, no segmenter and no admission rule can see the account**, so this is nobody's
+  objective function — the standing rule that killed the routing ranking.
 - It is also the product defect: today's largest scenarios are 95-100% one client (RTX 98%,
-  Banfield 100%, Happy Dance 100%). A milestone built from one client teaches a CSM nothing
-  transferable.
-- Calls with no resolvable account are counted as **distinct unknowns**, never merged into one
-  bucket — merging them would manufacture single-account concentration.
-- **Why 3 and not another number:** it is the account-level analogue of `layer_c`'s existing
-  `min_milestone_calls_floor: 3`, so the bar is inherited rather than invented for this trial. It
-  is pre-registered here and is not tuned afterwards. The full distribution of accounts-per-
-  milestone is reported so the choice can be audited, and a sensitivity check at 2 and 4 is
-  reported alongside — **but the verdict is read off 3**, fixed before any arm runs.
+  Banfield 100%, Happy Dance 100%). A milestone built from one client transfers to nobody.
+- Calls with no resolvable account count as **distinct unknowns**, never merged into one bucket;
+  merging them would manufacture single-account concentration.
+- **Why 3:** it is the account-level analogue of `layer_c.min_milestone_calls_floor: 3`, so the
+  bar is inherited rather than invented. Fixed before any arm runs. The full
+  accounts-per-milestone distribution is reported, and a sensitivity check at 2 and 4 is reported
+  alongside — **but the verdict is read off 3.**
 
 **Statistic:** per cluster, the usable-milestone count. Paired **sign test** across clusters
 shared by both arms, joined on `cluster_id` (never `scenario_key` — Gemma renames every run).
-Report **the direction of flips, never a flip rate**; a rate discards direction, which is the
-error that made an earlier adjudication A/B unreadable.
+Report **the direction of flips, never a flip rate.**
 
-### 4.2 Veto, and it can override a significant result
+### 4.2 Veto — can override a significant result
 
 A **blind read** of what each arm ADDS and LOSES versus control. For a rule that MODIFIES a
-population, the unit of reading is the MODIFICATION — sampling arms independently would compare
-two random draws from a mostly-shared set. Samples are written to one file and the answer key to
-a SEPARATE file; judgments are committed before the key is opened. Precedent:
-`read_routed_samples.py`, and `clustering_bench --added`.
+population the unit of reading is the MODIFICATION; sampling arms independently would compare two
+random draws from a mostly-shared set. Samples go to one file and the answer key to a SEPARATE
+file; judgments are committed before the key is opened.
 
 **Limitations stated, not buried:** one reader, who designed the arms; small n; the sample is the
 disagreement set, so precision and recall are conditional on disagreement and are not global
@@ -212,30 +279,33 @@ rates.
 ### 4.3 Diagnostics — reported, never used to rank
 
 - raw milestone count, milestones/scenario, `support_calls` distribution
-- pair passthrough per stage (**this is every arm's own objective — never a ranking statistic**)
+- **the funnel, broken down by cause (a)/(b)/(c)** — §1.2
+- pair passthrough per stage. **This is every arm's own objective and is never a ranking
+  statistic**
 - sink share, absorption (coachable-only), top1-top2 margin
 - `available_frac_prefilter` vs `available_frac` on lost milestones — separates a **Layer B
   reroute** from a **Layer C relevance shift**
-- relevance-filter survival rate. **A high value is SUSPICIOUS, not good**: an arm routing on
-  response similarity is selected for exactly what `_relevance_filter` measures.
-- for `R1`: share of triggers resolved by lookup vs `R0` fallback
-- for `R2`: in-fold vs out-of-fold agreement, i.e. the size of the self-inflation
+- relevance-filter survival rate. **High is SUSPICIOUS, not good:** an arm routing on response
+  similarity is selected for exactly what `_relevance_filter` measures
+- `R1`: lookup vs fallback share. `R2`: in-fold vs out-of-fold agreement, and how often a
+  scenario is dropped for having no out-of-call evidence
 
 ### 4.4 Objective audit
 
 Every arm is re-scored under three objectives: the 3-account count, raw milestone count, and mean
 relevance. **If an arm wins only under the objective that mirrors its own mechanism, the ranking
-is withdrawn** (F7). This is the check `routing_bench` lacked and `routing_objective_audit.py`
-retro-fitted.
+is withdrawn** (F7).
 
 ---
 
 ## 5. Pre-registered failure conditions
 
+Unchanged from revision 0.
+
 | | Condition | Consequence |
 | --- | --- | --- |
-| **F1** | `s0r0` does not reproduce `layer_bc_base_1.json` on pair count, sink share and milestone count | the harness is wrong. STOP; nothing else is readable |
-| **F2** | an arm's funnel is within +/-2% of control at every stage | the arm did not fire. Report as a NO-OP, not as a null of the idea |
+| **F1** | a control arm does not reproduce its published artifact on pair count, sink share and milestone count | the harness is wrong. STOP; nothing else is readable |
+| **F2** | an arm's funnel is within +/-2% of control at every stage | the arm did not fire. Report as a NO-OP, not a null of the idea |
 | **F3** | an arm leaves < 20 clusters rankable | unrankable, not comparable |
 | **F4** | an arm's gain over control is not ALSO a gain over its own volume-matched placebo | the gain is volume. REJECT |
 | **F5** | paired sign test p >= 0.05 | null. Report as such |
@@ -243,7 +313,7 @@ retro-fitted.
 | **F7** | an arm wins under the 3-account metric but loses under raw count AND mean relevance | withdraw the ranking (§4.4) |
 | **F8** | milestone total outside the scaled `f4_band` | the clustering did not reproduce. Run VOID |
 | **F9** | the two taxonomies disagree on the winner | report both; pick neither |
-| **F10** | nothing clears F4 + F5 + F6 | **published result: Layer B's unit and router are not the binding constraint on rubric quality.** This CLOSES the question and is worth as much as a positive |
+| **F10** | nothing clears F4 + F5 + F6 | **published result: Layer B's unit, admission rule and router are not the binding constraint on rubric quality.** This CLOSES the question and is worth as much as a positive |
 
 ---
 
@@ -251,44 +321,23 @@ retro-fitted.
 
 Each is here because of a specific past failure in this repo.
 
-### 6.1 The control must reproduce a published artifact
-`s0r0` calls `v1.layer_b.extract_pairs` and `v1.layer_b.assign_scenarios` **verbatim** and must
-reproduce `layer_bc_base_1.json`. This is the free self-check that catches harness bugs before
-any treatment is believed — the same shape as `routing_bench` asserting `description`'s
-out-of-fold and full-corpus assignments are identical on all 23,949 turns.
-
-### 6.2 Identity records the permutation
-`segment` and `router` join the `identity` dict. Without them two permutations would compare as
-"identical corpus, identical taxonomy, no drift" — the silent "no effect with zero calls" failure
-this instrument already carries a guard against for the taxonomy.
-
-### 6.3 Volume-matched placebo, matching clauses AND calls
-Per arm being declared a winner. `pass1`'s `scenario_calls_override` exists for this: donors drag
-in new distinct calls and silently raise `required_milestone_support`, biasing the read IN FAVOUR
-of the treatment.
-
-### 6.4 The funnel diff table
-Printed side by side per arm, before any Layer C run:
-
-```
-turns -> moves -> admitted -> routed(coachable) -> clauses -> post-relevance
-```
-
-This is "**symmetric filtering: for every arm, list what was filtered and diff the lists**", made
-mechanical rather than left to a reviewer's memory.
-
-### 6.5 One permutation per process, one permutation per build step
-`--segment` and `--router` are required and take exactly one value each. No multi-arm loop
-exists, so two arms can never share a process, a random state, or an artifact.
-
-### 6.6 Noise floor, verified once
-The floor is documented as ZERO with cached embeddings, but that was measured on a code path this
-design changes. One arm is run twice, in separate processes, to confirm it before any treatment
-is read.
-
-### 6.7 Every new calibration file is audited by a subagent before it runs
-Strict bar: only defects that change the outcome or waste a run. Precedent: the last audit found
-a hard blocker and three silent-wrong-answer bugs.
+1. **Controls reproduce published artifacts.** `s0a0r0` on `clean2_base` must reproduce
+   `layer_bc_base_1.json`, and on `clean2_rescued` must reproduce `layer_bc_rescued.json`. Two
+   independent F1 checks. The control calls `v1.layer_b.extract_pairs` and
+   `v1.layer_b.assign_scenarios` **verbatim**.
+2. **Identity records the permutation.** `segment`, `admit` and `router` join the `identity`
+   dict. Without them two permutations compare as "no drift" — the silent "no effect with zero
+   calls" failure this instrument already guards against for the taxonomy.
+3. **Volume-matched placebo**, matching clause volume AND call count, for any arm being declared
+   a winner. `A3` is exempt by construction (§3.6).
+4. **The funnel diff table**, printed per arm before any Layer C run, broken down by cause. This
+   is "symmetric filtering: list what was filtered and diff the lists", made mechanical.
+5. **One permutation per process, one permutation per build step.** `--segment`, `--admit` and
+   `--router` each take exactly one value; no multi-arm loop exists.
+6. **Noise floor verified once.** Documented as ZERO with cached embeddings, but measured on a
+   code path this design changes. One arm is run twice, in separate processes.
+7. **Every new calibration file is audited by one subagent before it runs.** Strict bar: only
+   defects that change the outcome or waste a run.
 
 ---
 
@@ -296,34 +345,48 @@ a hard blocker and three silent-wrong-answer bugs.
 
 | file | status | contents |
 | --- | --- | --- |
-| `calibration/layer_b_arms.py` | NEW | pure functions only: `segment_moves`, the four routers, the account map, usable-milestone counting, the sign test. No I/O, no CLI, no globals. |
-| `calibration/layer_bc_arms.py` | EXTENDED | `--segment {s0,s1} --router {r0,r1,r2,r3}`, defaulting to production, recorded in `identity`. Every existing guard preserved. |
-| `tests/test_layer_b_arms.py` | NEW | hand-built turn lists and orthogonal unit vectors — tests the RULE, not the embedder (the `test_layer_b_assignment.py` precedent). |
-| `tests/test_layer_bc_arms.py` | EXTENDED | new identity fields; the existing 38 tests must still pass. |
-| `ops/run_layer_b_arms.ps1` | NEW | one arm per process, with the neon DNS bypass. |
+| `calibration/layer_b_arms.py` | NEW | pure functions only: `segment_moves`, the admission predicates, the four routers, member-set construction, the account map, usable-milestone counting, the sign test. No I/O, no CLI, no globals |
+| `calibration/layer_bc_arms.py` | EXTENDED | `--segment {s0,s1} --admit {a0,a1,a3,a4} --router {r0,r1,r2,r3}`, defaulting to production, all recorded in `identity`; `support_call_files` persisted per milestone; the funnel table. Every existing guard preserved |
+| `tests/test_layer_b_arms.py` | NEW | hand-built turn lists and orthogonal unit vectors — tests the RULE, not the embedder |
+| `tests/test_layer_bc_arms.py` | EXTENDED | new identity fields; the existing 38 tests must still pass |
+| `ops/run_layer_b_arms.ps1` | NEW | one arm per process |
 
 **Nothing in `v1/`, `v2/`, `shared/` or `preprocessing/` is modified.** Production behaviour is
 byte-identical.
 
+### 7.1 A required change to the artifact schema
+
+`pass1` computes `len(set(g["calls"]))` and discards the list, so account diversity **cannot** be
+derived from the artifacts already on disk. `support_call_files` (the distinct call filenames per
+milestone) is persisted, and the three published arms are re-run to obtain it. That re-run is
+also a free reproduction check: they must return 171 / 123 / 179 milestones exactly.
+
 ---
 
-## 8. Build order
+## 8. Arms and build order
 
-One permutation at a time. Nothing proceeds until the previous step's tests pass, its subagent
-audit is clean, and its artifact is written.
+Promising-first. Nothing proceeds until the previous step's tests pass, its subagent audit is
+clean, and its artifact is written.
 
-| step | build | verify |
-| --- | --- | --- |
-| 1 | account map, 3-account metric, sign test | **re-score the EXISTING `base_1` / `rescued` / `placebo` artifacts.** Free, no new runs. If the metric cannot separate `rescued` from `placebo` on data already on disk, the metric is wrong and we learn it before building anything |
-| 2 | `--segment/--router` plumbing, `s0`/`r0` only | run `s0r0` -> F1 |
-| 3 | `S1` | tests, then `s1r0` |
-| 4 | `R1` | tests, then `s1r1` |
-| 5 | `R2` | tests, then `s1r2` |
-| 6 | `R3` | tests, then `s1r3` |
-| 7 | placebos, second taxonomy, noise-floor repeat, objective audit, blind read | F2-F10 |
+| step | build | arm(s) run | ~time |
+| --- | --- | --- | --- |
+| 1 | account map, 3-account metric, sign test, `support_call_files` | re-run `base_1`, `rescued`, `placebo`; score them | 1 h + 30 m |
+| 2 | `--segment/--admit/--router` plumbing, funnel table | `s0a0r0_b` -> **F1**, `s0a0r0_b_2` (floor), `s0a0r0_r` -> **F1** | 1 h + 30 m |
+| 3 | `A4` | `s0a4r0_b` | 20 m + 10 m |
+| 4 | `A1` | `s0a1r0_b` | 15 m + 10 m |
+| 5 | `R1` (member sets + positional join) | `s0a0r1_b`, `s0a0r1_r` | 1.5 h + 20 m |
+| 6 | `R2` | `s0a0r2_b`, `s0a0r2_r` | 45 m + 20 m |
+| 7 | `R3` | `s0a0r3_b` | 15 m + 10 m |
+| 8 | combination | `s0a4rW_r` — the two winners together | 10 m |
+| 9 | placebo, `D` sweep, objective audit, blind read | `s0aXrW_?_plc` | 1.5 h |
+| 10 | `S1`, **only if the funnel shows cause (b) is material** | `s1a0r0_b`, `s1aXrW_?` | 45 m + 20 m |
 
-**Estimated cost:** ~6-10 min machine time per arm (measured: 2.2-4.2 min of Layer C plus the
-393-transcript parse), ~15 arms, so ~1.5-2.5 h unattended. Working time ~7-10 h including audits.
+**~13 arms, ~2.5 h machine, ~7 h working time.** Steps 3-4 come before the routers because they
+are the cheapest builds on the board and `A4` is the strongest untested hunch; step 2's funnel
+tells us their expected size before either runs.
+
+`W` denotes the winning router. If §8 produces no winner, step 8 is skipped and step 10 runs
+against `r0`.
 
 ---
 
@@ -336,8 +399,8 @@ audit is clean, and its artifact is written.
 - **Whether the result transfers to production.** Everything here is `gemini-embedding-2@3072` in
   TURN mode; production is local `bge@768` in CLAUSE mode. **No production change may cite these
   numbers alone.** A bge transfer pass for the winning arm only is the agreed second step.
-- **Admission (Knob A).** `_is_substantive` stays at production in every arm, so the `Indeed`
-  stopword bug (§2.8) and the two-filters problem (§2.9) are untouched by this trial. They are
-  real and they are deferred, deliberately, to keep this trial to two variables.
 - **Whether the taxonomy should be built differently.** Layer A is out of scope by the handoff's
   own boundary; the taxonomy is an input.
+- **Interactions other than step 8's.** This is a screening design with one deliberate
+  combination cell, not a factorial. An interaction between two knobs that are individually null
+  would be missed. That is the stated cost of not running 80 cells.
