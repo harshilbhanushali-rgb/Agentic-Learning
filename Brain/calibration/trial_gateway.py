@@ -228,7 +228,7 @@ class GatewayClient:
 
     def chat_json(self, prompt: str, *, model: str = CHAT_MODEL,
                   temperature: float = 0.2, max_tokens: int = 8192,
-                  system: str | None = None) -> tuple[dict, dict]:
+                  system: str | None = None, no_cache: bool = False) -> tuple[dict, dict]:
         """A JSON-forced completion. Returns (parsed, usage).
 
         Mirrors call_gemma's contract -- forced JSON, parsed with json.loads -- so a
@@ -236,19 +236,37 @@ class GatewayClient:
         returned rather than stashed in a module global because there is no reason to
         repeat gemma.py's LAST_MODEL_USED pattern in new code; it exists there only
         because that function's return value is the parsed dict itself.
+
+        *** THE GATEWAY CACHES CHAT COMPLETIONS BY DEFAULT. Measured 2026-08-16: the same
+        prompt returned BYTE-IDENTICAL free text in 1741ms, then 249ms, then 236ms, while a
+        prompt differing by ONE trailing space returned different text in 806ms. ***
+
+        That is invisible and it silently destroys any measurement whose design is "run the
+        same thing twice and see how much the answer moves". It already did: a 245-cluster
+        adjudication re-run as a noise floor came back 245/245 identical -- verdicts, keys,
+        reasons and descriptions -- which reads as perfect determinism and is actually a
+        cache echo of the first run.
+
+        `no_cache=True` sends LiteLLM's `cache: {"no-cache": true}`, verified to bypass it
+        (946ms/794ms, genuinely different text each call). ANY harness measuring run-to-run
+        variance MUST set it. Left default-False so existing callers are unchanged: for a
+        one-shot production pass the cache is a saving, not a hazard.
         """
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        data = self._post("/chat/completions", {
+        body = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
             "response_format": {"type": "json_object"},
-        })
+        }
+        if no_cache:
+            body["cache"] = {"no-cache": True}
+        data = self._post("/chat/completions", body)
         content = (data["choices"][0]["message"].get("content") or "").strip()
         if not content:
             raise GatewayError(f"empty completion from {model}")

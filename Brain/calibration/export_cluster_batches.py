@@ -37,6 +37,24 @@ BATCH_DIR = ARTIFACTS_DIR / "cluster_batches"
 SAMPLES_PER_CLUSTER = 12       # enough to judge coherence; 6 is what the adjudicator saw
 
 
+def judge_samples(ctexts: list[str], n: int = SAMPLES_PER_CLUSTER) -> list[str]:
+    """The EXACT evidence a blind judge is shown for a cluster.
+
+    Spread across the cluster rather than taking the head: the first N members are whatever
+    order HDBSCAN emitted, which can be one call's worth.
+
+    *** EXPORTED SO THE ADJUDICATOR CAN SHOW GEMMA THE SAME THING. *** The judges saw 12
+    strided samples while `trial_adjudicate_gemini.py` showed Gemma 6 HEAD samples, so the
+    Gemma-vs-judges comparison differed in BOTH the sampling rule and the sample SIZE, and
+    both differences let the judges see substance Gemma could not. Verified after the fact:
+    Gemma's own reasons echo head-only vocabulary over centroid-only vocabulary 99 to 32
+    (p=3.7e-09). Sharing this function is deliberate -- if it ever changes, both sides change
+    together, which is the property the comparison actually needs.
+    """
+    step = max(1, len(ctexts) // n)
+    return [" ".join(t.split())[:260] for t in ctexts[::step]][:n]
+
+
 def _recluster_samples(min_cluster_size: int, merge: float) -> list[dict]:
     """Repeat the clustering to recover member utterances. Zero chat calls, vectors cached.
 
@@ -86,11 +104,7 @@ def _recluster_samples(min_cluster_size: int, merge: float) -> list[dict]:
         if cluster_evidence.triage(st, min_support, ta.ubiquity_ceiling) == \
                 cluster_evidence.INSUFFICIENT_EVIDENCE:
             continue
-        # Spread the samples across the cluster rather than taking the head: the first N
-        # members are whatever order HDBSCAN emitted, which can be one call's worth.
-        step = max(1, len(ctexts) // SAMPLES_PER_CLUSTER)
-        picked = [" ".join(ctexts[i].split())[:260]
-                  for i in range(0, len(ctexts), step)][:SAMPLES_PER_CLUSTER]
+        picked = judge_samples(ctexts)
         out.append({"n_items": st.n_items, "samples": picked})
     out.sort(key=lambda c: c["n_items"], reverse=True)
     return out

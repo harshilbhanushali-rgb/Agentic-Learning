@@ -52,6 +52,7 @@ import argparse
 import json
 import sys
 import time
+import hashlib
 from collections import defaultdict
 from pathlib import Path
 
@@ -99,10 +100,53 @@ REPRESENTATIVE_SHOWN = 6
 # Filenames carry the granularity: a run at 50 must not overwrite the run at 16, and the
 # checkpoint must not be reused across them (its guard only compares cluster COUNT, which
 # could coincide).
-def _paths(mcs: int, turn_aware: bool):
-    tag = f"min{mcs}" + ("_turnaware" if turn_aware else "")
-    return (ARTIFACTS_DIR / f"adjudicate_gemini_{tag}_ckpt.json",
-            ARTIFACTS_DIR / f"adjudicate_gemini_{tag}.json")
+def _paths(mcs: int, turn_aware: bool, tag: str = ""):
+    t = f"min{mcs}" + ("_turnaware" if turn_aware else "") + (f"_{tag}" if tag else "")
+    return (ARTIFACTS_DIR / f"adjudicate_gemini_{t}_ckpt.json",
+            ARTIFACTS_DIR / f"adjudicate_gemini_{t}.json")
+
+
+def checkpoint_identity(clusters: list[dict], a, ta) -> dict:
+    """Everything that must match for a resume to be the SAME run.
+
+    The old guard compared CLUSTER COUNT alone, which is worse than no guard for the paired
+    rescue A/B: the rescue grows membership without changing count, so both arms have exactly
+    245 and the guard CANNOT fail. Arm 2 would resume from arm 1's completed checkpoint, run
+    `range(245, 245)` (i.e. nothing), and write arm 1's verdicts out as its own -- a perfect
+    "the rescue changes nothing" produced with zero chat calls, detectable only by wall-clock.
+    Same defect class as `trial_grader_inputs.py`'s one-integer key (commit 926d6b4).
+
+    So the key is a CONTENT HASH of the actual memberships -- the one thing the treatment
+    moves -- plus every knob that changes what a verdict means.
+    """
+    h = hashlib.sha256()
+    for c in clusters:
+        h.update(b"|" + ",".join(map(str, sorted(c["idxs"]))).encode())
+    return {"members_sha": h.hexdigest()[:16], "n_clusters": len(clusters),
+            "min_cluster_size": a.min_cluster_size, "merge": MERGE,
+            "turn_aware": bool(a.turn_aware), "chat_model": CHAT_MODEL,
+            "representatives": a.representatives,
+            "min_call_support_fraction": ta.min_call_support_fraction,
+            "min_call_support_floor": ta.min_call_support_floor,
+            "ubiquity_ceiling": ta.ubiquity_ceiling}
+
+
+def guard_overwrite(out: Path, n_rows: int, force: bool) -> None:
+    """Refuse to shrink an existing artifact. `OUT` defaults to the file that IS the published
+    baseline, and it is written unconditionally -- so a `--limit 5` PATH TEST silently replaced
+    245 adjudicated rows with 5. Precedent: trial_call_scoring.py's own guard (commit 31899f9).
+    """
+    if not out.exists() or force:
+        return
+    try:
+        have = len(json.loads(out.read_text(encoding="utf-8-sig")).get("rows", []))
+    except Exception:                                    # noqa: BLE001
+        return
+    if have > n_rows:
+        raise SystemExit(
+            f"REFUSING to overwrite {out.name}: it holds {have} rows, this run has {n_rows}. "
+            f"That file is a published baseline. Use --tag to write elsewhere, or --force if "
+            f"you genuinely mean to discard it.")
 
 
 def _args():
@@ -126,6 +170,20 @@ def _args():
                         "backs off on 429/5xx, and sequential chat calls are self-pacing.")
     p.add_argument("--fresh", action="store_true", help="ignore the checkpoint and restart")
     p.add_argument("--load", action="store_true", help="re-report the artifact, free")
+    p.add_argument("--representatives", choices=("centroid", "judge"), default="centroid",
+                   help="centroid = top-6 by cosine to the cluster centroid (default); "
+                        "judge = the EXACT 12 strided samples the blind judges saw")
+    p.add_argument("--tag", default="",
+                   help="suffix BOTH the checkpoint and the artifact. Required to run two arms "
+                        "of a paired comparison -- without it they share one checkpoint and one "
+                        "output file.")
+    p.add_argument("--members-from", default="",
+                   help="arm name in artifacts/clustering_bench_members.json whose cluster "
+                        "MEMBERSHIPS replace this run's (e.g. rescue_centroid). Cluster order, "
+                        "count and keywords are held at the base run's, so membership is the "
+                        "only variable. Verified position-for-position against the base.")
+    p.add_argument("--force", action="store_true",
+                   help="allow overwriting an artifact that holds MORE rows than this run")
     return p.parse_args()
 
 
@@ -140,8 +198,21 @@ def report(rows: list[dict]) -> None:
     print("=" * 78)
     for k, v in sorted(kinds.items(), key=lambda x: -x[1]):
         print(f"  {k:<14}{v:>5}  ({v/n*100:>5.1f}%)")
-    print(f"\n  coachable: {coach}/{len(rows)} = {coach/n*100:.1f}%"
-          f"   [live production for reference: 85/161 = 52.8%]")
+    # `merged` means RETAINED -- the cluster is folded into an existing scenario, and
+    # production never creates a row for it. So `coach/len(rows)` divides by a denominator the
+    # treatment MOVES: growing clusters makes more of them look like duplicates, which shrinks
+    # the scenario count and the denominator together and can move the ratio the wrong way.
+    # Same collapse-a-four-valued-enum error that produced the phantom "Gemma over-sinks
+    # 14.6%" finding. Report both, and compare arms on RETENTION and the re-based share.
+    merged = kinds["merged"]
+    base = (len(rows) - merged) or 1
+    print(f"\n  coachable (raw)      : {coach}/{len(rows)} = {coach/n*100:.1f}%")
+    print(f"  coachable (re-based) : {coach}/{base} = {coach/base*100:.1f}%   "
+          f"<- comparable to production's 85/161 = 52.8%")
+    print(f"  RETAINED (scenario+merged): {coach + merged}/{len(rows)} = "
+          f"{(coach + merged)/n*100:.1f}%")
+    if any(r.get("failed") for r in rows):
+        print(f"  !! failed adjudications: {sum(1 for r in rows if r.get('failed'))}")
 
     print("\n--- COACHABLE, 12 largest ---")
     for r in [x for x in rows if x["kind"] == "scenario"][:12]:
@@ -176,7 +247,7 @@ def report(rows: list[dict]) -> None:
 
 def main() -> None:
     a = _args()
-    CKPT, OUT = _paths(a.min_cluster_size, a.turn_aware)
+    CKPT, OUT = _paths(a.min_cluster_size, a.turn_aware, a.tag)
     if a.load:
         report(json.loads(OUT.read_text(encoding="utf-8-sig"))["rows"])
         return
@@ -234,21 +305,77 @@ def main() -> None:
             continue
         lead = max(tids, key=lambda z: len(members[z]))
         clusters.append({
-            "stats": st, "verdict": v, "n_merged": len(tids),
+            "stats": st, "verdict": v, "n_merged": len(tids), "idxs": idxs,
+            # STABLE IDENTITY. `i` is a RANK in the largest-first sort, and the rescue changes
+            # sizes unequally -- so joining two arms on `i` silently compares different
+            # clusters after the first size inversion. The raw-topic id set is invariant under
+            # a membership-only rescue by construction, so it is the join key.
+            "cluster_id": "-".join(map(str, sorted(tids))),
             "keywords": ", ".join(w for w, _ in tm.get_topic(lead)[:10]),
             "texts": ctexts,
             "thin": float(np.mean([not cluster_evidence.is_substantive(t, 5) for t in ctexts])),
         })
     # LARGEST FIRST -- production's order, and the reason duplicate detection works.
     clusters.sort(key=lambda c: c["stats"].n_items, reverse=True)
+
+    # --- substitute rescued memberships, holding ORDER and KEYWORDS fixed -------------------
+    # Deliberate: re-sorting by the grown sizes would move adjudication ORDER, and order
+    # cascades through the accepted-list that IS the duplicate-detection mechanism. Holding it
+    # fixed makes MEMBERSHIP the single variable. Keywords are c-TF-IDF of the original fit and
+    # are likewise held, so exactly one thing differs between arms.
+    if a.members_from:
+        bench = json.loads((ARTIFACTS_DIR / "clustering_bench.json")
+                           .read_text(encoding="utf-8-sig"))
+        side = json.loads((ARTIFACTS_DIR / "clustering_bench_members.json")
+                          .read_text(encoding="utf-8-sig"))
+        if a.members_from not in side.get("arms", {}):
+            raise SystemExit(f"no memberships stored for arm {a.members_from!r}")
+        base = [sorted(map(int, c["idxs"])) for c in bench["incumbent_clusters"]]
+        mine = [sorted(c["idxs"]) for c in clusters]
+        if base != mine:
+            raise SystemExit(
+                f"POSITION CHECK FAILED: this run's {len(mine)} clusters do not match the "
+                f"bench's {len(base)} incumbent clusters member-for-member. The rescued "
+                f"memberships cannot be aligned; the arm is void.")
+        print(f"[members] position check OK -- {len(mine)}/{len(mine)} clusters identical "
+              f"to the bench's incumbent")
+        new = [sorted(map(int, c)) for c in side["arms"][a.members_from]["clusters"]]
+        if len(new) != len(clusters):
+            raise SystemExit(f"{a.members_from} has {len(new)} clusters, base has {len(clusters)}")
+        grown = 0
+        for c, idxs in zip(clusters, new):
+            if len(idxs) != len(c["idxs"]):
+                grown += 1
+            ctexts = [texts[i] for i in idxs]
+            c["idxs"] = idxs
+            c["texts"] = ctexts
+            c["stats"] = cluster_evidence.support_stats(
+                [call_ids[i] for i in idxs], vecs[idxs], total_calls, texts=ctexts)
+            c["thin"] = float(np.mean([not cluster_evidence.is_substantive(t, 5)
+                                       for t in ctexts]))
+        print(f"[members] substituted {a.members_from}: {grown}/{len(clusters)} clusters grew, "
+              f"{sum(len(c['idxs']) for c in clusters)} total member turns "
+              f"(order and keywords held fixed)")
+
     if a.limit:
         clusters = clusters[:a.limit]
         print(f"--limit {a.limit}: PATH TEST ONLY, duplicate detection is not exercised")
     print(f"[adjudicate] {len(clusters)} clusters to judge, SEQUENTIALLY\n", flush=True)
 
+    ident = checkpoint_identity(clusters, a, ta)
     rows, accepted, start = [], [], 0
     if CKPT.exists() and not a.fresh:
         ck = json.loads(CKPT.read_text(encoding="utf-8-sig"))
+        old = ck.get("identity")
+        if old is not None and old != ident:
+            diff = [k for k in ident if old.get(k) != ident[k]]
+            raise SystemExit(
+                f"CHECKPOINT MISMATCH on {diff} -- {CKPT.name} was built from a DIFFERENT run "
+                f"and resuming would BLEND them. Use --tag for this arm, or --fresh.")
+        if old is None:
+            raise SystemExit(
+                f"{CKPT.name} predates the identity guard (it only recorded a cluster COUNT, "
+                f"which cannot distinguish a rescued arm from its base). Use --tag or --fresh.")
         if ck.get("n_clusters") == len(clusters):
             rows = ck["rows"]; start = len(rows)
             for r in rows:
@@ -279,10 +406,28 @@ def main() -> None:
                 if c["verdict"] == cluster_evidence.NEEDS_REVIEW
                 else "- coverage is within the normal range for a specific scenario.")
 
+            # REPRESENTATIVES BY CENTROID COSINE, not by pool position. The old rule showed
+            # `texts[:6]`, i.e. the first six by CORPUS FILE ORDER -- so appending rescued
+            # turns left the six shown byte-identical and the judge never saw the treatment at
+            # all, leaving three integers as the only difference between arms. Ranking by
+            # cosine to the cluster's own centroid is deterministic, applies identically to
+            # both arms, and lets a rescued turn appear only if it is genuinely central.
+            if a.representatives == "judge":
+                # SYMMETRY WITH THE BLIND JUDGES. They were shown 12 STRIDED samples while
+                # this loop showed Gemma 6 HEAD samples, so the published agreement compared
+                # two different views of the same cluster -- different rule AND different
+                # size, both letting the judges see substance Gemma could not. Importing
+                # their sampler is what makes the comparison like-for-like.
+                from calibration.export_cluster_batches import judge_samples
+                reps = judge_samples(c["texts"])
+            else:
+                order = np.argsort(-(vecs[c["idxs"]] @ st.centroid))[:REPRESENTATIVE_SHOWN]
+                reps = [c["texts"][int(j)] for j in order]
+
             prompt = PROMPT_LAYER_A_V2_TRIAGE.format(
                 keywords=c["keywords"],
                 representative_utterances="\n".join(
-                    f"- {' '.join(t.split())}" for t in c["texts"][:REPRESENTATIVE_SHOWN]),
+                    f"- {' '.join(t.split())}" for t in reps),
                 distinct_calls=st.distinct_calls, total_calls=total_calls,
                 call_coverage=st.call_coverage, n_clauses=st.n_items,
                 n_merged=c["n_merged"], coverage_note=coverage_note,
@@ -290,10 +435,13 @@ def main() -> None:
             if a.turn_aware:
                 prompt += TURN_AWARE_NOTE
 
+            failed, served = False, ""
             try:
-                parsed, _ = gw.chat_json(prompt, model=CHAT_MODEL, temperature=0.2)
+                parsed, meta = gw.chat_json(prompt, model=CHAT_MODEL, temperature=0.2)
+                served = (meta or {}).get("served_model") or ""
             except Exception as e:                      # noqa: BLE001
                 print(f"  ! cluster {i} failed: {str(e)[:160]}", flush=True)
+                failed = True
                 parsed = {"decision": "new_scenario", "reason": f"ADJUDICATION FAILED: {e}",
                           "scenario_key": f"failed_cluster_{i}", "sub_topic": "", "keyphrases": []}
 
@@ -311,9 +459,15 @@ def main() -> None:
                    "n_items": st.n_items, "calls": st.distinct_calls,
                    "coverage": float(st.call_coverage), "thin": c["thin"],
                    "n_merged": c["n_merged"], "keywords": c["keywords"],
+                   "cluster_id": c["cluster_id"], "served_model": served, "failed": failed,
                    "triage": c["verdict"], "_centroid": st.centroid.tolist()}
             rows.append(row)
-            if decision != "merge_into" and kind == cluster_evidence.KIND_SCENARIO:
+            # A FAILED call must NOT enter the accepted list. The synthesised row defaults to
+            # `new_scenario`, so it used to (a) count as coachable and (b) join the "NEAREST
+            # SCENARIOS ALREADY ACCEPTED" block with an EMPTY description -- perturbing
+            # duplicate detection for every later cluster and becoming a legal merge target.
+            # One transport blip would then read as a rescue effect.
+            if not failed and decision != "merge_into" and kind == cluster_evidence.KIND_SCENARIO:
                 accepted.append({"scenario_key": key,
                                  "business_description": row["business_description"],
                                  "centroid": st.centroid})
@@ -327,18 +481,31 @@ def main() -> None:
                   f"{st.n_items:>5}it {st.call_coverage:>4.0%} thin{c['thin']:>4.0%} "
                   f"eta {(len(clusters)-done)/max(rate,1e-6)/60:>4.1f}m", flush=True)
 
-            CKPT.write_text(json.dumps({"n_clusters": len(clusters), "rows": rows},
-                                       default=float), encoding="utf-8")
+            CKPT.write_text(json.dumps({"n_clusters": len(clusters), "identity": ident,
+                                        "rows": rows}, default=float), encoding="utf-8")
             if a.delay:
                 time.sleep(a.delay)
 
     for r in rows:
         r.pop("_centroid", None)
+    n_failed = sum(1 for r in rows if r.get("failed"))
+    served = defaultdict(int)
+    for r in rows:
+        served[r.get("served_model") or "(unrecorded)"] += 1
+    guard_overwrite(OUT, len(rows), a.force)
     OUT.write_text(json.dumps({"merge": MERGE, "min_cluster_size": a.min_cluster_size,
                                "turn_aware": bool(a.turn_aware),
                                "chat_model": CHAT_MODEL, "embed": "gemini-embedding-2@3072",
+                               "members_from": a.members_from or None,
+                               "identity": ident, "n_failed": n_failed,
+                               "served_models": dict(served), "incomplete": bool(n_failed),
                                "total_calls": total_calls, "rows": rows},
                               indent=1, default=float), encoding="utf-8")
+    if n_failed:
+        print(f"\n  !! {n_failed} clusters FAILED adjudication and are excluded from the "
+              f"accepted list. The artifact is stamped incomplete -- do not compare arms "
+              f"whose failure counts differ materially.")
+    print(f"  served by: {dict(served)}")
     report(rows)
     print(f"\nwrote {OUT}")
     print("NOTHING was written to Postgres. The live 161 scenarios are untouched.")

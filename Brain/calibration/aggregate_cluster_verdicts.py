@@ -2,7 +2,21 @@
 """Aggregate blind subagent cluster verdicts and compare granularities. Free.
 
 Joins the independent judges' verdicts (written blind -- they never saw Gemma's decision,
-scenario key, description or reason) back onto the adjudication artifact by cluster_id.
+scenario key, description or reason) back onto the adjudication artifact.
+
+*** THE JOIN IS ON RANK, NOT ON A STABLE ID. *** The verdict files call their field
+`cluster_id`, and this docstring used to repeat that claim, but the adjudication artifact has
+no `cluster_id` column at all -- the key is `i`, the largest-first loop index. That is sound
+only because both sides were produced from the SAME adjudication run. Joining a verdict set
+against a DIFFERENT run's artifact would silently compare unrelated clusters, because any
+change in cluster sizes reorders the rank. `adjudication_ab.py` records a stable
+`cluster_id` (the raw-topic id set) precisely so its comparisons do not have this property;
+this script predates that and is kept only for the frozen min16/min50 artifacts.
+
+*** STALE-CORPUS WARNING. *** `adjudicate_gemini_min{16,50}.json` describe the 23,949-turn
+pool. That corpus no longer exists: 13.2% of it was not client speech (job interviews,
+unattributed speakers, Joveo staff read as client) and it is now 20,788 turns. These numbers
+remain valid as a record of that run and must not be compared against anything newer.
 
 Three things this answers that nothing before it could:
 
@@ -79,16 +93,39 @@ def main() -> None:
         print(f"  by TURN VOLUME: coherent {coh_y}/{tot_turns} ({coh_y/tot_turns*100:.1f}%)"
               f" | coachable {cch_y}/{tot_turns} ({cch_y/tot_turns*100:.1f}%)")
 
-        # agreement with Gemma
-        g_coach = {i: rows[i]["kind"] == "scenario" for i in common}
+        # --- agreement with Gemma ----------------------------------------------------
+        # *** `merged` MEANS RETAINED. *** A merge_into verdict folds a duplicate cluster INTO
+        # an existing scenario -- the turns are kept, they just do not mint a new scenario. The
+        # line here used to read `rows[i]["kind"] == "scenario"`, which counted all 69 merged
+        # clusters as SUNK and manufactured the "Gemma over-sinks 14.6% of the corpus" finding
+        # that CLAUDE.md now retracts. The retraction reached the documentation and never
+        # reached this code, so re-running the script reproduced the false number verbatim.
+        #
+        # The cross-tab below is the real fix, not the boolean. A four-valued enum collapsed to
+        # a boolean can be got wrong silently; printed in full, this class of error is
+        # impossible to miss -- which is the lesson CLAUDE.md draws from the original incident.
+        RETAINED = ("scenario", "merged")
+        g_keep = {i: rows[i]["kind"] in RETAINED for i in common}
         j_coach = {i: ver[i]["coachable"] == "yes" for i in common}
-        agree = sum(1 for i in common if g_coach[i] == j_coach[i])
-        gy_jn = [i for i in common if g_coach[i] and not j_coach[i]]
-        gn_jy = [i for i in common if not g_coach[i] and j_coach[i]]
-        print(f"\n  vs GEMMA on coachable: agree {agree}/{len(common)} "
+        agree = sum(1 for i in common if g_keep[i] == j_coach[i])
+        gy_jn = [i for i in common if g_keep[i] and not j_coach[i]]
+        gn_jy = [i for i in common if not g_keep[i] and j_coach[i]]
+
+        print(f"\n  GEMMA kind x BLIND JUDGE coachable (full cross-tab, never collapsed):")
+        print(f"    {'kind':<12}{'judge=yes':>11}{'judge=no':>10}{'turns':>9}   retained?")
+        for kind in ("scenario", "merged", "mechanics", "logistics"):
+            ks = [i for i in common if rows[i]["kind"] == kind]
+            if not ks:
+                continue
+            print(f"    {kind:<12}{sum(1 for i in ks if j_coach[i]):>11}"
+                  f"{sum(1 for i in ks if not j_coach[i]):>10}"
+                  f"{sum(rows[i]['n_items'] for i in ks):>9}"
+                  f"   {'YES' if kind in RETAINED else 'no'}")
+
+        print(f"\n  vs GEMMA on RETAINED-vs-DISCARDED: agree {agree}/{len(common)} "
               f"({agree/len(common)*100:.0f}%)")
-        print(f"    Gemma coachable, judge says NOT : {len(gy_jn)}  (Gemma may be admitting junk)")
-        print(f"    Gemma sank it, judge says COACHABLE: {len(gn_jy)}  (Gemma may be over-sinking)")
+        print(f"    Gemma retained, judge says NOT      : {len(gy_jn)}  (Gemma may be admitting junk)")
+        print(f"    Gemma DISCARDED, judge says COACHABLE: {len(gn_jy)}  (Gemma may be over-sinking)")
         if gn_jy:
             lost = sum(rows[i]["n_items"] for i in gn_jy)
             print(f"      -> {lost} turns ({lost/tot_turns*100:.1f}%) the judge would keep")
@@ -112,7 +149,11 @@ def main() -> None:
             "judge_coachable": sum(1 for i in common if j_coach[i]),
             "judge_coachable_turns": cch_y,
             "judge_coherent": coh["yes"],
-            "gemma_coachable": sum(1 for i in common if g_coach[i]),
+            # RETAINED = scenario + merged. Reported under that name rather than "coachable"
+            # because `merged` clusters are kept but do not mint a scenario, so calling the
+            # sum "coachable" is what invited the collapse in the first place.
+            "gemma_retained": sum(1 for i in common if g_keep[i]),
+            "gemma_new_scenarios": sum(1 for i in common if rows[i]["kind"] == "scenario"),
             "agreement": agree / len(common),
         }
 
@@ -125,7 +166,8 @@ def main() -> None:
         for lab, k, pct in [("clusters judged", "clusters", False),
                             ("coherent (judge)", "judge_coherent", True),
                             ("coachable (judge)", "judge_coachable", True),
-                            ("coachable (Gemma)", "gemma_coachable", True)]:
+                            ("RETAINED (Gemma)", "gemma_retained", True),
+                            ("  of which NEW scenarios", "gemma_new_scenarios", True)]:
             av = f"{a[k]} ({a[k]/a['clusters']*100:.0f}%)" if pct else str(a[k])
             bv = f"{b[k]} ({b[k]/b['clusters']*100:.0f}%)" if pct else str(b[k])
             print(f"{lab:<26}{av:>14}{bv:>14}")

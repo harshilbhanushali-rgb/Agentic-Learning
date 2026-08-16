@@ -11,6 +11,7 @@ layer_a:
   merge_cosine_threshold: 0.88
   min_content_words: 5
   pool_unit: clause
+  scenario_vector_mode: concat
   grouping_method: post_hoc
   primary_topic_merge_threshold: 0.70
   response_taxonomy_purity_gate: 0.90
