@@ -233,6 +233,7 @@ SQLite `checkpoints.db` — item convention: `"ALL"` for Layer A, call stem (e.g
 - **There are TWO separate substantive-text filters and they do not share a knob.** `v1/layer_b._is_substantive` uses its own module constant `_MIN_CONTENT_WORDS = 5`; `shared/cluster_evidence.is_substantive` takes its threshold from `tuning.yaml`'s `layer_a.min_content_words`. Editing `tuning.yaml` does **not** change Layer B pair extraction — change the constant in `layer_b.py` for that
 - **Both substantive filters delete the word "Indeed", and one of them is live — measured 2026-08-14.** They count `t.is_alpha and not t.is_stop` against spaCy `en_core_web_lg`'s stoplist, and **`'indeed' in nlp.Defaults.stop_words` is `True`** (both cased forms). In a recruitment-advertising corpus that removes the name of a major job board from every sentence it appears in, while `ZipRecruiter` and `Greenhouse` are *not* stopwords — so the filter is inconsistent across competitors in the same domain. Measured: `"So right now we post everything manually to Indeed and ZipRecruiter."` keeps only `['right','post','manually','ZipRecruiter']` = **4, below the floor of 5** (`everything` and `now` go too). This is not hypothetical — **`layer_b._is_substantive` is ACTIVE and gates every trigger/response pair entering `kb_pairs`**, so genuinely substantive domain content can fall below the bar and never reach the KB. NOT FIXED. Note the trap in the obvious fix: whitelisting domain terms is exactly the "threshold must never be a curated list" anti-pattern this file forbids elsewhere, so this needs a different substantive test rather than a stopword exception list. Also blocks calibrating any new content-word floor (e.g. a chunk-gluing rule) until resolved
 - **`layer_a.min_content_words: 5` is INERT in production — measured 2026-08-14.** `v2/layer_a.py::run_layer_a_v2` calls `build_client_clause_pool(all_turns)` with **no argument**, so the signature default `min_content_words: int = 0` wins and no pre-filter runs on the CLIENT clause pool. The tuning value is honoured only by `calibration/dry_run_layer_a.py`'s opt-in `--prefilter` flag. A configured key that reads as authoritative while doing nothing is the same failure class as the retired `ego_trap/settings.py`. Left off deliberately: enabling it would move a second variable in any Layer A pool experiment
+- **The "Indeed" bug is now QUANTIFIED, and its cost is almost entirely a CLAUSE-MODE cost — measured 2026-08-16.** The bullet above says NOT FIXED with no measure of what it costs; here it is. Re-confirmed against the live stoplist: `'indeed'` is a stopword while **`ziprecruiter`, `greenhouse`, `workday` and `linkedin` are not**, so the filter is inconsistent across direct competitors. Against `layer_b._is_substantive` (the LIVE gate on every `kb_pair`): `"Indeed has $3 cost per API call."` keeps `['cost','API']` = **2**, `"They have the feed to Indeed. That's where the jobs get posted."` keeps 3, `"So right now we post everything manually to Indeed and ZipRecruiter."` keeps 4 — all **DROPPED**. **But every one of those is SENTENCE-length, i.e. the CLAUSE unit.** Over the 23,949-turn pool (mean 45.7 words, median 25): 674 turns (2.8%) mention Indeed, only **21** fail the filter, and only **7 would flip if `indeed` counted — 0.029% of the pool**. A whole turn does not cross a 5-word floor by losing one word; a sentence does. **So `pool_unit: turn` substantially MITIGATES this bug as a side effect, and it is a live confound in clause mode sitting directly on top of job-board content.** Weigh that in any clause-vs-turn comparison. Still unfixed, and `layer_b._is_substantive` gates `kb_pairs` at any unit, so a rescued Indeed turn is still not guaranteed to reach the KB
 - `storage.get_scenarios` **must** select `is_coachable` and `cluster_kind`. It backs `_load_scenario_map`, which is the checkpoint-resume path — without them a resumed run treats every mechanics sink as coachable and generates rubrics for backchannel
 - `layer_c`'s `min_milestone_calls_floor: 3` means a scenario whose responses span fewer than 3 calls can never satisfy the support gate, so it always falls through to the V1 Gemma fallback. That is intended (V1 still produces a rubric), but it means small scenarios are not clustered — don't read it as a bug
 - V2 Layer A adjudication deliberately makes **no DB calls inside the Gemma loop**; all scenarios are written in one pass afterwards. Holding a Postgres connection across ~200 sequential Gemma calls invites the `IdleInTransactionSessionTimeout` / SSL-drop failure mode. Don't add an `upsert` back into that loop
@@ -1476,6 +1477,432 @@ Harnesses `calibration/trial_pool_unit_gemini.py`, `trial_adjudicate_gemini.py`,
   substantive, so neither is a defence. A rubric for "Happy Dance" transfers to no other
   client. Cheap unrun check: flag clusters whose top keywords are a proper noun.
 
+### Adjudication A/B: does the noise-rescue change the TAXONOMY? Mostly no (2026-08-16)
+
+Harness `calibration/adjudication_ab.py` (+ `tests/test_adjudication_ab.py`, 20 tests), driver
+`ops/run_adjudication_ab.py`, readers `calibration/read_scenario_quality.py` /
+`read_clean_clusters.py`. Zero Postgres writes. **Replaces `trial_adjudicate_gemini.py` for any
+comparison** — see `HARNESS_DELETION_PROPOSAL_2026-08-16.md`.
+
+**RESULT, cleaned corpus (20,788 turns, 224 clusters, 3 arms x ~224 sequential calls):**
+
+| arm | scenarios | merged | mech | logi | coachable (rebased) |
+| --- | --- | --- | --- | --- | --- |
+| clean_base_a | 26 | 61 | 128 | 9 | 16.0% |
+| clean_base_b | 28 | 58 | 131 | 7 | 16.9% |
+| **clean_rescued** | **34** | 54 | 130 | 6 | **20.0%** |
+
+- **Flip rate says NULL: treatment 12.5%/10.3% against a 12.9% noise floor.** The taxonomy
+  churns as much between two IDENTICAL runs as it does under the treatment.
+- **Scenario COUNT says otherwise: 34 vs a 26–28 base band.** Both are true because **a flip
+  rate discards DIRECTION** — noise flips are symmetric (12 merged->scenario vs 10 the other
+  way, net +2) while the treatment's are asymmetric (12 vs 6, net +6). **Report the direction
+  of flips, never the rate alone.**
+- **CLEANING THE CORPUS TIGHTENED THE NOISE FLOOR FROM ±7 SCENARIOS TO ±2** (40 vs 47 dirty;
+  26 vs 28 clean). Contamination was not just junk, it was a major source of ADJUDICATION
+  INSTABILITY — and it is why the first A/B was unreadable. On the dirty corpus the rescued arm
+  (42) sat INSIDE the base range (40–47); on the clean one it sits clearly outside.
+- **The treatment's direction FLIPPED between corpora** — consolidating on the dirty corpus
+  (47->42), expanding on the clean one (26/28->34). A robust property of the rule would not do
+  that; treat the taxonomy-shape claim as unproven.
+- **A third base arm was considered and REJECTED as unnecessary**: it would tighten the floor
+  around the weakest part of the case, the solid evidence (call coverage, account
+  concentration) does not use the floor at all, and the corpus changed again anyway.
+- **Reading confirms the cleanup, not the rescue.** Cleaned base top-5 scenarios: only 1 of 5
+  account-bound (was 4 of 5), top scenario now 96 calls at 9% concentration. Mechanics are
+  correctly sunk in both arms (scheduling, "Yeah.", time zones, "Okay.", late arrivals) with
+  nothing substantive wrongly discarded. **The rescue nearly DOUBLES the largest sink
+  (433->819) and sweeps some resourcing/alignment turns into discard — lost recall, not
+  damage, since sink turns are dropped either way.**
+- **Where the rescue IS solid, and it is not the taxonomy: evidence breadth.** Per scenario,
+  base -> rescued: 96->133 calls, 68->114, 48->91; account concentration 16%->12%, 29%->21%.
+  Measured in accounts and calls, units no clustering metric optimises.
+- **STILL UNTESTED, and it is the only thing that decides adoption: Layer B/C.** Nothing
+  downstream has run on either arm. The whole justification was "more evidence -> better-powered
+  milestones" and not one link of that chain is measured.
+
+### THE JOVEO GATEWAY CACHES CHAT COMPLETIONS (2026-08-16) — read before any A/B
+
+**Measured directly.** The same prompt returned BYTE-IDENTICAL free text in 1741ms, then 249ms,
+then 236ms. A prompt differing by ONE TRAILING SPACE returned different text in 806ms.
+`cache: {"no-cache": true}` bypasses it (946ms/794ms, genuinely different text each call), and
+`trial_gateway.chat_json` now takes `no_cache=True` — **default False so existing callers are
+unchanged**, because for a one-shot production pass the cache is a saving, not a hazard.
+
+**It silently destroys any design of the form "run the same thing twice and measure the
+spread", and it already did.** A 245-cluster adjudication re-run as a noise floor came back
+**245/245 identical — verdicts, keys, reasons AND free-text descriptions**. That reads as
+perfect determinism; it was arm 1's answers echoed back. The tell was that identical *prose*
+across 245 varied prompts is not plausible at temperature 0.2 — a verdict match would have
+been. **Check a free-text field, not just the label, before believing a 0% floor.**
+Wall-clock is the second tell (4.2m vs 7.1m for the same work).
+
+**ANY harness measuring run-to-run variance MUST set `no_cache=True`, and every arm must use
+the SAME cache policy** — bypassing on one arm and not the other is the asymmetric-filtering
+error this repo keeps re-learning.
+
+### Corpus contamination: 13.2% of the "client" pool was not client speech (2026-08-16)
+
+Found while reading the clustering trial's scenarios. Three independent causes, all the same
+failure mode: **`transcript_parser._classify` fails OPEN — anything it cannot identify becomes
+CLIENT.** Fixes are recorded in `PROBLEMS_AND_FIXES.md`; harnesses are
+`calibration/flag_interview_transcripts.py`, `calibration/fetch_avoma_meeting_meta.py`,
+`calibration/check_employees_as_clients.py`, `ops/repair_speaker_rosters.py`.
+
+| source | turns | fix |
+| --- | --- | --- |
+| job-interview calls (23) | 1,490 | quarantined to `recordings_excluded_interviews/` |
+| unattributed speakers | 1,127 | new `SpeakerRole.UNATTRIBUTED` (PRODUCTION change) |
+| Joveo staff read as client | 544 | `ops/repair_speaker_rosters.py`, 27 sidecars |
+| **total** | **3,161 (−13.2%)** | 416 → 393 transcripts, 23,949 → 20,788 turns |
+
+- **The largest coachable scenario was JOB INTERVIEWS — 822 turns, 27% of coachable volume.**
+  Confirmed by reading: Naren says *"think of this lesson as an interview"* and *"specifically
+  hiring for this role for my team"*, then the candidate narrates 13 years of work history.
+  A candidate is not a Joveo name, so every turn entered the CLIENT pool. Career narration is
+  highly self-similar so it clusters **~5x more tightly than real client discussion** — ~5% of
+  calls produced 27% of coachable volume. Same disease as the documented
+  `compensation_and_variable_structuring`, 21x larger.
+- **`Unknown Speaker` came from `ops/fetch_avoma_recordings.py:107`**:
+  `speaker_map.get(segment.speaker_id, "Unknown Speaker")` — Avoma's diarization heard a voice
+  that was not on the calendar invite (dial-in, forwarded invite, shared room). It matched no
+  roster entry and no Joveo name, so it fell through to CLIENT and became **the single largest
+  "client" voice in the corpus**. **9 calls were 100% phantom — 706 turns from calls where no
+  client was ever identified** (one was 229 of 349 turns). Now `SpeakerRole.UNATTRIBUTED`,
+  returned BEFORE the roster lookup. Layer A/B gate on `role != CLIENT` so those turns are
+  skipped; layer_b's response loop already broke on any non-Joveo role, so **response-window
+  termination is byte-identical — the only change is that these turns can no longer be
+  TRIGGERS.** `ego_trap/` has its own enum and is untouched.
+- **`_classify` consults the ROSTER FIRST and `is_rep` decides outright — `JOVEO_SPEAKER_NAMES`
+  is never reached when a roster entry exists.** So a colleague whose sidecar says
+  `is_rep: false` is CLIENT and adding their name to the env var CANNOT fix it. The affected
+  entries had `email` set to the literal string `"db"` or `"gm"` — a failed lookup leaking into
+  the field. `kj` alone was 422 turns, the 11th-largest "client" voice.
+- **An HR employee CSV (988 names) VALIDATED the conservative guard.** `deepika j`,
+  `kaashvi seth`, `narasimharao tadi` are NOT employees — repairing them on inference would
+  have deleted genuine client speech. `Ishraj Singh` (633 turns), `Vishi Agrawal` (530) and the
+  other big partial matches are not employees either. Only exact/first+last matches were
+  repaired; a shared token is not identity.
+- **15 calls are genuinely internal (`RTX Prep`, `FLINT CRM de-brief`) and were ALREADY
+  contributing zero client turns.** Internal calls were a non-issue; Avoma's `is_internal` flags
+  only 7 and they contribute nothing. Do not spend effort here.
+
+**AVOMA HAS GROUND TRUTH THE PIPELINE NEVER READS.** `GET /v1/meetings/{uuid}/` returns
+`subject`, `purpose`, `is_internal`, `outcome`. **The trailing slash is required** (301
+without it) and `/v1/meeting_types/` is **404** on this account — `purpose` arrives inline.
+Auth is `Bearer $AVOMA_API_KEY`, same as `ops/fetch_avoma_recordings.py`.
+**`purpose = "Exclude from Review"` is a WORKFLOW tag, NOT a quality judgment — 110 calls,
+28.4% of the pool, and it is dominated by RECURRING CLIENT MEETINGS** (`Scale.ai<>Joveo:
+Weekly check-in`, `Banfield || Career Site Weekly`, `Uber/Joveo - Weekly performance review`).
+Excluding it would have destroyed the account-management calls the CS team exists to run. It
+was nearly done on a misread; **sampling the subjects is what caught it**.
+
+**THE DOMAIN-VOCABULARY TRAP FIRED THREE MORE TIMES IN ONE SESSION.** In a recruitment-
+advertising corpus, `hiring`, `your resume`, `candidate`, `prep` and `quick connect` are the
+SUBJECT MATTER, not meeting types. `"RTX || 'Engineers in Their Element' US Hiring Discovery"`
+is a client call; `"Guidewire - Joveo Prep Call"` has `shmorris@guidewire.com` on it. Same
+class as `Indeed` being a spaCy stopword. **Before adopting any keyword as a signal here,
+check what it means to THIS business.** What survived: `your journey` (Naren's stock interview
+opener, 8/8 recall on hand-verified calls, 2 false positives both caught by the account
+signal) and the Avoma subject shape `<Role Title> - <Person> - Discussion N`.
+
+### Layer A clustering: 11 arms, and the ONE that beat the incumbent is a noise-rescue (2026-08-16)
+
+Spec `docs/superpowers/specs/2026-08-16-layer-a-clustering-method-design.md` (pre-registered
+before any arm ran; the P-arm selection rule frozen before the diagnostic probes were read).
+Harness `calibration/clustering_bench.py` (+ `tests/test_clustering_bench.py`, 22 tests),
+`calibration/diagnose_layer_a_noise.py`, `calibration/clustering_objective_audit.py`,
+`calibration/read_clustering_samples.py`. **Zero chat calls, zero embedding requests, zero
+Postgres writes** (cache-only embeddings, abort on miss). **Nothing wired to production.**
+
+Question: routing was closed, so the CLUSTERS are the ceiling — the positive control reaches
+only 20/38 and 47% of the pool is HDBSCAN noise. Can a different clustering do better?
+
+| arm | GATE | lexical | description | subst cov | sign p |
+| --- | --- | --- | --- | --- | --- |
+| **rescue_centroid** | **28/38 = 74%** | 47% | 47% | 67.6% | **0.008 (+8/−0)** |
+| agglo_cosine | 22/38 = 58% | 39% | 50% | 56.2% | 0.774 |
+| **incumbent** | **20/38 = 53%** | **61%** | **61%** | 45.1% | — |
+| p_eps050 / p_ms2 | 53% / 50% | 53% / 50% | 39% / 34% | 49.8% / 48.8% | 1.000 |
+| leiden_knn | 42% | 50% | 45% | **98.4%** | 0.344 |
+| jitter_s1 / jitter_s7 | 45% / 39% | 47% / 45% | 34% / 34% | 43.8% / 45.4% | — |
+| p_eps075 *(frozen rule's pick)* | 24% | 34% | 37% | 67.7% | 0.013 |
+| rescue_soft / rescue_placebo | 13% / 8% | 29% / 21% | — / 47% | 68.2% / 67.2% | 0.000 |
+| placebo_shuffle | 0% | 0% | — | 45.1% | 0.000 |
+
+- **The published control is 20/38 = 53%, NOT the 21/38 that was circulating.** Corrected
+  against `null_test_taxonomy.json` and reproduced live. F2 (identity transfer) passed exactly.
+- **F1 is clear by the widest margin this repo has recorded: `placebo_shuffle` scores 0/38 and
+  0% lexical.** Compare routing's `placebo_centroid` at 3.3%. The gate is readable.
+- **THE INCUMBENT'S 53% IS THE TOP OF ITS OWN UMAP-SEED BAND (39–53% at seeds 7/1/42).**
+  Re-partitioning costs 3–5 scenarios. Never quote the seed-42 number as "the" incumbent level,
+  and this is why F7 (a treatment must clear BOTH jitter seeds) exists.
+- **`rescue_centroid` satisfies S1 and S2 and nothing else does.** It admits a noise turn into
+  its nearest surviving cluster iff `cos(t, centroid_c) >= p25({cos(m, centroid_c)})` — a
+  per-cluster property of the data, no global constant. **+8/−0: it gains 8 scenarios and loses
+  none.** Substantive-turn coverage 45.1% → 67.6%.
+- **F5 HAD A GAP AND IT IS NOW CLOSED — cite the LIFT, not the level.** F5 requires a winning
+  STOCHASTIC arm to hold at two more seeds, and `STOCHASTIC` was coded `{"leiden_knn"}` because
+  `rescue_centroid` has no RNG. But the arm is deterministic only GIVEN ITS INPUT, and its input
+  is a seeded UMAP spanning 39–53%, so the 74% was measured on the best of three bases.
+  **F5 guarded the arm's OWN randomness and missed INHERITED randomness — any rule that
+  post-processes a stochastic stage needs this test.** Re-run free (the jitter memberships were
+  already persisted) via arms `rescue_centroid_s{1,7}`:
+
+  | UMAP seed | base | + rescue | lift | paired sign test |
+  | --- | --- | --- | --- | --- |
+  | 42 | 20/38 = 53% | 28/38 = 74% | +8 | +8/−0, p=0.0078 |
+  | 1 | 17/38 = 45% | 26/38 = 68% | +9 | +11/−2, p=0.0225 |
+  | 7 | 15/38 = 39% | 24/38 = 63% | +9 | +9/−0, p=0.0039 |
+
+  **Lift stable at +8/+9/+9 and LARGER at the worse seeds** (the opposite of seed luck),
+  significant independently at all three, and **the ranges DO NOT OVERLAP — rescued 24–28/38 vs
+  base 15–20/38**, so the worst rescued seed beats the best unrescued one by 4 scenarios.
+  Substantive coverage 67.6/68.4/68.4% vs bases 45.1/43.8/45.4%; F4 stays 10.2–11.9% at every
+  seed. **74% was seed-42-flattered in its LEVEL; the EFFECT (~+8–9 scenarios, ~+23 coverage
+  points on whatever base UMAP hands it) is a property of the rule.**
+- **Its mandatory volume-matched placebo collapses to 3/38 = 8%**, so the gain is the SELECTION,
+  not the volume — the comparison eight rounds of per-pair sink-rescue never had.
+- **THE GATE IS PARTLY THIS ARM'S OWN OBJECTIVE FUNCTION, and the signature is visible in the
+  table.** Gate and lexical track each other for every arm (53/61, 53/53, 50/50, 45/47, 42/50,
+  39/45, 24/34, 13/29, 8/21, 0/0) and diverge for exactly one: `rescue_centroid`, 74 vs 47 —
+  the only arm that selects members BY the statistic the gate measures. **Cite the direction,
+  never the magnitude; +21 points is an upper bound.**
+- **`rescue_centroid` ties its own random placebo under the `description` objective (47% vs 47%,
+  both +3/−8) — and that null is the OBJECTIVE's defect, not the arm's.** Gemma wrote each
+  description from samples of the INCUMBENT's cluster, so it anchors to the original content and
+  penalises ANY membership change equally; both rescue arms change it by identical volume. **It
+  measures how much a population CHANGED, not whether it changed well.** The asymmetry was
+  written into the script's docstring before it ran ("if a rescue arm WINS here despite the
+  anchoring that is strong; if it loses, the anchoring is a sufficient explanation"), which is
+  the only reason the tie did not read as a refutation. The unanchored lexical objective DOES
+  separate them, 47% vs 21%.
+- **The blinded reading settles it: `rescue_centroid`'s added turns beat random 10 OF 10**
+  (p≈0.002), including both items where the coin flip put it in slot A. `managing_uat_and_
+  testing_phases` drew *"it's a 3 or 4 week testing, UAT kind of time"* against audio dropouts;
+  `job_board_distribution` drew *"Indeed has $3 cost per API call"* against *"I've read a bunch
+  on g two."* The rule admits real content.
+- **THE FIRST READING WAS CONFOUNDED AND THE MISTAKE GENERALISES: for an arm that MODIFIES
+  populations rather than partitions them, the unit of reading must be the MODIFICATION.**
+  `rescue_centroid` keeps the incumbent's 245 clusters and only grows them, so sampling 10
+  clusters per arm independently compares two random draws from the SAME cluster set — with ~2/3
+  of clusters being sinks that measures which draw was junk-heavier. `--added` mode compares
+  what each rule ADDS to the SAME scenario at the SAME count: symmetric filtering applied to a
+  reading rather than to a metric.
+- **Account-glue: the rescue INHERITS it, it does not create it.** Top-account share of ADDED
+  turns over 86 coachable clusters — centroid 0.365, placebo 0.221, the clusters' OWN ORIGINALS
+  0.471. More concentrated than random (57/86, p<0.0001) but LESS than the originals (only
+  21/86 rise, p<0.0001); 5 clusters get >=80%-one-account additions against the originals' 17,
+  and every one is already-documented (`tracking_pixels` = Uber 0.95–1.00, `managing_non_
+  technical_stakeholders` = Banfield 1.00). On average it DILUTES concentration.
+- **The frozen P-rule picked a loser (`p_eps075`, 24%) and that is pre-registration working.**
+  Its probe row already looked bad; the rule was followed and the gate judged it.
+- **`leiden_knn` is the one arm that breaks the coverage/quality trade every other arm obeys.**
+  No noise class, as predicted: it assigns **98.4% of substantive turns** and still scores 42%,
+  far above the other high-coverage arms (`rescue_soft` 68.2%/13%, `p_eps075` 67.7%/24%). Not a
+  win, but the only cheap coverage on offer. γ scale-matched to 1e-2 (271 communities vs 245).
+- **CPM's γ range CANNOT be guessed — it is compared against intra-community edge-weight
+  density, so it depends on the graph's cosine scale.** A 500-vector probe shattered from 2
+  communities to 0 across one decade. The grid spans 1e-6..1e1 and the run WARNS if the
+  selection rule lands on an endpoint: a rule applied to a truncated domain silently returns the
+  edge of the grid instead of the point it was asked for.
+- **`agglo_cosine` ran fine** (2.3 GB condensed matrix, no MemoryError — "limited to a few
+  thousand" is folklore) with the cleanest junk profile of any arm (F4 2.3%), but 58% is not
+  significant (p=0.774) and it leaves 5 of 38 scenarios unrankable.
+- **`rescue_soft` (HDBSCAN soft membership) is the anti-result to `rescue_centroid`:** near
+  identical coverage (68.2%) and 13%. Same idea, different signal, opposite outcome — so
+  "rescue works" is false as a general claim; only this rule works.
+- **NO PRODUCTION CHANGE MAY CITE ANY OF THIS.** All gemini-embedding-2@3072 in TURN mode;
+  production is local bge@768 in CLAUSE mode, where the noise pool, the centroid band and
+  `merge_cosine_threshold` all differ. The honest next step is re-running `rescue_centroid`
+  against the production embedder and unit before any `tuning.yaml` key is proposed.
+- **Still open:** the 47% noise is only half-answered. `rescue_centroid` recovers noise into
+  EXISTING scenarios and cannot create new ones, so the diagnostic's 268 subject-bearing
+  noise-only clusters stay outside the taxonomy by construction of the transfer gate.
+
+Diagnostic that motivated the arms (`calibration/diagnose_layer_a_noise.py`, artifact
+`layer_a_noise_diagnostic.json`): **the noise pool is CLEANER than the kept pool — 22% of noise
+is content-free vs 42% of clustered.** Backchannel clusters tightly ("yep yep" ×51); substantive
+discussion is what gets discarded. 8,834 noise turns are substantive, and 4,574 of them sit
+inside the member cosine band while HDBSCAN's own soft membership gives them max-prob p50=0.020.
+**The loss happens in the UMAP→HDBSCAN stage, not in the content** — which is precisely why a
+full-space cosine rule (`rescue_centroid`) recovers what a UMAP-space rule (`rescue_soft`) cannot.
+
+### Routing methods: 16 arms searched, the incumbent exemplar centroid was NOT beaten (2026-08-16)
+
+> **THE RANKING BELOW IS WITHDRAWN — both checks ran and both went against it (2026-08-16).**
+>
+> **(1) The gate IS self-serving** (`calibration/routing_objective_audit.py`, free, both
+> self-checks passed: draws reproduce `nt.length_matched_null` to 1e-9 and the `centroid`
+> column reproduces `routing_bench`'s `share_fixed` exactly). Same populations, three
+> objectives: **`description` goes from 32% under the centroid objective to 97% (37 of 38)
+> under its own**, with nothing changed but the ruler. **And the neutral `lexical` column is
+> unusable too — `placebo_centroid` scores 37% there, BEATING `description` (29%).** A referee
+> a random partition can beat is not a referee.
+> **NEVER propose "mean pairwise cosine" as the neutral measure**: `coherence(P) ==
+> sqrt(mean pairwise cosine incl. diagonal)`, verified identical to 1e-6 at n=10/50/300. It is
+> the same statistic renamed, and it was nearly used to audit itself.
+>
+> **(2) BLIND reading of real turns contradicts the aggregate**
+> (`calibration/read_routed_samples.py` writes the samples and the answer key to SEPARATE
+> files; judgments committed before the key was opened). Destination (both accept, different
+> scenario, n=20): **`description` 11-8**, and 7-3 on confident calls — the OPPOSITE direction
+> to the aggregate's 61% vs 32%. Accept-vs-reject (n=12): `centroid_pooled` 8-4. Nothing
+> significant (p=0.648 / 0.344 / 0.388). Both arms' sinks caught genuine junk.
+> **Reading suggests a split the aggregate never showed: prose is at least as good at choosing
+> WHERE a turn goes; member turns are better at choosing WHETHER to take it.**
+>
+> **(3) BLIND READ v2 REVERSES v1 AND IS SIGNIFICANT — `calibration/read_routed_samples_v2.py`.**
+> v1 asked "which arm's call is right" and showed the reader both answers (n=12, p=0.388). v2
+> shows ONLY the turn — no arm, no candidate scenario, no accept/reject hint — and asks one
+> arm-independent question, "is this substantive?", then scores every arm against that single
+> judgment. On the 40 turns where the routers disagree: **`description` 70% accurate (precision
+> 75%, recall 38%) vs `centroid_pooled` 30% (precision 31%, recall 62%), McNemar 28-12,
+> p=0.017.** `centroid_pooled` accepts **22 of the 24 non-substantive turns**.
+> **So description is CONSERVATIVE (misses real moments) and member-centroids OVER-ACCEPT
+> (admit junk).** For this pipeline the conservative error is the right one: a false positive
+> puts fabricated coaching in front of a human, which is the failure mode the Step-0
+> false-positive investigation already identified.
+> **THE SPLIT-ROUTER HYPOTHESIS IS REFUTED.** `arm_split_member_accept_desc_dest` was built on
+> v1's n=12 reading (members better at accept); v2 shows members are the WORSE side, and the
+> arm scores identically to `centroid_pooled` because it inherits that decision. Kept in the
+> registry as a recorded negative, not a candidate.
+> **Limitations, stated not buried:** the sample is the DISAGREEMENT set, so precision/recall
+> are conditional on disagreement and are NOT global rates; one reader, who designed the arms;
+> and the reader's substantiveness bar (16/40 = 40% substantive) sits close to `description`'s
+> own global accept rate (41.4%), so a stricter or looser bar would move the result.
+>
+> **(4) THE RECALL ARGUMENT DISSOLVES ON A PR CURVE — `calibration/routing_pr_curve.py`.**
+> Comparing two arms at ONE operating point each is not comparing two methods. Both share a
+> knob nobody had swept: `accept iff max(coachable score) - max(sink score) >= delta`, which at
+> `delta=0` IS the shipped rule, so both curves pass through their published point.
+> Ground truth is the 80 blind-judged turns, reweighted by stratum
+> (8,851 / 10,275 / 3,749 / 1,074 — a raw average over the 80 is badly biased).
+> **Global, stratum-weighted: `description` P 79.5% / R 87.1%; `centroid_pooled`
+> P 65.5% / R 91.1%. Estimated 9,058 substantive turns (38% of the pool).**
+> **At MATCHED recall, `description` @ delta=-0.0117 gets P 76.9% / R 92.2% — HIGHER recall
+> than centroid and 11pp more precision.** Its curve sits above centroid's across the whole
+> high-recall region. Neither dominates everywhere: near delta=+0.018 centroid trades better
+> (P 75.7 / R 70.0 vs P 83.0 / R 54.8), but Layer D does not operate there.
+> **So more recall is bought with the KNOB, not a method swap:** delta=-0.0117 buys +5.1pp
+> recall for -2.6pp precision, against switching to centroid's +4.0pp recall for **-14.0pp**
+> precision — one fifth the cost. Centroid's extra accepts run **1 real moment : 6.3 junk**.
+> **Bootstrap CIs on 80 judgments are WIDE and overlapping** (76.9% [61-90] vs 65.5% [52-78]),
+> so the curve comparison alone is not significant; it is consistent with the paired McNemar
+> at delta=0 (28-12, p=0.017), which is the powerful test because it scores both arms on
+> identical turns. Do not cite the curve as independent confirmation.
+>
+> **NO ROUTING CHANGE MAY SHIP, including `scenario_vector_mode` (stays `concat`), until an
+> instrument exists that can rank methods ACROSS population shapes.** The `delta` knob is the
+> one change the evidence positively supports, and it is NOT built — it would be a new
+> `layer_b` tuning key defaulting to 0.0 (byte-identical), swept against a larger judged
+> sample than 80 before any value is chosen. The durable result is
+> methodological: **an evaluation metric that is any arm's objective function cannot rank arms,
+> and the cheap way to detect it is to re-score the SAME populations under a rival's
+> objective.** Run that before any future arm comparison in this repo.
+>
+> Original caveat, now confirmed rather than suspected: `coherence(P)` is mean cosine of a
+> population to its OWN centroid, and the centroid arms assign by maximising cosine to a
+> centroid, so **the gate is those arms' own objective function**; an arm optimising anything
+> else is graded on their loss. `placebo_centroid` does NOT control for this — random-partition
+> centroids collapse toward the global mean (margin p50 0.0023 vs 0.0145, degenerate), so it
+> tests "is the centroid informative", not "is the metric centroid-shaped".
+> **Corroborated from an independent direction by the cross-encoder run:** grouped by
+> population SHAPE rather than method, every Voronoi-cell arm scores 50-61% while
+> `description` (LLM prose + bi-encoder) and `xenc_member` (neural cross-encoder over member
+> turns) — two methods sharing no mechanism — land on the SAME 32%.
+> **Cheap falsification, NOT YET RUN:** re-score every arm under an arm-neutral objective
+> (mean cosine to the key's description vector; and/or mean PAIRWISE cosine within the
+> population instead of cosine to its own centroid). If each arm wins under its own objective,
+> the ranking must be withdrawn. Within-shape comparisons are unaffected and were already null.
+>
+> **Also standing, unaddressed:** nothing was READ — zero routed or rejected turns inspected,
+> against this repo's own repeated lesson; the CLUSTERING saw every test turn so "out-of-fold"
+> folds only the centroid computation; routing accuracy is near-tautological (ground truth is
+> HDBSCAN membership, the centroid is that cluster's mean); the control grades 5,159 turns
+> against the arms' ~12,000 with barely overlapping size ranges; and `desc_keyphrases` may be a
+> scenario-TEXT-length artifact since the null is length-matched over turns, not over
+> scenario text.
+
+**Cross-encoder re-ranking was the strongest untested idea. Pre-registered, run, FAILED (F8).**
+`centroid_pooled` proposes top-5, a local `ms-marco-MiniLM-L-6-v2` re-scores each turn against
+the 3 most central member TURNS of each candidate. Out-of-fold: proposer **61%** ->
+`xenc_member` **32%** -> `rerank_random` placebo **18%**. **Re-ranking HALVES its own candidate
+generator.** It beats its placebo, so it is genuinely reading the pairs — **weak signal that
+OVERRIDES strong signal is worse than no signal**, which is the transferable lesson. Not a
+verdict on cross-encoding in general: ms-marco was probed as out-of-domain first (saturates at
+its irrelevant floor on prose, spread 0.57; separates on turn-vs-turn, spread 4.61 — which is
+why the arm pairs turns with turns).
+**The Joveo gateway has NO reranker**: `/rerank` exists and forwards to AWS Bedrock, but the
+gateway validates `model` against its own list and `GET /model/info` reports modes
+`{chat:116, embedding:12, image_generation:9, realtime:1, responses:2, unlabelled:8}` — **no
+`rerank` mode**, and all 8 unlabelled are chat/image. Enabling `cohere.rerank-v3-5:0` on the key
+would make this cheap to retest. Do not re-probe the ARN forms; all are rejected at the gateway
+before reaching Bedrock.
+
+Spec `docs/superpowers/specs/2026-08-16-layer-a-routing-method-design.md` (pre-registered
+before any arm was written). Harness `calibration/routing_bench.py` + `calibration/routing_arms.py`
+(21 tests), artifact `artifacts/routing_bench.json`, per-seed `routing_bench_s{42,1,7,2026}.json`.
+**Zero chat calls. 754 embedding requests, once, for the description variants. Zero DB writes.**
+Promotes three scratchpad scripts (round trip / held-out routing / coherence-vs-null) into ONE
+process, because three processes would grade arms against three separately-fitted clusterings.
+
+- **Verdict: "the obvious fix is also the best available."** 16 arms — prototypes, medoid, k-NN,
+  multi-modal sub-centroids, a SetFit-style linear probe, blends, four description registers —
+  and **no arm beats the exemplar centroid at a defensible level.** The whole centroid family
+  (`centroid` 50.7, `centroid_pooled` 59.2, `submeans` 54.6, `blend_a0.75` 61.2) is mutually
+  indistinguishable: `blend_a0.75` vs `centroid` is 6-3 discordant, **p=0.508**.
+- **The ONE significant result: membership-based routing beats description routing**,
+  `blend_a0.75` vs `description` 12-1, **p=0.003**, replicated in 4 independent fold splits.
+  The shipped `description` arm scores 31.6 against the placebo's 3.3 and the control's 55.3.
+- **`share_fixed` is over the CONTROL's rankable set, never an all-arm intersection.** The
+  intersection SHRINKS when any one arm starves scenarios (`probe` alone dragged it 35 -> 21),
+  which degrades every other comparison in the run AND excuses the starving arm by removing the
+  scenarios it failed on from its own denominator.
+- **A fold-seed band is NOT a significance test, and for some arms it is not even a band.**
+  `description` / `desc_prose` / `desc_keyphrases` / `desc_maxpool` / `desc_kp_each` do no
+  fitting, so they produce byte-identical assignments at every seed: their range-0 column is
+  INVARIANCE, and "leads in 4/4 seeds" among them is **one observation reported four times**.
+  The pre-registered gate (F3) read the band and would have declared a winner the paired
+  McNemar test does not support. Print fold-dependence per arm in any future harness.
+- **The binding constraint is 38 scenarios.** McNemar needs ~12-1 discordant for p<0.01, so a
+  method better on 4 more scenarios is unresolvable. **More evidence, not another method.**
+- **The single 75/25 holdout was under-powered and was replaced by 4-fold CV over CALLS** —
+  it left 14 rankable scenarios against the spec's own floor of 20, and the arm ordering
+  inverted against full-corpus. CV also makes out-of-fold and full-corpus differ in exactly one
+  respect (did the router see the turn's call), sharing one control and one reference.
+- **`knn_max` / `knn_topk_mean` / `medoid` / `probe` are self-inflating on the full corpus** —
+  a member is its own nearest neighbour at cosine 1.0, reproducing membership having learned
+  nothing. Marked `*` in the report; only the out-of-fold column is interpretable.
+- **Free self-check that catches fold-machinery bugs: `description` does no fitting, so its
+  out-of-fold and full-corpus assignments must be identical turn for turn.** Asserted on all
+  23,949 turns.
+- **The placebo (`placebo_centroid`, centroids of a size-matched random partition) scored 3.3
+  and is what makes the metric readable.** Coherence is mean cosine to a population's own
+  centroid, so any router aiming at an in-manifold point could have scored well for that reason
+  alone. It did not.
+
+**`layer_a.scenario_vector_mode` added, shipping `concat` = byte-identical (verified against all
+245 real scenario rows, 0 differing).** `shared/scenario_vectors.py::scenario_text` concatenates
+`business_description` (analyst prose) with `keyphrases` (verbatim client language) into ONE
+vector; its docstring asserted keyphrases are "what triggers actually resemble" and that was
+never tested. Measured: keyphrases alone **42.1**, prose alone **34.2**, the shipped
+concatenation **31.6 — below either component**. Mixing two registers in one averaged vector is
+worse than picking either. **But it is 7-3 on 38 scenarios, p=0.344, and a SINGLE observation
+(this arm does no fitting) — do NOT flip it on that.** The flag exists so the question is cheap
+to settle. `concat` | `keyphrases` | `prose`; an empty target field falls back to concat with a
+logged WARNING, never silently to an empty-string vector.
+
+- **`desc_kp_each` — every keyphrase as its own retrieval point, the free HyDE/HyPE analogue —
+  is the WORST non-placebo arm at 18.4, while the same words joined into one vector score 42.1.**
+  Multi-point retrieval per class is what fails, not the content. **This is why the paid
+  `desc_synthetic_utterances` arm was never run** — same many-short-points shape, ~80 chat calls
+  to re-confirm a free result. `desc_maxpool` (26.3) is likewise worse than both its components.
+- **EVERYTHING HERE IS gemini-embedding-2@3072 WHILE PRODUCTION EMBEDS WITH LOCAL bge@768.**
+  The transfer check was explicitly declined, not overlooked. It matters most for `blend_a0.75`
+  (α is cosine-scale-dependent) and least for `scenario_vector_mode` (selects text, not a
+  threshold). No routing change may ship to production citing these numbers alone.
+
 ### Measurement-harness remediation, R1-R3 (2026-08-15)
 
 **Full detail — per-item status, every corrected number, the observation list and the
@@ -1786,3 +2213,139 @@ and keywords (245/245)**; a size-matched Monte-Carlo null prices in the corpus's
 - `signal_check.py`'s response classification is `response_outcome` (`"csm"` / `"other_joveo"` / `"none"`), not a `csm_responded` boolean — computed in code by `transcript_parser.classify_response_outcome` from actual turn roles, never asked of the LLM (even in `STEP_0_MODE=gemma`). `"other_joveo"` (a teammate answered, not the CSM) writes a `Deferred_To_Teammate` gap_event via `gap_output.write_deferred_to_teammate` and is excluded from `signal_recognition_gaps` recognized/missed counters; only `"none"` writes `Signal_Recognition_Failure`
 - Milestone scoring (Step 3) returns a 3-tier `verdict` (`full_hit`/`partial_hit`/`miss`) with `quote`/`gap_to_ideal` evidence gated to non-`full_hit`, not a boolean `hit` (changed 2026-07-13, see `docs/superpowers/specs/2026-07-13-milestone-verdict-tiers-design.md`) — `milestone_performance.hits` now means full_hit count only, `partial_hits` tracks partial separately, weighted score = `(hits + 0.5*partial_hits)/attempts` computed at query time, not stored
 - A 0% (or near-0%) milestone hit rate is not necessarily a rubric-wording/prompt-bias problem — confirmed on 2026-07-06 by reading actual Gemma `reason` text in `gap_events.gaps`: every miss was a legitimate content critique, none referenced the responder's name/identity. The real cause was the `EGO_TRAP_SIMILARITY_THRESHOLD` (0.35) matching topic-irrelevant small talk (e.g. "I'm good, thank you", calendar chat) to real scenarios — milestone scoring was correctly failing content-empty false-positive signals, not misbehaving. Before assuming a rubric/prompt fix, pull the stored reasons and cross-check a sample against the source transcript at its `signal_turn_index` first
+
+### Layer B redesign: five arms, all null, and the constraint is downstream (2026-08-16/17)
+
+Spec `docs/superpowers/specs/2026-08-16-layer-b-redesign-design.md` (pre-registered; revised
+twice BEFORE any arm ran, both revisions recorded in it). Harnesses
+`calibration/layer_b_variants.py` (S/A knobs), `layer_b_routers.py` (R1/R2/R3 + permutation
+placebos), `layer_b_arms.py` (the metric), `layer_bc_arms.py` (runner),
+`build_null_weights.py`, `score_layer_b_arms.py`, `probe_relevance_signal.py`,
+`blind_read_powered.py`, `backfill_knob_embeddings.py`, `router_agreement.py`.
+**245 tests. Zero production changes, zero Postgres writes, zero chat calls, 13,075 embeddings.**
+
+**THE HEADLINE: Layer B is NOT the binding constraint — F10, the pre-registered honest null,
+arriving from five independent directions.**
+
+| arm | what it actually did | lift vs control | verdict |
+| --- | --- | --- | --- |
+| `a4` drop RESPONSE floor | +419 pairs but only **+302 clauses** | p=0.383 | redundant with the segmenter |
+| `a1` drop TRIGGER floor | sink share **57.9% -> 69.0%**, milestones 171 = control exactly | p=0.152 | redundant with the sink rule |
+| `r1` membership, base | **+27.5% clauses**, sink 57.9 -> 45.4% | p=0.152 | null |
+| `r1` membership, rescued | **+39% clauses, +35 milestones**, lookup 72.8% | p=0.108 | **rejected at F4** |
+| `r2` centroid, base | sink share **halved** to 28.6%, support med 7 -> 10 | **p=0.043** | worse |
+
+- **`r1` REPAIRS the documented `+62% -> +0.8%` break.** Reading Layer A's own cluster labels
+  instead of cosining a trigger against Gemma prose recovers +39% clauses on the rescued
+  taxonomy, and lookup coverage rises 45.9% -> 72.8% precisely BECAUSE the rescue grew cluster
+  memberships. The type error is real and this is the fix for it.
+- **AND IT DOES NOT MATTER.** The permutation placebo — the SAME 1,921 pairs (48.3% of the
+  corpus), the SAME destination multiset, randomly permuted — produced **112 new milestones to
+  `r1`'s 126** and scored BETTER on the primary metric (−1.70 vs −2.80). **Layer C responds to
+  routing VOLUME, not routing QUALITY.**
+- **BOTH ADMISSION KNOBS TURNED OUT REDUNDANT WITH A LATER STAGE, and that is the
+  generalisable finding.** `a4` admits short Naren replies that Layer C's `len(sent) < 4`
+  segmenter discards anyway — 0.72 clauses per new pair — while dragging in 150 calls that raise
+  `required_milestone_support` in 12 of 25 scenarios, so it raises the bar more than it adds
+  evidence. `a1` admits short triggers that the sink rule rejects anyway (sink share rises to
+  69%, milestone count lands on 171, identical to control). **Before adding or removing a filter
+  in Layer B, check whether a later stage already removes that population.**
+- **`r2` is worse and the mechanism is understood:** centroids are the mean of member turns,
+  member sets are already account-concentrated (RTX 98%, Banfield 100%, Happy Dance 100%), so
+  centroid routing pulls in MORE turns from the accounts that already dominate. Description
+  routing is account-BLIND, which may be the real reason it survived the earlier 16-arm bench
+  despite losing on every membership-shaped metric. **p=0.043 does NOT clear Bonferroni at 5
+  arms (0.010) — suggestive, not established.**
+
+**WHY NOTHING REACHED THE RUBRICS — two measurements, both cheap, both new.**
+
+- **`milestone_relevance_percentile: 40` IS A PERCENTILE, so it survives EXACTLY 60.0% of
+  whatever it is handed.** Measured identically across three arms with very different pools
+  (7,929/13,218 · 11,826/19,707 · 11,577/19,296). It cannot reject mis-routed content in
+  absolute terms, and this file previously described it as one of Layer C's "four aggregate junk
+  defences". Against mis-routing it does nothing at all.
+- **`calibration/probe_relevance_signal.py`, 13,218 clauses x 3 random draws each: own scenario
+  0.6071, random scenario 0.5825.** A +0.0245 gap against a between-clause spread of ~0.14, so
+  pooled **AUC is 0.631** — barely above the 0.617 this repo has already retired as unusable.
+- **BUT THE SIGNAL IS NOT ABSENT, IT IS IN THE WRONG FRAME. Held PER CLAUSE, 78.2% prefer their
+  own scenario to a random one.** Between-clause variation in overall cosine magnitude is ~6x
+  the own-vs-random difference, so pooling drowns it — and Layer C's filter ranks a scenario's
+  clauses AGAINST EACH OTHER, which is the pooled frame. `shared/relative_match.py` already does
+  the per-clause shape at Layer B; **Layer C has no equivalent.** Cheapest live idea in the
+  pipeline.
+
+**THE BLIND READ IS THE FIRST JUDGE IN THIS EFFORT TO PASS ITS OWN NULL — and it produced a
+finding bigger than the arm it was judging.** Three independent subagent readers, 80 items,
+authorship undisclosed, samples and answer key in SEPARATE files, judgments committed first.
+
+- **NEGATIVE control 10/10 rejected by all three readers.** Those items were real Naren clauses
+  from unrelated milestones glued together — only COHERENCE was destroyed, so fluency, register
+  and vocabulary could not be the tell. Inter-rater agreement 91–99%, unanimous on 73/80. For
+  comparison, the applicability judge managed 1.22:1 and the coverage judge 64.9% vs 65.7%.
+- **POSITIVE control FAILED at 5/10 — and that IS the finding. `support_calls` DOES NOT PREDICT
+  COHERENCE.** The positive set was the HIGHEST-support milestones the pipeline produces; half
+  do not hold together as a move. Reading confirms it — the two largest clusters in the pilot
+  (67 and 37 calls) were both rejected as generic affirmation ("we can certainly help with
+  that", "I'll send you the collateral").
+- **Roughly HALF of every milestone set is judged incoherent**: placebo 33%, `r1` 50%,
+  best-supported control 50%. Independent of routing, of arm, and of how the `r1` question
+  resolves.
+- `r1`-gained vs placebo-gained: **50% vs 33%, same direction in all three readers, p~0.30.**
+  Underpowered. A 268-item powered read was built and deliberately NOT bought (~1.2M subagent
+  tokens); one reader over the full set would cost a third of that if it is ever wanted.
+
+**THE TWO INSTRUMENTS DISAGREE BECAUSE THEY MEASURE DIFFERENT AXES.** Account-diversity lift
+asks "is this evidence spread across CLIENTS"; the blind read asks "is this ONE COHERENT MOVE".
+`r1` moves the second and not the first, which is consistent — nothing in `r1` looks at
+accounts, which is exactly why that metric was chosen (ungameable) and exactly why no arm could
+move it. **Do NOT retroactively promote coherence to the primary metric because it favours
+`r1`.** The pre-registered metric says `r1` fails; switching axes after seeing the result is how
+a threshold gets tuned into a finding. Resolve it with power or leave it open.
+
+**THE METRIC WAS WRONG THREE TIMES, each caught before it decided anything. Read this before
+proposing a fourth.**
+
+| rev | statistic | killed by |
+| --- | --- | --- |
+| 1 | `>= 3 distinct accounts` | the published RTX-98% case has FOUR distinct accounts and PASSED. Also saturated — 91% of `base_1` AND 91% of the junk placebo cleared it |
+| 2 | `N_eff` (inverse Simpson) | `N_eff <= k`, so an arm routing more calls into each milestone raises the ceiling MECHANICALLY |
+| 3 | `N_eff` / size-matched null, THRESHOLDED | `P(lift >= bar)` is violently k-dependent (100% at k=1, 96% at k=2, 39% at k=8, 46% at k=60), so a treatment that merely SUBSAMPLES 40% of each milestone's calls — content held constant — "won" at **p=4.8e-13** |
+| **4** | **cluster-level lift, NO THRESHOLD** | resists that attack 0–2/20 where rev 3 won 13–16/20 |
+
+Rev 4 needed a **composition-matched** null as well: the draw is weighted by pairs-per-call from
+PRODUCTION's own extraction (`artifacts/null_draw_weights.json`; **42 calls contribute zero
+pairs** and can never back a milestone, yet a uniform null treats them as equally drawable).
+Uniform vs weighted moved a residual drift from p=2.2e-4 to **p=0.858**.
+
+**A PLACEBO MUST MATCH WHAT THE ARM ADDS, NOT A PROXY FOR IT — AND THE TWO ARM TYPES NEED
+DIFFERENT PLACEBOS.** The first `a4` placebo padded with donor PAIRS until total clause count
+matched, and ended up adding **2x the clauses at 3.4x the length = 6.9x the text mass** it
+claimed to match. An ADMISSION arm adds clauses, so its placebo must match count, length and
+embedding character. A ROUTING arm adds NOTHING — the same pairs exist either way — so its
+placebo is a PERMUTATION: keep which pairs moved and the destination multiset, shuffle which
+pair gets which. `layer_b_routers.py` implements `r1p`/`r2p`/`r3p` with the invariants ASSERTED
+in code rather than checked afterwards, because a silently-wrong placebo looks exactly like a
+valid result.
+
+**Reusable, and free:**
+
+- `layer_b_variants.py` is the ONE place this trial paraphrases production, and it is paid for
+  by `verify_equivalence()` — **byte-identical pairs, field for field, over all 393 transcripts**
+  at the control setting `(s0, a0)`. A paraphrase proven equal at the control is not a
+  paraphrase risk; an unproven one is.
+- **Layer C Pass 1 is deterministic across processes**: the floor pair produced identical clause
+  sets AND identical `support_call_files`, 0 up / 0 down / 26 ties. Any arm difference is signal.
+  (An audit correctly noted the artifacts carry no `started_at`/`pid`, so the floor cannot be
+  PROVEN to be two runs from the files alone — worth adding.)
+- `support_call_files` is now persisted per milestone (WHICH calls, not just how many); account
+  breadth is not derivable from any artifact written before this trial.
+- `score_layer_b_arms.py` and `probe_relevance_signal.py` re-report from artifacts at zero cost,
+  which is why three metric revisions cost no re-runs.
+
+**NEXT STEP IS NOT MORE PERMUTATIONS.** `r2_r`, `r3`, `s1` and `a3` would each cost a run to
+produce another null against a mechanism that is now understood. The live directions are
+(1) a per-clause RELATIVE relevance test in Layer C, operating in the frame where the 78.2%
+signal actually lives, and (2) whether Layer C's UNIT is wrong the way Layer A's was — it
+clusters response SENTENCES, and the pool-unit work found sentence-level units manufacture junk
+clusters because a stripped sentence carries stance without subject. Both are testable with the
+harness that already exists, and both are downstream of everything Layer B can do.

@@ -1711,3 +1711,361 @@ taxonomy's noise."
 - **A measurement built to size that damage ended up choosing the fix, which is the pattern worth copying.** Comparing each expert reply against every turn in its block (against a scrambled null, so the signal had to be earned) showed that within *one* speaker's turns the reply attaches to no particular turn - at chance at every block size - while across *different* speakers it clearly tracks whoever spoke last. So the rule "stitch a person's own turns together, never across people" came out of the data rather than from taste, and it needed no new threshold.
 - **The fear that stitching turns together would blur the text toward the junk bins was tested and refuted** - the real-minus-junk margin stays flat or *improves* as more turns are merged, and similarity stays inside the calibrated band, so no existing threshold needs re-tuning. Of five candidate rules the word-count filter was the worst: it deletes more than it saves, and is now the **ninth** consecutive failure of a per-item threshold filter here. Judging a whole cluster works; scoring one item against a cutoff does not.
 - **The trial found something bigger than the bug it was testing: Layer D's accept/reject decision is close to a coin flip on a large share of every run** - 14.5% of decisions sit within 0.01 of flipping and 28.3% within 0.02. So a third of any arm's apparent improvement is noise, today's rule admits outright fragments, and **no future Layer D comparison should treat a difference of a few dozen exchanges as real.** Unexamined, and it sits beside the known fact that the winning topic beats the runner-up by about 0.01.
+
+---
+
+## An eighth of the "client" corpus was never a client talking (2026-08-16)
+
+**How it surfaced.** Not from a metric. A clustering trial had just finished and the last step
+was the one this project keeps re-learning to do: read the actual clusters. The single largest
+coachable scenario — 822 turns, **27% of all coachable material** — turned out to be **job
+interviews**. Reading one transcript settled it in seconds: Naren says *"think of this lesson as
+an interview"* and *"specifically hiring for this role for my team"*, and the other person then
+narrates thirteen years of their career.
+
+**Why the pipeline could not see it.** Speaker classification asks one question — "is this a
+Joveo name?" — and **anything it cannot identify is assumed to be the client.** A job candidate
+is not a Joveo name. Neither is a dial-in phone number, a meeting-recorder bot, or a colleague
+whose calendar record was incomplete. Every one of them became "the client".
+
+**Why interviews did disproportionate damage.** People describe their careers in very similar
+language, so interview turns clump together far more tightly than real client conversation,
+which is varied and messy. **About 5% of the calls produced 27% of the coachable material.**
+The same mechanism that makes the clustering keep "yeah, yeah" and throw away substance.
+
+**Three separate leaks, found by pulling that one thread:**
+
+| what | turns | why it happened |
+| --- | --- | --- |
+| 23 job-interview calls | 1,490 | a candidate is not a Joveo name |
+| "Unknown Speaker", dial-ins, bots | 1,127 | Avoma heard a voice that was not on the invite |
+| Joveo staff, incl. a founder | 544 | their calendar record said `email: "db"` |
+
+**13.2% of the corpus. 416 transcripts became 393; 23,949 turns became 20,788.**
+
+**The "Unknown Speaker" one is worth understanding**, because it is not our bug and it is not
+fixable in the classifier. The transcript fetcher asks Avoma for the recording, and Avoma
+returns it split by voice. When Avoma detects a voice it cannot match to anyone on the calendar
+invite — someone dialling in by phone, a forwarded invite, two people sharing a laptop — it
+labels that voice "Unknown Speaker", and the fetcher writes that string in as if it were a
+name. **Nine calls were 100% phantom: 706 turns of "client" speech from meetings where no client
+was ever identified.** One was 229 turns of 349. Those calls now correctly contribute nothing.
+
+**What we did NOT do, and why it matters more than what we did.** Three near-misses, each
+caught by looking at real examples rather than trusting a rule:
+
+- Avoma tags 110 calls **"Exclude from Review" — 28% of the corpus** — and it was tempting to
+  read that as the team saying "don't coach these". Reading the list showed it is dominated by
+  *recurring client meetings*: the weekly Uber performance review, the Banfield career-site
+  weekly, the Scale.ai check-in. It is a housekeeping tag for repeating calendar series.
+  **Excluding it would have deleted exactly the account-management calls the CS team exists to
+  run.**
+- An HR list of 988 employees was used to check the roster repairs. It **confirmed the nine
+  people we did fix and refuted three we had guessed at** — they are not employees, and
+  "repairing" them would have deleted genuine client speech. It also cleared the largest
+  suspicious names (633 and 530 turns) as real clients.
+- A word-matching rule for spotting interviews flagged *"RTX — Engineers in Their Element US
+  Hiring Discovery"* and *"Guidewire - Joveo Prep Call"*. Both are real client calls. **In a
+  recruitment business, "hiring", "resume", "candidate" and "prep" are the subject matter, not
+  a meeting type** — the same trap as the word "Indeed" being treated as filler. What actually
+  worked was a phrase specific to *our own* hiring ("your journey", Naren's standard interview
+  opener) cross-checked against who was on the call.
+
+**The fix, and its blast radius.** A fourth speaker category, `UNATTRIBUTED`, for labels that
+are not people. It is checked before anything else, because a phone number is not a client
+whatever the calendar says. The pipeline already skipped everything that was not a client, so
+those turns simply stop being counted — and the one place that could have changed behaviour
+(how long an expert's answer is allowed to run) behaves identically, because it already stopped
+at any non-Joveo speaker. **The only real change is that these turns can no longer start a
+knowledge-base entry.** The interview calls were *moved*, not deleted, and the roster repairs
+are backed up and reversible; this is a detection heuristic, not a certainty.
+
+**The payoff was larger than the cleanup.** With the contamination gone, the same quality check
+run twice on identical input moved by **2 scenarios instead of 7** — the noise in the whole
+measurement fell by two-thirds. An earlier A/B had been unreadable for exactly this reason: the
+thing being measured was smaller than the corpus's own noise. **Contamination was not just
+adding junk, it was making the pipeline's own output unstable**, and every comparison built on
+it was quieter than it should have been.
+
+**Still open.** The largest scenario is no longer interviews, but one of the top five is still
+98% a single client — a coaching rubric built from it transfers to nobody else. And nothing has
+yet been re-run downstream, so we know the input got cleaner and do not yet know whether the
+rubrics did.
+
+---
+
+## Routing: 16 methods searched, and the measuring instrument turned out to be the problem (2026-08-16)
+
+Spec: `docs/superpowers/specs/2026-08-16-layer-a-routing-method-design.md`.
+Harnesses: `calibration/routing_arms.py`, `routing_bench.py`, `routing_objective_audit.py`,
+`read_routed_samples.py`, `read_routed_samples_v2.py`, `routing_pr_curve.py`,
+`trial_layerd_routing.py`. 54 tests. Zero Postgres writes throughout.
+
+### The problem
+
+A scenario is induced by clustering client turns. Gemma then writes it a prose description, and
+**every consumer from that point on throws the cluster away and matches against the prose** —
+Layer B's `scenario_key`, Layer C's relevance filter, Layer D's signal check and rubric lookup,
+all through the one choke point `shared/scenario_vectors.py::scenario_text`.
+
+Three measurements said that hand-off leaks: a cluster's own turns return to its own scenario
+only **27.5%** of the time; the top1-top2 matching margin is **~0.01 cosine**, so winner-take-all
+is decided by a hair; and one scenario was absorbing **1,392 turns at 29x dilution**.
+
+The reframing that picked the candidate list: **this is not a zero-shot problem and it had been
+solved with zero-shot tools.** Description matching is what you do with no labelled examples. We
+have thousands — every cluster member is a weak label.
+
+### What was built
+
+16 arms: prose, prose-only, keyphrases-only, keyphrases-max-pooled, each-keyphrase-as-a-point,
+centroid, centroid-pooled, medoid, k-means sub-centroids, 1-NN, top-k-mean, a SetFit-style
+linear probe, three centroid/description blends, a cross-encoder re-ranker, and a **placebo**
+(centroids of a size-matched random partition). Scored on three metrics: held-out routing
+accuracy, coherence against a length-matched null, and reject rate.
+
+### Four defects found in my own instrument, before any conclusion was drawn
+
+1. **A single 75/25 holdout left 14 rankable scenarios** against the spec's own floor of 20, and
+   the arm ordering *inverted* against full-corpus. Replaced with 4-fold CV over calls — every
+   turn scored once by a router blind to its call. That fixes the denominator and nothing else.
+2. **`blend` vs `centroid` varied two things at once** (add the description AND pool merged
+   clusters). Added `centroid_pooled` as the true alpha=1 endpoint. The test that should have
+   caught this passed **by luck of the fixture** and was rewritten to assert on point counts.
+3. **The shared-denominator statistic let one bad arm degrade every comparison.** The all-arm
+   rankable intersection shrank from 35 to 21 when `probe` starved scenarios — and it *excused*
+   the starving arm by removing its own failures from its denominator. Replaced with a fixed
+   denominator over the control's rankable set, plus a `miss` column.
+4. **"4/4 seeds" was worthless for five arms.** `description` and the four description variants
+   do no fitting, so they produce byte-identical assignments at every fold seed. Their range-0
+   column is INVARIANCE, not stability, and "leads in 4/4 seeds" among them is one observation
+   reported four times.
+
+### The finding that overturned the headline
+
+The benchmark said the centroid family beat description roughly 2:1 (61% vs 32%). Then the
+obvious question got asked: **is the metric neutral?**
+
+`coherence(P)` is the mean cosine of a population to its own centroid. The centroid arms assign
+by maximising cosine to a centroid. **The gate was the centroid arms' own objective function.**
+
+Scoring the *same populations* under three objectives settled it:
+
+| arm | centroid ruler | description ruler | lexical (neutral) |
+| --- | --- | --- | --- |
+| `centroid_pooled` | 61% | 53% | 55% |
+| `description` | **32%** | **97%** | 29% |
+| `placebo` | 21% | 0% | 37% |
+
+**`description` moves from dead last to 37-of-38 with nothing changed but the ruler.**
+
+A trap on the way: the obvious "neutral" alternative — mean PAIRWISE cosine — is
+`coherence^2` exactly, verified identical to 1e-6 at n=10/50/300. It would have audited the
+metric against a copy of itself. And the genuinely neutral lexical column is unusable too,
+because the **placebo beats description there** (37% vs 29%).
+
+### Reading real turns contradicted the aggregate
+
+Nothing had been read. So: 80 turns judged blind, with the samples and the answer key written to
+**separate files**, judgments committed before the key was opened. For the accept/reject half
+the turn was shown **alone** — no arm, no candidate scenario, no hint — and every arm scored
+against that one judgment.
+
+- **Accept/reject (n=40): `description` 70% accurate vs `centroid_pooled` 30%. McNemar 28-12,
+  p=0.017.** `centroid_pooled` accepts **22 of the 24 non-substantive turns**.
+- Destination (n=20): `description` 11-8, not significant.
+- Both-rejected control: 5/5 genuine junk. The sink works.
+
+**This also refuted a hypothesis I had built.** An earlier n=12 read suggested a split router —
+members for accept/reject, prose for destination. v2 reversed it: members are the *worse* half.
+`arm_split_member_accept` was built, scored identically to its parent, and is kept as a recorded
+negative.
+
+### The recall question, and the answer that dissolved it
+
+Fair challenge: centroid has better recall, so isn't it better? Stratum-weighted over all 23,949
+turns (~9,058 substantive): `description` P 79.5% / R 87.1%; `centroid_pooled` P 65.5% / R 91.1%.
+
+So yes — **+4pp recall for -14pp precision**, and centroid's extra accepts run **1 real moment
+: 6.3 junk**.
+
+But comparing two *points* is not comparing two *methods*. Both share a knob nobody had swept:
+`accept iff max(coachable) - max(sink) >= delta`, which at delta=0 IS the shipped rule. On the
+curve, **`description` at delta=-0.0117 reaches R 92.2% at P 76.9%** — higher recall than
+centroid and 11pp more precision. **More recall is bought with the knob, not a method swap.**
+
+### What shipped
+
+**Nothing.** `layer_a.scenario_vector_mode` was added at the choke point (`concat` |
+`keyphrases` | `prose`) and ships `concat`, verified byte-identical against all 245 real
+scenario rows. The `delta` knob — the one change the evidence positively supports — was
+deliberately **not** built: 80 judgments is too thin to pick a value.
+
+### Then the taxonomy underneath it was found to be asymmetrically judged
+
+A separate audit (another session) reported that the adjudicator showed Gemma a different view
+of each cluster than the blind judges saw. Verified here rather than assumed, and it is worse
+than reported:
+
+- `export_cluster_batches.py`: **12 STRIDED** samples, truncated to 260 chars.
+- `trial_adjudicate_gemini.py` at the time: **6 HEAD** samples, by corpus file order.
+
+**Different rule AND different size, both letting the judges see substance Gemma could not.**
+The current file has a centroid-ranking fix, but it postdates the artifact. Established
+forensically, because the artifact never records what was shown: **Gemma's own stored reasons
+echo head-only vocabulary over centroid-only vocabulary 99 to 32, p=3.7e-09.** The clearest
+single case — Gemma wrote *"managing lobby access"*, and "lobby" appears twice in the head
+sample and zero times in the centroid sample.
+
+**Fix:** `judge_samples()` extracted in `export_cluster_batches.py` and imported by the
+adjudicator under `--representatives judge`. Sharing the function is deliberate: if it changes,
+both sides change together, which is the property the comparison needs. The checkpoint identity
+also had a hardcoded `"representatives": "top_by_centroid_cosine"` — it *asserted* the sampling
+mode, so a resume could silently cross modes. Now records the real value.
+
+### What that retracts, and what survives — the rule that decides it
+
+**A confound only kills a conclusion if it pushes in the same direction as that conclusion.**
+
+- **RETRACTED: the `--turn-aware` null (76% -> 76%).** The inference was "a fix aimed at a real
+  defect does not leave its target metric where it began." But a head sample with no substantive
+  content produces the identical null — and Gemma's adjudication is non-deterministic (**78 vs
+  85 coachable on byte-identical clusters**), so a third explanation exists too. Three
+  explanations, one observation. Uninterpretable, not weak.
+- **SURVIVES: Gemma vs the judges.** The confound predicts Gemma *over-sinking*. What was
+  observed is agreement on **100% of the 138 discards** and Gemma being marginally *permissive*.
+  A bias with every opportunity to appear, that didn't.
+- **SURVIVES: the routing result.** Descriptions were written by Gemma *from the head sample*;
+  centroids are computed from *all* members. The noise lands only on the description arm's
+  representation — and description won anyway. Conservative, not inflated.
+
+### Still open
+
+- **`--turn-aware` needs three arms to re-settle** (base / turn-aware / base-replicate for the
+  noise floor), ~735 calls, ~20 min. Stopped before running: it shifts the baseline that another
+  session's live noise-rescue A/B is measuring against, and shares the API keys.
+- **`trial_adjudicate_gemini.py --turn-aware`'s help text still asserts the retracted 14.6%**
+  ("costs 56 clusters / 1,831 turns"). Live documentation bug in a file another session is using.
+- **No validated instrument for ranking routing methods across population SHAPES.** The blind
+  protocol is validated for accept/reject (positive control 0/20 vs 16/20, plumbing audited
+  70/70, power at n=40) and NOT for destination (p=0.648). The missing gate is a second judge.
+- **Everything is gemini + turn mode; production is bge + clause mode** — two variables, neither
+  bridged. And Layer A embeds with `embed_query_matrix`, so a stored centroid would already sit
+  in the same space Layer B encodes triggers in: symmetric for free.
+- **A centroid cannot be built for the live taxonomy today.** Membership dies with the Layer A
+  process, and bge clustering does not reproduce across launches (241/231/226). The fix is to
+  **persist the centroid at Layer A time** — one vector per scenario, from data Layer A already
+  holds — so the next real run has it. Gemini reproduces exactly, which is the only reason the
+  turn-mode centroids were buildable at all.
+- **`calibration/trial_layerd_routing.py` is built and NEVER RUN.** It routes the real CSM turns
+  Layer D sees through both arms, with both fitted on Naren's corpus and evaluated cross-corpus
+  so neither can leak. That is the cleanest arm comparison available and it is one command.
+
+---
+
+## Layer B redesign — five arms, and the problems found building the instrument (2026-08-16/17)
+
+Spec: `docs/superpowers/specs/2026-08-16-layer-b-redesign-design.md` §10.
+Summary in `CLAUDE.md`. **245 tests, zero production changes, zero Postgres writes, zero chat
+calls, 13,075 embeddings.**
+
+### The problem this solves
+
+`HANDOFF_LAYER_B_REDESIGN.md` recorded a type error: Layer A's unit is a client turn, Layer B's
+is a trigger→response pair, and a **+62% evidence gain upstream became +0.8% downstream**. The
+trial asked whether changing what Layer B treats as a unit, what it admits, or how it routes
+produces better rubrics.
+
+**Answer: no — and the reason is that nothing downstream can tell.**
+
+### Problems found
+
+**1. The primary metric was wrong THREE times, each caught before it decided anything.**
+A `>= 3 distinct accounts` bar was killed by an audit: the published RTX-98% case has FOUR
+distinct accounts and PASSED, and 91% of `base_1` AND 91% of the junk placebo cleared it. `N_eff`
+replaced it and was killed because `N_eff <= k`, so an arm routing more calls into each milestone
+raises the ceiling mechanically. A thresholded lift-over-null replaced that and was killed
+because `P(lift >= bar)` is violently k-dependent — a treatment that merely SUBSAMPLES 40% of
+each milestone's calls, content held constant, "won" at **p=4.8e-13**. Rev 4 removes the
+threshold entirely and compares per-cluster lift directly. **Fixed.** The lesson is the pattern,
+not any one bug: three different statistics each let pool size back in through a different door.
+
+**2. The first placebo was not a control — it added 6.9x the text mass it claimed to match.**
+Padding with donor PAIRS until total clause count matched added **2x the clauses at 3.4x the
+length**, because `a4` adds SHORT Naren replies and donors are normal-length. Matched on a proxy
+for volume rather than on volume itself. **Fixed**, and it forced a real design distinction: an
+ADMISSION arm adds clauses so its placebo must match count/length/character; a ROUTING arm adds
+NOTHING, so its placebo is a PERMUTATION — keep which pairs moved and the destination multiset,
+shuffle which pair gets which. Invariants are ASSERTED in `layer_b_routers.py` rather than
+checked afterwards, because a silently-wrong placebo looks exactly like a valid result.
+
+**3. `a4`'s headline "+33% pairs" was almost entirely EMPTY pairs, and it raised the bar it was
+meant to clear.** It adds 419 pairs to coachable scenarios but only **302 clauses — 0.72 clauses
+per new pair** — because Layer C's segmenter drops sentences under 4 tokens. Each near-empty pair
+still drags its CALL in, so `scenario_calls` rose by 150 and `required_milestone_support` rose in
+**12 of 25 scenarios**. **Not a harness bug — a real property of the knob**, and it exposed a
+live Layer C issue: a call whose response contributes zero clauses cannot support any milestone,
+yet still inflates the denominator every milestone is judged against. NOT FIXED.
+
+**4. `milestone_relevance_percentile: 40` cannot reject anything.** It is a PERCENTILE, so it
+survives **exactly 60.0%** of whatever it is handed — measured identically across three arms with
+very different pools. `CLAUDE.md` described it as one of Layer C's "four aggregate junk defences";
+against mis-routed content it does nothing. NOT FIXED.
+
+**5. Two `compare()` labelling bugs, one of which would have hidden the whole treatment.**
+`_same_arm` classified two arms sharing a `taxonomy_sha` as NOISE FLOOR — but two arms over one
+taxonomy differing only in the router share that hash exactly, so **the entire router effect
+would have read as UMAP re-launch variance**. Separately, the drift check fired
+"IDENTITY DIFFERS BEYOND THE TREATMENT" on every legitimate S/A arm and then contradicted itself
+two lines later. Both **fixed**; the first was found by the agent doing the wiring, the second by
+the blind audit.
+
+**6. An audit found the noise floor cannot be PROVEN from the artifacts.** The two floor
+artifacts differ only in the arm-name string. It is genuine — they were launched separately —
+but `run_arm` writes no `started_at`, `pid` or wall-clock, and this repo has published a
+fabricated 0% floor before. NOT FIXED; the fix is three fields.
+
+**7. `r1_lookup_share` overstated the treatment.** It counted every pair whose turn carried a
+cluster label, including pairs where the lookup picked the same scenario `r0` would have. Those
+are agreement, not treatment. The honest figure is `resolved AND differs from r0` and is one
+comparison away. NOT FIXED — `router_agreement.py` was written to compute it as a Layer-B-only
+pass (no Layer C, no UMAP) rather than re-running whole arms, but has not been run.
+
+**8. My own test suite was tautological in the exact way I was auditing others for.** The
+headline regression test for metric rev 2 used a pool of 24 calls with 24 DISTINCT accounts — on
+such a pool `E[N_eff|k] == k` exactly, so `lift ≡ 1.0` regardless of what the code computes, and
+a deliberately wrong `lift = N_eff/k` passes it identically. **Fixed**, and every null test now
+uses a SKEWED pool with an explicit assertion that a wrong implementation would fail.
+
+**9. Two efficiency bugs I introduced and caught myself.** `backfill_knob_embeddings.py --fetch`
+re-scoped all six settings before fetching — 25 minutes of spaCy to buy 845 embeddings — and
+validated `--settings` AFTER the 4-minute parse, so a typo cost four minutes. Both **fixed**.
+Neither would have produced a wrong number; both wasted real time, which is the third clause of
+the audit bar.
+
+### What the trial established
+
+- **`r1` repairs the type error**: +39% clauses on the rescued taxonomy, lookup coverage
+  45.9% → 72.8%. The break was real and this fixes it.
+- **And it does not matter.** The permutation placebo produced 112 new milestones to `r1`'s 126.
+  Layer C responds to routing VOLUME, not routing QUALITY.
+- **Both admission knobs are redundant with a later stage** — `a4` with the segmenter, `a1` with
+  the sink rule. Generalises: *before adding or removing a filter in Layer B, check whether a
+  later stage already removes that population.*
+- **The signal exists but is in the wrong frame.** A clause scores 0.6071 against its own
+  scenario and 0.5825 against a random one (pooled AUC 0.631), but held PER CLAUSE, **78.2%**
+  prefer their own. Layer C filters in the pooled frame where it drowns.
+- **`support_calls` does not predict coherence.** Three blind readers rejected 10/10 deliberately
+  scrambled items and agreed 91–99%, but accepted only **5/10** of the highest-support
+  milestones. Roughly **half of every milestone set is judged incoherent**.
+
+### Open, ranked
+
+1. A per-clause RELATIVE relevance test in Layer C, in the frame where the 78.2% signal lives.
+2. Whether Layer C's UNIT is wrong the way Layer A's was — it clusters response SENTENCES.
+3. `S2` (teammate speech): **5,287 turns, 25.4% of the corpus**, the largest measured lever, still
+   needing its own brainstorm.
+4. The four NOT FIXED items above (3, 4, 6, 7).
+
+**Not more permutations.** `r2_r`, `r3`, `s1` and `a3` would each cost a run to produce another
+null against a mechanism that is now understood.

@@ -560,3 +560,113 @@ against `r0`.
 - **Interactions other than step 8's.** This is a screening design with one deliberate
   combination cell, not a factorial. An interaction between two knobs that are individually null
   would be missed. That is the stated cost of not running 80 cells.
+
+---
+
+## 10. RESULTS (2026-08-16/17) — the trial ran, and F10 fired
+
+**Everything below was measured after the gate in §5 was frozen. Nothing in §4 or §5 was edited
+once an arm had run.** Two spec revisions happened, both BEFORE any arm existed, both recorded
+in the header.
+
+### 10.1 The arms
+
+| arm | S/A/R | milestones | clauses | sink share | lift vs control | p |
+| --- | --- | --- | --- | --- | --- | --- |
+| `s0a0r0_b` control | s0/a0/r0 | 171 | 13,218 | 57.9% | — | — |
+| `s0a0r0_b_2` floor | s0/a0/r0 | 171 | 13,218 | 57.9% | 0 up / 0 down / 26 tie | 1.000 |
+| `s0a4r0_b` | s0/**a4**/r0 | 162 | 13,520 | 60.4% | −0.75 | 0.383 |
+| `s0a1r0_b` | s0/**a1**/r0 | **171** | — | **69.0%** | −0.90 | 0.152 |
+| `s0a0r1_b` | s0/a0/**r1** | 152 | **16,851** | 45.4% | −2.28 | 0.152 |
+| `s0a0r2_b` | s0/a0/**r2** | 160 | 13,414 | **28.6%** | −2.09 | **0.043** |
+| `s0a0r0_r` control | s0/a0/r0 | 123 | 14,165 | 57.6% | — | — |
+| `s0a0r1_r` | s0/a0/**r1** | **158** | **19,707** | 37.5% | −2.80 | 0.108 |
+| `s0a0r1p_r` **placebo** | s0/a0/**r1p** | 143 | 19,296 | 37.5% | −1.70 | 0.230 |
+
+**F1 passed twice** — both controls reproduce their published artifacts on every field including
+per-cluster milestone counts. **The noise floor is an exact zero**, with identical clause sets
+AND identical `support_call_files`.
+
+### 10.2 F4 is what decided it
+
+`r1` on rescued was the strongest arm: it repairs the documented `+62% -> +0.8%` break, recovering
+**+39% clauses** and **+35 milestones**, with lookup coverage rising 45.9% -> 72.8% precisely
+because the rescue grew cluster memberships. It also passed the pilot blind read.
+
+Its permutation placebo — the SAME 1,921 pairs (48.3% of the corpus), the SAME destination
+multiset, randomly permuted — produced **112 new milestones to `r1`'s 126**, matched 27 of the
+control's milestones to `r1`'s 26, and scored BETTER on the primary metric.
+
+> **Layer C responds to routing VOLUME, not routing QUALITY.** F4 rejects `r1`.
+
+The placebo was validated before being believed: per-scenario Jaccard between `r1`'s and the
+placebo's clause pools is **0.428**, so the permutation genuinely scrambled; and the relevance
+filter did NOT reject the randomly-routed clauses, for the reason in §10.3.
+
+### 10.3 Why no arm could have worked
+
+- **`milestone_relevance_percentile: 40` is a PERCENTILE and survives EXACTLY 60.0%** of whatever
+  it is given — measured identically across three arms with very different pools. It cannot
+  reject mis-routed content in absolute terms.
+- **`probe_relevance_signal.py`** (13,218 clauses, 3 random draws each): own scenario **0.6071**,
+  random scenario **0.5825**. A +0.0245 gap against a between-clause spread of ~0.14, giving
+  pooled **AUC 0.631** — barely above the 0.617 this repo has retired as unusable. So no absolute
+  floor would have helped either.
+- **But the signal is not absent — it is in the wrong FRAME.** Held per clause, **78.2%** prefer
+  their own scenario. Between-clause variation in cosine magnitude is ~6x the own-vs-random
+  difference, and Layer C's filter compares clauses against EACH OTHER, i.e. the pooled frame.
+  `shared/relative_match.py` already does the per-clause shape at Layer B; Layer C has none.
+
+### 10.4 F6, and the finding it produced by accident
+
+Three independent subagent readers, 80 items, authorship undisclosed, key in a separate file.
+
+| control | R1 | R2 | R3 |
+| --- | --- | --- | --- |
+| NEGATIVE (real clauses from unrelated milestones, glued) → rejected | **10/10** | **10/10** | **10/10** |
+| POSITIVE (highest-support milestones) → accepted | 5/10 | 5/10 | 5/10 |
+
+Inter-rater agreement 91–99%, unanimous on 73/80. **The first judge in this effort to pass its
+own null.**
+
+**The positive control's failure is the larger result: `support_calls` DOES NOT PREDICT
+COHERENCE.** Half the pipeline's best-evidenced milestones do not hold together as a move, and
+roughly **half of every milestone set is judged incoherent** (placebo 33%, `r1` 50%, control
+50%) — independent of routing, arm, or metric.
+
+`r1`-gained vs placebo-gained is **50% vs 33%**, same direction in all three readers, **p~0.30**.
+A 268-item powered read was built and deliberately not bought.
+
+### 10.5 The two instruments disagree, and that is left OPEN
+
+Account-diversity lift asks *is this evidence spread across CLIENTS*. The blind read asks *is
+this ONE COHERENT MOVE*. `r1` moves the second and not the first, which is consistent — nothing
+in `r1` looks at accounts, which is exactly why the metric is ungameable and exactly why no arm
+could move it.
+
+**Coherence is NOT retroactively promoted to primary.** The pre-registered metric says `r1`
+fails; switching axes after seeing which one favours the arm is how a threshold gets tuned into
+a finding. The tension is recorded, not resolved.
+
+### 10.6 Verdict
+
+**F10 fires. Layer B's unit, admission rule and router are not the binding constraint on rubric
+quality.** That was pre-registered as a publishable result and it is the one that happened.
+
+Both admission knobs turned out **redundant with a later stage** — `a4` with Layer C's 4-token
+segmenter, `a1` with the sink rule. That generalises: *before adding or removing a filter in
+Layer B, check whether a later stage already removes that population.*
+
+### 10.7 What NOT to do next
+
+**Not more permutations.** `r2_r`, `r3`, `s1` and `a3` would each cost a run to produce another
+null against a mechanism that is now understood.
+
+The live directions are both in Layer C: **(1)** a per-clause RELATIVE relevance test, operating
+in the frame where the 78.2% signal lives; **(2)** whether Layer C's UNIT is wrong the way Layer
+A's was — it clusters response SENTENCES, and `2026-08-14-layer-a-pool-unit-design.md` found
+sentence-level units manufacture junk clusters because a stripped sentence carries stance without
+subject. Both are testable with the harness that already exists.
+
+`S2` (teammate speech, **5,287 turns = 25.4% of the corpus**) remains the largest single
+measured lever and still needs its own brainstorm — see §3.9.
