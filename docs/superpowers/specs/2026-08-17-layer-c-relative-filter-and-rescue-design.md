@@ -163,7 +163,46 @@ milestone granularity, and the Layer A result is unaffected (different unit, dif
 - Artifacts carry `started_at`, `pid`, seed, tuning snapshot, and taxonomy/corpus shas —
   the provenance fields the Layer B trial's audit found missing.
 
-## 7. What this cannot answer
+## 7. RESULTS
+
+### 7.1 Instrument (G-T1a): WEAK — every relative rule discriminates, none clears 25pp
+
+Run 2026-08-17, seed 42, clean2_base, 26 coachable + 125 sinks, 3,977 pairs, 12,809 distinct
+clause texts, zero spend. Blind audit of the harness returned CLEAN before anything ran.
+
+| rule | param | real | permuted | gap (pp) |
+| --- | --- | --- | --- | --- |
+| p40 (production) | — | 0.600 | 0.600 | **−0.0** |
+| rank | 1 | 0.162 | 0.052 | 11.0 |
+| rank | 3 | 0.333 | 0.153 | 18.1 |
+| rank | 5 | 0.448 | 0.247 | 20.1 |
+| **rank** | **8** | **0.587** | **0.386** | **20.0** |
+| margin | 0.90 | 0.814 | 0.669 | 14.6 |
+| margin | 0.95 | 0.464 | 0.261 | 20.3 |
+| margin | 0.98 | 0.259 | 0.106 | 15.3 |
+| demean | 0.00 | 0.744 | 0.581 | 16.2 |
+| demean | 0.01 | 0.616 | 0.423 | 19.3 |
+| demean | 0.02 | 0.485 | 0.286 | 19.9 |
+| demean | 0.03 | 0.371 | 0.183 | 18.9 |
+| csls | 1 | 0.120 | 0.038 | 8.3 |
+| csls | 3 | 0.255 | 0.112 | 14.2 |
+| csls | 5 | 0.350 | 0.176 | 17.5 |
+
+- **The p40 row is the defect, measured symmetrically: 60.0% survival on BOTH arms, gap 0.**
+- **Every per-clause relative rule discriminates where the percentile cannot** — gaps 8–20pp.
+  The frame claim from the Layer B trial is confirmed.
+- **G-T1a = WEAK** (best eligible gap 20.0pp at `rank(8)`, real survival 0.587; PASS needed
+  25pp). Per the frozen gate: downstream runs, adoption claims barred.
+- **Full CSLS UNDERPERFORMS plain rank here** (8.3–17.5pp vs 11–20.1pp): with only 26 target
+  scenarios, the scenario-side hub-correction term costs more than it corrects. The hubness
+  diagnosis was right about the FRAME (subtract the per-clause offset / rank within the
+  clause); the literature's full correction is tuned for 200k-word vocabularies, not 26
+  classes. DEMEAN (the clause-side-only correction) tracks rank closely, as expected.
+- Structural reading of the ceiling: a permuted clause still survives rank(8) 38.6% of the
+  time — mis-routed content is often topically adjacent to 8-of-26 scenarios, so a
+  ~20pp gap may be near the ceiling this taxonomy's granularity allows.
+
+## 8. What this cannot answer
 
 - Whether better-filtered or rescued milestones GRADE better (Layer D) — untouched here.
 - The Layer C UNIT question (sentences vs whole responses) — deliberately not bundled;
