@@ -254,8 +254,13 @@ ACCOUNTS.**
   objective function — the standing rule that killed the routing ranking.
 - It is also the product defect: today's largest scenarios are 95-100% one client (RTX 98%,
   Banfield 100%, Happy Dance 100%). A milestone built from one client transfers to nobody.
-- Calls with no resolvable account count as **distinct unknowns**, never merged into one bucket;
-  merging them would manufacture single-account concentration.
+- **Calls with no resolvable account contribute ZERO accounts** (~11% of calls). Corrected from
+  revision 1's "count each as a distinct unknown" before any run: that variant *asserts* three
+  unaccounted calls are three different clients, which is exactly the thing being measured and
+  cannot inflate in the safe direction. Pooling them into one shared bucket would be the opposite
+  fabrication. Excluding them can only ever make a milestone look LESS transferable, so it cannot
+  manufacture a win. The lenient variant is computed as a sensitivity check; **if the two
+  disagree on the verdict that is reported, not resolved.**
 - **Why 3:** it is the account-level analogue of `layer_c.min_milestone_calls_floor: 3`, so the
   bar is inherited rather than invented. Fixed before any arm runs. The full
   accounts-per-milestone distribution is reported, and a sensitivity check at 2 and 4 is reported
