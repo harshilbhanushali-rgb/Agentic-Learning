@@ -44,6 +44,7 @@ steps, each after the previous step's tests pass and its audit is clean.
 from __future__ import annotations
 
 import math
+import random
 import sys
 from collections import Counter
 from pathlib import Path
@@ -198,6 +199,70 @@ def effective_accounts(call_filenames, accounts: dict[str, str]) -> tuple[float,
 
 
 # ---------------------------------------------------------------------------------------
+# the size-matched null -- what makes N_eff comparable across milestone sizes
+# ---------------------------------------------------------------------------------------
+
+def corpus_account_pool(accounts: dict[str, str]) -> list[str]:
+    """One entry per ACCOUNTED CALL, in deterministic order. The null draws from this.
+
+    Sorted rather than dict-ordered so the table below is reproducible across processes --
+    the same discipline that made Layer C Pass 1 an exact A/B once embeddings were cached.
+    """
+    return sorted(accounts.values())
+
+
+def expected_neff_table(pool: list[str], ks, trials: int = 400,
+                        seed: int = 42) -> dict[int, float]:
+    """k -> E[N_eff] for k calls drawn at random from the corpus's own account mix.
+
+    *** THIS IS WHAT FIXES THE DEFECT THAT KILLED REVISION 2. *** `N_eff <= k`, so a milestone
+    backed by 3 calls can never exceed 3.0 while one backed by 30 can reach 30. An arm that
+    puts MORE calls into each milestone therefore raises the N_eff ceiling mechanically --
+    which is the volume objective leaking back into the metric that was written to escape it.
+    Dividing by the expectation at the milestone's OWN k removes that entirely.
+
+    It also prices in the corpus's real skew rather than punishing every milestone that
+    touches the largest client: uber.com is 55 of 343 accounted calls (16%), so a general
+    move backed by 9 calls is EXPECTED to draw one or two Uber calls. Nine of nine is not.
+
+    THE DRAW IS FROM THE WHOLE CORPUS, NOT FROM THE SCENARIO'S OWN CALLS, and the choice
+    matters. A within-scenario null would ask "given that this scenario only involves two
+    clients, is this milestone concentrated?" -- and would score an account-bound SCENARIO as
+    perfectly fine, which is the exact defect being hunted. A corpus-level null is also
+    arm-INDEPENDENT: it is a fixed reference every arm is measured against, so an arm cannot
+    move the yardstick by changing what it routes.
+
+    Sampling is WITHOUT replacement because a milestone's calls are distinct by construction.
+    Seeded per k, so the table is identical regardless of the order the ks arrive in.
+    """
+    if trials < 1:
+        raise ValueError(f"trials must be >= 1, got {trials}")
+    n = len(pool)
+    if n == 0:
+        raise ValueError("empty account pool -- the null cannot be built")
+    out: dict[int, float] = {}
+    for k in sorted({int(x) for x in ks}):
+        if k <= 0:
+            continue
+        if k == 1:
+            out[k] = 1.0
+            continue
+        if k >= n:
+            # The draw would be the whole pool; the expectation is exact, not sampled.
+            c = Counter(pool)
+            out[k] = 1.0 / sum((v / n) ** 2 for v in c.values())
+            continue
+        rng = random.Random(seed * 1_000_003 + k)
+        total = 0.0
+        for _ in range(trials):
+            draw = rng.sample(pool, k)
+            c = Counter(draw)
+            total += 1.0 / sum((v / k) ** 2 for v in c.values())
+        out[k] = total / trials
+    return out
+
+
+# ---------------------------------------------------------------------------------------
 # per-milestone
 # ---------------------------------------------------------------------------------------
 
@@ -223,15 +288,74 @@ def milestone_calls(milestone: dict) -> list[str]:
 
 
 def milestone_neff(milestone: dict, accounts: dict[str, str]) -> tuple[float, int, int]:
-    """(N_eff, distinct accounts, unaccounted calls) for one stored milestone."""
+    """(N_eff, distinct accounts, unaccounted calls) for one stored milestone.
+
+    RAW N_eff. Kept as a reported diagnostic beside `lift`, never as the ranking statistic --
+    see `milestone_lift`. If the two ever disagree about an arm, F12 says that is reported
+    rather than smoothed over: one is size-confounded and one is not, so a disagreement is
+    itself information about what the arm did.
+    """
     return effective_accounts(milestone_calls(milestone), accounts)
 
 
-def usable_milestones(milestones, accounts: dict[str, str],
-                      bar: float) -> tuple[int, int, int]:
-    """(usable, scoreable, unscoreable) at an N_eff bar.
+def milestone_lift(milestone: dict, accounts: dict[str, str],
+                   table: dict[int, float]) -> dict:
+    """The PRIMARY per-milestone statistic: N_eff over its size-matched expectation.
 
-    A milestone is USABLE when `N_eff >= bar`. Unscoreable milestones -- no accounted call at
+    lift ~ 1.0  as diverse as a random draw of the same size from the corpus
+    lift << 1.0 concentrated on fewer clients than chance would give
+    lift > 1.0  spread wider than chance (possible: the corpus is skewed, so avoiding the
+                large accounts scores above 1)
+
+    Returns every component, not just the ratio, because the ratio alone hides which half
+    moved -- an arm can raise lift by finding more accounts OR by shrinking k, and those are
+    different findings.
+
+    NaN when the milestone has no accounted call. NOT 0.0: zero reads as more concentrated
+    than the most concentrated real milestone, i.e. it would silently rank an unmeasurable
+    milestone as the worst one.
+    """
+    neff, distinct, unaccounted = effective_accounts(milestone_calls(milestone), accounts)
+    if math.isnan(neff):
+        return {"lift": NAN, "neff": NAN, "expected": NAN, "k": 0,
+                "distinct": 0, "unaccounted": unaccounted}
+    doms, _ = account_shares(milestone_calls(milestone), accounts)
+    k = sum(doms.values())
+    exp = table.get(k)
+    if exp is None:
+        raise KeyError(
+            f"no null expectation for k={k}. The table must be built from the SAME set of "
+            f"milestones being scored -- a missing k means the caller built it from a "
+            f"different population, which would score some milestones against nothing.")
+    return {"lift": neff / exp if exp else NAN, "neff": neff, "expected": exp,
+            "k": k, "distinct": distinct, "unaccounted": unaccounted}
+
+
+def milestone_ks(per_scenario: dict, accounts: dict[str, str]) -> set[int]:
+    """Every distinct accounted-call count present, so the null table covers exactly them.
+
+    *** k IS THE ACCOUNTED-CALL COUNT, NOT `support_calls`. *** N_eff is computed over
+    accounted calls only, so the null must draw that many. Using the raw support count would
+    compare a milestone's diversity against the expectation for a LARGER sample, and every
+    milestone with unaccounted calls would score an artificially low lift -- an error
+    proportional to roster coverage, which is exactly the asymmetry `unaccounted_rate` exists
+    to surface.
+    """
+    ks: set[int] = set()
+    for rec in per_scenario.values():
+        for m in rec.get("milestones") or []:
+            doms, _ = account_shares(milestone_calls(m), accounts)
+            n = sum(doms.values())
+            if n:
+                ks.add(n)
+    return ks
+
+
+def usable_milestones(milestones, accounts: dict[str, str], bar: float,
+                      table: dict[int, float]) -> tuple[int, int, int]:
+    """(usable, scoreable, unscoreable) at a LIFT bar.
+
+    A milestone is USABLE when `lift >= bar`. Unscoreable milestones -- no accounted call at
     all -- are counted separately and are NEVER usable; they are reported so an arm cannot
     win by producing milestones the metric cannot see.
 
@@ -243,41 +367,41 @@ def usable_milestones(milestones, accounts: dict[str, str],
     """
     usable = scoreable = unscoreable = 0
     for m in milestones:
-        neff, _, _ = milestone_neff(m, accounts)
-        if math.isnan(neff):
+        v = milestone_lift(m, accounts, table)["lift"]
+        if math.isnan(v):
             unscoreable += 1
             continue
         scoreable += 1
-        if neff >= bar:
+        if v >= bar:
             usable += 1
     return usable, scoreable, unscoreable
 
 
-def derive_bar(per_scenario: dict, accounts: dict[str, str],
+def derive_bar(per_scenario: dict, accounts: dict[str, str], table: dict[int, float],
                quantile: float = 0.5) -> float:
-    """The N_eff bar, DERIVED from the control arm and frozen before any treatment runs.
+    """The LIFT bar, DERIVED from the control arm and frozen before any treatment runs.
 
-    *** WHY THE BAR IS A RULE AND NOT A NUMBER. *** Revision 1 guessed 3 and the audit showed
-    91% of milestones cleared it -- including 91% of the junk placebo's -- so the statistic
-    was saturated and reproduced the milestone count it replaced. A guessed bar cannot be
-    known to bite until the distribution is measured, and measuring it AFTER seeing treatment
-    results is how a threshold gets tuned into a finding.
+    *** WHY THE BAR IS A RULE AND NOT A NUMBER. *** Revision 1 guessed 3 distinct accounts
+    and an audit showed 91% of milestones cleared it -- including 91% of the junk placebo's
+    -- so the statistic was saturated and reproduced the milestone count it replaced. A
+    guessed bar cannot be known to bite until the distribution is measured, and measuring it
+    AFTER seeing treatment results is how a threshold gets tuned into a finding.
 
-    The pre-registered rule is: the bar is the `quantile` of the CONTROL arm's scoreable
-    N_eff distribution, computed on the control alone, frozen, then applied unchanged to
-    every arm. At the default median, ~50% of control milestones are usable by construction
-    -- maximally non-saturated, and maximally sensitive in both directions.
+    The pre-registered rule: the bar is the `quantile` of the CONTROL arm's scoreable LIFT
+    distribution, computed on the control alone, frozen, then applied unchanged to every arm.
+    At the default median, ~50% of control milestones are usable by construction -- maximally
+    non-saturated and sensitive in both directions.
 
-    This is legitimate because the control is a property of the corpus, not of any treatment:
-    no treatment arm has run when it is computed. It would NOT be legitimate to re-derive it
-    per arm, which is why callers pass a float from here on.
+    Legitimate because the control is a property of the corpus, not of any treatment: no
+    treatment has run when it is computed. It would NOT be legitimate to re-derive it per
+    arm, which is why every caller downstream passes a float.
     """
     vals = []
     for rec in per_scenario.values():
         for m in rec.get("milestones") or []:
-            neff, _, _ = milestone_neff(m, accounts)
-            if not math.isnan(neff):
-                vals.append(neff)
+            v = milestone_lift(m, accounts, table)["lift"]
+            if not math.isnan(v):
+                vals.append(v)
     if not vals:
         raise ValueError(
             "no scoreable milestone in the control arm -- the bar cannot be derived, and a "
@@ -295,19 +419,23 @@ def derive_bar(per_scenario: dict, accounts: dict[str, str],
 # per-cluster
 # ---------------------------------------------------------------------------------------
 
-def per_cluster_stats(per_scenario: dict, accounts: dict[str, str],
-                      bar: float) -> dict[str, dict]:
-    """cluster_id -> {usable, mean_neff, n_milestones, scoreable, unscoreable}.
+def per_cluster_stats(per_scenario: dict, accounts: dict[str, str], bar: float,
+                      table: dict[int, float]) -> dict[str, dict]:
+    """cluster_id -> {usable, mean_lift, mean_neff, n_milestones, scoreable, unscoreable}.
 
-    TWO STATISTICS, deliberately, because they fail in opposite directions:
+    TWO RANKING STATISTICS, deliberately, because they fail in opposite directions:
 
-      `usable`    a COUNT, so it still rises with pool size. The volume-matched placebo (F4)
-                  is what controls that.
-      `mean_neff` count-INDEPENDENT: adding a junk single-client milestone LOWERS it. It
-                  cannot be won by producing more of anything, but it can be won by producing
-                  fewer and better, which is not the product win either.
+      `usable`    a COUNT, so it still rises with the number of milestones. The
+                  volume-matched placebo (F4) is what controls that.
+      `mean_lift` count-INDEPENDENT: adding a single-client milestone LOWERS it. It cannot be
+                  won by producing more of anything -- but it CAN be won by producing fewer
+                  and better, which is not the product win either.
 
-    Neither alone is sufficient, which is why the spec requires them to agree in direction.
+    Neither alone is sufficient, which is why F12 requires them to agree in direction.
+
+    `mean_neff` rides along as the RAW diagnostic. It is size-confounded by construction
+    (N_eff <= k), so it must never rank an arm; it is reported so that a case where lift and
+    raw disagree is visible rather than silently resolved in lift's favour.
 
     KEYED ON `cluster_id`, NEVER `scenario_key`. Gemma invents a fresh name for the same
     cluster every adjudication run (`stakeholder_role_identification` vs
@@ -324,12 +452,14 @@ def per_cluster_stats(per_scenario: dict, accounts: dict[str, str],
                 f"duplicate cluster_id {cid!r} within one arm -- the join key is not unique, "
                 f"so a paired comparison against it would be meaningless")
         ms = rec.get("milestones") or []
-        neffs = [milestone_neff(m, accounts)[0] for m in ms]
-        good = [v for v in neffs if not math.isnan(v)]
-        usable, scoreable, unscoreable = usable_milestones(ms, accounts, bar)
+        rows = [milestone_lift(m, accounts, table) for m in ms]
+        lifts = [r["lift"] for r in rows if not math.isnan(r["lift"])]
+        neffs = [r["neff"] for r in rows if not math.isnan(r["neff"])]
+        usable, scoreable, unscoreable = usable_milestones(ms, accounts, bar, table)
         out[cid] = {
             "usable": usable,
-            "mean_neff": (sum(good) / len(good)) if good else NAN,
+            "mean_lift": (sum(lifts) / len(lifts)) if lifts else NAN,
+            "mean_neff": (sum(neffs) / len(neffs)) if neffs else NAN,
             "n_milestones": len(ms),
             "scoreable": scoreable,
             "unscoreable": unscoreable,
@@ -438,42 +568,51 @@ def multiplicity_note(n_arms: int, alpha: float = 0.05) -> dict:
 # reporting
 # ---------------------------------------------------------------------------------------
 
-def neff_distribution(per_scenario: dict, accounts: dict[str, str],
-                      edges=(1.0, 1.5, 2.0, 3.0, 5.0, 8.0)) -> dict:
-    """Histogram of N_eff across one arm, plus the unscoreable count.
+def _bucket(v: float, edges) -> str:
+    if v < edges[0]:
+        return f"<{edges[0]}"
+    for lo, hi in zip(edges, edges[1:]):
+        if lo <= v < hi:
+            return f"{lo}-{hi}"
+    return f">={edges[-1]}"
 
-    Reported so the derived bar can be AUDITED rather than trusted. Revision 1's bar of 3 was
-    saturated and nobody could see it from the report; this makes that visible by
-    construction.
+
+def _summary(vals: list[float], edges) -> dict:
+    hist: Counter = Counter(_bucket(v, edges) for v in vals)
+    s = sorted(vals)
+    return {"hist": dict(hist), "n": len(s),
+            "median": (s[len(s) // 2] if s else NAN),
+            "min": (s[0] if s else NAN), "max": (s[-1] if s else NAN)}
+
+
+def score_distribution(per_scenario: dict, accounts: dict[str, str],
+                       table: dict[int, float],
+                       lift_edges=(0.25, 0.5, 0.75, 1.0, 1.25),
+                       neff_edges=(1.0, 1.5, 2.0, 3.0, 5.0, 8.0)) -> dict:
+    """Distributions of BOTH lift and raw N_eff across one arm, plus the unscoreable count.
+
+    Reported so the derived bar can be AUDITED rather than trusted. Revision 1's bar was
+    saturated -- 91% of milestones over it, including 91% of the junk placebo's -- and
+    nothing in the report could have shown that. This makes it visible by construction: if
+    the whole lift distribution sits above the bar, the bar measures nothing.
+
+    Both are printed side by side because they are the pair F12 is about. Raw N_eff is the
+    size-confounded view and lift is the corrected one; seeing them together is what makes a
+    disagreement legible instead of a surprise.
     """
-    hist: Counter = Counter()
+    lifts, neffs = [], []
     unscoreable = 0
-    vals = []
     for rec in per_scenario.values():
         for m in rec.get("milestones") or []:
-            neff, _, _ = milestone_neff(m, accounts)
-            if math.isnan(neff):
+            r = milestone_lift(m, accounts, table)
+            if math.isnan(r["lift"]):
                 unscoreable += 1
                 continue
-            vals.append(neff)
-            label = f"<{edges[0]}"
-            for lo, hi in zip(edges, edges[1:]):
-                if lo <= neff < hi:
-                    label = f"{lo}-{hi}"
-                    break
-            else:
-                if neff >= edges[-1]:
-                    label = f">={edges[-1]}"
-            hist[label] += 1
-    vals.sort()
-    return {
-        "hist": dict(hist),
-        "unscoreable": unscoreable,
-        "n": len(vals),
-        "median": (vals[len(vals) // 2] if vals else NAN),
-        "min": (vals[0] if vals else NAN),
-        "max": (vals[-1] if vals else NAN),
-    }
+            lifts.append(r["lift"])
+            neffs.append(r["neff"])
+    return {"lift": _summary(lifts, lift_edges),
+            "neff": _summary(neffs, neff_edges),
+            "unscoreable": unscoreable}
 
 
 def top_account_share(milestone: dict, accounts: dict[str, str]) -> float:

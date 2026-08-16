@@ -303,31 +303,121 @@ diagnostics and rank nothing.
 
 ### 4.1 Primary — decides pass/fail
 
-**Usable milestones: those clearing production's support gate AND backed by >= 3 DISTINCT CLIENT
-ACCOUNTS.**
+**Usable milestones: those whose account diversity LIFT over a size-matched random null clears
+a bar derived from the control arm.**
 
-- Account = the modal non-`joveo.com` email domain on a call's `.speakers.json` roster. 389 of
-  393 transcripts carry one; 112 accounts over 355 accounted calls. The derivation is **imported**
-  from `calibration/flag_proper_noun_clusters.py`, never paraphrased.
+```text
+N_eff(m)  = 1 / sum(p_i^2)     p_i = share of m's ACCOUNTED calls from account i
+lift(m)   = N_eff(m) / E[N_eff | k calls drawn at random from the corpus's account mix]
+```
+
+#### The metric has been revised twice, both times before any arm ran, both times because something was measured
+
+| rev | statistic | what killed it |
+| --- | --- | --- |
+| 1 | `>= 3 distinct accounts` | **audit**: the published RTX-98% case has FOUR distinct accounts and passed. A count sees PRESENCE; the defect is DOMINANCE. Also saturated — 91% of `base_1` AND 91% of the junk placebo cleared it, so it had collapsed back into the milestone count it replaced |
+| 2 | `N_eff` | **`N_eff <= number of calls`**, so an arm that puts more calls into each milestone raises the ceiling MECHANICALLY. The volume objective leaked straight back in |
+| **3** | **`lift`** | — |
+
+`lift` is size-fair by construction: a 3-call milestone and a 30-call milestone are on the same
+scale, so more calls stops being a free win. It also prices in the corpus's own skew — Uber is
+55 calls (16%), so a general move backed by 9 calls should draw ~1-2 Uber calls; 9-of-9 Uber
+gives `lift ~ 0.13` while three mid-size accounts over 3 calls gives `lift ~ 1.0`. The
+size-matched Monte-Carlo null is the pattern `flag_proper_noun_clusters` and
+`null_test_taxonomy` already use here.
+
+Raw `N_eff` and `top_account_share` are reported alongside as diagnostics. **If `lift` and raw
+`N_eff` ever disagree on an arm, that is reported, not smoothed over.**
+
+#### Definitions and the choices inside them
+
+- Account = the modal non-`joveo.com` email domain on a call's `.speakers.json` roster, IMPORTED
+  from `calibration/flag_proper_noun_clusters.py`, never paraphrased. **Measured live: 389
+  sidecars, 343 of 393 calls resolve an account, 112 distinct accounts, 12.7% unaccounted.**
+  (Revision 1 quoted 355 accounted calls and ~11%; both were from the dirty 416-call corpus.)
+- **Sibling domains are collapsed by a rule derived from the data**: `A` folds into `B` iff `A`
+  ends with `.B` AND `B` is itself observed in this corpus. Fires exactly once —
+  `contractors.scale.com -> scale.com`, 20 of 343 accounted calls — and CLAUDE.md already
+  records the consequence of not doing it. A curated sibling list would be the forbidden
+  anti-pattern; requiring the parent to be PRESENT makes the corpus supply the evidence.
 - **No router, no segmenter and no admission rule can see the account**, so this is nobody's
   objective function — the standing rule that killed the routing ranking.
-- It is also the product defect: today's largest scenarios are 95-100% one client (RTX 98%,
-  Banfield 100%, Happy Dance 100%). A milestone built from one client transfers to nobody.
-- **Calls with no resolvable account contribute ZERO accounts** (~11% of calls). Corrected from
-  revision 1's "count each as a distinct unknown" before any run: that variant *asserts* three
-  unaccounted calls are three different clients, which is exactly the thing being measured and
-  cannot inflate in the safe direction. Pooling them into one shared bucket would be the opposite
-  fabrication. Excluding them can only ever make a milestone look LESS transferable, so it cannot
-  manufacture a win. The lenient variant is computed as a sensitivity check; **if the two
-  disagree on the verdict that is reported, not resolved.**
-- **Why 3:** it is the account-level analogue of `layer_c.min_milestone_calls_floor: 3`, so the
-  bar is inherited rather than invented. Fixed before any arm runs. The full
-  accounts-per-milestone distribution is reported, and a sensitivity check at 2 and 4 is reported
-  alongside — **but the verdict is read off 3.**
+- **Calls with no resolvable account contribute ZERO.** Corrected from revision 1's "count each
+  as a distinct unknown": that variant *asserts* three unaccounted calls are three different
+  clients, which is exactly the quantity being measured, and it inflates toward a false positive.
+  Pooling them into one bucket is the opposite fabrication. Contributing zero asserts neither and
+  can only ever make a milestone look LESS transferable.
+- **The bar is DERIVED, never guessed** — the median of the CONTROL arm's own `lift`
+  distribution, computed on the control alone, frozen, then applied unchanged to every arm. At
+  the median, ~50% of control milestones are usable by construction: maximally non-saturated and
+  sensitive in both directions. Revision 1 guessed 3 and could not have known it was saturated;
+  a guessed bar cannot be known to bite until the distribution is measured, and measuring it
+  after seeing treatment results is how a threshold gets tuned into a finding.
 
-**Statistic:** per cluster, the usable-milestone count. Paired **sign test** across clusters
-shared by both arms, joined on `cluster_id` (never `scenario_key` — Gemma renames every run).
-Report **the direction of flips, never a flip rate.**
+**Statistic:** per cluster, the usable-milestone count, plus `mean_lift` as a
+count-INDEPENDENT companion (adding a single-account milestone LOWERS it, so it cannot be won by
+volume — but it can be won by producing fewer and better, which is not the product win either).
+Paired **sign test** across clusters shared by both arms, joined on `cluster_id` (never
+`scenario_key` — Gemma renames every run). **The two must agree in direction.** Report **the
+direction of flips, never a flip rate.**
+
+### 4.1b Verifying a SINGLE-ACCOUNT milestone — three checks, and the second reframes the question
+
+A milestone evidenced by one client is **unverified, not worthless.** One-account evidence cannot
+distinguish a real coaching move that happened to arise with one client from an account-specific
+habit — they are identical in the data. The documented cases are the second kind
+(`tracking_pixels` whose top keywords are literally `happy dance, dance, happy`;
+`managing_non_technical_stakeholders` at 100% Banfield, glued by two colleagues' FIRST NAMES) but
+that cannot be assumed of every one. All three checks are run; none of them ranks an arm.
+
+**Check 1 — lexical specificity (free, mechanical).** Do the milestone's clauses carry tokens
+disproportionately associated with that account versus the rest of the corpus? `happy dance`,
+`kim`, `veterinarians` light up; *"explains how the feed refresh cadence works"* does not. No
+opinion involved.
+
+**Check 2 — held-out neighbour search (free, mechanical). THIS IS THE ONE THAT MATTERS.** Take
+the milestone's clause centroid and search every Naren response clause from OTHER accounts at the
+same relevance bar Layer C already uses.
+
+| result | what it means |
+| --- | --- |
+| similar clauses in >= 3 other accounts | the move IS general. It is single-account only because **Layer B did not route the other instances in** |
+| nothing comparable anywhere else | genuinely client-specific |
+
+**This reframes the whole question.** A single-account milestone has two opposite causes:
+content-specific (correctly excluded from a general rubric) or a ROUTING ARTIFACT (the milestone
+is fine and Layer B is the bug) — and the second is exactly what this trial exists to measure. An
+arm that produces fewer single-account milestones *because it pulled the other clients' instances
+in* is not satisfying the metric, it is fixing the defect.
+
+**Check 3 — blind read.** Sample single-account milestones, strip every label, and judge: could a
+CSM apply this to a DIFFERENT client? This is the only check that can adjudicate the residual
+bucket where checks 1 and 2 disagree or are both silent, and it is the one this repo's history
+says catches what aggregates miss — it found the interview cluster, the "Exclude from Review"
+misread and three keyword traps in one session. Limits stated, not buried: one reader, who
+designed the arms; small n; samples written to one file and the answer key to a SEPARATE file,
+with judgments committed before the key is opened. It informs F6, never the ranking.
+
+Routing:
+
+```text
+single-account milestone
+  |- lexically account-specific         -> correctly excluded
+  |- neighbours in >= 3 other accounts  -> LAYER B ROUTING FAILURE (the trial's target)
+  \- neither / both                     -> goes to check 3 and is READ
+```
+
+#### 4.1c Falsifying the metric on the control alone, before any treatment runs
+
+If `lift` measures what it claims, the milestones it scores LOWEST should be enriched for
+**check-1 (lexically account-specific)** cases. If they are instead enriched for **check-2
+(routing artifact)** cases, then `lift` is punishing Layer B's failures rather than identifying
+non-transferable content — and every arm result would be uninterpretable in a way no placebo
+would reveal.
+
+This runs on the control arm alone, costs nothing, and **gates the whole trial**: if the
+enrichment goes the wrong way, the metric is withdrawn before an arm is read, exactly as
+revisions 1 and 2 were.
 
 ### 4.2 Veto — can override a significant result
 
@@ -378,6 +468,8 @@ Unchanged from revision 0.
 | **F8** | milestone total outside the scaled `f4_band` | the clustering did not reproduce. Run VOID |
 | **F9** | the two taxonomies disagree on the winner | report both; pick neither |
 | **F10** | nothing clears F4 + F5 + F6 | **published result: Layer B's unit, admission rule and router are not the binding constraint on rubric quality.** This CLOSES the question and is worth as much as a positive |
+| **F11** | §4.1c — on the CONTROL alone, the lowest-`lift` milestones are enriched for check-2 (routing artifact) rather than check-1 (account-specific) | the metric is measuring Layer B's failures, not transferability. **WITHDRAW the metric before any arm is read**, as revisions 1 and 2 were |
+| **F12** | `lift` and `mean_lift` disagree in direction for an arm | report both; the arm is not a winner. One is count-based and one is not, and an arm that moves only the count is moving volume |
 
 ---
 
