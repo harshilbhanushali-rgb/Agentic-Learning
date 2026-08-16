@@ -66,6 +66,43 @@ output.** Sink-rescue measured gate 2 against per-pair AUC proxies; gate 1 has n
 arms are worth running at all. Cause (c) is the one nobody has ever named: it is evidence lost on
 the *response* side, which is the only side Layer C consumes.
 
+### 1.3 MEASURED 2026-08-16, and it moves the plan
+
+Run free over the cleaned 393-transcript corpus, importing production `parse_transcript`,
+`_is_substantive` and `extract_pairs`. **The per-turn classifier reproduces production's pair
+count EXACTLY (3,977 = 3,977)**, so this is a decomposition of `extract_pairs`, not an
+approximation of it. Every CLIENT turn is examined exactly once by that loop — `i = j` lands on
+the turn that broke the window, which is itself a CLIENT turn — so the turn view is exact rather
+than the upper bound its script originally claimed.
+
+| cause | turns | share |
+| --- | --- | --- |
+| **(b) no Naren reply in the window** | **13,056** | **62.8%** |
+| (a) trigger fails the >=5 content-word floor | 7,054 | 33.9% |
+| (c) Naren replied, every turn filtered out | 2,053 | 9.9% |
+
+Rescue population per knob, everything else held at production:
+
+| knob | turns | against today's 3,977 pairs |
+| --- | --- | --- |
+| `A1` alone (trigger floor is the only blocker) | 1,702 | **+43%** |
+| `A4` alone (response floor is the only blocker) | 1,312 | **+33%** |
+| both needed together | 741 | |
+
+So `A1` + `A4` roughly DOUBLE the pair count. Promoting Knob A was correct.
+
+**Cause (b) splits in two, and the larger half is the deferred knob:**
+
+| | turns | share of all CLIENT turns |
+| --- | --- | --- |
+| another CLIENT spoke next -> `S1`'s target | ~7,480 | **36.0%** |
+| **a teammate answered instead -> `S2`** | **5,287** | **25.4%** |
+
+`S1` is confirmed as a real change rather than a no-op (F2 will not fire), but it changes trigger
+TEXT rather than pair COUNT — a block already yields exactly one pair, so merging its turns
+enriches the trigger without adding a unit. Its pair-count gain is confined to blocks whose last
+turn alone fails the floor while the merged move clears it, i.e. the overlap with cause (a).
+
 ---
 
 ## 2. The one question
@@ -221,8 +258,30 @@ is thin. Runs last.
 
 ### 3.9 Deferred, with reasons
 
-- **`S2`** (teammate speech enters `response_text`) — breaks the "Naren's voice" premise every
-  rubric rests on. A product decision, not a measurement one.
+- **`S2`** (teammate speech enters `response_text`) — **DEFERRED, AND IT IS THE LARGEST
+  MEASURED LEVER ON THE BOARD. OWED ITS OWN DESIGN PASS; DO NOT BOLT IT ON AS AN ARM.**
+  §1.3 measured it at **5,287 turns, 25.4% of every CLIENT turn in the corpus** — bigger than
+  `A1` and `A4` combined. A quarter of all client turns received a Joveo answer that
+  `extract_pairs` steps over at `v1/layer_b.py:57` (`j += 1`, no text captured) and discards
+  entirely.
+
+  It is deferred because it is **not a measurement question**. Every rubric in this pipeline
+  rests on the premise that a milestone is a move *Naren* makes; admitting a colleague's words
+  changes what a rubric IS, and downstream that changes what Layer D is grading a CSM against.
+  Running it as an arm would produce a number that cannot be acted on either way.
+
+  The design questions it needs answered first, none of which this trial can settle:
+  1. Is the benchmark "the expert's move" or "the Joveo team's move"? Layer D's whole grading
+     premise follows from the answer.
+  2. Are all teammates equivalent, or does seniority/role matter? A curated roster of "good
+     enough" speakers would be the forbidden curated-list anti-pattern.
+  3. `ego_trap/` already distinguishes `other_joveo` and writes a `Deferred_To_Teammate`
+     gap_event rather than scoring it — so Layer D has ALREADY taken a position on this, and
+     admitting teammate speech into `kb_pairs` would contradict it silently.
+  4. Does a mixed-voice rubric still transfer, or does it become a Joveo-process document?
+
+  **Next step when it is picked up: a brainstorm, then its own pre-registered spec.** Not an
+  arm in this one.
 - **`S3`** (previous Naren turn as routing context) — speculative.
 - **`A2`** (either-side substantive) — narrow affected population, small expected effect.
 
