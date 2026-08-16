@@ -2069,3 +2069,87 @@ the audit bar.
 
 **Not more permutations.** `r2_r`, `r3`, `s1` and `a3` would each cost a run to produce another
 null against a mechanism that is now understood.
+
+## Layer C's defences measured, a filter that finally sees routing, and a rescue that aims wrong (2026-08-17)
+
+Spec: `docs/superpowers/specs/2026-08-17-layer-c-relative-filter-and-rescue-design.md`
+(gates frozen and committed before any harness code existed). New harnesses
+`calibration/lcfr_common.py` / `layer_c_relative_filter.py` / `layer_c_noise_rescue.py`,
+14 unit tests, blind pre-run audit CLEAN, F0 self-validation against the published control
+PASSED (171/171 milestones, evidence byte-equal). Zero chat, zero new embeddings, zero
+Postgres. Unattended session.
+
+### The problem this solves
+
+The Layer B trial closed with "Layer C responds to routing VOLUME, not routing QUALITY" and
+named two live directions: a per-clause RELATIVE relevance test (the frame where the 78.2%
+signal lives), and the rescue_centroid port. Both ran tonight, with the handoff's other
+open items taken as free diagnostics.
+
+### Problems found
+
+**1. The pooled percentile is blind, and every per-clause relative rule is not — but none
+reaches the pre-registered PASS bar.** Measured symmetrically over real vs
+destination-permuted routing: p40 survives 60.0%/60.0% (gap 0.0pp, the defect to three
+decimals); rank/margin/demean/CSLS rules gap 8-20pp. G-T1a = WEAK (best 20.0pp at rank(8),
+bar 25). Downstream, the rule makes total Layer C intake fall to 0.658x under permuted
+routing where p40 sits at 1.000 — G-T1b PASS. **Layer C CAN be made routing-quality
+sensitive; the shipped filter just isn't.**
+
+**2. Full CSLS lost to plain rank.** The literature's hubness correction (both-side terms)
+was built for 200k-word vocabularies; at 26 target scenarios the scenario-side term costs
+more than it corrects (8.3-17.5pp vs 11-20.1pp). The clause-side-only DEMEAN tracks rank
+closely. Lesson: import the FRAME from the literature, re-derive the FORMULA on your own
+scale.
+
+**3. The relative rule and the percentile fail on OPPOSITE axes — found only by reading.**
+rank(8) removes substantive broadly-relevant clauses (top-8-of-26 is a hard ask when
+several scenarios overlap topically) while keeping filler whose weak preference points
+home; p40 does the reverse. A post-hoc conjunction check (labelled, not pre-registered)
+gaps 16.3pp with the junk excluded, at 47.2% retention. Any adoption needs a fresh
+pre-registration of the conjunction or a looser K.
+
+**4. The rescue rule SELECTS right and DELIVERS wrong.** G-T2 blinded read (independent
+subagent judge, key in a separate file): **12/12 for the rule over its volume-matched
+placebo, zero ties, p=0.0005** — the first Layer C instrument to go unanimous. But 99.3% of
+its 1,043 admissions went to already-passing clusters (only 33 of 204 clusters were
+base-failing; only ONE was flippable at the volume both arms received). Gained milestones:
+rescue 0, placebo 1 — a coin-flip event, audited before being believed. Nearest-centroid
+admission structurally aims at big dense clusters, i.e. at the milestones that need help
+least. **A support-targeted variant (aim admissions at failing clusters) is the follow-up
+worth pre-registering.**
+
+**5. A mid-session claim was made, audited under the operator's placebo-veto rule, and
+WITHDRAWN.** "The rescue's additions are more account-concentrated than random — opposite
+of Layer A" reproduced numerically (medians 0.50 vs 0.33) and was an interpretation
+artifact: those are the arithmetic minima for 2 vs 3 distinct calls, and conditioned on
+distinct-call count the arms are identical (pooled N_eff 26.5 vs 25.4). The real mechanism
+is SAME-CALL gluing: 68.6% of rule adds land on calls already in the cluster, 41 literal
+duplicate texts. The rule thickens what is already thick.
+
+**6. Two more of Layer C's "aggregate junk defences" are now measured, and both are
+near-blind.** The sink-similarity review flag is a percentile of the run's own population:
+within-run flag rate 5.3% real / 5.4% permuted by arithmetic, and even cross-applied, fully
+random routing is flagged at only 9.2%. Only the Gemma judge behind it is absolute. With
+the relevance filter's 60.0%/60.0%, that is two of the four defences measured as unable to
+scale with contamination.
+
+**7. Layer C discards ~42% of its post-relevance pool at CONTENT PARITY.** Noise 26.3%
+content-free vs clustered 27.3% vs gate-failed 26.0%. The discarded clauses read as real
+expert content. Layer A's "the loss is in the UMAP->HDBSCAN stage" finding now holds one
+level down, measured.
+
+**8. The zero-clause-call denominator defect does NOT bind at the shipped setting.** Zero
+required-support drops, zero flips at s0/a0 — it is live only under admission knobs that
+inject near-empty pairs (a4). Closed for the shipped configuration; keep the check in any
+future admission arm.
+
+### What the trial established
+
+Layer C's intake CAN discriminate routing quality (G-T1b), its noise pool is worth
+rescuing (12/12 read), and the two shipped statistical defences cannot reject
+contamination. But no arm tonight moved account-diversity lift (all null, rescue and
+placebo alike), so the binding constraint the Layer B trial pointed at — evidence breadth
+per milestone — remains unmoved by everything tried so far. The two mechanisms that
+survived their gates (relative filtering, p25 noise admission) both need a re-aimed second
+pass: conjunction filtering, and support-targeted rescue.

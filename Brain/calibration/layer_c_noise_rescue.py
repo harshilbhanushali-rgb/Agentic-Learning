@@ -174,7 +174,7 @@ def run_rescue(sub, real_p40: dict, seed: int, ident_base: dict) -> None:
           f"({100*summary['admit_rate']:.1f}%) into {tot['clusters']} clusters; "
           f"gained milestones rescue={tot['gained_rescue']} "
           f"placebo={tot['gained_placebo']}", flush=True)
-    print(f"[T2] top-account share of ADDED clauses (median): "
+    print(f"[T2] top-account share of ADDED CALLS (distinct, median): "
           f"rule {summary['top_account_share_added_rule_med']} vs placebo "
           f"{summary['top_account_share_added_placebo_med']} vs originals "
           f"{summary['top_account_share_originals_med']}", flush=True)

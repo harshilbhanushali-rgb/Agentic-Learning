@@ -202,6 +202,103 @@ clause texts, zero spend. Blind audit of the harness returned CLEAN before anyth
   time — mis-routed content is often topically adjacent to 8-of-26 scenarios, so a
   ~20pp gap may be near the ceiling this taxonomy's granularity allows.
 
+### 7.2 Downstream (G-T1b): PASS — Layer C is routing-quality-sensitive under the rule
+
+F0 PASSED first: the harness's real/p40 arm reproduces the published control exactly
+(171 milestones / 26 scenarios, evidence tuples byte-equal), so everything below is
+reportable.
+
+| arm | filter | milestones | surviving clauses |
+| --- | --- | --- | --- |
+| real / p40 | percentile | 171 | 7,929 |
+| perm / p40 | percentile | 130 | 7,929 (ratio **1.000**) |
+| real / rank(8) | relative | 155 | — |
+| perm / rank(8) | relative | 94 | ratio **0.658** |
+
+- **G-T1b PASS**: p40's permuted/real volume is 1.000 (the blindness, reproduced to the
+  third decimal); rank(8)'s is 0.658 ≤ 0.75. **A per-clause relative rule makes Layer C's
+  intake sensitive to routing quality, which no production defence currently is.**
+- Milestone counts (secondary): permuted routing costs 24% of milestones under p40 but 39%
+  under the rule.
+- **The sample read cuts the other way, and it is the finding that shapes adoption.** Of 20
+  clauses REMOVED by rank(8) but kept by p40, most are substantive and on-topic ("we have a
+  dedicated partnerships team at Indeed", "rec IDs reposted on Workday need manual
+  update") — broadly-relevant clauses that rank home below 8 of 26 overlapping scenarios.
+  Of 20 KEPT by rank(8) but removed by p40, most are filler whose weak preference points
+  home ("That sounds good.", "So, yeah,"). **The two filters fail on opposite axes: the
+  percentile rejects junk and is blind to routing; the relative rule rejects mis-routing
+  and is blind to junk.** Neither is a replacement for the other.
+- POST-HOC (labelled, not pre-registered, `lcfr_posthoc_conjunction.py`): the conjunction
+  p40 AND rank(8) survives real 0.472 / permuted 0.309 — gap 16.3pp with the junk excluded.
+  Retention sits below the 50% eligibility floor, so a conjunction (or rank at a looser K)
+  needs its own pre-registration; this number is its input, not its result.
+
+### 7.3 T2 (G-T2): the read gate PASSES 12/12 — and the mechanism still cannot do the job
+
+Rescue admitted 1,043 of 3,288 noise clauses (31.7%) into 204 clusters. Placebo counts
+matched per cluster by construction (asserted).
+
+- **G-T2 PASS: the independent blinded reader chose the rule's additions 12/12, zero ties**
+  (sign test p = 0.0005; gate was ≥10). Replicates Layer A's 10/10 at milestone granularity.
+  The p25-of-member-cosines selection rule genuinely admits on-move content.
+- **And it does not deliver the outcome it was ranked #3 for.** Gained milestones: rescue 0,
+  placebo 1. Per the placebo audit (subagent, hostile, artifact-level recomputation): only
+  33 of 204 clusters were base-failing, and the rule routed **7 of 1,043 admissions (0.7%)
+  into failing clusters** — nearest-centroid admission structurally favours big, dense,
+  already-passing clusters. Exactly ONE cluster in the whole run received adds ≥ its
+  deficit; the placebo's 4 uniform draws happened to carry 3 new distinct calls and flipped
+  it, the rule's 4 on-topic adds came from calls already in the cluster. "0 vs 1" is a
+  coin-flip event, not a treatment difference.
+- **Account-diversity lift: null in both arms** (rescue 4↑/8↓/13 tie p=0.39; placebo
+  5↑/10↓/10 tie p=0.30; rev-4 metric, weighted null 6d3a2ba9e5894719, reproduced
+  independently by the auditor).
+- **A claim made mid-session is WITHDRAWN after audit:** the added content is NOT more
+  account-concentrated than random. The published medians (rule 0.50 vs placebo 0.33 vs
+  originals 0.23, over distinct added CALLS) are a small-n quantization artifact — exactly
+  the arithmetic minima for 2 vs 3 distinct calls. Conditioned on distinct-call count the
+  arms are identical; pooled N_eff 26.5 vs 25.4 over 82 accounts. The real mechanism is
+  **same-call gluing**: 68.6% of the rule's adds land on calls already among the cluster's
+  members (41 literal duplicate texts), vs 51.4% for placebo. The rule thickens what is
+  already thick — new distinct calls added: rule 243 vs placebo 400 across 89 clusters.
+
+### 7.4 T3 / D1 / D2
+
+- **T3 — honest null at the shipped setting.** Zero scenarios' `required_milestone_support`
+  drops under the effective-calls denominator; zero milestones flip. The zero-clause-call
+  defect (spec §1) is real arithmetic but does not bind at s0/a0 on this corpus — it goes
+  live only when an admission knob (like `a4`) injects near-empty pairs. Handoff item 4 is
+  closed for the shipped configuration.
+- **D1 — the sink-similarity review flag is the percentile defect, measured.** Within-run
+  flag rates: real 5.26%, permuted 5.38% — fixed share by arithmetic, threshold self-adjusts
+  (0.7865 vs 0.7880). Cross-applied, fully-random routing raises the flag rate only to
+  **9.2%**. Of Layer C's cited "four aggregate junk defences", the two that were measurable
+  here are now both measured: the relevance filter rejects nothing (60.0%/60.0%) and the
+  sink flag barely notices total mis-routing (5.3% → 9.2%); only the Gemma judge behind the
+  flag is absolute.
+- **D2 — Layer C's discarded noise is content-equivalent to what it keeps.** Content-free
+  shares: HDBSCAN noise 26.3% (n=3,302), clustered-kept 27.3% (n=4,338), gate-failed 26.0%
+  (n=289). Sampled noise reads as real expert content ("If it happens to Phenom and Phenom
+  to Workday, we're gonna be integrated with both"). Same family as Layer A's diagnostic:
+  the loss is in the UMAP→HDBSCAN stage, not in the content. ~42% of the post-relevance
+  pool is being discarded at content-parity.
+
+### 7.5 Session verdicts, in one place
+
+| item | gate | verdict |
+| --- | --- | --- |
+| harness validity | F0 + blind audit | PASS / CLEAN |
+| T1 instrument | G-T1a | **WEAK** (20.0pp at rank(8); PASS needed 25) |
+| T1 downstream | G-T1b | **PASS** (1.000 → 0.658) |
+| T2 selection | G-T2 blinded read | **PASS 12/12** (p=0.0005) |
+| T2 outcome | secondary | null — 0.7% of adds reach failing clusters; lift null |
+| T3 denominator | none (sizing) | **does not bind** at s0/a0 |
+| D1 sink flag | none | near-blind to mis-routing (5.3% → 9.2%) |
+| D2 noise pool | none | content-parity with kept (26.3% vs 27.3%) |
+
+Costs: zero chat calls, zero new embeddings, zero Postgres writes. Subagents: 2 audits +
+1 blinded reader. Both placebo-anomaly numbers were audited before being believed, and one
+interpretation was withdrawn as a result.
+
 ## 8. What this cannot answer
 
 - Whether better-filtered or rescued milestones GRADE better (Layer D) — untouched here.
