@@ -25,7 +25,13 @@ only the ranking of what to do next and what tonight did NOT anticipate.
 4. **Item 4 (zero-clause-call denominator) closed as a no-op at the shipped setting** —
    0 flips. Keep the check for admission arms only.
 
-## Next steps, ranked (each needs its own pre-registration)
+## Next steps, ranked
+
+**UPDATED same session: items 1 and 2 below RAN and CLOSED** (G-F1 UNDERPOWERED-NULL —
+the noise pool lacks the failing clusters' content, 28/33 destinations got zero
+admissions; G-F2 NULL — 13.8pp at the retention floor, ~20pp is the filter ceiling; see
+`2026-08-17-layer-c-retargeted-followups-design.md` RESULTS). **The live list starts at
+item 3.**
 
 1. **Support-targeted rescue.** Same p25 admission test, but rank destinations by NEED:
    restrict candidate destinations to base-FAILING clusters (or weight admission toward
