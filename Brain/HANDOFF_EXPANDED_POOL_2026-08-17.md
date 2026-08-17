@@ -74,6 +74,27 @@ positive controls — expect the positive control to be imperfect: ~half of high
 milestones are incoherent today), and stability across UMAP seeds {42, 1, 7} where the
 arm inherits UMAP (F5 lesson: inherited randomness counts).
 
+### Phase 3 — reopen Layer B against the fixed ruler (operator-endorsed, sequenced LAST)
+
+The operator explicitly wants Layer B's discards revisited ONCE Layer C is fixed, and the
+record supports it: **every Layer B null this week is conditional on a downstream detector
+that was proven blind** (F10 = "Layer C responds to volume, not quality" — a verdict about
+the detector, not the defendant). When a stage-2 winner makes Layer C quality-sensitive,
+those nulls expire in this order:
+
+1. **Re-run `r1`** (route by the turn's own Layer A cluster label). Already built
+   (`calibration/layer_b_routers.py`), already repairs the +62%→+0.8% break (+39% clauses,
+   lookup 45.9%→72.8%); it lost ONLY to a blind judge. One day's work against the new ruler.
+2. **The sink short-circuit** — ~40–58% of pairs filed to sinks, ~half of a read sample
+   genuinely coachable. Eight per-pair signals failed; retry only WITH a quality-sensitive
+   Layer C as the outcome measure, never against AUC proxies again.
+3. **S2 (teammate speech, 25.4% of the corpus)** — needs the operator's brainstorm first;
+   it changes what a rubric IS (`ego_trap` wrote Deferred_To_Teammate on the opposite premise).
+
+Do NOT start phase 3 before a stage-2 winner exists: improving Layer B recall now would
+pour more evidence into a clusterer that discards 42% at content parity, which is the
+exact trap the week's nulls were bought to avoid.
+
 ### Afterwards (operator decisions, not yours)
 
 Promotion of the 690 into production (full re-run, new run_id, real Gemma spend);
