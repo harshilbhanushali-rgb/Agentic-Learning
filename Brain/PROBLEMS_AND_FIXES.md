@@ -2153,3 +2153,18 @@ placebo alike), so the binding constraint the Layer B trial pointed at — evide
 per milestone — remains unmoved by everything tried so far. The two mechanisms that
 survived their gates (relative filtering, p25 noise admission) both need a re-aimed second
 pass: conjunction filtering, and support-targeted rescue.
+
+### Same-day follow-ups F1/F2: both re-aims closed (2026-08-17, later)
+
+Pre-registered in `2026-08-17-layer-c-retargeted-followups-design.md` before code; harness
+audited CLEAN; results in that spec's RESULTS section. **G-F2 NULL** — the conjunction's
+retention/discrimination trade never meets any bar (13.8pp at the 50% floor, monotone
+decay), so ~20pp is the ceiling for ANY intake filter here and filter-shape search stops.
+**G-F1 UNDERPOWERED-NULL with a stronger mechanism than the gate needed:** aimed only at
+the 33 failing clusters, the p25 rule admitted 15 clauses corpus-wide and 28 of 33
+destinations got zero — the noise pool does not CONTAIN the failing clusters' content.
+The rescue direction closes entirely; the noise pool's value is re-clustering. One process
+note: the placebo out-flipping the rule (2 vs 4) was NOT re-audited because it is the
+direction the morning's placebo-veto audit predicted from the measured same-call-gluing
+mechanism, and the artifact internals reproduce it — an audit rule should not force
+re-auditing a mechanism that has already been audited and then replicates.
