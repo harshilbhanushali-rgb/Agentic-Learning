@@ -2405,3 +2405,28 @@ Artifacts `layer_bc_lcfr_*.json` are scoreable by `score_layer_b_arms.py` unchan
   inject near-empty pairs; closed for the shipped configuration.
 - Everything here is gemini@3072 on the clean2_base turn-mode taxonomy: directions
   transfer, numbers do not; no `tuning.yaml` change may cite them alone.
+
+### Layer C follow-ups F1/F2: both CLOSED same-day (2026-08-17)
+
+Spec `docs/superpowers/specs/2026-08-17-layer-c-retargeted-followups-design.md` (gates
+frozen before code; harness `calibration/lcfr_followups.py`, audit CLEAN, 5 tests).
+
+- **G-F2 NULL: ~20pp is the CEILING for any Layer C intake filter on this taxonomy.**
+  The p40-AND-rank(K) conjunction's gap decays monotonically K=8->14 (16.3 -> 9.6pp); the
+  first K clearing the 50% retention floor lands at 13.8pp, under the 15pp NULL bar.
+  Retention and discrimination trade one-for-one. **Filter-shape search at Layer C is
+  over** -- the constraint is the 26 topically-overlapping scenarios or the clustering,
+  not the filter.
+- **G-F1 UNDERPOWERED-NULL, and the rescue direction closes ENTIRELY: the noise pool does
+  not contain the failing clusters' content.** Aimed exclusively at the 33 base-failing
+  clusters, the p25 rule admitted 15 clauses corpus-wide -- **28 of 33 failing clusters
+  got ZERO admissions as the only eligible destinations**. Flips: rule 2, placebo 4
+  (p=0.50; both under the floor of 5), the direction the placebo-veto audit predicted
+  (same-call gluing: 8 adds -> 2 new calls vs placebo's 5). Selection was never the
+  problem (12/12); delivery cannot be re-aimed into content that is not there. The noise
+  pool's remaining value is RE-CLUSTERING, not rescue.
+- Net for the whole 2026-08-17 effort: Layer C's intake CAN see routing quality (a first),
+  but nothing tried tonight moves evidence breadth per milestone. The live levers left, in
+  order: a Layer C clustering-method bench over the content-parity noise pool (42%
+  discarded at 26.3%-vs-27.3% content-free), the Layer C UNIT question, and S2 -- which
+  still needs a human brainstorm.

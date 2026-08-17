@@ -53,6 +53,53 @@ pre-registers the sweep the post-hoc number cannot stand in for.
   filter-shape search at Layer C stops; the constraint moves to the taxonomy (scenario
   overlap) or the clustering.
 
+## RESULTS (2026-08-17, same session — both follow-ups CLOSED)
+
+Follow-up harness `calibration/lcfr_followups.py` + `tests/test_lcfr_followups.py`
+(5 tests, one added post-audit to pin cross-dedup), blind audit CLEAN before running.
+
+### G-F2: NULL — ~20pp is the ceiling, and filter-shape search at Layer C stops
+
+| K | real | permuted | gap (pp) |
+| --- | --- | --- | --- |
+| 8 | 0.472 | 0.309 | 16.3 |
+| 9 | 0.490 | 0.340 | 15.0 |
+| 10 | 0.508 | 0.369 | **13.8** ← first K clearing the 0.50 floor |
+| 11 | 0.524 | 0.396 | 12.7 |
+| 12 | 0.537 | 0.421 | 11.6 |
+| 13 | 0.549 | 0.441 | 10.8 |
+| 14 | 0.558 | 0.462 | 9.6 |
+
+The gap decays monotonically as K loosens; retention and discrimination trade one-for-one
+and never meet the (0.50, 25pp) corner — nor even the 15pp NULL bar once retention is
+satisfied. Combined with the main trial (best single rule 20.0pp at 0.587 retention), the
+pre-registered failure statement applies: **on this taxonomy, ~20pp is the ceiling for any
+intake filter; further filter-shape search stops. The constraint is scenario overlap (26
+topically-adjacent scenarios) or the clustering, not the filter.**
+
+### G-F1: UNDERPOWERED-NULL — and the mechanism closes the rescue direction entirely
+
+Flips: rule 2, placebo 4 (paired 0 up / 2 down / 31 tie, sign p=0.50; both arms under the
+pre-registered floor of 5). The per-cluster detail says why, and it is stronger than
+"underpowered": **28 of 33 failing clusters received ZERO admissions even when they were
+the ONLY eligible destinations — 15 total adds corpus-wide.** The noise pool does not
+contain the failing clusters' content at p25 similarity. Where the rule did add, same-call
+gluing replicated exactly (one cluster: 8 adds → 2 new distinct calls for the rule vs 5
+for the placebo).
+
+The placebo again out-flipped the rule; no fresh audit was run because this direction is
+the one this morning's placebo-veto audit PREDICTED from the same mechanism (new calls per
+added clause: rule 0.235 vs placebo 0.385), and the artifact's internals reproduce it. The
+blinded read was skipped: only 3 clusters had ≥2 adds in both arms, and no read outcome
+could move an UNDERPOWERED-NULL gate; the selection question was already answered 12/12
+this morning.
+
+**Per the pre-registered failure statement: the noise-rescue direction at Layer C closes
+entirely.** Selection was never the problem, delivery cannot be fixed by re-aiming, and the
+evidence the under-supported milestones lack does not exist in the discarded pool. The
+noise pool's remaining value is in RE-CLUSTERING (a Layer C clustering-method bench), not
+in rescue.
+
 ## Guards (unchanged from tonight, restated as binding)
 
 - Both follow-ups run through the audited `lcfr_common.py` machinery; new code is additive
