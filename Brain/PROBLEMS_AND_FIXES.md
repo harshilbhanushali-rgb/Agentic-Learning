@@ -2168,3 +2168,923 @@ note: the placebo out-flipping the rule (2 vs 4) was NOT re-audited because it i
 direction the morning's placebo-veto audit predicted from the measured same-call-gluing
 mechanism, and the artifact internals reproduce it — an audit rule should not force
 re-auditing a mechanism that has already been audited and then replicates.
+
+## Expanded pool stage 1: data was NOT the constraint (2026-08-17, night)
+
+Spec: `docs/superpowers/specs/2026-08-17-expanded-pool-stage1-design.md` (gates G-XP0..G-XP3
+frozen pre-run; 6-finding pre-run blind audit recorded in it, all fixed). Harness
+`calibration/expanded_pool_stage1.py` (+17 tests). Corpus: the published 393 calls + the
+690-call KEEP pull (120 new accounts), taxonomy `clean2_base` FROZEN — new calls may only
+join existing scenarios. Zero chat, zero Postgres; embeddings cache-only after a verified
+prefetch (58,618 new clauses + the union trigger set, both 0-missing on cache re-read; the
+trigger fetch had died mid-run the prior night and was resumed from cache in ~1 min).
+Unattended session. Full numbers in the spec's RESULTS; readouts in
+`artifacts/xp_stage1_report.json`.
+
+### What happened
+
+- **G-XP0 PASS** — all 26 scenarios' old-restricted prefilter pools byte-identical to the
+  published control, so the union arm is auditable. **G-XP1 OK** — new pairs sink at 64.3%
+  (bar 0.75; old pairs re-sank at their published 57.9% in the same run): the new corpus
+  talks about the same things ~6pp more sink-prone, and the verdict is testable.
+- **G-XP2 PRIMARY: NULL.** up=12 down=13 net=+0.913 p=1.0000 (own yardsticks); the
+  union-yardstick sensitivity view fails the direction check too (12/13). The raw N_eff
+  companion is the illuminating contrast: **up=20 down=5 p=0.0041, k median 26 -> 71** —
+  clusters really reach ~3x more accounts, but exactly as much as random draws from the
+  231-account union pool predict (lift median FELL 1.097 -> 0.941). Doubling the corpus
+  moved account reach precisely at chance rate. Not roster-confounded (accounted_frac gap
+  4.6pp < 10pp bar).
+- **G-XP3: milestones 171 -> 128, direction DOWN, ~7x the repartition floor.** merged=64
+  dominates (matched 49, lost 45, split 13, gained 60). More evidence made the incumbent
+  clusterer produce FEWER, COARSER milestones; collapses concentrate exactly where pools
+  grew most (10->3, 11->4) — fraction-scaled `min_cluster_size` coarsening. The 60 gains
+  are honest (45 new-data-necessary, 50 new-account-backed, only 10 repeat-account padding)
+  but are consolidation's leftovers, not new parallel structure.
+- **The 33 failing clusters:** all matched in the union arm, 30 now clear the union support
+  gate — candidate-level deepening is real — yet zero scenarios flipped
+  no_support->clustered.
+
+### What it means
+
+The week's standing hypothesis ("data, not method, is the constraint") is now measured and
+rejected on the one metric nothing has ever moved. Promotion of the 690 into production is
+NOT justified by this gate (operator's decision to make regardless). Every arrow — merged=64,
+the at-chance diversity growth, the earlier content-parity discard measurement — points at
+the never-benched UMAP+HDBSCAN stage, which is exactly what the same-night clustering bench
+(next section) was pre-registered to test. Process note: the trigger-embedding gap
+(`scope_layer_bc_embeddings.py --fetch` covers clauses only) was caught the prior session
+and closed before this run; the cache-only shim + completion-ping discipline held throughout.
+
+## Layer C clustering bench: eight arms, no winner, and the sharpest number yet (2026-08-17, night)
+
+Spec: `docs/superpowers/specs/2026-08-17-layer-c-clustering-bench-design.md` (arms + gates
+W1-W5 frozen pre-run; pre-run audit's 3 outcome-bearing findings fixed and recorded there).
+Harness `calibration/layer_c_cluster_bench.py` (+9 tests) — one substrate, every arm; the
+support gate and milestone construction are ONE shared function. F0-bench PASS (substrate
+list-identical to the stage-1 artifact), F0-seed PASS at bases 42/1/7. W4 instrument
+`calibration/layer_c_bench_w4_build.py` — its own pre-run blind audit found 4
+outcome-bearing defects (identical-twin pairs punished by the tie rule; NEG/POS controls
+separable by support metadata; rescue's gate-crossing clusters silently excluded — now on
+the record; unequal bullet counts leaking identity), all fixed pre-read. Full tables in the
+spec's RESULTS. Zero chat calls for the bench itself; W4 used 1 audit + 3 blinded readers
+(sequenced one at a time after an operator limits call), plus 1 post-run stage-1 audit on
+operator request (CLEAN — the identical primary/sensitivity 12/13 split was proven
+arithmetically forced per-pair, and 171->128 was proven a pipeline property: mcs hits its
+25-clamp and required_support rises exactly where pools grew).
+
+### What the bench established
+
+1. **No arm beat the incumbent.** agglo merges 121/128 of c0's milestones at matched
+   cluster count (cosine-average = one giant blob + satellites); hdb_dbl fails W1+W2;
+   hdb_raw reproduces its bge-768 pathology at gemini@3072 (96.1% noise, 5 milestones).
+   Survivors leiden / hdb_half / rescue held W1-W3 directions at all three seeds (W5) —
+   then **both partitioner survivors LOST the W4 coherence read to the incumbent**
+   (leiden 5-8-2, hdb_half 6-8-1; instrument valid: 9/9 reader-packets rejected 8/8
+   scrambled negatives, ~92% inter-reader agreement). Leiden's 251 milestones are
+   fragmentation, not recovered structure.
+2. **rescue selects well and it STILL does not matter — third confirmation.** Its admitted
+   clauses were preferred over the placebo's 10-5-0 (p=0.30, n=15, NOT WON), its aggregates
+   are placebo-equal at every seed, and the placebo out-gains it everywhere. The direction
+   is closed unless a future arm changes what admission is FOR.
+3. **The positive controls are the finding.** Independent readers strict enough to reject
+   100% of scrambled negatives accepted only 0-3 of 8 of the incumbent's HIGHEST-SUPPORT
+   milestones as coherent coaching moves. The published "~half incoherent" number was
+   optimistic; on the union corpus the pipeline's best output fails a coherence read
+   5-8 times out of 8.
+4. **No arm improved account-diversity lift** (would have been the first ever; W3 passed
+   everywhere only as not-degraded).
+
+### Where this leaves the pipeline
+
+Same night, same substrate: stage 1 proved MORE DATA doesn't move lift (G-XP2 NULL,
+milestones 171->128 by mcs coarsening); this bench proved A DIFFERENT PARTITIONER doesn't
+either, and the coherence ceiling is low for every partition of the same pool. Routing
+(F10), intake filtering (F1/F2), admission knobs, rescue, data volume, and now the
+clusterer are ALL measured non-binding. What has never been varied is the POOLING UNIT —
+response clauses at this granularity may simply not contain cluster-recoverable coaching
+moves at the assumed rate. That is upstream of everything benched so far and is the
+pre-registration-worthy next question (with the Layer A pool-unit trial as precedent —
+clause vs turn was measured THERE and shipped OFF; the Layer C analogue was never run).
+
+## Pool-unit trial: the last untested variable, closed NULL (2026-08-18, overnight)
+
+Spec: `docs/superpowers/specs/2026-08-18-layer-c-pool-unit-design.md` (unit ladder
+clause/window/turn; gates V0-V4 frozen pre-code; pre-run audit CLEAN with two notes
+adopted into the spec). Harness `calibration/layer_c_pool_unit.py` (+16 tests). Triggered
+by the operator's observation that Layer A is turn-based while Layer C clusters clauses —
+the unit the Layer A pool-unit trial had already convicted for posture contamination.
+One bounded fetch (15,248 unit texts, 6.3 min, verified 0-missing); V0 PASS at both bases
+run; zero chat, zero Postgres. Readers and the veto audit ran on the small model
+(operator limits rule; mid-session instruction, saved to memory).
+
+### What happened
+
+1. **u_turn died at the pre-registered stop rule** (36 milestones vs floor 64): whole-
+   response vectors average several moves plus pleasantries, and units-per-call shrink so
+   distinct-call support collapses. The over-blur risk, measured.
+2. **u_win survived V1+V3 at base 42** (71 ms, noise 30.4% vs 35.0%, lift lean 16/10 —
+   the most positive any Layer C arm ever showed) — **then lost V2 0/15, p=0.0001**,
+   three valid blinded readers unanimous for the incumbent.
+3. **The 0/15 was NOT believed until veto-audited** (placebo-veto rule): hand recompute
+   from raw key+judgments reproduced it exactly, side-mapping verified in both
+   directions, blind-first reading of 6 pairs found no identifiability tell — a REAL
+   content effect. Mechanism: a window milestone's resolved clause set drags each
+   window's NEIGHBOR clauses (status chatter, call-intro filler) into the evidence;
+   single-clause groups contain only clauses that each independently instantiate the
+   move.
+4. **Seed-1 descriptive readout buried the survivor**: u_win falls under its own V1
+   floor (63 < 68) and the lift lean flips (12/14). The base-42 survivals were jitter.
+5. **Instrument caveat on the record**: the read compares resolved clause sets (frozen
+   canonical-membership rule), so windows lost on COMPOSITION; window GROUPING-decision
+   quality is untested — an anchor-clause-only display would be a new instrument needing
+   its own pre-registration.
+
+### Where the program stands after seven closures
+
+Routing, intake filtering, admission knobs, rescue (x3), data volume, the partitioner
+(x8 arms), and now the pooling unit (both alternative granularities) — all measured, all
+null or worse. The clause+UMAP+HDBSCAN incumbent survives every challenge by forfeit
+while its best output fails blinded coherence reads (0-3 of 8 accepted, twice measured
+on the union corpus). The pipeline-internal search space is EXHAUSTED. The live moves are
+outside it, all operator decisions: (a) the gold-pair probe — does the embedding space
+encode move-similarity at all (near-free, decisive for whether ANY clustering can work);
+(b) the union-corpus taxonomy rebuild (Layer A scope; needs the 33k-turn pool fetch +
+Gemma spend); (c) a representation change (LLM move-labeling before clustering — chat
+spend, new instrument, and the V1-narration lesson to respect).
+
+## Gold-pair probe: is the embedding space move-blind? (2026-08-18, day)
+
+Run WITHOUT a standalone spec on explicit operator instruction ("just do it and run");
+design + bars frozen in `calibration/gold_pair_probe.py`'s docstring before each round's
+data existed. Instruments: a label-free math battery + two rounds of blinded labeling
+(small-model agents per operator limits rule, sequential; every attention control passed
+by every agent: 30/30 planted duplicates round 1, 12/12 identical plants round 2).
+Artifacts: `gp_math_report.json`, `gp_report.json` (round 1), `gp_report2.json`.
+
+### What was measured
+
+- **Math battery (label-free):** the space is NOT featureless — kNN-graph modularity
+  0.41-0.54 vs 0.17 shuffled null in all 10 pools; Hopkins ~0.60 vs 0.555 null (weak
+  cluster tendency); call-identity variance excess small (+5.6pp over permuted null);
+  lexical near-repeat anchors are RARE (2 in ~800k sampled pairs, both separating
+  strongly, cos 0.85 vs 0.66).
+- **Round 1 (random batches): VOID FOR POWER, direction positive.** Random 18-clause
+  batches yielded exactly ONE cross-call unanimity gold pair (cos 0.818 vs 0.655 median).
+  The harness's own "26/26 triplets" print was REJECTED as pseudo-replication (all
+  triplets shared that one pair; effective n=1).
+- **Round 2 (nominate-by-reading -> blind verify): formally UNDERPOWERED by the frozen
+  bar (8 gold pairs < 10), effect large.** A directed nominator over 600 clauses produced
+  11 cross-call candidates; 8 verified unanimously. AUC 0.966, MW p=0.00071, medians
+  0.7645 vs 0.6302 (11 unanimous-NO random distractors). Verifiers agreed on 27/28 items.
+  By the frozen rule this REPORTS and does not verdict; it is not upgraded post hoc.
+
+### The two findings
+
+1. **The space is probably NOT move-blind.** Eleven independent observations across
+   three instruments (1 + 2 + 8 gold/anchor pairs) all separate same-move from
+   same-topic strongly; nothing pointed the other way. Formally short of the
+   pre-frozen power bar — stated plainly rather than laundered into a PASS.
+2. **Same-move recurrence is SPARSE at clause granularity — now measured three ways**
+   (random co-occurrence ~1 pair / 10 batches; directed nomination 11 candidates / 600
+   clauses with 3 of 10 scenarios yielding none; lexical near-repeats 2 / 800k pairs).
+   This undermines the milestone-as-clause-cluster TARGET independently of embedding
+   quality: clusters requiring 19+ distinct-call support cannot form from moves that
+   recur a handful of times — which is also a clean retrospective explanation for the
+   week of nulls and for stage 1's "more data -> fewer milestones".
+
+### Where this points
+
+The probe leaves the incumbent representation USABLE (retrieval/similarity on these
+vectors is sound) but the product target QUESTIONED: the scarce commodity is recurrence,
+not signal. The scenario-level playbook direction (synthesize per scenario with verbatim
+citation checks, account-diversity at document level, blinded usefulness reads; coarser
+Layer D items) fits both findings and was discussed with the operator mid-session;
+decision deliberately deferred to the operator with round 2 in hand.
+
+## Scenario-playbook pilot: not narration, but one altered quote is fatal (2026-08-18)
+
+Spec: `docs/superpowers/specs/2026-08-18-scenario-playbook-trial-design.md` (gates
+PB0-PB3, pick rule, placebo construction, reader protocol frozen and operator-approved
+BEFORE code existed; pre-run blind audit's 1 outcome-bearing finding + 3 notes fixed and
+recorded in §10). Harness `calibration/scenario_playbook_trial.py` (+36 tests). Five
+pilot scenarios at ranks 1/5/10/15/20 by routed-pair count; per scenario a REAL playbook
+(50 diversity-sampled evidence pairs, cache-only vectors) and a PLACEBO synthesized from
+an identically-selected donor scenario's evidence under the real header. 32 of 50
+budgeted chat attempts, `no_cache=True` throughout, zero Postgres, zero embedding spend.
+
+### What happened
+
+1. **PB0 (citation fidelity) FAILED 4/5 real — and the frozen rule makes that decisive:
+   METHOD NOT VALIDATED.** One altered quote in `publisher_mix::real` (of 16). The
+   veto audit (mandatory before believing) hand-verified all 16 failing quotes across
+   both arms: every one near-matches the correct cited call at difflib 0.88-0.995, and
+   the diffs are model EDITS — dropped stutters ("the the"→"The"), dropped fillers
+   ("Right?"), one-word swaps ("That"→"This") — not matcher or normalization bugs.
+   The model smooths disfluent verbatim speech at ~1.4%/quote in the real arm.
+2. **The placebo asymmetry is a finding on its own: placebos passed PB0 only 1/5**
+   (~14x the alteration rate). Forcing synthesis from header-mismatched evidence makes
+   the model bend quotes toward the header — grounding pressure is real and measurable.
+3. **PB2 (blinded discrimination) WON — 5/5 scenarios, 15/15 votes — then survived its
+   own veto audit with one restriction.** The seed-42 side randomization DEGENERATED
+   (real on side A in all five pairs, a 1/32 draw), so unanimous-A could not exclude
+   position bias. A side-flipped re-render (same seed path, byte-identical NEGs, 3
+   fresh sonnet readers, all valid) still cleared the bar: 4/5 scenarios, 11/15 votes,
+   26/30 pooled across orientations. Restriction: `multi_channel_spend_and_board_
+   optimization` went unanimous side-A in BOTH orientations — position-driven,
+   indistinguishable, not a real win (`artifacts/pb_veto_audit_flip.json`).
+4. **PB3 passed** (median blind APPLY share 0.75). **PB1 read 0/5** — but with 12-16
+   quotes per document against 19-30 available accounts, its 60% account-span bar is
+   arithmetically near-unreachable at this document size; the bar measured document
+   length as much as padding (on the record; secondary, never decisive).
+
+### What it means
+
+The V1 failure mode this trial existed to catch — narration wearing citations — did
+NOT occur: blinded readers separate real from placebo in both display orientations, and
+the placebo degrades exactly the way grounded synthesis should predict. The method
+fails on verbatim fidelity, a mechanical property PB0 detects for free. The obvious
+next design (post-synthesis verbatim snapping: replace each near-miss quote with its
+best exact-substring match from the document's own evidence before finalization) is a
+HARNESS change and needs its own pre-registration — this trial's verdict stays
+NOT VALIDATED as frozen. Two instrument lessons for any successor: (a) counterbalance
+pair sides deterministically (real on A for scenarios at odd rank, B at even — not an
+independent coin per item) so a degenerate draw is impossible; (b) size the PB1 span
+bar to the document's quote budget, not the evidence pool's account count.
+
+## Playbook snap trial: the successor ran same-day and VALIDATED the method (2026-08-18)
+
+Spec: `docs/superpowers/specs/2026-08-18-playbook-snap-trial-design.md` (operator-
+approved direction; snap algorithm, counterbalancing, resized PB1 and decision rule
+frozen before code; pre-run blind audit: no verdict-bearing defect, 3 small findings
+fixed, recorded in its §8). Harness `calibration/playbook_snap_trial.py` (+14 tests),
+importing the predecessor's audited gate/render/score functions rather than
+re-implementing them. ONE pipeline variable changed: a deterministic post-synthesis
+snap stage (verbatim quotes kept; near-misses ≥ 0.80 alignment replaced by the exact
+evidence span; below-threshold quotes dropped, with cascade rules — a move under 2
+citations drops, a document under 3 moves FAILS — so snapping cannot launder a hollow
+document). Inputs were the pilot's frozen synthesis artifacts: **zero Gemma spend**;
+the only new spend was 3 fresh sonnet readers.
+
+### What happened
+
+1. **Snapping confirmed the failure diagnosis exactly.** Real documents: 0 snapped,
+   1 dropped (the spliced quote), no move lost. Placebos absorbed the repairs: 7
+   snapped + 7 dropped, 2 moves dropped. No document collapsed.
+2. **PB0(snapped): PASS 10/10** — real and placebo, 0 bad quotes. The
+   pass-by-construction claim held.
+3. **PB2 under counterbalanced sides (real A/B/A/B/A): WON 5/5 scenarios, 14/15 votes**
+   (descriptive p=0.001), 4 unanimous, all 3 readers valid (15/15 NEG rejections).
+   The previously position-confounded pair (`multi_channel`) discriminated cleanly
+   (3/3) once sides couldn't degenerate. **PB3: median blind APPLY share 1.0.**
+4. **PB1 resized: 0/5 but finally informative** — spans healthy (0.33–0.79), every
+   failure now on the per-move prong: each document has ≥ 1 key move citing < 3
+   distinct accounts. A genuine breadth readout for scale-up, not a length artifact.
+
+### Where the program stands
+
+**METHOD VALIDATED (PB0 PASS ∧ PB2 WON), as frozen.** The scenario-playbook pipeline —
+routed evidence → account-floor + max-min selection → map-reduce synthesis → verbatim
+snap → mechanical PB0 — is the first Layer C product path to pass its own placebo
+test. Scale-up (all 26 scenarios, or the post-rebuild map) should per the standing
+plan coordinate with the union-corpus taxonomy rebuild (G-XP1: 64.3% of new-corpus
+pairs sink — more scenarios exist than the frozen 26), then derive Layer D coarse
+checks from the playbooks' scorable-check sections. Cost picture for scale-up:
+~3 chat calls + 1 snap pass per scenario document; the placebo/read machinery stays
+the validation harness, not a per-document cost.
+
+## 2026-08-18 (night): the union rebuild — two arms, one gate failure, and the map that shipped
+
+**The plan met reality three times, and the frozen gates arbitrated all three.** The
+union rebuild (spec `2026-08-18-union-taxonomy-rebuild-design.md`, executed from
+`HANDOFF_TAXONOMY_REBUILD_2026-08-18.md`) was designed around the RESCUED clustering —
+§0.1 re-opened `rescue_centroid` because its coverage wins were "exactly what playbook
+evidence selection consumes."
+
+**Problem 1: the spec's own size estimate was wrong 2.9x.** T0 passed exactly (20,788
+old turns) but the new corpus measured 37,214 turns, not ~12-13k — someone estimated
+~230 calls' worth for a 690-call directory. Verified the parse before believing it
+(role distributions, per-call rates), then the operator approved the full run. The
+punchline: the feared 37k-request fetch cost NOTHING — every union text was already in
+the gateway cache from stage 1. Check the cache before pricing a fetch.
+
+**Problem 2: the primary arm failed the one gate that reads with human eyes.** The
+rescued map swept G-R1/G-R2/G-R3 (sink rate 64.3%→49.1% on new pairs — the motivating
+number, beaten by 15pp) and then failed G-R4 at 8/12 coherent vs ≥9/12. Veto audit:
+REAL — the failing clusters are umbrella/fragment clusters, and rescued-turn share does
+NOT explain them. The operator invoked §1's pre-registered fallback: adjudicate the
+BASE memberships (~307 more calls). The base arm passed everything, G-R4 at 10/12, its
+own veto audit confirming down to literal transcript text. One scenario
+(`non_technical_stakeholder_translation`) scored 0/3 under BOTH arms' independent
+readers — the instrument replicates. The rescue is now closed a fourth time, and this
+time on the yardstick it was revived for.
+
+**Problem 3: PV synthesis kept rejecting — and the failure was a finding.** Three
+REQUIREMENT wordings of the frozen "distinct accounts per move" hardening each made
+flash-lite emit 1-quote moves (it would rather break the 2-4-entries schema than the
+account rule); dropped by operator amendment, PB1 stays a reported flag. Then even the
+pilot's validated prompt failed 6 straight times on `landing_page_and_conversion_setup`
+— the G-R4-incoherent scenario the frozen pick rule had sampled. Fragmented evidence
+yields 1-quote candidate moves; the schema refuses; synthesis failure and the coherence
+read detect the same defect. The fix that worked: `gemini-3.5-flash` with reasoning —
+after measuring the transport envelope the hard way (thinking tokens share max_tokens →
+truncation at 16,384; LiteLLM's server-side 120s cap → HTTP 408 at any client
+timeout; `reasoning_effort=low` fits). The previously-unsynthesizable document then
+cleared on its FIRST attempt and won its blinded pair.
+
+**Outcome: PV PASS (PB0 5/5, PB2 4/5 pooled 11-4, PB3 0.80) — `union_base` ships as
+the playbook substrate.** 34 coachable scenarios over 58,002 turns. Total spend: 714
+chat calls (614 adjudication + 100 PV including three abandoned prompt states, all
+preserved). Zero Postgres writes, no published artifact touched, five pre-run blind
+audits + two veto audits on the record in spec §9/§10. Full finding:
+`docs/findings/union-taxonomy-rebuild.md`.
+
+---
+
+## A gate you could pass by always answering "A", and the day the taxonomy shipped (2026-08-19)
+
+Two threads ran through this session: a **routing A/B** that was supposed to settle whether
+Layer B could be improved, and the **ship** of the new taxonomy into Postgres. The routing
+question came back "no change", but the *reason* it came back that way turned out to be more
+useful than a winner would have been — and the shipping work surfaced five separate latent
+defects, each of which would only have failed at corpus scale.
+
+### The gate that certified nothing
+
+The routing trial compares two coaching playbooks for the same scenario, built from the same map
+and prompt, differing only in which 50 evidence pairs the router delivered. Blinded readers pick
+the better one. Because a *tie* is the likely outcome, the design needs a way to tell "these two
+are genuinely equivalent" apart from "these readers cannot tell anything apart" — so it carries
+**calibration pairs**: real-vs-placebo documents whose answer is already known from a previous
+experiment. If readers fail those, the packet is void rather than null.
+
+The calibration pairs were placed at pilot ranks 1, 3 and 5, and their sides were assigned by
+the same counterbalancing helper the rest of the packet used: `counterbalanced_side(rank - 1)`,
+which returns "A" for even indices. **1, 3 and 5 are all odd, so rank - 1 is always even, so the
+real document sat on side A in every calibration pair of every packet.** A reader that always
+answers "A" scored 3/3 and certified the packet as discriminating. The helper's own docstring
+says "a degenerate all-one-side draw is impossible", and the key artifact recorded
+`"counterbalanced": true`. Both were true of the function and false of the call.
+
+A blind code audit caught it. The first fix — counterbalance on position *within* the calibration
+set, giving A/B/A — was **not enough**, and measurement caught that too: an always-A reader still
+scores 2 of 3, which *is* the bar. **No side pattern over three items is bias-proof at a majority
+bar.** The regression test written alongside the first fix contained an escape clause that was
+trivially true and hid the residual.
+
+Then a second, independent defect in the same construction: the calibration pairs reused **pilot**
+scenarios via already-published documents, and those documents had been synthesized from
+**control-routed** evidence. Showing a reader the endorsed control-derived document for scenario S
+and then asking it to judge S's routing pair lets familiarity anchor it on the control. That does
+not add noise — **it manufactures nulls**, which disqualifies it as the gate whose entire job is
+making a null believable.
+
+**Final fix:** four calibration pairs drawn from a *different* trial's published documents (old
+map, independently measured at 5/5 with pooled votes 14-1), sides A/B/A/B, bar 3 of 4. A
+position-answering reader now scores 2 of 4 and **cannot pass, by construction.** One available
+pair was deliberately excluded for being the same *subject* as a pilot scenario — the anchoring
+argument applies to a near-duplicate subject as much as to an identical key.
+
+**And the readers were in fact doing it.** Measured after the fact: they answered "A" on **12 of
+15** routing votes. The treatment held A on 2 topics and B on 3, so pure position answering
+predicts 6-9 against the **7-8 observed**. The original result is almost exactly what a coin that
+likes the left-hand column would produce.
+
+### The pattern across four harness defects
+
+Worth naming because it repeated: **the gate arithmetic was correct every single time; the summary
+lines and the plumbing around the gates were not.** A VOID packet still set a `winner` field from
+the surviving half of a split that was not neutral. `arms_cleared_to_spend` listed an arm that was
+disqualified on two independent counts — the spend gate refused it anyway, so no money could have
+been lost, but the artifact stated something false and the artifact is the record. A re-dispatched
+VOID packet silently re-scored the **discarded** readers, because judgment files carried no round
+marker and the scorer took the first three valid ones in filename order.
+
+### The bug two audits read and neither saw
+
+`--divergence` refused an arm with "routed against a different taxonomy_sha — two variables at
+once". It was a false alarm from our own guard: `taxonomy_sha` hashes `scenario_text()`, which
+resolves `scenario_vector_mode`, so it is **register-dependent by construction** and comparing it
+across arms that differ in register rejects the arm *for being that arm*. The tell was that two
+arms hashed identically and the third differed, tracking the register rather than the taxonomy.
+Two blind audits read that line and both passed it, because comparing a taxonomy hash across arms
+looks obviously right — it is wrong only if you know a fact that lives two files away. **Running
+it surfaced it in seconds.** Fixed with a mode-invariant `taxonomy_identity_sha`, and the
+register-dependent hash was *promoted* to a positive check: it must DIFFER between arms whose
+register differs, proving the treatment applied.
+
+### Shipping: an "upsert" that would have built a Frankenstein taxonomy
+
+The new map has 259 scenarios; the live database had 161. The obvious move — call the existing
+`upsert_scenario` for each new row — would have produced a **416-row table**, because only **4 of
+161 keys overlap**. 157 dead scenarios from the old map would have sat beside 255 new ones, and
+those 4 "updates" were the worst case: the same key silently rewritten to describe a different
+cluster from a different corpus. Every dependent table hangs off `scenarios` with
+`ON DELETE NO ACTION`, so Postgres refuses the parent delete until 2,473 `gap_events`, 378
+`milestone_performance` rows, 84 `rubrics` and 4,605 `kb_pairs` go first.
+
+Done as a **replacement**, not an upsert: snapshot all ten tables into a dated schema (the pattern
+this project already has fourteen of), **verify every row count against source before deleting
+anything**, then delete children-before-parents and load, all in one transaction with a post-load
+assertion. 8,295 rows backed up; 259 scenarios loaded and verified key-for-key against the
+artifact.
+
+Two traps found while writing it. `calls` held **416 rows against a 1,059-call corpus**, and
+`kb_pairs.call_id` is an FK — two thirds of the pairs could not have landed. And
+`scenario_map_from_rows` sets `scenario_id` to the artifact's **row index**, saying so in its own
+docstring ("a synthetic index. Nothing here touches Postgres"); writing that into
+`kb_pairs.scenario_id` would have attached pairs to whichever scenario happened to hold that
+serial. The runner rebinds every key to the live DB serial and asserts all 259 are present.
+
+Also resisted a tempting mistake: 43 of the 307 artifact rows have an empty
+`business_description`, which looks like missing data to be filled. They are all `kind=merged` —
+**pointers**, not scenarios, whose turns are already folded into their target's member set.
+Filling and loading them would have double-counted their targets' evidence, the mirror image of a
+defect this repo has hit twice.
+
+### The rate limit that had never been hit
+
+The last step needed ~11,872 response embeddings. At 20 concurrent workers it took HTTP 429 on
+every thread — *"Limit type: requests. Current limit: 150, Remaining: 0"* — and then
+**hard-failed**. Two real transport bugs, invisible until then:
+
+1. **Nothing paced requests.** `embed(workers=20)` fanned out with no rate regulation at all.
+   Every fetch of the session so far had been under 258 requests, comfortably below the ceiling,
+   so the wall had never been reached.
+2. **The backoff could not outlast the window.** Retries waited 2s, 4s, 8s — **14 seconds total
+   against a ~60-second quota window.** It was arithmetically incapable of recovering, which is
+   why it failed rather than slowed.
+
+Fixed in the transport, not worked around in the caller: a **module-level, thread-safe token
+bucket** (module-level because the limit is per API *key*, so two clients in one process must draw
+from one bucket or they just race each other into the same 429), rate-limit retries that escalate
+toward a full window **and penalise the shared bucket** so sibling threads back off too, and a
+140/min default for headroom against other consumers of the key. Verified at 131 req/min across 8
+workers with zero rejections.
+
+Then the runner was **reordered**. The fetch had been step 2, which would have kept Layer B dark
+for ninety minutes for data that routing does not use — routing consumes trigger and scenario
+vectors only. Every database write and the triggers namespace now land first (~10 minutes, all
+cache-only), and the paced tail runs last where it blocks nothing. The intermediate state is
+serviceable rather than half-broken, because `query_triggers` reads the triggers namespace.
+
+Two more latent defects fixed on the way: `init_index` **hardcoded `dimension=768`** and so was
+incapable of creating the 3072 index the migration required (Pinecone dimensions are immutable
+after creation, so a wrong value means a new index, not an `ALTER`); and `upsert_pairs` hardcoded
+`BATCH=100`, which is 0.31 MB at 768 but **1.2 MB at 3072**, close enough to Pinecone's ~2 MB
+request cap that a few long metadata fields would tip it mid-job. Both now derive from the actual
+vector width, with the 768 path pinned at exactly its historical 100 by test.
+
+---
+
+## The day Layer C got somewhere to land, and three knobs that were quietly doing nothing (2026-08-19, second half)
+
+The taxonomy shipped in the morning. This is the afternoon: giving Layer C a home in the
+database, and then working through a set of settings that all shared one property — they looked
+configured and were not actually connected to anything.
+
+**Zero chat calls. Zero embedding spend.** Everything here loads, wires, or measures things that
+already existed.
+
+### Layer C had five finished playbooks and nowhere to put them
+
+The playbook is Layer C's product: for one recurring situation, a written account of how the
+best CSM handles it — the signature that tells you you're in that situation, the arc of the
+conversation, three to six concrete *moves* each backed by verbatim quotes from real calls, the
+phrases that recur, and the pitfalls. Five of them had been synthesized and validated the day
+before, and they were the first Layer C output ever to beat its own placebo.
+
+They were sitting in a JSON file, because `db/schema.sql` had no table for them. So Layer C was
+in the odd position of being *proven* and *unusable* at the same time.
+
+Building the table was mostly a matter of asking two questions properly rather than writing much
+code.
+
+**First: what happens to a playbook when the taxonomy is replaced?** The obvious answer — make
+`scenario_id` a hard foreign key, like `rubrics` — has a consequence that had just been felt.
+That morning, replacing the taxonomy deleted `rubrics`, `gap_events` and `milestone_performance`,
+because they were all keyed to the old scenarios. Layer D has been regressed ever since. Choosing
+a hard key means playbooks join that fate next time. The operator chose it anyway, on the
+reasoning that a playbook is genuinely an output of one taxonomy and the JSON artifacts on disk
+are the archive. Fine — but it makes one thing mandatory rather than optional: `playbooks` had to
+be added to the children-first delete chain in `ship_union_taxonomy.py`. Every foreign key in
+this schema is `ON DELETE NO ACTION`, so leaving it out wouldn't lose data, it would make the
+*next* taxonomy replacement fail halfway through.
+
+**Second: how do you keep a placebo out of production?** The table holds 32 documents and only 5
+are real. The other 27 are 5 placebo twins — deliberately built from the wrong evidence, to prove
+the real ones were better than polished nonsense — and 22 documents from a routing experiment,
+11 of which come from an arm the evidence never resolved. Sitting in one table they are
+indistinguishable. The answer was a `status` column plus a read function that defaults to
+`status='live'` and *raises* rather than returning an arbitrary row when the filter is ambiguous,
+and a partial unique index so the database itself refuses a second live playbook per scenario.
+
+That last claim got checked rather than assumed. The gate as written only confirmed the index
+*existed*, which is not the same as it *working*, so a separate probe tried to promote a trial
+document to live for a scenario that already had one:
+
+> `duplicate key value violates unique constraint "idx_playbooks_one_live"`
+
+**What actually shipped: five playbooks covering five of the thirty-four coachable scenarios.**
+The schema is not coverage. Twenty-nine scenarios still have nothing, and filling them costs
+roughly 130 model calls plus a tail of scenarios too thin to reach the three-move floor that no
+retry budget can rescue.
+
+### The audit found the one bug that would have stopped everything
+
+House rule: one blind code review of any new machinery before it touches the database. It
+returned nine findings, and two of them combined into a deadlock that would have wasted an hour.
+
+The loader created its table by running the project's standard schema script. That script opens
+its *own* database connection from the raw connection string — which skips the workaround this
+machine needs, because the local DNS resolver flatly refuses to resolve the database's hostname.
+So the first real run would have printed three green PASS lines and then died at the one step
+that mattered, looking like partial success rather than failure.
+
+Meanwhile, adding `playbooks` to the migration script's table list broke *that* script on any
+database that didn't have the table yet — it counts rows before its dry-run guard, so even a
+dry run would abort. Which meant: the migration tool needed the table to exist, and the tool that
+creates the table couldn't run. Neither would have been noticed until both were tried.
+
+The rest were softer but the same shape — **gates that could not fail**. One passed trivially when
+there were zero rows to check. One printed "idempotence" as a note instead of enforcing it, and on
+a first load produced no verdict at all. And the verification never read back the single field the
+whole foreign-key design was about. A gate that cannot fail is decoration.
+
+### Three knobs that were configured and inert
+
+The rest of the afternoon was a theme: settings that read as authoritative while doing nothing.
+This project has been bitten by that twice before — a config file that silently overrode values
+set in code, and a threshold honoured only by a calibration script and never in production.
+
+**`sink_margin_delta`** is the one routing adjustment the evidence actually supports. It existed
+in the shared rule, and in the config file, with a full rationale. It had 400 randomized tests
+proving it was harmless at its shipped value. And it did nothing, because the production routing
+function had its own private copy of the logic and never called the shared rule. Production read
+the number and ignored it.
+
+Connecting it is a two-line change; the work was earning the right to make it. The existing proof
+used synthetic vectors, which is not the same claim as "this cannot change production". So the
+substitution was run against the real thing — all 12,444 live pairs, real scenarios with their
+real coachable flags, real cached vectors — comparing the *full ordered list* of assigned
+scenarios rather than just the top match. Identical on all 12,444. Then it was wired, with tests
+that fail if the private copy ever comes back, and the value left at zero. Wiring a knob and
+choosing its value are different acts.
+
+**The embedding backend** had a related problem. The taxonomy lives in one embedding space; the
+config still points at another. Switching to the hosted option would have sent every fresh
+embedding to a general-purpose API at about a thousand a day — while every vector for this
+corpus had already been bought through the company's own gateway, into a different cache file
+under a different key. The switch would have re-purchased the entire corpus.
+
+So the gateway got a proper backend, with its transport moved out of the measurement tooling and
+into shared code (the pipeline is not allowed to import its own test harness — now enforced by a
+test that parses every production module looking for violations). The claim "everything is
+already cached, so this is nearly free" was then checked in the only way worth checking it: with
+the network transport replaced by something that throws. 300 real triggers, 300 served from
+cache, zero requests. A miss would have been an error rather than a quiet charge.
+
+Two defects surfaced only because that check existed. The cache key must use the model's *native*
+vector width, not the width you ask for — get that backwards and asking for a smaller vector
+misses all 196,000 cached rows and re-buys everything. And production disagreed with every
+historical measurement by 0.00000003, which turned out to be two different-but-correct ways of
+normalising the same vectors: one normalises a whole matrix at once, the other row by row, and
+floating-point addition isn't associative. Irreducible, harmless at a scale where decisions turn
+on hundredths — but worth knowing rather than discovering later.
+
+### A number that meant the opposite of what it was set to mean
+
+The last item was supposed to be a note-to-self: some cosine thresholds were fitted to the old
+embedding model and the new one runs higher, so flag them. Measuring made it sharper than a note.
+
+The old model put trigger-to-scenario similarity around 0.55 in the middle, 0.61 at the top end.
+The new one puts it at 0.69 and 0.73 — the whole distribution moved up by about 0.14.
+
+One threshold sits at 0.65. It was set there deliberately, in a previous round, to sit
+*comfortably above* the old model's top end so that a "is this match weak?" test would catch
+nearly every case. In the new space 0.65 sits *below the bottom end*, so the identical test now
+catches nearly nothing. The number didn't change. The ground under it did, and the rule inverted.
+
+It was flagged and not fixed, for two reasons: none of these thresholds is switched on, and this
+particular one has already been moved once by percentile with a recorded verdict of
+"insufficient". It needs the labelled sample the config file has been asking for since the key
+was written.
+
+The measurement itself nearly went wrong in the most instructive way. The first run reported a
+median similarity of 0.065 — because the script built its scenario vectors with the *old* model
+while reading triggers from the *new* model's cache, and cheerfully computed a cosine band
+between two unrelated spaces. It produced a clean, plausible-looking table. Only the absurdity of
+the number gave it away. That hazard is already documented as the biggest live one in this
+project, and it still caught a script written by someone who had read the warning that morning.
+The script now installs the correct space before building anything, and asserts the vector width
+before trusting a single number.
+
+### One thing found and deliberately not fixed
+
+The taxonomy migration script's docstring promises that its deletes and its load "run in ONE
+transaction", so any failure rolls everything back. That promise is already false, and the audit
+caught it: the connection isn't in autocommit, but the shared function it calls to write each
+scenario ends with a commit — so the first of 259 writes commits the deletes, and the rollback
+afterwards has nothing left to undo. The real safety net is the dated snapshot schema, which does
+work and was verified before anything was deleted. Left alone as out of scope, and escalated,
+because fixing it properly means threading a "don't commit" option through the storage layer and
+that deserves its own change.
+
+## Layer D rebuilt against playbooks, and the one dataclass that broke twice the same way (2026-08-20)
+
+**The session was a build, not an incident** — the Layer D redesign (`Brain/layer_d/`,
+spec `docs/superpowers/specs/2026-08-20-layer-d-redesign-design.md`, finding
+`docs/findings/layer-d-redesign.md`) went in at zero spend with the full suite green
+file-by-file. One problem worth its paragraph, because it is the second occurrence of the
+same failure shape:
+
+**Extending `LayerDTuning` broke 39 tests in two files, again.** Adding the seven redesign
+keys to the dataclass made `tests/test_ego_trap_signal_check.py` and
+`tests/test_ego_trap_gap_output.py` die at construction with `TypeError: missing 7 required
+positional arguments` — exactly what happened on 2026-08-19 when `scoring_unit`/
+`scenarios_per_request` were added, and the signal_check helper even carries a comment
+narrating that first breakage. The cause is structural: both files build `LayerDTuning`
+through a local `_tuning()` helper with every field spelled out, so ANY dataclass extension
+breaks them at a distance. Fixed the same way as last time (helpers extended with the
+shipped values, commented). The real lesson recorded here for the third occurrence:
+`shared/tuning.py`'s strictness is for the YAML boundary, and these helpers duplicating the
+full field list are the cost — when `ego_trap/` retires and the rubric-era keys are deleted,
+the SAME two helpers (plus `tests/test_tuning.py`'s inline `_GOOD` yaml) are the files that
+will break, and that breakage will be the checklist of what else still constructs the
+dataclass by hand.
+
+Also recorded, deliberately NOT a problem: `move_events` re-runs are safe (natural-key
+upsert) and `move_performance` is a full recompute — the two-runs-one-DB double-count class
+of incident (see "Two runs, one DB" above) is structurally impossible in the redesign, which
+is why `ops/clear_layer_d_data.py` exists only for deliberate wipes and is NOT a re-run
+prerequisite the way `clear_ego_trap_data.py` was.
+
+---
+
+## Chasing a quality number through four wrong diagnoses, and what 153 model calls actually bought (2026-08-20)
+
+Layer C had five playbooks and needed twenty-nine more. Before spending ~90 model calls making
+them, one question: are the ones we already have any good? The answer took most of the day and
+changed what "good" even meant three times.
+
+**Zero of eleven documents were passing a quality check called PB1** — the rule that each
+coaching move should cite three *different* clients, so a move represents a repeatable pattern
+rather than one customer's quirk. Sound idea, and a 0% pass rate looked damning.
+
+### Four diagnoses, three of them wrong
+
+**"The evidence selection is too narrow."** Wrong — every document's evidence pool already
+carried 18 to 33 distinct clients. Selection was not the constraint.
+
+**"The evidence is batched by client, so each pass only sees a few."** Wrong — the pools were
+near-perfectly interleaved, one or two adjacent same-client pairs out of forty-nine, and every
+batch saw 13 to 19 clients.
+
+**"The prompt only asks for two quotes per move — and you cannot cite three clients with two
+quotes."** *This one was true, and fixing it changed nothing.* The instruction went to three
+quotes, the model complied on 100% of moves, and PB1 moved from 10% to 11%. The third quote
+just came from a client already cited.
+
+That is the moment the problem became interesting rather than annoying. The instruction "use
+three distinct accounts" was present the whole time, in every arm, word for word. So the
+question was not what to ask for. It was **why the asking wasn't working.**
+
+**"It's the model."** Same evidence, same prompt, different model: `gemini-3.5-flash-lite`
+ignored the instruction (11%); `gemini-3.6-flash` followed it (58%, then 77% with more
+reasoning effort), and moves resting on a single client fell to zero.
+
+Worth sitting with. Four configurations, one changed instruction between two of them, and the
+variable that mattered was which model read it. An instruction is a request, and whether it
+lands is a property of the reader.
+
+### A wall that wasn't there
+
+Along the way the medium-reasoning runs kept dying with `Timeout passed=15.0`, and that got
+written down as "the gateway times out upstream at 15 seconds" — a clean, quotable fact from
+an error message. It was false. `gemini-3.6-flash` later sustained sixty- and seventy-second
+requests, and eventually a hundred-and-fifty-second one, without a single failure. The 15
+seconds belonged to one model's route, not to the gateway.
+
+Had that note stood, it would have ruled out the exact configuration that went on to pass every
+gate. An error message quoting a specific limit invites you to treat it as a property of the
+system; it is often a property of one path through it.
+
+### Then someone read the documents
+
+Everything so far was PB1 — a proxy nobody had validated. So a blind reader was given the
+documents with the sources hidden and asked, quote by quote, whether each one actually
+*demonstrates* the move it is attached to.
+
+Twenty-nine of two hundred and thirty-six quotes proved nothing. Greetings. Bare
+acknowledgements — "Got it. Got it. Nope. Makes sense. Okay." — offered as evidence that a CSM
+engages with downstream cost metrics. **The five playbooks live in production scored 63%
+usable.** No gate caught any of it: one gate checks a quote is real, another checks which
+client it came from, and nothing checks whether it is *relevant*.
+
+A rule was added telling the model exactly that, with the failure taxonomy spelled out. Failing
+quotes went to zero and usable quotes to 95% — while PB1 *fell*, because the model dropped four
+moves it could not properly evidence and some of those had good client spread. Two metrics
+pointing opposite ways, and only one of them describing what a reader receives.
+
+### The probe lied, politely
+
+That 95% came from five documents. The backfill produced twenty-eight, and the same blind
+protocol on all of them returned **73%** — better than the 63% shipped, nowhere near 95%. A
+twenty-two-point gap, against roughly three points of noise measured between two audits of the
+same arm.
+
+The lesson is narrow and useful: a five-document probe can establish that something *changed*.
+It cannot tell you the rate. It was allowed to promise one, and it was wrong.
+
+### The finding underneath all of it
+
+The blind read surfaced something worth more than any percentage: **about half the criteria
+cannot be graded from a transcript at all.**
+
+"State a specific turnaround time in days" — you can check that. "Clearly explain the business
+impact" — you cannot. The first names something present or absent; the second describes an
+impression on the listener. Since the entire purpose of these documents is that an automated
+grader scores real calls against them, half the moves are unusable for the thing they exist
+for, no matter how well written.
+
+That is not a bug in a document. It is a gap in what the schema ever asked for.
+
+### What was actually shipped
+
+Thirty-three of thirty-four scenarios now have a live playbook, up from five. One is missing
+because its evidence could not support three distinct moves and the exclusion rule dropped it —
+a real answer, not a failure. Breadth tracks evidence volume with almost embarrassing
+directness: scenarios with fifty pairs of evidence score 75%; scenarios with twenty score 11%,
+and in the thinnest ones a single client appears in eight of nine moves, because that client is
+who actually had those conversations.
+
+One more attempt is running, aimed only at the gradability problem. The instruction bans
+evaluative adjectives outright and demands a concrete artifact, number, or structure. Whether
+it lands is, on the evidence of today, mostly a question about the model.
+
+### Two guards that earned their keep, both on their author
+
+The playbook loader refused its own first run: a constant was doing double duty as both "how
+many documents are in this file" and "how many should end up in the database", and those
+numbers differ by one whenever a document is excluded. The write had already succeeded; the
+verification declined to call it good.
+
+And a deterministic filter for the most obvious defect — quotes that are just questions — was
+built, measured, and thrown away. Twenty-eight quotes end in a question mark; four of them are
+actually bad. The rest are ordinary statements ending in "right?". It would have deleted
+twenty-four good quotes to catch four. The failures are semantic, and no amount of pattern
+matching reaches them.
+
+## The day the measuring instrument turned out to be the thing that was broken
+
+2026-08-24. Zero chat calls spent. The most expensive item on the agenda was cancelled because
+the evidence for it evaporated under inspection.
+
+### Two things the handoff was sure of, both wrong, both free to check
+
+The plan opened with a ~15-call re-run of the five oldest playbooks. Those runs had already
+happened. Three complete arms of them were sitting in the artifacts directory, all five
+scenarios, all snapped, none collapsed — and one of them was timestamped a few minutes after
+midnight that same morning, which is to say it was the probe the handoff described as still in
+flight. It had finished hours earlier. Nobody had looked.
+
+The plan also budgeted twenty-five calls to build a quote judge, to be validated against "the
+236 labelled quotes that now exist". They do not exist. The aggregate counts survive in the
+findings file — so many SUPPORTS, so many WEAK, so many FAILS — but the labels themselves, which
+quote got which verdict, were produced inside a conversation and never written to disk. The
+conversation is gone. A grep across the entire tree finds the numbers quoted in prose and no
+data anywhere. The lesson is dull and worth writing down anyway: persist the per-item labels,
+not the summary. The summary is the part you can always recompute.
+
+### The census, and then the census disagreeing with itself
+
+The finding the whole session was built around was that roughly half the criteria in the live
+playbooks cannot be graded from a transcript. That had never been counted; it was an impression
+from reading quotes. So all 123 criteria in all 33 live documents went into a blind packet with
+opaque ids, the cohort withheld, and a reader bucketed each one as gradable, borderline, or not.
+
+It came back at 84% gradable. Against "roughly half". A result that flattering in a direction
+nobody expected is exactly what the house rule says to veto-audit, so the same 123 criteria went
+to a second reader with the same definitions and a stricter framing — break ties downward, treat
+concrete nouns as insufficient when the verb is evaluative, penalise a criterion that bundles
+several demands.
+
+It came back at 17%.
+
+Not a drift. A sixty-seven point swing on identical text, and worse than the magnitude, the
+ranking flipped. Under the lenient framing the five oldest documents were the worst cohort by a
+wide margin. Under the strict framing they were the best. Every downstream decision — which
+documents to replace, whether to spend a hundred calls re-running the whole taxonomy — had been
+resting on an ordering that reversed when the reader was asked the same question in a different
+tone.
+
+The operator found the same thing from the other side, and it forced a retraction. The same
+fifty-nine quotes, the same protocol, scored 95% in one audit and 78% in another. The claim on
+record that the instrument was reproducible to about three points came from a single pair of
+reads that happened to land at 81% and 84%. That was luck. What is actually true is narrower and
+more useful: **within one packet, counterbalanced, one reader, comparisons hold. Across packets,
+absolute rates mean nothing.** Every cross-audit number in the findings file is now suspect,
+including the headline that a five-document probe overestimated by twenty-two points — part of
+that gap was the instrument, not the sample size. The direction is probably still right. The
+number was never a measurement.
+
+### Why the two readers disagreed, which turned out to be the actual finding
+
+They were not measuring the same defect. Ungradability has two causes and they pull in opposite
+directions. One is evaluative vagueness — "clearly explain the business impact" gives a grader
+nothing to point at. The other is bundling — "name the exact tracking columns and walk through
+the drop-off analysis" is two demands wearing one criterion, so a response that does the first
+and skips the second has no defined answer. The lenient reader rewarded criteria that named
+concrete things, which favours the long rich ones. The strict reader punished compound demands,
+which condemns exactly those. Same documents, opposite verdicts, both defensible.
+
+That distinction then explained something about Layer D that nobody had noticed. Its shipped
+grader asks a strictly binary question per move and requires a verbatim quote to credit it. So a
+bundled criterion there does not produce disagreement between graders. It produces **inflated
+hits** — the grader finds the easiest clause, quotes that, and answers yes. The failure is
+silent and in the flattering direction, which is the worst kind.
+
+### The rule that paid for itself, against expectation
+
+The session before had established a pattern: every rule added to the synthesis prompt bought
+its own objective and spent one of the others. Three quotes, three accounts, all demonstrative,
+all gradable — four constraints the evidence cannot always satisfy at once, and each new
+instruction just moves what the model sacrifices.
+
+The gradability rule broke that pattern. Measured properly — one packet, counterbalanced, the
+only clean comparison available — it beat the relevance-rule arm 89% to 78% on usable quotes,
+with zero outright failures, and won four of the five situations. It did not trade quote quality
+for gradable criteria. It improved both, and the mechanism is the bundling story above: forcing
+narrower criteria meant the quotes had less to satisfy, so they fit. A rule that reduces scope
+can pay for itself. The pattern is real but it is not a law.
+
+### Three gates retired, and one added that a small sample can actually answer
+
+PB1 — three quotes from three distinct accounts per move — had by this point rejected a genuine
+improvement twice. It went to diagnostic. The replacement is single-account moves at ten percent
+or less, and what recommends it is not elegance but that it independently flagged the two cohorts
+the qualitative reading already distrusted and passed the one it did not.
+
+Then the same thing happened a third time, immediately. The gradability arm failed the quote-floor
+gate at 83% against a 90% bar. But that gate asks "did the three-entry floor take?", and the
+gradability and relevance rules both instruct the model to drop evidence it cannot justify. The
+gate was measuring the intended behaviour and calling it a defect. These gates count evidence
+entries; the rules that improve quality remove weak ones. It is the same collision every time.
+
+The other failure was more interesting because it was mine. The new single-account ceiling was
+calibrated on 123 moves, where one move is under a point. The five-document probe has eighteen
+moves, where the achievable values are zero, 5.6%, and 11.1% — there is nothing between them.
+The arm scored 11% and the bar was 10%, a difference of one move, presented as a verdict. The
+temptation was to lower the bar, which is precisely the anti-pattern this project already
+reverted once. Instead the bar stayed and a separate gate was added asking the question a small
+sample can answer: is this better than the thing it would replace? Eleven percent against the
+incumbent's fifteen. Yes. Both verdicts now print separately, so an arm can be recorded as
+unfit for a taxonomy-wide rollout while still being a clear improvement on five specific
+documents. Collapsing those into one number is how a caveat goes missing.
+
+### Five documents replaced, and a dry run that hid what it was about to do
+
+The promotion itself was declarative in the end. Flip the old artifact's arm from live to
+superseded, add the new one as live, and the loader's upsert does the rest. Order matters — the
+partial unique index permitting one live playbook per scenario will refuse the new row if the
+old one has not stepped aside first — so the demoting entry has to precede its replacement in
+the plan, and a test now pins that because nothing else would catch a reordering.
+
+All seven gates passed. Sixty-five rows, thirty-three live, coverage unchanged at thirty-three of
+thirty-four, and the replaced content better on every axis that can be counted deterministically:
+no banned adjectives where there had been 15%, single-account moves across all live content down
+from ten percent to nine, the quote floor up from 82% to 93%.
+
+But the dry run had been lying, quietly. Its plan summary iterated a hardcoded list of three
+statuses, and the promotion introduced a fourth. So it printed counts totalling sixty under a
+header announcing sixty-five documents. Five rows invisible in the exact output a human reads
+before typing `--apply`. Nothing failed; every gate passed, because the gates count rows in the
+database and the bug was in the display. A dry run is a safety mechanism only to the degree that
+it shows everything it is about to do. It now iterates whatever statuses exist and refuses to
+print a summary that does not account for every document.
+
+### A guarantee that had been false for five days
+
+Separately, `ship_union_taxonomy.py` had promised in its own docstring that the deletes and the
+load ran in one transaction and any failure rolled the whole thing back. It did not. The scenario
+upsert helper ends in a commit, and that script deletes every child table before loading, so the
+first of 259 upserts made the deletions permanent. The rollback guarding the post-load
+verification had nothing left to undo and would have printed "rolled back" anyway — a false
+negative on the one check standing between a failed migration and an empty database.
+
+The fix is four characters of signature and one keyword argument, and the reason it took five
+days to find is that nothing about the code looks wrong. The commit is in the helper, three files
+away, doing the correct thing for every other caller. Two blind code audits read the migration
+and neither flagged it. What found it was reading the helper because a different task required
+knowing whether it committed.
+
+### And four tests that had been red long enough to stop meaning anything
+
+The playbook storage suite had four failures, all of them stale expectations from before the
+backfill — still asserting thirty-two documents and that only five were live. Zero data problems;
+the database matched the handoff exactly. One of them was asserting that no artifact anywhere
+contains a collapsed document, which is false by design: the one scenario whose evidence could
+not support three moves is deliberately kept on disk as an honest null result. That test now
+asserts the thing that matters, which is that it never reaches the load. And the funniest of the
+four was comparing post-exclusion counts against the raw artifact count — the identical "one
+constant, two meanings" confusion that had broken this same loader a session earlier and been
+fixed there. The test was the last place still making it.

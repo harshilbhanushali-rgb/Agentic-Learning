@@ -126,3 +126,68 @@ def test_empty_scenario_map_leaves_pairs_unassigned(fake_embeddings):
     pairs = [_pair("pricing")]
     layer_b.assign_scenarios(pairs, {}, config=None)
     assert pairs[0]["scenario_key"] is None
+
+
+# --- sink_margin_delta is LIVE on the primary path (2026-08-19) -------------
+# assign_scenarios used to carry its own inline copy of the pick rule, so the knob existed
+# in tuning.yaml and in flat_pick while doing nothing in production -- the same failure class
+# as the retired ego_trap/settings.py and the inert layer_a.min_content_words. These tests
+# fail if the inline copy ever comes back.
+
+
+def _tune_delta(monkeypatch, delta):
+    """Point layer_b's tuning at a copy with sink_margin_delta overridden."""
+    import dataclasses
+    from shared import tuning as tuning_mod
+
+    real = tuning_mod.load_tuning()
+    patched_b = dataclasses.replace(real.layer_b, sink_margin_delta=delta)
+    patched = dataclasses.replace(real, layer_b=patched_b)
+    monkeypatch.setattr(layer_b, "load_tuning", lambda: patched)
+
+
+def test_assign_scenarios_delegates_to_flat_pick(fake_embeddings, monkeypatch):
+    """The rule must be CALLED, not reimplemented. Proven by reachability: a flat_pick that
+    raises must take the whole call down."""
+    def explode(*a, **k):
+        raise AssertionError("reached flat_pick")
+
+    monkeypatch.setattr(layer_b, "_flat_pick", explode)
+    with pytest.raises(AssertionError, match="reached flat_pick"):
+        layer_b.assign_scenarios([_pair("pricing")], _scenario_map(), config=None)
+
+
+def test_delta_zero_is_the_shipped_behaviour(fake_embeddings, monkeypatch):
+    """The value in tuning.yaml today. A sink winner still takes the pair alone."""
+    _tune_delta(monkeypatch, 0.0)
+    pairs = [_pair("ack:1.0 pricing:0.9")]
+    layer_b.assign_scenarios(pairs, _scenario_map(), config=None)
+    assert pairs[0]["scenario_keys"] == ["ack"]
+
+
+def test_a_negative_delta_rescues_a_near_tie_from_the_sink(fake_embeddings, monkeypatch):
+    """The measured effect the knob exists for: near-ties currently all resolve to the junk
+    bin, and a negative delta lets a coachable scenario lose narrowly and still take the pair.
+
+    This asserts the knob is WIRED, not that this value should be shipped -- it must not be
+    set non-zero without a judged sample larger than the 80 turns that exist.
+    """
+    _tune_delta(monkeypatch, -0.5)
+    pairs = [_pair("ack:1.0 pricing:0.9")]
+    layer_b.assign_scenarios(pairs, _scenario_map(), config=None)
+    assert pairs[0]["scenario_key"] == "pricing", "a negative delta did not reach production"
+    assert "ack" not in pairs[0]["scenario_keys"]
+
+
+def test_a_positive_delta_sinks_a_narrow_coachable_winner(fake_embeddings, monkeypatch):
+    """The other direction: a coachable winner must beat the best sink by the margin."""
+    _tune_delta(monkeypatch, 0.5)
+    pairs = [_pair("pricing:1.0 ack:0.99")]
+    layer_b.assign_scenarios(pairs, _scenario_map(), config=None)
+    assert pairs[0]["scenario_keys"] == ["ack"]
+
+
+def test_the_shipped_value_is_still_a_no_op():
+    """A tripwire on tuning.yaml itself. Changing this value is a behaviour change that needs
+    a judged sample; it must not happen as a side effect of some other edit."""
+    assert load_tuning().layer_b.sink_margin_delta == 0.0

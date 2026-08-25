@@ -43,11 +43,20 @@ def upsert_call(conn: psycopg.Connection, filename: str) -> int:
     return call_id
 
 
-def upsert_scenario(conn: psycopg.Connection, scenario: dict) -> int:
+def upsert_scenario(conn: psycopg.Connection, scenario: dict, *, commit: bool = True) -> int:
     """Insert or update a scenario.
 
     The evidence columns default so that V1's Layer A, which has no clustering
     evidence to report, can keep calling this unchanged.
+
+    `commit=False` EXISTS FOR ONE CALLER and is not a style preference. The default
+    commit is correct for Layer A, which writes ~259 scenarios across a long run and
+    must not hold a transaction open across slow work. It is WRONG for
+    ops/ship_union_taxonomy.py, whose whole safety story is "deletes and load in one
+    transaction": that script deletes every child table first, so the commit inside the
+    FIRST of 259 upserts made those DELETEs permanent, and the later rollback on a
+    post-load mismatch was a no-op that still printed "rolled back". Found 2026-08-20,
+    fixed 2026-08-24. A caller passing commit=False owns the commit.
 
     bloom_level is LLM-generated and not guaranteed to land in the DB's enum
     (e.g. Gemma once returned "explain" instead of "understand") -- a bad
@@ -98,7 +107,8 @@ def upsert_scenario(conn: psycopg.Connection, scenario: dict) -> int:
             scenario.get("primary_topic_key"),
         ))
         scenario_id = cur.fetchone()[0]
-    conn.commit()
+    if commit:
+        conn.commit()
     return scenario_id
 
 
@@ -174,13 +184,31 @@ def count_scenarios_without_status(conn: psycopg.Connection) -> int:
 
 
 def insert_kb_pair(conn: psycopg.Connection, pair: dict) -> int:
+    """Insert or UPDATE a pair, keyed on (call_id, turn_index).
+
+    *** THIS WAS `DO NOTHING` AND THAT MADE RE-ROUTING SILENTLY IMPOSSIBLE. *** On a conflict
+    the old row survived and the function returned its `pair_id`, so a second run after any
+    routing change kept the OLD `scenario_key` in Postgres while its caller handed the NEW
+    `scenario_key` to Pinecone as metadata under that same `pair_id`. The two stores then
+    disagreed about which scenario a pair belonged to, with no error raised anywhere and
+    nothing in either store admitting it. `DO UPDATE` makes a re-run mean what it says.
+
+    The trigger/response text is refreshed too: a re-parse that changed speaker roles (the
+    Avoma-roster and spaCy-component failures both moved ~20% of this corpus) must not leave
+    stale text sitting under a fresh routing verdict.
+    """
     with conn.cursor() as cur:
         cur.execute("""
             INSERT INTO kb_pairs
               (call_id, scenario_id, scenario_key, scenario_keys, turn_index,
                trigger_text, response_text)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (call_id, turn_index) DO NOTHING
+            ON CONFLICT (call_id, turn_index) DO UPDATE SET
+                scenario_id   = EXCLUDED.scenario_id,
+                scenario_key  = EXCLUDED.scenario_key,
+                scenario_keys = EXCLUDED.scenario_keys,
+                trigger_text  = EXCLUDED.trigger_text,
+                response_text = EXCLUDED.response_text
             RETURNING pair_id
         """, (
             pair["call_id"],
@@ -485,3 +513,360 @@ def insert_gap_event(conn: psycopg.Connection, event: dict) -> int:
         gap_event_id = cur.fetchone()[0]
     conn.commit()
     return gap_event_id
+
+
+# --- Layer C (playbooks) --------------------------------------------------
+# Spec: docs/superpowers/specs/2026-08-19-playbook-schema-design.md
+
+# Must mirror the playbooks_status_check constraint in db/schema.sql.
+_VALID_PLAYBOOK_STATUSES = {"live", "trial", "placebo", "superseded"}
+
+
+def assign_move_ids(key_moves: list[dict]) -> list[dict]:
+    """Return key_moves with move_id set to the ARRAY POSITION (M1..Mn).
+
+    Any move_id the model supplied is DISCARDED and overwritten. This is the same
+    rule as milestone_id (v2/layer_c.py) and coverage-area ids
+    (shared/coverage_areas.py), and it exists for the same reason: a model-chosen id
+    lets a re-synthesis silently repoint a person's accumulated history at different
+    criteria. Order is therefore load-bearing -- reordering key_moves renumbers them.
+
+    Pure and copying: the caller's dicts are never mutated, so a loader can compare
+    the original artifact object after calling this and still see the artifact's shape.
+    """
+    return [
+        {**move, "move_id": f"M{i}"}
+        for i, move in enumerate(key_moves, start=1)
+    ]
+
+
+def strip_move_ids(key_moves: list[dict]) -> list[dict]:
+    """Inverse of assign_move_ids, for round-trip fidelity checks (gate G-P2)."""
+    return [{k: v for k, v in move.items() if k != "move_id"} for move in key_moves]
+
+
+def upsert_playbook(conn: psycopg.Connection, playbook: dict) -> int:
+    """Insert or update one playbook document, keyed (scenario_key, arm, source_artifact).
+
+    source_artifact is in the conflict key deliberately: (scenario_key, arm) is
+    collision-free across today's 32 documents only because the E1 extension used a
+    disjoint topic set. A future extension re-running an existing arm over the
+    original topics would otherwise overwrite a published document.
+
+    move_id assignment happens HERE rather than in the loader so that every writer
+    gets it -- a second caller that forgot to call assign_move_ids would otherwise
+    write moves with no ids at all.
+
+    At most one status='live' row per scenario_key is enforced by
+    idx_playbooks_one_live in the database, not here. A second live document raises
+    psycopg.errors.UniqueViolation, which is the intended behaviour: the caller must
+    demote the incumbent to 'superseded' first rather than have one silently win.
+    """
+    status = playbook["status"]
+    if status not in _VALID_PLAYBOOK_STATUSES:
+        raise ValueError(
+            f"invalid playbook status {status!r} for {playbook['scenario_key']!r} -- "
+            f"expected one of {sorted(_VALID_PLAYBOOK_STATUSES)}"
+        )
+    body = playbook["playbook"]
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO playbooks
+              (scenario_id, scenario_key, arm, status, source_artifact, donor_scenario_key,
+               n_evidence, situation_signature, arc, key_moves, signature_language,
+               pitfalls_and_variants, layer_d_checks, snap_log, identity)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s,
+                    %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb)
+            ON CONFLICT (scenario_key, arm, source_artifact) DO UPDATE SET
+                scenario_id           = EXCLUDED.scenario_id,
+                status                = EXCLUDED.status,
+                donor_scenario_key    = EXCLUDED.donor_scenario_key,
+                n_evidence            = EXCLUDED.n_evidence,
+                situation_signature   = EXCLUDED.situation_signature,
+                arc                   = EXCLUDED.arc,
+                key_moves             = EXCLUDED.key_moves,
+                signature_language    = EXCLUDED.signature_language,
+                pitfalls_and_variants = EXCLUDED.pitfalls_and_variants,
+                layer_d_checks        = EXCLUDED.layer_d_checks,
+                snap_log              = EXCLUDED.snap_log,
+                identity              = EXCLUDED.identity
+            RETURNING playbook_id
+        """, (
+            playbook["scenario_id"],
+            playbook["scenario_key"],
+            playbook["arm"],
+            status,
+            playbook["source_artifact"],
+            playbook.get("donor_scenario_key"),
+            playbook["n_evidence"],
+            body["situation_signature"],
+            json.dumps(body.get("arc", [])),
+            json.dumps(assign_move_ids(body.get("key_moves", []))),
+            json.dumps(body.get("signature_language", [])),
+            json.dumps(body.get("pitfalls_and_variants", [])),
+            json.dumps(body.get("layer_d_checks", [])),
+            json.dumps(playbook["snap_log"]) if playbook.get("snap_log") is not None else None,
+            json.dumps(playbook.get("identity", {})),
+        ))
+        playbook_id = cur.fetchone()[0]
+    conn.commit()
+    return playbook_id
+
+
+_PLAYBOOK_COLUMNS = """
+    playbook_id, scenario_id, scenario_key, arm, status, source_artifact,
+    donor_scenario_key, n_evidence, situation_signature, arc, key_moves,
+    signature_language, pitfalls_and_variants, layer_d_checks, snap_log, identity
+"""
+
+
+def _playbook_row_to_dict(row: tuple) -> dict:
+    return {
+        "playbook_id": row[0],
+        "scenario_id": row[1],
+        "scenario_key": row[2],
+        "arm": row[3],
+        "status": row[4],
+        "source_artifact": row[5],
+        "donor_scenario_key": row[6],
+        "n_evidence": row[7],
+        "playbook": {
+            "situation_signature": row[8],
+            "arc": row[9],
+            "key_moves": row[10],
+            "signature_language": row[11],
+            "pitfalls_and_variants": row[12],
+            "layer_d_checks": row[13],
+        },
+        "snap_log": row[14],
+        "identity": row[15],
+    }
+
+
+def get_playbook_for_scenario(
+    conn: psycopg.Connection,
+    scenario_key: str,
+    status: str = "live",
+    arm: str | None = None,
+) -> dict | None:
+    """The playbook for a scenario, or None.
+
+    DEFAULTS TO status='live' ON PURPOSE, and callers should almost never override it.
+    The placebo twins and the UNRESOLVED r1 trial documents sit in this same table and
+    are indistinguishable from production content without the filter -- serving a
+    placebo to a CSM is exactly the failure this default prevents. Same reasoning as
+    get_rubric_for_scenario returning pipeline_version: a consumer cannot interpret
+    the row without knowing which kind of thing it is.
+
+    RAISES if the filter matches more than one row instead of returning an arbitrary
+    one. This mirrors get_rubric_for_scenario, but that function is safe with a bare
+    LIMIT 1 only because rubrics.scenario_id is UNIQUE -- playbooks is deliberately
+    NOT: at status='trial' every scenario has both a `concat` and an `r1` document, so
+    a silent LIMIT 1 could hand back the r1 arm, which is UNRESOLVED and was never
+    shipped. Pass `arm` to disambiguate.
+    """
+    if status not in _VALID_PLAYBOOK_STATUSES:
+        raise ValueError(f"invalid playbook status filter {status!r}")
+    sql = f"SELECT {_PLAYBOOK_COLUMNS} FROM playbooks WHERE scenario_key = %s AND status = %s"
+    params: tuple = (scenario_key, status)
+    if arm is not None:
+        sql += " AND arm = %s"
+        params += (arm,)
+    sql += " ORDER BY arm, source_artifact"
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    if not rows:
+        return None
+    if len(rows) > 1:
+        found = sorted({r[3] for r in rows})
+        raise ValueError(
+            f"{len(rows)} playbooks match scenario_key={scenario_key!r} status={status!r} "
+            f"(arms {found}) -- pass arm= to choose one rather than getting an arbitrary row"
+        )
+    return _playbook_row_to_dict(rows[0])
+
+
+def get_playbooks(conn: psycopg.Connection, status: str | None = None) -> list[dict]:
+    """Every playbook, optionally filtered by status.
+
+    Takes an EXPLICIT status filter with no default, unlike get_playbook_for_scenario:
+    this is the inventory/verification path (the loader's gates read it), and a silent
+    'live' default here would report 5 rows where 32 exist and read as data loss.
+    """
+    if status is not None and status not in _VALID_PLAYBOOK_STATUSES:
+        raise ValueError(f"invalid playbook status filter {status!r}")
+    sql = f"SELECT {_PLAYBOOK_COLUMNS} FROM playbooks"
+    params: tuple = ()
+    if status is not None:
+        sql += " WHERE status = %s"
+        params = (status,)
+    sql += " ORDER BY scenario_key, arm, source_artifact"
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    return [_playbook_row_to_dict(r) for r in rows]
+
+
+# --- Layer D redesign (Brain/layer_d/, 2026-08-20) --------------------------------
+# See the move_events/move_performance DDL notes in db/schema.sql for why every
+# design choice here is the way it is. The two rules that matter:
+#   * move_events UPSERTS on its natural key, so re-running a transcript refreshes
+#     rather than duplicates (the old gap_events double-count defect).
+#   * move_performance is only ever MATERIALIZED by full recompute from move_events
+#     -- never incremented in place (the old `attempts = attempts + 1` defect).
+
+_VALID_RATER_POPULATIONS = {"csm", "naren"}
+_VALID_GRADER_ARMS = {"checks", "pairwise"}
+
+
+def get_pairs_for_scenario_multilabel(
+    conn: psycopg.Connection, scenario_key: str
+) -> list[dict]:
+    """Naren's routed moments for one scenario: trigger AND response per pair.
+
+    Same predicate as get_responses_for_scenario_multilabel (primary OR secondary
+    label, with the empty-array guard for pre-2026-06-29 rows), kept as a separate
+    function for the same reason that one is separate from Layer C's clause-pool
+    predicate: this is Layer D's benchmark-population source, and it needs the
+    trigger text that the response-only reader deliberately does not fetch.
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT p.pair_id, p.trigger_text, p.response_text, c.filename,
+                   (p.scenario_key = %(key)s) AS is_primary
+            FROM kb_pairs p JOIN calls c ON p.call_id = c.call_id
+            WHERE p.scenario_key = %(key)s OR %(key)s = ANY(p.scenario_keys)
+            ORDER BY p.pair_id
+        """, {"key": scenario_key})
+        rows = cur.fetchall()
+    return [
+        {"pair_id": r[0], "trigger_text": r[1], "response_text": r[2],
+         "call_filename": r[3], "is_primary": r[4]}
+        for r in rows
+    ]
+
+
+def upsert_move_event(conn: psycopg.Connection, event: dict) -> int:
+    """Insert or refresh one scored moment, keyed by its natural identity.
+
+    ON CONFLICT refreshes the verdict payload: the same moment graded again (a
+    deliberate re-run, a k_runs change) REPLACES its previous verdicts rather than
+    coexisting with them. gap_events had no such key and a double run silently
+    double-counted -- this is the fix, enforced by the database.
+    """
+    if event["rater_population"] not in _VALID_RATER_POPULATIONS:
+        raise ValueError(f"invalid rater_population {event['rater_population']!r}")
+    if event["grader_arm"] not in _VALID_GRADER_ARMS:
+        raise ValueError(f"invalid grader_arm {event['grader_arm']!r}")
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO move_events
+              (rater_population, rater_id, call_id, source_ref, scenario_key,
+               playbook_id, grader_arm, grader_model, via, response_outcome,
+               trigger_text, response_text, verdicts, k_runs, run_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+            ON CONFLICT (rater_population, call_id, source_ref, playbook_id, grader_arm)
+            DO UPDATE SET
+                rater_id         = EXCLUDED.rater_id,
+                scenario_key     = EXCLUDED.scenario_key,
+                grader_model     = EXCLUDED.grader_model,
+                via              = EXCLUDED.via,
+                response_outcome = EXCLUDED.response_outcome,
+                trigger_text     = EXCLUDED.trigger_text,
+                response_text    = EXCLUDED.response_text,
+                verdicts         = EXCLUDED.verdicts,
+                k_runs           = EXCLUDED.k_runs,
+                run_id           = EXCLUDED.run_id
+            RETURNING move_event_id
+        """, (
+            event["rater_population"], event["rater_id"], event["call_id"],
+            event["source_ref"], event["scenario_key"], event["playbook_id"],
+            event["grader_arm"], event.get("grader_model", ""), event["via"],
+            event["response_outcome"], event["trigger_text"], event["response_text"],
+            json.dumps(event["verdicts"]), event.get("k_runs", 1),
+            event.get("run_id"),
+        ))
+        move_event_id = cur.fetchone()[0]
+    conn.commit()
+    return move_event_id
+
+
+def refresh_move_performance(conn: psycopg.Connection) -> int:
+    """Rebuild move_performance from move_events, completely. Returns rows written.
+
+    DELETE + INSERT rather than any incremental path: the aggregate is then
+    reproducible from events alone (calibration/layer_d_replay.py proves it), and
+    re-running after ANY combination of upserts converges to the same table.
+    'unscored' verdicts are counted in their own column and excluded from attempts.
+    """
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM move_performance")
+        cur.execute("""
+            INSERT INTO move_performance
+              (rater_population, rater_id, playbook_id, move_id, grader_arm,
+               attempts, hits, partials, unscored)
+            SELECT e.rater_population, e.rater_id, e.playbook_id,
+                   v.value->>'move_id', e.grader_arm,
+                   COUNT(*) FILTER (WHERE v.value->>'verdict' IN ('hit', 'partial', 'miss')),
+                   COUNT(*) FILTER (WHERE v.value->>'verdict' = 'hit'),
+                   COUNT(*) FILTER (WHERE v.value->>'verdict' = 'partial'),
+                   COUNT(*) FILTER (WHERE v.value->>'verdict' = 'unscored')
+            FROM move_events e
+            CROSS JOIN LATERAL jsonb_array_elements(e.verdicts) AS v
+            WHERE v.value->>'move_id' IS NOT NULL
+            GROUP BY e.rater_population, e.rater_id, e.playbook_id,
+                     v.value->>'move_id', e.grader_arm
+        """)
+        n = cur.rowcount
+    conn.commit()
+    return n
+
+
+def get_move_rates(
+    conn: psycopg.Connection, rater_population: str, grader_arm: str
+) -> dict[str, list[dict]]:
+    """move_performance rows for one population+arm, keyed by rater_id and shaped
+    for layer_d.aggregate.MoveRate."""
+    if rater_population not in _VALID_RATER_POPULATIONS:
+        raise ValueError(f"invalid rater_population {rater_population!r}")
+    if grader_arm not in _VALID_GRADER_ARMS:
+        raise ValueError(f"invalid grader_arm {grader_arm!r}")
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT rater_id, playbook_id, move_id, attempts, hits, partials, unscored
+            FROM move_performance
+            WHERE rater_population = %s AND grader_arm = %s
+            ORDER BY rater_id, playbook_id, move_id
+        """, (rater_population, grader_arm))
+        rows = cur.fetchall()
+    out: dict[str, list[dict]] = {}
+    for r in rows:
+        out.setdefault(r[0], []).append({
+            "playbook_id": r[1], "move_id": r[2], "attempts": r[3],
+            "hits": r[4], "partials": r[5], "unscored": r[6],
+        })
+    return out
+
+
+def get_hit_quotes(
+    conn: psycopg.Connection, rater_id: str, grader_arm: str
+) -> dict[tuple[int, str], list[str]]:
+    """Verified evidence quotes per (playbook_id, move_id) for one rater -- the
+    'your call' lines in the coaching report. Only 'hit' verdicts carry quotes, and
+    every stored quote already passed verify_quote before it was written."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT e.playbook_id, v.value->>'move_id', v.value->>'quote'
+            FROM move_events e
+            CROSS JOIN LATERAL jsonb_array_elements(e.verdicts) AS v
+            WHERE e.rater_id = %s AND e.grader_arm = %s
+              AND v.value->>'verdict' = 'hit'
+              AND COALESCE(v.value->>'quote', '') <> ''
+            ORDER BY e.move_event_id
+        """, (rater_id, grader_arm))
+        rows = cur.fetchall()
+    out: dict[tuple[int, str], list[str]] = {}
+    for pb, move_id, quote in rows:
+        out.setdefault((pb, move_id), []).append(quote)
+    return out

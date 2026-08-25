@@ -124,24 +124,37 @@ def assign_scenarios(
         pair["scenario_key"] = keys[0]
         pair["scenario_id"] = scenario_map[keys[0]]["scenario_id"]
 
+    # The per-pair rule lives in shared.relative_match.flat_pick, not inline here.
+    #
+    # This loop used to carry its own copy of the rule, which meant `sink_margin_delta` --
+    # added to flat_pick and tuning.yaml as the one routing lever the evidence positively
+    # endorses -- was INERT on the primary path: production read the knob from tuning.yaml
+    # and then ignored it. A configured value that reads as authoritative while doing nothing
+    # is the failure class this project has hit twice already (the retired ego_trap/settings.py
+    # and layer_a.min_content_words).
+    #
+    # The substitution is safe because it changes nothing at the shipped value. Proven by
+    # calibration/sink_margin_delta_identity.py over the LIVE corpus: 12,444/12,444 pairs
+    # produce an identical ordered `scenario_keys` list -- real scenario rows with their real
+    # is_coachable flags, real trigger text, real cached vectors. (The pre-existing synthetic
+    # proof, 400 randomized cases in tests/test_relative_match.py, covers the rule itself.)
+    #
+    # The sink short-circuit that used to be spelled out here still applies, inside flat_pick:
+    # a junk trigger whose closest match is machinery belongs only there, because letting it
+    # also match real scenarios is exactly how backchannel ended up in strategic rubrics.
+    #
+    # *** DO NOT SET sink_margin_delta TO A NON-ZERO VALUE without sweeping it against a
+    # judged sample larger than the 80 turns that exist. *** Wiring the knob and choosing its
+    # value are different acts; only the first is done.
     for i, pair in enumerate(pairs):
-        sims = sim_matrix[i]
-        order = np.argsort(sims)[::-1]
-        best_j = int(order[0])
-
-        # A junk trigger whose closest match is machinery belongs only there.
-        # Letting it also match real scenarios is exactly how backchannel ended up
-        # in strategic rubrics.
-        if is_sink[best_j]:
-            _assign(pair, [scenario_keys[best_j]])
-            continue
-
-        cutoff = tuning.relative_margin * float(sims[best_j])
-        kept = [
-            scenario_keys[int(j)] for j in order[:tuning.max_scenarios_per_pair]
-            if float(sims[int(j)]) >= cutoff and not is_sink[int(j)]
-        ]
-        _assign(pair, kept or [scenario_keys[best_j]])
+        _assign(pair, _flat_pick(
+            sim_matrix[i],
+            scenario_keys,
+            is_sink,
+            tuning.max_scenarios_per_pair,
+            tuning.relative_margin,
+            tuning.sink_margin_delta,
+        ))
 
     return trigger_vecs
 

@@ -96,6 +96,7 @@ def flat_pick(
     is_sink_arr: list[bool],
     cap: int,
     margin: float,
+    sink_margin_delta: float = 0.0,
 ) -> list[str]:
     """assign_scenarios's own per-pair rule on an arbitrary similarity vector:
     sink short-circuit first, then relative margin.
@@ -104,11 +105,51 @@ def flat_pick(
     sink (returns it as the sole match) rather than rejecting. That is correct for
     Layer B, which must assign every pair somewhere; a consumer that is allowed to
     reject should use topk_pick and handle None instead.
+
+    *** `sink_margin_delta` IS THE ONE ROUTING CHANGE THE EVIDENCE POSITIVELY SUPPORTS,
+    AND IT DEFAULTS TO A NO-OP. *** The rule is
+
+        accept a coachable scenario iff  best_coachable - best_sink >= delta
+
+    At delta = 0.0 this is byte-identical to the shipped behaviour (highest score wins),
+    which is why adding it changes nothing until a value is deliberately set. The reason it
+    exists: the measured top1-top2 gap in this space is ~0.01, so near-ties are the NORM,
+    and every near-tie currently resolves in favour of the junk bin. A NEGATIVE delta lets a
+    coachable scenario lose to a sink by up to |delta| and still take the pair; a positive
+    delta demands it win by a clear margin.
+
+    Measured on the 80 blind-judged turns (docs/findings/layer-a-routing.md, PR curve):
+    delta = -0.0117 buys +5.1pp recall for -2.6pp precision, against switching to centroid
+    routing which bought +4.0pp recall for -14.0pp precision. Same recall, one fifth the
+    precision cost -- which is why the findings call this "the one change the evidence
+    positively supports" while refusing every method swap.
+
+    *** DO NOT SET A NON-ZERO VALUE WITHOUT SWEEPING IT AGAINST A JUDGED SAMPLE LARGER THAN
+    80 TURNS. *** The findings are explicit about that, and the bootstrap CIs on 80
+    judgments are wide and overlapping. Building the knob is safe; choosing its value is a
+    measurement.
     """
     order = np.argsort(sims)[::-1]
     best_j = int(order[0])
     if is_sink_arr[best_j]:
-        return [keys[best_j]]
+        # The sink won outright. With delta == 0.0 that is the end of it, exactly as
+        # before. With a non-zero delta, the pair is still allowed through iff the best
+        # coachable scenario is within `delta` of it.
+        if sink_margin_delta == 0.0:
+            return [keys[best_j]]
+        coachable = [int(j) for j in order if not is_sink_arr[int(j)]]
+        if not coachable:
+            return [keys[best_j]]
+        best_c = coachable[0]
+        if float(sims[best_c]) - float(sims[best_j]) < sink_margin_delta:
+            return [keys[best_j]]
+        best_j = best_c
+    elif sink_margin_delta > 0.0:
+        # A POSITIVE delta is stricter than shipped: a coachable winner must also beat the
+        # best sink by the margin, or the pair sinks after all.
+        sinks = [int(j) for j in order if is_sink_arr[int(j)]]
+        if sinks and float(sims[best_j]) - float(sims[sinks[0]]) < sink_margin_delta:
+            return [keys[sinks[0]]]
     cutoff = margin * float(sims[best_j])
     kept = [
         keys[int(j)] for j in order[:cap]

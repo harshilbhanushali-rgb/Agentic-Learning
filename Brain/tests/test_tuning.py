@@ -21,6 +21,7 @@ layer_a:
 layer_b:
   relative_margin: 0.85
   max_scenarios_per_pair: 3
+  sink_margin_delta: 0.0
   matching_strategy: flat
   primary_topic_relative_margin: 0.95
   max_primary_topics_per_pair: 2
@@ -60,6 +61,16 @@ layer_d:
   gap_severity_critical_miss_rate: 0.60
   gap_severity_high_miss_rate: 0.35
   gap_severity_moderate_miss_rate: 0.15
+  segmentation_arm: e
+  grader_arm: checks
+  grader_model: gemini-3.6-flash
+  grader_reasoning_effort: medium
+  grader_k_runs: 1
+  pairwise_swap: true
+  quote_verify_min_overlap: 0.80
+  shrinkage_prior_strength: 5.0
+  dead_check_naren_floor: 0.50
+  min_attempts_to_rank: 8
 embedding:
   cache_enabled: true
   cache_path: embed_cache.db
@@ -126,6 +137,17 @@ def test_shipped_tuning_yaml_is_valid():
         > t.layer_d.gap_severity_moderate_miss_rate
         > 0.0
     )
+    # Layer D redesign keys (Brain/layer_d/).
+    assert t.layer_d.segmentation_arm in ("today", "e")
+    assert t.layer_d.grader_arm in ("checks", "pairwise")
+    assert t.layer_d.grader_model
+    assert t.layer_d.grader_reasoning_effort in ("none", "low", "medium", "high")
+    assert t.layer_d.grader_k_runs >= 1
+    assert t.layer_d.pairwise_swap in (True, False)
+    assert 0.0 < t.layer_d.quote_verify_min_overlap <= 1.0
+    assert t.layer_d.shrinkage_prior_strength >= 0.0
+    assert 0.0 < t.layer_d.dead_check_naren_floor <= 1.0
+    assert t.layer_d.min_attempts_to_rank >= 1
 
 
 def test_typo_in_key_raises_rather_than_defaulting(tmp_path):
@@ -140,15 +162,25 @@ def test_missing_key_raises(tmp_path):
         load_tuning(_write(tmp_path, bad))
 
 
-def test_pool_unit_is_present_and_ships_clause():
-    """The live file must keep the legacy unit until the turn arm passes its gate.
+def test_pool_unit_ships_turn_and_merge_matches_the_live_taxonomy():
+    """The shipped unit and its cosine floor must together describe what is IN POSTGRES.
 
-    Pinned because flipping it silently changes what the whole taxonomy is built
-    from AND invalidates merge_cosine_threshold (different cosine band), so it
-    must never move as a side effect of editing something near it.
+    This tripwire did its job on 2026-08-19: it was pinned to "clause" and failed the moment
+    the value moved, which is exactly what it exists for. It is re-pinned rather than
+    deleted, because the reason for pinning has not changed -- flipping the unit silently
+    changes what the whole taxonomy is built from AND invalidates merge_cosine_threshold,
+    since turn-level cosines sit in a different band from clause-level ones.
+
+    What changed is which value is correct. The live 259-scenario `union_base` taxonomy was
+    clustered in TURN mode at merge 0.97 (recorded in the adjudication artifact's
+    identity.merge), while this file still said clause/0.85 -- so main.py would have rebuilt
+    Layer A on a different unit at a floor calibrated for the other unit, and Layer A upserts
+    scenarios. The two are asserted TOGETHER because shipping one without the other is the
+    incoherent state, not either value on its own.
     """
     t = load_tuning()
-    assert t.layer_a.pool_unit == "clause"
+    assert t.layer_a.pool_unit == "turn"
+    assert t.layer_a.merge_cosine_threshold == 0.97
 
 
 def test_pool_unit_only_accepts_the_two_known_units(tmp_path):

@@ -202,6 +202,62 @@ def pool_sha(texts: list[str]) -> str:
     return _h.sha256("\n".join(texts).encode("utf-8")).hexdigest()[:16]
 
 
+def corpus_files(recordings: str) -> list[Path]:
+    """Transcript files for a corpus spec: one directory, or several comma-separated.
+
+    Multi-dir support exists for the union rebuild (`recordings,recordings_pull_keep`).
+    Each directory is sorted independently and the blocks are concatenated IN THE ORDER
+    GIVEN — the union spec makes the old block's leading position load-bearing (old pool
+    index i == union index i), so this function must never re-sort across directories.
+    A single-directory spec behaves exactly as the old inline glob did.
+
+    Stems are asserted non-colliding across directories: rosters and account maps join
+    on the stem, so a collision would silently cross corpora (the expanded-pool lesson).
+    """
+    dirs = [d.strip() for d in recordings.split(",") if d.strip()]
+    if not dirs:
+        raise SystemExit(f"empty --recordings spec {recordings!r}")
+    per_dir: list[list[Path]] = []
+    for d in dirs:
+        fs = sorted(Path(d).glob("*.txt"))
+        if not fs:
+            raise SystemExit(f"no transcripts in {d}/")
+        per_dir.append(fs)
+    if len(per_dir) > 1:
+        from calibration.expanded_pool_stage1 import assert_no_stem_collision
+        seen: set[str] = set()
+        for fs in per_dir:
+            assert_no_stem_collision(seen, {f.stem for f in fs})
+            seen |= {f.stem for f in fs}
+    return [f for fs in per_dir for f in fs]
+
+
+def t2_verdict(stats: dict, served_models: dict,
+               max_failed_share: float = 0.05) -> dict:
+    """Spec §4 T2 integrity: failed-row share <= 5% (else HALT and ask the operator);
+    served_model uniformity reported, shout on mixture.
+
+    Uniformity ignores "(unrecorded)" — that tally key is how a FAILED row's empty
+    served_model prints, and counting it would flag a mixture whenever any row failed,
+    i.e. exactly when the failed-share check already speaks.
+    """
+    n = stats.get("n", 0)
+    failed = stats.get("failed", 0)
+    failed_share = failed / n if n else 0.0
+    models = sorted(k for k in served_models if k and k != "(unrecorded)")
+    # A SUCCESSFUL row can also tally "(unrecorded)" if the gateway response omitted
+    # the model field — excluding the key from uniformity would then mute the mixture
+    # shout exactly when the fallback path fired (audit 9.3 finding 1). Surface it.
+    unrecorded_successes = max(served_models.get("(unrecorded)", 0) - failed, 0)
+    return {"n": n, "failed": failed, "failed_share": failed_share,
+            "max_failed_share": max_failed_share,
+            "failed_ok": failed_share <= max_failed_share,
+            "served_models": dict(served_models),
+            "served_uniform": len(models) <= 1 and unrecorded_successes == 0,
+            "unrecorded_successes": unrecorded_successes,
+            "pass": failed_share <= max_failed_share}
+
+
 def compute_rescue(clusters: list[dict], vecs, n_texts: int) -> int:
     """Apply the rescue_centroid rule IN PROCESS, rather than loading a stored sidecar.
 
@@ -253,33 +309,13 @@ def verify_against_bench(clusters: list[dict]) -> None:
     print(f"[verify] {len(mine)}/{len(mine)} clusters identical to the bench's incumbent")
 
 
-def build_clusters(recordings: str, members_from: str, rescue: str = ""):
+def derive_clusters(texts: list[str], call_ids: list[str], vecs: np.ndarray,
+                    total_calls: int, tm, topics: np.ndarray, ta) -> list[dict]:
+    """Raw HDBSCAN topics -> the adjudication cluster list: production merge(0.97) +
+    evidence triage, largest first. Extracted verbatim from build_clusters so the union
+    rebuild's Stage B can produce clusters through the SAME code path it adjudicates."""
     from shared import cluster_evidence
-    from shared.tuning import load_tuning
-    from config import load_config
-    from preprocessing.transcript_parser import parse_transcript, load_roster
-    from v2.layer_a import build_client_pool, fit_topic_model
-    # embed_cache_only, NOT trial_pool_unit_gemini.embed_cached: the latter silently FETCHES
-    # and pays for any miss, and a pool that has drifted enough to fail the position check is
-    # exactly the pool that would re-embed 24k turns before the check could fire.
-    from calibration.routing_bench import embed_cache_only
 
-    ta = load_tuning().layer_a
-    cfg = load_config()
-    turns = []
-    for f in sorted(Path(recordings).glob("*.txt")):
-        turns.extend(parse_transcript(str(f), cfg.joveo_speakers_lower,
-                                      cfg.naren_name_lower, roster=load_roster(str(f))))
-    texts, call_ids = build_client_pool(turns, unit="turn")
-    total_calls = len(set(call_ids))
-    print(f"{len(texts)} CLIENT turns over {total_calls} calls", flush=True)
-
-    vecs = embed_cache_only(texts)
-    vecs = (vecs / (np.linalg.norm(vecs, axis=1, keepdims=True) + 1e-10)).astype(np.float32)
-    print(f"[embed] {vecs.shape} (cache-only; a miss would have aborted)", flush=True)
-
-    tm, topics = fit_topic_model(texts, vecs, min_cluster_size=MIN_CLUSTER_SIZE)
-    topics = np.array(topics)
     members = defaultdict(list)
     for i, t in enumerate(topics):
         if t != -1:
@@ -313,6 +349,98 @@ def build_clusters(recordings: str, members_from: str, rescue: str = ""):
             "thin": float(np.mean([not cluster_evidence.is_substantive(t, 5) for t in ctexts])),
         })
     clusters.sort(key=lambda c: c["stats"].n_items, reverse=True)
+    return clusters
+
+
+def load_persisted_clusters(art: dict, membership: str, texts: list[str],
+                            call_ids: list[str], vecs: np.ndarray,
+                            total_calls: int) -> list[dict]:
+    """Reconstruct the cluster list from a Stage B artifact's persisted memberships.
+
+    WHY LOAD RATHER THAN RE-FIT. The union rebuild persists its one seed-42 clustering
+    (both membership sets) at Stage B; adjudicating a fresh fit in this process would
+    hang the arm's identity on cross-launch UMAP reproducibility, which this repo treats
+    as a property to be verified, never assumed. Loading makes the adjudicated clusters
+    provably the persisted ones — the pool sha check in build_clusters plus the
+    members_sha in the run identity close the loop.
+
+    Stats and `thin` are recomputed from THIS pool's vectors (pure cosine arithmetic,
+    deterministic — the _substitute precedent); cluster_id / keywords / n_merged / the
+    triage verdict are carried from the artifact. Order is the artifact's own
+    (largest-first at BASE sizes), so a rescued arm keeps the base ordering exactly as
+    guard 7 requires.
+    """
+    from shared import cluster_evidence
+
+    key = f"idxs_{membership}"
+    clusters = []
+    for c in art["clusters"]:
+        idxs = [int(i) for i in c[key]]
+        if not idxs:
+            raise SystemExit(f"persisted cluster {c.get('cluster_id')!r} has an empty "
+                             f"{key} — artifact is malformed")
+        ctexts = [texts[i] for i in idxs]
+        st = cluster_evidence.support_stats([call_ids[i] for i in idxs], vecs[idxs],
+                                            total_calls, texts=ctexts)
+        clusters.append({
+            "stats": st, "verdict": c["triage_verdict"], "n_merged": c["n_merged"],
+            "idxs": idxs, "cluster_id": c["cluster_id"], "keywords": c["keywords"],
+            "thin": float(np.mean([not cluster_evidence.is_substantive(t, 5)
+                                   for t in ctexts])),
+        })
+    return clusters
+
+
+def build_clusters(recordings: str, members_from: str, rescue: str = "",
+                   clusters_from: str = "", membership: str = "rescued"):
+    from shared import cluster_evidence
+    from shared.tuning import load_tuning
+    from config import load_config
+    from preprocessing.transcript_parser import parse_transcript, load_roster
+    from v2.layer_a import build_client_pool, fit_topic_model
+    # embed_cache_only, NOT trial_pool_unit_gemini.embed_cached: the latter silently FETCHES
+    # and pays for any miss, and a pool that has drifted enough to fail the position check is
+    # exactly the pool that would re-embed 24k turns before the check could fire.
+    from calibration.routing_bench import embed_cache_only
+
+    ta = load_tuning().layer_a
+    cfg = load_config()
+    turns = []
+    for f in corpus_files(recordings):
+        turns.extend(parse_transcript(str(f), cfg.joveo_speakers_lower,
+                                      cfg.naren_name_lower, roster=load_roster(str(f))))
+    texts, call_ids = build_client_pool(turns, unit="turn")
+    total_calls = len(set(call_ids))
+    print(f"{len(texts)} CLIENT turns over {total_calls} calls", flush=True)
+
+    vecs = embed_cache_only(texts)
+    vecs = (vecs / (np.linalg.norm(vecs, axis=1, keepdims=True) + 1e-10)).astype(np.float32)
+    print(f"[embed] {vecs.shape} (cache-only; a miss would have aborted)", flush=True)
+
+    if clusters_from:
+        # NO FIT IN THIS PROCESS. The clusters were fitted and persisted once (Stage B);
+        # this arm must adjudicate exactly those, so it loads them and proves the pool
+        # is the same one they were fitted on.
+        if members_from or rescue:
+            raise SystemExit("--clusters-from is exclusive of --members-from/--rescue: "
+                             "the persisted artifact already fixes the memberships.")
+        if membership not in ("base", "rescued"):
+            raise SystemExit(f"--membership must be base|rescued, got {membership!r}")
+        art = json.loads(Path(clusters_from).read_text(encoding="utf-8-sig"))
+        want, sha = art["identity"]["pool_sha"], pool_sha(texts)
+        if sha != want:
+            raise SystemExit(f"POOL MISMATCH: this parse hashes {sha}, the persisted "
+                             f"clusters were fitted on {want}. Refusing — the memberships "
+                             f"would index the wrong turns.")
+        clusters = load_persisted_clusters(art, membership, texts, call_ids, vecs,
+                                           total_calls)
+        print(f"[clusters-from] {Path(clusters_from).name}: {len(clusters)} clusters, "
+              f"membership={membership} (loaded; no fit in this process)", flush=True)
+        return clusters, texts, call_ids, vecs, total_calls, ta
+
+    tm, topics = fit_topic_model(texts, vecs, min_cluster_size=MIN_CLUSTER_SIZE)
+    topics = np.array(topics)
+    clusters = derive_clusters(texts, call_ids, vecs, total_calls, tm, topics, ta)
 
     # Pin every arm to the same clusters -- but only where a reference for THIS pool exists.
     # Quarantining transcripts changes the pool, so the bench artifact then describes a corpus
@@ -384,17 +512,23 @@ def run_arm(a) -> None:
     from v2.layer_a import _KIND_BY_DECISION
     from calibration.trial_gateway import GatewayClient
 
-    RESCUE_MODE[0] = a.rescue
+    # For a clusters-from arm the "rescue" identity slot records WHICH persisted
+    # membership set is being adjudicated — two arms differing only in that must never
+    # resume each other's checkpoints (members_sha would also differ, but the identity
+    # should say WHY, not just THAT).
+    RESCUE_MODE[0] = (a.rescue or
+                      (f"clusters_from:{Path(a.clusters_from).name}:{a.membership}"
+                       if a.clusters_from else ""))
     CKPT, OUT = paths(a.arm)
     clusters, texts, call_ids, vecs, total_calls, ta = build_clusters(
-        a.recordings, a.members_from, a.rescue)
+        a.recordings, a.members_from, a.rescue, a.clusters_from, a.membership)
     if a.limit:
         clusters = clusters[:a.limit]
         print(f"--limit {a.limit}: PATH TEST ONLY -- the accepted-list never fills, so "
               f"duplicate detection is not exercised and the numbers are not interpretable")
 
     ident = run_identity(clusters, ta)
-    rows, accepted, start = [], [], 0
+    rows, accepted, start, attempts = [], [], 0, 0
     if CKPT.exists() and not a.fresh:
         ck = json.loads(CKPT.read_text(encoding="utf-8-sig"))
         if ck.get("identity") != ident:
@@ -404,16 +538,30 @@ def run_arm(a) -> None:
                              f"them. Use a different --arm, or --fresh.")
         rows = ck["rows"]
         start = len(rows)
+        # Older checkpoints carry no attempt counter; rows is the floor (1 POST each).
+        attempts = int(ck.get("attempts", len(rows)))
         for r in rows:
             if r["kind"] == "scenario" and not r.get("failed"):
                 accepted.append({"scenario_key": r["scenario_key"],
                                  "business_description": r["business_description"],
                                  "centroid": np.array(r["_centroid"], dtype=np.float32)})
-        print(f"[resume] {start} already adjudicated\n")
+        print(f"[resume] {start} already adjudicated ({attempts} attempts)\n")
 
-    print(f"[adjudicate] arm={a.arm} {len(clusters)} clusters, SEQUENTIALLY\n", flush=True)
+    # BUDGET STOP BEFORE ANY SPEND. One cluster costs exactly one POST when --budget is
+    # set (max_retries=1 below), so the whole spend is known here — refusing now costs
+    # nothing; discovering it at cluster 500 costs the operator's whole allowance.
+    if a.budget and attempts + (len(clusters) - start) > a.budget:
+        raise SystemExit(
+            f"BUDGET STOP BEFORE SPEND: {len(clusters) - start} clusters to adjudicate "
+            f"(+{attempts} attempts already made) would exceed the frozen hard stop of "
+            f"{a.budget} chat calls. HALT — ask the operator.")
+
+    print(f"[adjudicate] arm={a.arm} {len(clusters)} clusters, SEQUENTIALLY"
+          + (f", budget {a.budget}" if a.budget else "") + "\n", flush=True)
     t0 = time.time()
-    with GatewayClient() as gw:
+    # max_retries=1 under a budget: one POST per attempt so the harness-side counter is
+    # exact (the snap-trial discipline). Without a budget the historical default holds.
+    with (GatewayClient(max_retries=1) if a.budget else GatewayClient()) as gw:
         for i in range(start, len(clusters)):
             c = clusters[i]
             st = c["stats"]
@@ -441,6 +589,14 @@ def run_arm(a) -> None:
                 nearest_scenarios="\n".join(near)
                 or "- (none yet: this is the first cluster considered)")
 
+            # Attempt counted and PERSISTED BEFORE the POST (snap-trial discipline): a
+            # kill between the save and the response still shows the spend happened.
+            if a.budget and attempts >= a.budget:
+                raise SystemExit(f"HARD STOP: {attempts} chat attempts made (frozen "
+                                 f"budget {a.budget}). Ask the operator.")
+            attempts += 1
+            save_checkpoint(CKPT, {"identity": ident, "rows": rows,
+                                   "attempts": attempts})
             failed, served, parsed = False, "", {}
             try:
                 parsed, meta = gw.chat_json(prompt, model=CHAT_MODEL, temperature=0.2,
@@ -486,18 +642,23 @@ def run_arm(a) -> None:
             print(f"  [{done}/{len(clusters)}] {row['kind'][:4]:<4} {key[:42]:<42} "
                   f"{st.n_items:>5}it {st.call_coverage:>4.0%} "
                   f"eta {(len(clusters)-done)/max(rate,1e-6)/60:>4.1f}m", flush=True)
-            save_checkpoint(CKPT, {"identity": ident, "rows": rows})
+            save_checkpoint(CKPT, {"identity": ident, "rows": rows,
+                                   "attempts": attempts})
 
     for r in rows:
         r.pop("_centroid", None)
     stats = retention_stats(rows)
     served_tally = dict(Counter(r.get("served_model") or "(unrecorded)" for r in rows))
     OUT.write_text(json.dumps(
-        {"arm": a.arm, "members_from": a.members_from or None, "identity": ident,
+        {"arm": a.arm, "members_from": a.members_from or None,
+         "clusters_from": a.clusters_from or None,
+         "membership": (a.membership if a.clusters_from else None),
+         "identity": ident,
          "merge": MERGE, "min_cluster_size": MIN_CLUSTER_SIZE, "chat_model": CHAT_MODEL,
          "representatives": REPRESENTATIVE_RULE, "embed": "gemini-embedding-2@3072",
          "total_calls": total_calls, "limit": a.limit or None,
          "incomplete": bool(stats["failed"] or a.limit),
+         "chat_attempts": attempts, "budget": a.budget or None,
          "served_models": served_tally, "stats": stats, "rows": rows},
         indent=1, default=float), encoding="utf-8")
     report_arm(a.arm, stats, served_tally)
@@ -610,7 +771,18 @@ def main() -> None:
     p.add_argument("--rescue", default="", choices=("", "centroid"),
                    help="compute the rescue rule IN PROCESS against this pool, instead of "
                         "loading a sidecar keyed to an older one")
-    p.add_argument("--recordings", default="recordings")
+    p.add_argument("--clusters-from", default="",
+                   help="path to a persisted clustering artifact (union rebuild Stage B); "
+                        "loads its memberships instead of fitting, after a pool-sha check")
+    p.add_argument("--membership", default="rescued", choices=("base", "rescued"),
+                   help="which persisted membership set --clusters-from adjudicates")
+    p.add_argument("--budget", type=int, default=0,
+                   help="HARD STOP on total chat attempts (0 = historical behaviour). "
+                        "Sets max_retries=1 so attempts == POSTs, and persists the "
+                        "attempt count BEFORE each POST.")
+    p.add_argument("--recordings", default="recordings",
+                   help="one directory, or several comma-separated (blocks concatenate "
+                        "in the order given; stems asserted non-colliding)")
     p.add_argument("--limit", type=int, default=0, help="PATH TEST only; marks artifact incomplete")
     p.add_argument("--fresh", action="store_true", help="ignore the checkpoint and restart")
     p.add_argument("--compare", default="", help="comma-separated arm names to compare")

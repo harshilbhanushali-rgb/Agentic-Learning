@@ -10,6 +10,27 @@ class SpeakerRole(Enum):
     NAREN = "NAREN"
     JOVEO_OTHER = "JOVEO_OTHER"
     CLIENT = "CLIENT"
+    # A speaker label that is not a person, so cannot be anyone's client. Added 2026-08-16.
+    # Consumers skip it: layer_a/layer_b both gate on `role != CLIENT`, and layer_b's
+    # response loop already ends on any non-Joveo role, so an UNATTRIBUTED turn terminates a
+    # response window exactly as a CLIENT turn did -- the ONLY behavioural change is that
+    # these turns can no longer be TRIGGERS.
+    UNATTRIBUTED = "UNATTRIBUTED"
+
+
+# `Unknown Speaker` is emitted by ops/fetch_avoma_recordings.py when Avoma's diarization
+# finds a voice whose speaker_id is absent from the meeting's attendee map:
+#     lines.append(speaker_map.get(segment.speaker_id, "Unknown Speaker"))
+# i.e. somebody spoke who was not on the calendar invite -- a dial-in, a forwarded invite, a
+# shared room. It is NOT a client; it is nobody in particular. Measured over the 393-transcript
+# corpus: 1,030 such turns across 16 calls, and because the label matches no roster entry and
+# no Joveo name it fell through to CLIENT -- making it the single largest "client" voice in
+# the corpus. Dial-in numbers and meeting bots reach CLIENT the same way.
+_NOT_A_PERSON = re.compile(
+    r"^unknown speaker$"                      # Avoma's diarization fallback
+    r"|^\+?\d[\d\s\-*().]*$"                   # a dial-in number, incl. Avoma's *** masking
+    r"|\bnote ?taker\b|\brecording bot\b",     # TCC Notetaker, Phenom Notetaker
+    re.I)
 
 
 @dataclass
@@ -48,6 +69,11 @@ def _classify(
     roster: list[dict] | None = None,
 ) -> SpeakerRole:
     s = speaker_raw.strip().lower()
+    # BEFORE the roster: a non-person is not a client whatever the sidecar says, and these
+    # labels never appear on a roster anyway, so they would otherwise fall all the way
+    # through to the CLIENT default.
+    if _NOT_A_PERSON.search(s):
+        return SpeakerRole.UNATTRIBUTED
     if roster:
         entry = _match_roster_entry(speaker_raw, roster)
         if entry is not None:

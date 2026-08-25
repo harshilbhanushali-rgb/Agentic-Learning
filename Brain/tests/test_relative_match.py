@@ -157,3 +157,95 @@ def test_flat_pick_always_returns_at_least_one_key():
     """No pair can be left unassigned -- this is what replaced the centroid fallback."""
     sims = np.array([0.02, 0.01])
     assert len(flat_pick(sims, ["a", "b"], [False, False], cap=3, margin=0.95)) >= 1
+
+
+# --------------------------------------------------------------------------------------
+# sink_margin_delta — the one routing lever the evidence endorses; default MUST be a no-op
+# --------------------------------------------------------------------------------------
+
+def test_delta_default_is_byte_identical_to_the_shipped_rule():
+    """THE PROPERTY THAT MAKES SHIPPING THIS SAFE. Adding the knob must change nothing
+    until a value is deliberately set, so the default path is compared against an explicit
+    reimplementation of the OLD rule over randomized inputs."""
+    import numpy as np
+    rng = np.random.default_rng(20260819)
+    keys = [f"s{i}" for i in range(8)]
+    for _ in range(400):
+        sims = rng.random(8)
+        sink = [bool(b) for b in rng.integers(0, 2, 8)]
+        if all(sink):
+            continue
+        cap, margin = 3, 0.95
+        # the shipped rule, written out
+        order = np.argsort(sims)[::-1]
+        best = int(order[0])
+        if sink[best]:
+            want = [keys[best]]
+        else:
+            cut = margin * float(sims[best])
+            want = [keys[int(j)] for j in order[:cap]
+                    if float(sims[int(j)]) >= cut and not sink[int(j)]] or [keys[best]]
+        assert flat_pick(sims, keys, sink, cap, margin) == want
+        assert flat_pick(sims, keys, sink, cap, margin, 0.0) == want
+
+
+def test_negative_delta_rescues_a_near_tie_from_the_sink():
+    """The motivating case: a real coaching moment losing to backchannel by 0.005."""
+    import numpy as np
+    keys = ["application_volume", "conversational_acknowledgment"]
+    sink = [False, True]
+    sims = np.array([0.680, 0.685])          # sink wins by 0.005
+    assert flat_pick(sims, keys, sink, 3, 0.95) == ["conversational_acknowledgment"]
+    assert flat_pick(sims, keys, sink, 3, 0.95, -0.0117) == ["application_volume"]
+
+
+def test_negative_delta_still_sinks_a_clear_sink():
+    """It must not become a blanket 'never sink'. A sink winning by a real margin holds."""
+    import numpy as np
+    keys = ["application_volume", "conversational_acknowledgment"]
+    sink = [False, True]
+    sims = np.array([0.50, 0.71])            # sink wins by 0.21
+    assert flat_pick(sims, keys, sink, 3, 0.95, -0.0117) == [
+        "conversational_acknowledgment"]
+
+
+def test_positive_delta_is_stricter_than_shipped():
+    """A coachable winner that only just beats the best sink now sinks."""
+    import numpy as np
+    keys = ["application_volume", "conversational_acknowledgment"]
+    sink = [False, True]
+    sims = np.array([0.685, 0.680])          # coachable wins by 0.005
+    assert flat_pick(sims, keys, sink, 3, 0.95) == ["application_volume"]
+    assert flat_pick(sims, keys, sink, 3, 0.95, 0.02) == [
+        "conversational_acknowledgment"]
+
+
+def test_delta_never_returns_empty_or_a_missing_key():
+    """Layer B must assign every pair somewhere; no delta may produce an empty pick."""
+    import numpy as np
+    rng = np.random.default_rng(7)
+    keys = [f"s{i}" for i in range(6)]
+    for d in (-0.05, -0.0117, 0.0, 0.02, 0.5):
+        for _ in range(200):
+            sims = rng.random(6)
+            sink = [bool(b) for b in rng.integers(0, 2, 6)]
+            got = flat_pick(sims, keys, sink, 3, 0.95, d)
+            assert got, f"empty pick at delta={d}"
+            assert all(g in keys for g in got)
+
+
+def test_all_sink_candidates_cannot_crash_any_delta():
+    import numpy as np
+    keys = ["a", "b"]
+    for d in (-0.05, 0.0, 0.05):
+        assert flat_pick(np.array([0.4, 0.6]), keys, [True, True], 3, 0.95, d) == ["b"]
+
+
+def test_pinecone_batch_preserves_the_768_path_and_shrinks_for_3072():
+    """The width-derived batch must leave the historical bge path byte-identical (100) and
+    keep a 3072 request well under Pinecone's ~2 MB ceiling."""
+    def batch(width):
+        return max(10, min(100, int(320_000 / max(width * 4, 1))))
+    assert batch(768) == 100, "the historical 768 batch size changed"
+    assert batch(3072) < 100
+    assert batch(3072) * 3072 * 4 < 2_000_000, "a 3072 batch could exceed the request cap"

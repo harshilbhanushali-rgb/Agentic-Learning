@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 import time
 from pathlib import Path
 import numpy as np
@@ -73,7 +74,10 @@ def _encode(texts: list[str], prefix: str) -> list[list[float]]:
         return _encode_local(texts, prefix)
     if backend == "gemini":
         return _encode_gemini(texts, prefix)
-    raise ValueError(f"unknown embedding backend {backend!r}; expected 'local' or 'gemini'")
+    if backend == "gateway":
+        return _encode_gateway(texts, prefix)
+    raise ValueError(
+        f"unknown embedding backend {backend!r}; expected 'local', 'gemini' or 'gateway'")
 
 
 def _encode_local(texts: list[str], prefix: str) -> list[list[float]]:
@@ -368,7 +372,30 @@ def _cache_model_key() -> str:
     cfg = get_tuning().embedding
     if _active_backend() == "local":
         return _MODEL_NAME
+    # `gemini` and `gateway` share this shape ("name@dims") but NOT the same cache file, so
+    # they cannot collide even though the string matches -- see _cache_for_backend. The
+    # gateway cache splits this back apart on '@' to rebuild its own key.
     return f"{cfg.gemini_model}@{cfg.gemini_dimensions}"
+
+
+# The gateway corpus lives in its own file with its own key scheme; see GatewayVecCache.
+_GATEWAY_CACHE_PATH = "gemini_embed_cache.db"
+
+
+def _cache_for_backend():
+    """The cache object for the active backend.
+
+    THE GATEWAY GETS A DIFFERENT FILE, and this is the whole reason the `gateway` backend is
+    worth having. `embed_cache.db` is keyed sha256(model|prefix|text) and holds the local bge
+    vectors; `gemini_embed_cache.db` is keyed sha256(model|dims|text) and holds every vector
+    this corpus already paid the gateway for. Pointing the gateway backend at the production
+    cache would report a total miss and re-buy ~25k vectors at 140/min.
+    """
+    cfg = get_tuning().embedding
+    root = Path(__file__).parent.parent
+    if _active_backend() == "gateway":
+        return embed_cache.get_gateway_cache(root / _GATEWAY_CACHE_PATH)
+    return embed_cache.get_cache(root / cfg.cache_path)
 
 
 def _embed_matrix(texts: list[str], prefix: str = "") -> np.ndarray:
@@ -387,7 +414,7 @@ def _embed_matrix(texts: list[str], prefix: str = "") -> np.ndarray:
     if not cfg.cache_enabled:
         return np.asarray(_encode(texts, prefix), dtype=np.float32)
 
-    cache = embed_cache.get_cache(Path(__file__).parent.parent / cfg.cache_path)
+    cache = _cache_for_backend()
     model_key = _cache_model_key()
     cached = cache.get_many(model_key, prefix, texts)
     missing = [i for i in range(len(texts)) if i not in cached]
@@ -418,3 +445,53 @@ def embed_query(texts: list[str]) -> list[list[float]]:
 
 def embed_document(texts: list[str]) -> list[list[float]]:
     return _embed_matrix(texts).tolist()
+
+
+# --- gateway backend (added 2026-08-19) ------------------------------------
+# Concurrency for the paced fetch. Not a tuning.yaml key because it is not a property of the
+# data -- tuning.yaml holds thresholds, and a worker count is a throughput setting. Matches
+# the BRAIN_GATEWAY_EMBED_RPM convention shared/gateway.py already uses.
+#
+# Raising this does NOT raise throughput past the rate limiter: the module-level token bucket
+# in shared/gateway.py paces every worker to a combined 140/min because the gateway's 150
+# requests/window ceiling is PER KEY. Workers only keep the pipe full while requests are in
+# flight.
+_GATEWAY_WORKERS = int(os.environ.get("BRAIN_GATEWAY_EMBED_WORKERS", "8"))
+
+
+def _encode_gateway(texts: list[str], prefix: str) -> list[list[float]]:
+    """Hosted embeddings through the JOVEO GATEWAY, one text per request, paced.
+
+    WHY THIS EXISTS ALONGSIDE THE `gemini` BACKEND, which talks to the same model. They are
+    different transports with different limits and different caches:
+
+        gemini   -> Google AI Studio directly, ~1k requests/DAY, cache embed_cache.db
+                    keyed sha256(model|prefix|text)
+        gateway  -> the Joveo gateway, 150 requests/WINDOW/key, cache gemini_embed_cache.db
+                    keyed sha256(model|dims|text)
+
+    Every vector for this corpus -- the taxonomy, all 12,399 triggers, all 12,398 response
+    clauses -- was paid for through the GATEWAY. Flipping `backend: gemini` would therefore
+    re-pay for the whole corpus at 1k/day against a cache that has none of it. This backend
+    reads the file that already holds them, which is what makes the switch nearly free.
+
+    `prefix` is accepted and IGNORED, and that is correct here: on gemini-embedding-2 the
+    task_type is inert (all four values byte-identical, cosine 1.0000, measured 2026-08-13),
+    which is exactly why the gateway cache carries no prefix in its key. It would be WRONG on
+    bge -- see the note on GatewayVecCache in shared/embed_cache.py.
+
+    *** NEVER BATCH THIS ENDPOINT. *** /embeddings intermittently returns fewer vectors than
+    inputs at HTTP 200 with no warning, and not deterministically -- the same request that
+    collapsed five times running returned correctly minutes later. `GatewayClient.embed`
+    sends one text per request and asserts the count for exactly this reason.
+    """
+    from shared.gateway import EMBED_DIMENSIONS, EMBED_MODEL, GatewayClient
+
+    if not texts:
+        return []
+    cfg = get_tuning().embedding
+    model = cfg.gemini_model if cfg.gemini_model else EMBED_MODEL
+    dims = cfg.gemini_dimensions or EMBED_DIMENSIONS
+    with GatewayClient() as gw:
+        return gw.embed(texts, model=model, dimensions=dims,
+                        workers=_GATEWAY_WORKERS, progress_every=0)

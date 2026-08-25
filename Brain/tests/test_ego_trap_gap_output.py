@@ -22,6 +22,19 @@ def _tuning(**overrides):
         gap_severity_critical_miss_rate=0.60,
         gap_severity_high_miss_rate=0.35,
         gap_severity_moderate_miss_rate=0.15,
+        # Added 2026-08-20: the Layer D redesign keys (Brain/layer_d/). Not read by
+        # ego_trap code, but LayerDTuning is one dataclass, so the helper must supply
+        # them. Shipped tuning.yaml values.
+        segmentation_arm="e",
+        grader_arm="checks",
+        grader_model="gemini-3.6-flash",
+        grader_reasoning_effort="medium",
+        grader_k_runs=1,
+        pairwise_swap=True,
+        quote_verify_min_overlap=0.80,
+        shrinkage_prior_strength=5.0,
+        dead_check_naren_floor=0.50,
+        min_attempts_to_rank=8,
     )
     base.update(overrides)
     return LayerDTuning(**base)

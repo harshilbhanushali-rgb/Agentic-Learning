@@ -1384,7 +1384,7 @@ that merely OPEN with filler. Measured over the same 245 clusters:
 | coachable | 38 | **43** |
 | flipped INTO coachable | -- | 12 (judges endorse 9) |
 | flipped OUT of coachable | -- | 7 |
-| agreement with blind judges | **76%** | **76%** |
+| agreement with blind judges | **76%** | **76%** |  <!-- RETRACTED 2026-08-16: asymmetric sample (Gemma 6 HEAD vs judges 12 STRIDED) and no noise floor. See the CORRECTION at the end of this file. -->
 
 Net +5 with 12-in/7-out churn and agreement unchanged to the point. **A fix aimed at a real
 defect does not leave the metric it targets exactly where it started.** That null result is
@@ -1534,3 +1534,143 @@ beyond repair by its ground truth, Test 1's headline is a rate whose correctness
 reading establishes, and Test 3 measures structure rather than quality. The honest summary is
 that the new taxonomy is better-formed on every structural axis measured and unproven on the
 one axis that matters.
+
+---
+
+## Status update (2026-08-16) — the Gemma-vs-blind-judges comparison was ASYMMETRICALLY SAMPLED
+
+Found while auditing `calibration/trial_adjudicate_gemini.py` for a different purpose. **Verified
+in code, not inferred.** It bears on Status update 10's headline and on the `--turn-aware`
+result, and it is not a small thing: the two judges in that comparison were shown **different
+views of the same clusters**.
+
+```
+calibration/trial_adjudicate_gemini.py:285   (pre-fix)
+    representative_utterances = c["texts"][:REPRESENTATIVE_SHOWN]
+      -> the FIRST 6 members. `idxs` is built in ascending pool index, so this is the first
+         six turns by CORPUS FILE ORDER.
+
+calibration/export_cluster_batches.py:89-93  (what the blind judges saw)
+    # Spread the samples across the cluster rather than taking the head: the first N
+    # members are whatever order HDBSCAN emitted, which can be one call's worth.
+    step = max(1, len(ctexts) // SAMPLES_PER_CLUSTER)
+      -> a STRIDED spread across the whole cluster.
+```
+
+**The export script's own comment identifies head-sampling as a defect and fixes it for the
+judges. The adjudicator was never changed.**
+
+**Why it matters here.** The confound's direction matches the observed disagreement exactly: a
+cluster whose HEAD is filler but whose BODY is substantive gets sunk by Gemma and kept by the
+judges. That is precisely the one-directional gap recorded as *"Gemma sank 56 clusters the
+judges would keep (1,831 turns, 14.6% of the corpus)"*.
+
+**It also gives the `--turn-aware` null (76% → 76%) an explanation nobody considered.**
+`TURN_AWARE_NOTE` tells the judge WHERE IN A TURN to look. If the six turns shown are
+head-of-cluster filler, there is no substantive content in the sample to find — **a prompt fix
+cannot repair a bad sample.** So the inference *"a fix aimed at a real defect does not leave its
+target metric exactly where it began"* does not hold if the defect was sampling rather than
+wording.
+
+**What is NOT in question:**
+
+- The retraction of the *"Gemma over-sinks 14.6%"* claim stands. That was a different bug — the
+  analysis script testing `kind == "scenario"` against a four-valued enum and counting 69
+  `merged` (= RETAINED) clusters as sinks. Unrelated, and correctly retracted.
+- The measured counts stand: Gemma called 38 coachable, judges called 92, and they agreed 100%
+  on what to discard. What is in question is WHY they disagreed on the rest.
+- Everything using `adjudicate_gemini_min16.json` as a FROZEN SHARED control across arms
+  (routing bench, null test/R4, proper-noun check, Layer D coverage, clustering bench) keeps its
+  rankings and deltas — the error applies identically to every arm. Only absolute statements of
+  the form "there are 38 coachable scenarios" become conditional.
+
+**Fixed, and the fix is measurable.** `trial_adjudicate_gemini.py` now selects representatives
+by cosine to the cluster's own centroid — deterministic, applied identically to every arm, and
+it lets a rescued/added member appear only if it is genuinely central. Re-adjudicating the same
+245 clusters under that rule and diffing against `adjudicate_gemini_min16.json` measures exactly
+what head sampling cost (~245 flash-lite calls, zero DB writes). **NOT RUN.** If the coachable
+count moves toward the judges' 92, Status update 10's diagnosis needs rewriting and
+`--turn-aware` deserves a re-test under correct sampling. If it does not move, the wording
+diagnosis survives and this is a footnote.
+
+**Six other defects were found in the same harness** (checkpoint keyed on cluster COUNT alone;
+output path defaulting to the published baseline and written unconditionally; a failed call
+synthesised as `new_scenario` that both counted as coachable and poisoned the sequential
+accepted-list; `served_model` discarded; coachable % divided by a denominator including
+`merged`; `i` used as a join key when it is a RANK). Verified against the existing artifact:
+0 failed rows, 245 distinct keywords, 0 orphaned merges — **so none of those six corrupted what
+is on disk.** `calibration/adjudication_ab.py` replaces this harness for comparison work; see
+`Brain/HARNESS_DELETION_PROPOSAL_2026-08-16.md`.
+
+**Separately, and larger: the corpus this spec measured was 13.2% not-client-speech.** The
+turn-mode taxonomy's largest coachable cluster was **job interviews** — 822 turns, 27% of
+coachable volume. Also removed since: 1,127 unattributed turns (`Unknown Speaker`, dial-ins,
+bots) and 544 turns of Joveo staff misread as client. 23,949 → 20,788 turns, 416 → 393
+transcripts. Every pool-unit number in this spec — content-free shares, subject-bearing counts,
+the clause-vs-turn comparison — was computed on that corpus. The clause/turn COMPARISON is
+unlikely to invert (both arms drew from the same contaminated pool), but the absolute figures
+are all slightly wrong in the same direction, and the 37.2% subject-bearing figure was already
+flagged as an upper bound for a different reason.
+
+### Addendum to the above (2026-08-16, second session) — five things that change the fix
+
+Independently verified the section above and agree with it. Five additions, one of which means
+the proposed fix does not do what it needs to.
+
+**1. The asymmetry is TWO-fold, not one. The sample SIZE differed as well as the rule.**
+
+```
+export_cluster_batches.py:37   SAMPLES_PER_CLUSTER = 12   # "6 is what the adjudicator saw"
+trial_adjudicate_gemini.py     REPRESENTATIVE_SHOWN = 6
+```
+
+The judges saw **12 strided**; Gemma saw **6 head**. Twice the evidence *and* a better spread.
+The comment shows the size gap was known and deliberate at export time; what was not noticed is
+that it made the agreement number un-interpretable. Both differences push the same way, and that
+is exactly the shape of the observed gap (`judge_coachable 92` vs `gemma_coachable 38`).
+
+**2. CENTROID RANKING DOES NOT RESTORE SYMMETRY — it swaps one asymmetry for another.**
+The fix above makes Gemma see the 6 most central turns while the judges saw 12 strided ones.
+Still a different rule and still half the evidence. To compare like with like, Gemma must be
+shown **exactly what the judges were shown**. `judge_samples()` is therefore extracted in
+`export_cluster_batches.py` and imported by the adjudicator under `--representatives judge`
+(default stays `centroid`, so nothing existing moves). Sharing the function rather than copying
+it is deliberate: if it ever changes, both sides change together, which is the property the
+comparison actually needs. **This also makes the re-run cheap** — the existing
+`verdict_min16_batch*.json` verdicts stay valid, so no re-judging is required.
+
+**3. The existing artifact IS pre-fix — established empirically, not from code history.**
+`adjudicate_gemini_min16.json` records no `representatives` field, so which sampling produced it
+had to be recovered indirectly. Gemma's own stored `reason`/`business_description` echo
+vocabulary present in the HEAD sample and absent from the centroid sample **99 clusters to 32,
+two-sided exact p = 3.7e-09.** Clearest single case: `managing_meeting_attendance`, where Gemma
+wrote *"managing lobby access"* — "lobby" occurs twice in the head sample and **zero** times in
+the centroid sample. **Any future adjudication artifact must persist the representatives shown**;
+had that field existed this would have been a one-line check.
+
+**4. There is a THIRD explanation for the `--turn-aware` null, and it needs its own arm.**
+The section above gives two (the fix does nothing / the sample had nothing to find). A third:
+**it moved less than Gemma's own run-to-run variance.** Identical clusters adjudicated twice
+previously gave **78 vs 85 coachable** — roughly a 9% swing — and the turn-aware comparison had
+**no noise floor at all**. So re-settling it needs THREE arms, not two: base, turn-aware, and a
+base REPLICATE, all on a judge-identical sample. ~735 flash-lite calls, ~20 min, zero DB writes.
+Two arms would reproduce the original error in a new costume.
+
+**5. Two live bugs found while doing this.**
+- `checkpoint_identity` carried a hardcoded `"representatives": "top_by_centroid_cosine"`. It
+  *asserted* the sampling mode instead of recording it, so a resume could silently cross sampling
+  modes. Now records the real value.
+- **`--turn-aware`'s own `--help` still asserts the retracted figure**: *"Judged blind, that
+  costs 56 clusters / 1,831 turns at min 16."* That is the 14.6% number retracted as the
+  `merged`-counted-as-sink analysis bug. A retracted claim living in a CLI help string is how it
+  gets re-cited.
+
+**Not run.** The three arms were built and queued, then stopped before completing: they shift the
+baseline that the concurrent noise-rescue A/B in
+`2026-08-16-layer-a-clustering-method-design.md` is measuring against, and both runs share the
+same API keys. Sequence them, do not race them.
+
+**One thing neither session can bound: the judge side has no noise floor.** The verdicts were
+produced once, by nine judges, with no repeat or inter-rater measurement. Gemma's variance is
+now quantified (78 vs 85); the judges' is not. Re-judging the 6 min16 batches once costs ~6
+calls and would close it.

@@ -188,3 +188,125 @@ def test_arm_paths_never_collide_with_the_old_harness_artifacts():
     for arm in ("base_a", "rescued", "min16"):
         _, out = paths(arm)
         assert not out.name.startswith("adjudicate_gemini")
+
+
+# --------------------------------------------------------------------------------------
+# union-rebuild additions: corpus_files, t2_verdict, load_persisted_clusters
+# --------------------------------------------------------------------------------------
+
+def test_corpus_files_single_dir_matches_the_old_glob(tmp_path):
+    d = tmp_path / "rec"
+    d.mkdir()
+    for name in ("b.txt", "a.txt", "c.txt"):
+        (d / name).write_text("x", encoding="utf-8")
+    from calibration.adjudication_ab import corpus_files
+    assert [f.name for f in corpus_files(str(d))] == ["a.txt", "b.txt", "c.txt"]
+
+
+def test_corpus_files_multi_dir_keeps_block_order_never_resorting_across_dirs(tmp_path):
+    """The union spec makes the OLD block's leading position load-bearing: old pool
+    index i must equal union index i. A cross-dir re-sort would silently break G-R1."""
+    old = tmp_path / "old"
+    new = tmp_path / "new"
+    old.mkdir(); new.mkdir()
+    (old / "zzz.txt").write_text("x", encoding="utf-8")
+    (new / "aaa.txt").write_text("x", encoding="utf-8")
+    from calibration.adjudication_ab import corpus_files
+    got = [f.name for f in corpus_files(f"{old},{new}")]
+    assert got == ["zzz.txt", "aaa.txt"]      # old block first despite sort order
+
+
+def test_corpus_files_refuses_stem_collision_across_dirs(tmp_path):
+    a = tmp_path / "a"
+    b = tmp_path / "b"
+    a.mkdir(); b.mkdir()
+    (a / "same.txt").write_text("x", encoding="utf-8")
+    (b / "same.txt").write_text("x", encoding="utf-8")
+    from calibration.adjudication_ab import corpus_files
+    with pytest.raises(SystemExit):
+        corpus_files(f"{a},{b}")
+
+
+def test_corpus_files_refuses_an_empty_dir(tmp_path):
+    d = tmp_path / "empty"
+    d.mkdir()
+    from calibration.adjudication_ab import corpus_files
+    with pytest.raises(SystemExit):
+        corpus_files(str(d))
+
+
+def test_t2_passes_at_exactly_five_percent_failed_and_fails_above():
+    from calibration.adjudication_ab import t2_verdict
+    assert t2_verdict({"n": 400, "failed": 20}, {})["pass"] is True
+    assert t2_verdict({"n": 400, "failed": 21}, {})["pass"] is False
+
+
+def test_t2_uniformity_ignores_the_unrecorded_tally_of_failed_rows():
+    """A failed row prints as "(unrecorded)"; counting it would flag a model mixture
+    whenever anything failed, exactly when the failed-share check already speaks."""
+    from calibration.adjudication_ab import t2_verdict
+    v = t2_verdict({"n": 100, "failed": 2},
+                   {"gemini-3.5-flash-lite": 98, "(unrecorded)": 2})
+    assert v["served_uniform"] is True
+    v2 = t2_verdict({"n": 100, "failed": 0},
+                    {"gemini-3.5-flash-lite": 60, "gemini-3.5-flash": 40})
+    assert v2["served_uniform"] is False
+
+
+def test_t2_on_empty_stats_does_not_divide_by_zero():
+    from calibration.adjudication_ab import t2_verdict
+    assert t2_verdict({}, {})["failed_share"] == 0.0
+
+
+def _persisted_art():
+    # 2D unit vectors; cluster 0 = indices 0,1 near e0; cluster 1 = 2,3 near e1
+    vecs = np.array([[1, 0], [0.9, 0.436], [0, 1], [0.436, 0.9]], dtype=np.float32)
+    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+    art = {"identity": {"pool_sha": "irrelevant-here"},
+           "clusters": [
+               {"cluster_id": "0-7", "keywords": "kw0", "n_merged": 2,
+                "triage_verdict": "ok",
+                "idxs_base": [0], "idxs_rescued": [0, 1]},
+               {"cluster_id": "3", "keywords": "kw1", "n_merged": 1,
+                "triage_verdict": "needs_review",
+                "idxs_base": [2], "idxs_rescued": [2, 3]},
+           ]}
+    texts = ["t0 words here", "t1 words here", "t2 words here", "t3 words here"]
+    call_ids = ["c0", "c1", "c2", "c3"]
+    return art, texts, call_ids, vecs
+
+
+def test_load_persisted_clusters_selects_the_requested_membership_set():
+    from calibration.adjudication_ab import load_persisted_clusters
+    art, texts, call_ids, vecs = _persisted_art()
+    base = load_persisted_clusters(art, "base", texts, call_ids, vecs, 4)
+    resc = load_persisted_clusters(art, "rescued", texts, call_ids, vecs, 4)
+    assert [c["idxs"] for c in base] == [[0], [2]]
+    assert [c["idxs"] for c in resc] == [[0, 1], [2, 3]]
+
+
+def test_load_persisted_clusters_recomputes_stats_from_the_loaded_membership():
+    """The _substitute precedent: stats must reflect the GROWN membership, or the judge
+    is shown the base arm's numbers while reading the treatment's members."""
+    from calibration.adjudication_ab import load_persisted_clusters
+    art, texts, call_ids, vecs = _persisted_art()
+    resc = load_persisted_clusters(art, "rescued", texts, call_ids, vecs, 4)
+    assert resc[0]["stats"].n_items == 2
+    assert resc[0]["stats"].distinct_calls == 2
+
+
+def test_load_persisted_clusters_carries_identity_fields_and_order_verbatim():
+    from calibration.adjudication_ab import load_persisted_clusters
+    art, texts, call_ids, vecs = _persisted_art()
+    got = load_persisted_clusters(art, "base", texts, call_ids, vecs, 4)
+    assert [c["cluster_id"] for c in got] == ["0-7", "3"]
+    assert [c["keywords"] for c in got] == ["kw0", "kw1"]
+    assert [c["verdict"] for c in got] == ["ok", "needs_review"]
+
+
+def test_load_persisted_clusters_refuses_an_empty_membership():
+    from calibration.adjudication_ab import load_persisted_clusters
+    art, texts, call_ids, vecs = _persisted_art()
+    art["clusters"][0]["idxs_base"] = []
+    with pytest.raises(SystemExit):
+        load_persisted_clusters(art, "base", texts, call_ids, vecs, 4)

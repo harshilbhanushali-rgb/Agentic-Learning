@@ -1,0 +1,46 @@
+# Brain — Findings Index
+
+[Back to Brain/CLAUDE.md](../../CLAUDE.md)
+
+Every file here is a **verbatim extract** of a past calibration/research effort — pulled out of
+`CLAUDE.md` when it grew too large to load by default, not summarized or reworded. Each records
+what was tried, what was measured, and the specific reason it was adopted, rejected, or left open.
+Read the relevant file **before** re-proposing a threshold change, a clustering method, a matching
+strategy, or a "just get an LLM to judge it" idea — most of the obvious ideas in this pipeline have
+already been tried and measured here.
+
+Nothing in this directory is production config. Production behavior always lives in `tuning.yaml`
+and the `v1/`/`v2/`/`shared/` code — these files are the evidence trail for why it's set that way.
+
+| File | Covers |
+| --- | --- |
+| [v2-evidence-triage-clustering.md](v2-evidence-triage-clustering.md) | The core V2 "cluster freely, then triage against evidence" design; first full-corpus production run (2026-07-28) |
+| [v2-clustering-calibration-gotchas.md](v2-clustering-calibration-gotchas.md) | Calibration lessons for the V2 clustering knobs (symmetric filtering, sampling bias, `relative_margin`, Layer C percentile/fraction) |
+| [layer-a-primary-topics-and-adjudication-ab.md](layer-a-primary-topics-and-adjudication-ab.md) | Primary-topic hierarchy + Layer B two-stage matching (rejected); Adjudication A/B (does noise-rescue change the taxonomy?) |
+| [layer-a-clustering-11-arms.md](layer-a-clustering-11-arms.md) | Layer A clustering bench, 11 arms incl. the winning `rescue_centroid` noise-rescue rule |
+| [layer-a-sink-pool-rescue.md](layer-a-sink-pool-rescue.md) | Sink-pool population diagnostic (cluster-level triage of sunk pairs); response-taxonomy auto-pass (permanent sink-pool graduation mechanism) |
+| [layer-a-pool-unit-1.md](layer-a-pool-unit-1.md) / [-2](layer-a-pool-unit-2.md) | Clause vs. turn as the Layer A pooling unit — root cause of posture-scenario contamination, shipped OFF |
+| [layer-a-routing.md](layer-a-routing.md) | 16 routing-method arms (prototypes/medoid/k-NN/blends/cross-encoder) vs. the incumbent exemplar centroid — centroid not beaten |
+| [layer-b-sink-rescue.md](layer-b-sink-rescue.md) | Layer B sink-rescue strategies (`response_only`/`or_rule`/`blended`) — all rejected; per-pair signal search exhausted |
+| [layer-b-redesign.md](layer-b-redesign.md) | Five Layer B redesign arms (admission knobs + routers) — all null; Layer B is not the binding constraint |
+| [layer-c-rebuild.md](layer-c-rebuild.md) | Layer C profile rebuild — situated describe inputs, coverage areas, skills axes — all three shipped OFF |
+| [layer-c-milestones-narration-and-ceiling.md](layer-c-milestones-narration-and-ceiling.md) | Milestones were narration, not criteria (found & fixed); the Naren-ceiling measurement saga and its retraction |
+| [layer-c-relative-filter-rescue.md](layer-c-relative-filter-rescue.md) | Layer C relative relevance filter + noise-rescue; F1/F2 follow-up gates, both closed |
+| [expanded-pool-and-clustering-bench.md](expanded-pool-and-clustering-bench.md) | 690-call expanded pool (data was NOT the constraint — G-XP2 null) + the 8-arm Layer C clustering bench (no winner) + the pool-unit trial (window/turn both null) — pipeline-internal search space exhausted; incumbent's best milestones fail blinded coherence reads |
+| [scenario-playbook-trial.md](scenario-playbook-trial.md) | Scenario-playbook pilot + snap successor (same day): pilot failed PB0 on model quote-smoothing (PB2 won); adding deterministic verbatim snapping VALIDATED the method — PB0 10/10, PB2 5/5 counterbalanced (14/15 votes), PB3 median 1.0. First Layer C product path to beat its placebo |
+| [union-taxonomy-rebuild.md](union-taxonomy-rebuild.md) | Union-corpus (58k-turn) taxonomy rebuild: the UN-rescued `union_base` map (34 scenarios) passed all four frozen gates + playbook validation and SHIPPED as the playbook substrate; the rescued arm failed the blinded coherence gate (rescue closed, 4th and final time); sink rate 64.3%→49.1%; incoherent clusters proven unsynthesizable; reasoning-model + gateway limits measured |
+| [layer-b-routing-playbook-ab.md](layer-b-routing-playbook-ab.md) | Three-arm routing A/B on the playbook yardstick: `keyphrases` REFUTED (starves the map — top scenario 771→0 pairs, sink 47.5→60.9%), `r1` UNRESOLVED and not shipped (thinner documents, 71% control by construction, and no high-coverage+coherent map exists to test it on), production stays `concat`; the blinded-read instrument found to be the binding constraint (80% position bias, a move-count channel, ~28% power); `sink_margin_delta` built at a no-op; the flash-low "fixes it" claim corrected |
+| [layer-c-playbook-schema-and-gateway.md](layer-c-playbook-schema-and-gateway.md) | Layer C SHIPPED then BACKFILLED to **33 of 34** scenarios. The `playbooks` table/storage/loader; `sink_margin_delta` wired after a 12,444-pair byte-identity proof; the `gateway` embedding backend; bge-fitted cosine floors measured INVERTED in gemini space; the config-reality repair (`pool_unit` clause→turn, merge 0.85→0.97, backend local→gateway) verified by reproducing live routing from config alone. **PB1 was arithmetically unreachable** (prompt allowed 2 quotes, gate demanded 3 accounts) — and after fixing that, a 4-arm A/B found **the MODEL was the lever, not the prompt** (flash-lite 11% → 3.6-flash medium 77%). Blind reads: the 28 backfilled documents are 73% usable vs 63% for the original 5, a 5-doc probe overestimated by 22pt, **~half the criteria are not gradable from a transcript**, and breadth tracks evidence volume monotonically. **§13 (2026-08-24) RETRACTS the blind read's absolute rates**: the same 59 quotes scored 95% then 78%, and the same 123 criteria 84% then 17% under two reader framings — which also INVERTED the cohort ranking. Only within-packet counterbalanced contrasts are valid, and on the one clean contrast the **gradability arm beat the relevance arm 89% vs 78%, winning 4 of 5 situations with zero failing quotes** — so narrowing criteria is NOT a trade, the counter-example to "every rule costs a sixth thing". That arm is now LIVE for the original 5 (`superseded` demotion, 33 live / 65 rows, all seven gates green); PB1 RETIRED as a gate and G-Q4 demoted to diagnostic (third time a frozen gate rejected a real improvement); `ship_union_taxonomy.py`'s false single-transaction guarantee FIXED |
+| [layer-d-realignment.md](layer-d-realignment.md) | Layer D (Ego Trap) realignment with the main pipeline (sink filtering, milestone IDs, evidence persistence) |
+| [layer-d-100-calls.md](layer-d-100-calls.md) | Layer D run over 100 CSM calls; two defects it exposed (segmentation artifact, blind grader) |
+| [layer-d-redesign.md](layer-d-redesign.md) | Layer D REDESIGN against playbooks, built 2026-08-20 and **CALIBRATED END-TO-END by 2026-08-25**. The full arc: literature sweep (CheckEval, Rulers, RAEE, IRT); C3 run 4x (expert's per-moment rate 3–6% under ANY grader/wording — the absolute unit is dead, the criteria-unpassable finding finally root-caused); C2 head-to-head (**pairwise 77.1% PASS, checks 53.9% FAIL** — 45/58 ties); swap dropped on a 95% order-agreement measurement (CSM side randomized); C4 blinded reader 11/11; **first production run: 807 moments, 0 failures, ranked coaching report produced**; 40-moment blinded output audit **97.9%**; spec-step-5 read PASSES WITH NOTES (fragment-reply and exemplar-misfire defects → 3 named P0 fixes); 26/77 cells blurry (≥80% tie) = the targeted playbook-rewrite shortlist; 33% deferral rate measured free |
+| [embeddings-and-gateway.md](embeddings-and-gateway.md) | Local bge vs. hosted Gemini embeddings; default Gemma model change; Joveo gateway quirks (no batching, response caching) |
+| [skills-vocabulary.md](skills-vocabulary.md) | Closed: can a per-CSM skills vocabulary be built at all? No — behaviour distribution has no middle |
+| [head-to-head-comparison.md](head-to-head-comparison.md) | Closed: comparing a CSM's reply against Naren's nearest-neighbor reply — retrieval worked, the judge didn't |
+| [corpus-and-measurement-notes.md](corpus-and-measurement-notes.md) | Corpus contamination audit (interviews, unattributed speakers, misclassified staff); measurement-harness remediation notes |
+
+**Methodology lessons that recur across most of these files** (worth internalizing once rather than
+re-discovering per finding): symmetric filtering (any filter applied to one arm must apply to the
+other), the need for a volume/placebo-matched control before crediting any "rescue" mechanism, and
+distrust of any metric that is also the arm's own objective function. Several files call these out
+explicitly at the point they bit.

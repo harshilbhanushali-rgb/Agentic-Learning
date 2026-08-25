@@ -73,7 +73,25 @@ layer_a:
   # Below ~0.85 the centroids of large clause sets converge toward a generic
   # "conversation" direction, so aggressive merging destroys real distinctions
   # before it removes duplicates. Lower = more aggressive merging.
-  merge_cosine_threshold: 0.85
+  #
+  # *** EVERY NUMBER ABOVE IS A CLAUSE-MODE, bge@768 MEASUREMENT AND NO LONGER APPLIES. ***
+  # CHANGED 0.85 -> 0.97 ON 2026-08-19, together with pool_unit: clause -> turn. A cosine
+  # floor is only meaningful against the band it was fitted to, and BOTH inputs to that band
+  # moved: the unit (clause -> turn) and the embedding space (bge@768 -> gemini@3072).
+  # Turn-level gemini cosines sit far higher and far tighter than clause-level bge cosines
+  # -- measured trigger-vs-scenario p10=0.653 p50=0.690 p90=0.729 against bge's 0.496/0.550/
+  # 0.613 -- so 0.85 in this space is not "conservative", it is indiscriminate: it would
+  # merge nearly everything.
+  #
+  # 0.97 is NOT a guess and NOT a fresh calibration. It is the value the live 259-scenario
+  # `union_base` taxonomy was actually built with (recorded in
+  # artifacts/adjudication_ab_union_base.json -> identity.merge = 0.97), which is the whole
+  # point of this change: make main.py reproduce what is in Postgres instead of silently
+  # rebuilding something else. The clause-mode grid above is retained as history.
+  #
+  # Re-deriving a turn-mode grid the way the clause grid was derived
+  # (`--merge-detail`) is still owed if this is ever tuned further.
+  merge_cosine_threshold: 0.97
 
   # Cheap pre-filter: minimum non-stopword alphabetic tokens for a clause to
   # enter the pool. Removes bare "Perfect." / "Yeah." only -- deliberately NOT
@@ -84,15 +102,58 @@ layer_a:
   # (legacy, shipped); "turn" = one whole CLIENT turn -- the same unit Layer B matches
   # against in kb_pairs.trigger_text.
   #
-  # NOT calibrated. Ships "clause" so production is byte-identical. Clause mode strands
-  # a stance sentence as its own data point ("That makes sense." severed from the ATS
-  # question in the same turn), and 59.1% of the pool (43,566 of 73,771) is content-free
-  # as a result. MEASURED 2026-08-14: only 21/68 scenarios beat a size-matched random
-  # null, and 20 of those 21 are subject-matter -- just 1 of 24 posture scenarios clears
-  # it. Flipping this INVALIDATES merge_cosine_threshold below: turn-level cosines sit in
-  # a different band, and a floor must never be borrowed across bands.
+  # Clause mode strands a stance sentence as its own data point ("That makes sense."
+  # severed from the ATS question in the same turn), and 59.1% of the pool (43,566 of
+  # 73,771) was content-free as a result. MEASURED 2026-08-14: only 21/68 scenarios beat a
+  # size-matched random null, and 20 of those 21 are subject-matter -- just 1 of 24 posture
+  # scenarios cleared it.
+  #
+  # *** CHANGED clause -> turn ON 2026-08-19 TO MATCH WHAT IS ACTUALLY LIVE. ***
+  # This is a CONFIG-REALITY REPAIR, not a new experiment. The shipped 259-scenario
+  # `union_base` taxonomy in Postgres was clustered in TURN mode
+  # (`calibration/union_pool_fetch.py`: "clusters the UNION corpus in turn mode"), while this
+  # file still said `clause`. Anyone running main.py would have rebuilt Layer A on a
+  # different unit from the one that produced the live map -- and Layer A upserts scenarios,
+  # so it would have overwritten the live taxonomy with something the rest of the system was
+  # never calibrated against.
+  #
+  # Turn mode also MITIGATES the "Indeed"-stopword defect as a side effect: over the
+  # 23,949-turn pool only 7 turns would flip if `indeed` counted (0.029%), because a whole
+  # turn does not cross a 5-word floor by losing one word -- a sentence does. See GOTCHAS.
+  #
+  # Flipping this INVALIDATES merge_cosine_threshold: turn-level cosines sit in a different
+  # band and a floor must never be borrowed across bands. That is why merge_cosine_threshold
+  # moved to 0.97 in the same change -- the value the live taxonomy was actually built with.
   # See docs/superpowers/specs/2026-08-14-layer-a-pool-unit-design.md
-  pool_unit: clause
+  pool_unit: turn
+
+  # WHICH REGISTER of a scenario's text gets embedded, at the one choke point
+  # (shared/scenario_vectors.py::scenario_text) feeding Layer B matching, Layer C
+  # relevance filtering, Layer D rubric lookup and the response-taxonomy auto-pass.
+  #   concat      business_description + keyphrases  <- SHIPS, byte-identical to before
+  #   keyphrases  the client's own wording alone
+  #   prose       the analyst description alone
+  #
+  # MEASURED 2026-08-16 (calibration/routing_bench.py, 4-fold CV over calls, 3 fold
+  # seeds, 23,949 turns, gemini-embedding-2@3072). Share of the 38 control-rankable
+  # scenarios whose routed population beats a length-matched random null by the lift a
+  # size-matched positive-control group achieves; fold-seed band is 2.6pp:
+  #   keyphrases  42.1%   range 0
+  #   prose       34.2%   range 0
+  #   concat      31.6%   range 0   <- what ships, BELOW EITHER COMPONENT
+  #   placebo      3.5%             (random size-matched partition -- the null works)
+  # Concatenating an analyst register with a client register into one averaged vector
+  # is worse than picking either. The gap is 4x the band and reproduces exactly across
+  # seeds. Rejection is preserved: 59.3% of turns still sink vs 58.6% today, so this
+  # does not buy accuracy by dismantling the junk filter.
+  #
+  # NOT FLIPPED, for one specific reason: that measurement was taken in gemini space
+  # (the turn-mode taxonomy is gemini-native) while `embedding.backend` ships `local`
+  # bge, and the transfer was deliberately not tested. Unlike relative_margin or
+  # merge_cosine_threshold this is not a cosine threshold -- it selects TEXT, so it has
+  # a plausible mechanism for carrying across encoders. Plausible is not measured.
+  # See docs/superpowers/specs/2026-08-16-layer-a-routing-method-design.md
+  scenario_vector_mode: concat
 
   # MEASURED 2026-07-30 (python dry_run_layer_a.py --grouping-compare, full
   # 416-call corpus, zero Gemma calls -- judged by reading actual c-TF-IDF
@@ -199,6 +260,32 @@ layer_b:
   #   0.95        1.92        39%      32%
   # 0.95 is the only point where most pairs get 1-2 matches rather than 3.
   # 0.95 * p50 = 0.522, which sits near p25 of the observed band.
+  # HOW CLOSE A COACHABLE SCENARIO MAY COME TO LOSING AGAINST A SINK AND STILL WIN.
+  #
+  #     accept a coachable scenario iff  best_coachable - best_sink >= sink_margin_delta
+  #
+  # 0.0 IS A NO-OP: at zero this reproduces the shipped rule (highest score wins) byte for
+  # byte, verified by test. Added 2026-08-19 so the trade is tunable instead of frozen at an
+  # arbitrary point -- NOT because a value has been chosen.
+  #
+  # WHY IT EXISTS. The measured top1-top2 similarity gap in this space is ~0.01, so near-ties
+  # are the norm rather than the exception, and every near-tie currently resolves in favour of
+  # the junk bin. A client turn like "we're getting way too many unqualified applications"
+  # can lose to `conversational_acknowledgment` by 0.005 and be thrown away.
+  #
+  # WHAT IS MEASURED (docs/findings/layer-a-routing.md, PR curve over 80 blind-judged turns):
+  #   delta = -0.0117   ->  +5.1pp recall for  -2.6pp precision
+  #   switch to centroid ->  +4.0pp recall for -14.0pp precision
+  # Same recall gain at one fifth the precision cost. The findings call this "the one change
+  # the evidence positively supports" while rejecting every routing-method swap, and note it
+  # was NOT built. This is that key.
+  #
+  # *** DO NOT SET A NON-ZERO VALUE WITHOUT SWEEPING IT AGAINST A JUDGED SAMPLE LARGER THAN
+  # 80 TURNS. *** Bootstrap CIs on 80 judgments are wide and overlapping (76.9% [61-90] vs
+  # 65.5% [52-78]). Negative widens coverage and admits more junk; positive is stricter and
+  # sheds real moments. Building the knob is safe; choosing its value is a measurement.
+  sink_margin_delta: 0.0
+
   relative_margin: 0.95
 
   # Hard ceiling on how many scenarios one pair may be assigned to.
@@ -281,6 +368,31 @@ layer_b:
   # Recalibration round 2 (2026-08-04): moved to the measured p50 (0.635) as
   # the first real data point off the 0.50 placeholder -- see the "or_rule
   # recalibration" status update below for what this produced.
+  #
+  # *** FLAGGED 2026-08-19, AND THE DOCUMENT-vs-QUERY DISTINCTION ABOVE NO LONGER EXISTS. ***
+  # Measured over all 12,444 live pairs in gemini-embedding-2@3072
+  # (calibration/gemini_cosine_bands.py):
+  #
+  #     best match vs scenario     p10     p25     p50     p75     p90
+  #       response, bge@768        0.552   0.598   0.635   0.664   0.688
+  #       response, gemini@3072    0.662   0.677   0.692   0.709   0.726
+  #       trigger,  gemini@3072    0.653   0.670   0.690   0.710   0.729
+  #
+  # Two things follow. First, 0.635 was chosen AS the response p50 and now sits BELOW p10, so
+  # it filters nothing -- the same inversion as sink_rescue_trigger_weak_floor above.
+  #
+  # Second, and structurally more important: **the trigger and response bands have COLLAPSED
+  # INTO ONE** (p50 0.690 vs 0.692). All the text above insisting these are different
+  # comparisons -- "do not tune this off the response percentiles", "a different, so-far
+  # unmeasured comparison" -- was true of bge, whose embed_query genuinely prepends an
+  # instruction prefix and returns a different vector. On gemini-embedding-2 task_type is
+  # INERT (all four values byte-identical, cosine 1.0000), so there is no query/document
+  # asymmetry to preserve and the two floors are now measuring the same distribution.
+  # Any redesign of sink-rescue on this backend should start from that, not from the
+  # two-band assumption baked into the comments above.
+  #
+  # NOT re-tuned. Inert while sink_rescue_strategy is `none`, and both floors need the
+  # labelled sample, not a third percentile swap.
   sink_rescue_response_min_similarity: 0.635
 
   # Absolute floor deciding whether the TRIGGER's own top1 match is "weak"
@@ -303,6 +415,27 @@ layer_b:
   # confident-sink-trigger-but-substantive-response case is this whole
   # design's original motivating failure shape, which round 1 (floor=0.50)
   # structurally could not reach.
+  #
+  # *** FLAGGED 2026-08-19: THIS VALUE NOW MEANS THE OPPOSITE OF WHAT IT WAS SET TO MEAN. ***
+  # Measured over all 12,444 live pairs against the union_base taxonomy in
+  # gemini-embedding-2@3072 (calibration/gemini_cosine_bands.py, zero spend, all cached):
+  #
+  #     trigger-vs-scenario best match   p10     p25     p50     p75     p90
+  #       bge@768   (what this was fit to)  0.496   --      0.550   --      0.613
+  #       gemini@3072 (the live space)      0.653   0.670   0.690   0.710   0.729
+  #
+  # The whole distribution moved up by ~0.14. This floor was chosen at 0.65 specifically to
+  # sit COMFORTABLY ABOVE bge's p90 so that `t_sims[best] < floor` would catch nearly every
+  # pair -- that was the entire point of round 2. In gemini space 0.65 sits BELOW p10, so the
+  # same comparison now catches almost NOTHING. The number did not change; the distribution
+  # underneath it did, and it inverted the rule.
+  #
+  # NOT RE-TUNED, DELIBERATELY. Nothing here is live (`sink_rescue_strategy: none`), and this
+  # key's own history is the argument against a quick fix: round 2 already moved it by
+  # percentile and that is recorded as insufficient. It needs the labelled sample this file
+  # has demanded since it was written, not a third percentile swap. Re-run
+  # calibration/gemini_cosine_bands.py before touching it -- and note the response-side band
+  # could not be measured yet, because the paced response fetch had not finished.
   sink_rescue_trigger_weak_floor: 0.65
 
   # blended strategy only: weight on the trigger vector when blending
@@ -748,6 +881,94 @@ layer_d:
   gap_severity_high_miss_rate: 0.35
   gap_severity_moderate_miss_rate: 0.15
 
+  # ===========================================================================
+  # Layer D REDESIGN (Brain/layer_d/, 2026-08-20) -- gap analysis against
+  # playbooks. Every key above this block is rubric-era ego_trap and retires with
+  # that package; the redesign reads only the keys below plus
+  # similarity_relative_margin and max_scenarios_per_signal (same meaning in both
+  # generations: the sink-relative admit rule).
+  #
+  # *** EVERY NUMERIC VALUE BELOW IS UNCALIBRATED IN GEMINI@3072 SPACE. *** The
+  # C-stage ladder (spec 2026-08-20-layer-d-redesign-design.md) fits them in
+  # order: C0 cosine bands -> C1 segmentation replay -> C2 grader head-to-head ->
+  # C3 Naren ceiling. Do not run ops/run_layer_d.py and trust the numbers before
+  # those gates have passed.
+  # ===========================================================================
+
+  # Which client-move segmentation rule builds triggers. Strategy selector.
+  #   today -- the block's last turn (the old rule; kept for A/B and rollback).
+  #   e     -- arm E: where the last-turn rule rejects, stitch the last speaker's
+  #            turns whose OWN best match is coachable and re-try. Measured on
+  #            3,247 answered exchanges (bge space): +81 scored, 0 lost; arm D
+  #            alone lost 9; per-item filters (arms B/C) lost up to 156. C1 must
+  #            reproduce the lost=0 property in gemini space before this ships a
+  #            production run.
+  segmentation_arm: e
+
+  # Which grader produces verdicts. Strategy selector, set by the C2 head-to-head
+  # (pre-registered: quote verification >=95%, discrimination >=70% per-scenario
+  # paired win share at p<0.05; highest-discriminating arm that passes both hard
+  # gates ships; tie -> checks, which is cheaper and names the missing behavior).
+  #   checks   -- binary evidence-gated verdicts per move (CheckEval shape),
+  #               ~1 request per 6 moments of one playbook.
+  #   pairwise -- 3-way vs a matched Naren exemplar, order-swapped, verdicts kept
+  #               only when position-consistent. ~2 requests per moment.
+  # SET BY THE C2 HEAD-TO-HEAD (2026-08-24, pre-registered gates, 58 moments, k=3):
+  # pairwise 77.1% win share over 35 decided (p=0.00094) PASS; checks 53.9% over 13
+  # decided FAIL (45 of 58 moments tied 0-0 -- the C3-predicted failure: at 3-6%
+  # base rates the absolute verdict has no discrimination power). Quote gate 100%.
+  # Full record: docs/findings/layer-d-redesign.md.
+  grader_arm: pairwise
+
+  # Grading model + reasoning effort (operator, 2026-08-23). 'none' = param not sent.
+  # Both are part of the instrument identity (checkpoint_layer) and recorded per row
+  # in move_events.grader_model. Gateway caveats: server-side 120s cap can 408 heavy
+  # reasoning; thinking tokens share the max_tokens pool (grader requests 65536).
+  grader_model: gemini-3.6-flash
+  grader_reasoning_effort: medium
+
+  # Pairwise order-swap (2 calls/moment, keep only order-consistent verdicts).
+  # MEASURED 2026-08-24: both orders agree on 95.2% of verdicts (600/630, C2) and
+  # 96.3% (C4), so the filter buys ~5% per-verdict cleanliness at 2x cost. Operator
+  # chose OFF for production; the CSM's side is then RANDOMIZED per moment (hash of
+  # moment_id) so residual position bias cancels in aggregates. Caveat on the
+  # record: C2/C4 validated the swapped instrument; the knob is in the checkpoint
+  # identity, so flipping it regrades rather than mixes.
+  pairwise_swap: false
+
+  # Independent grading repeats per moment; majority of scored verdicts wins, no
+  # majority -> unscored. 1 = single run (production default until C2 measures the
+  # noise floor and the D-study math says what k buys). Calibration harnesses
+  # override this per-arm; raising it multiplies grading spend by k.
+  grader_k_runs: 1
+
+  # A 'performed=true' verdict is credited ONLY if its verbatim quote aligns to the
+  # rep's reply at this SequenceMatcher ratio or better (layer_d/verify_quotes.py;
+  # containment always passes). 0.80 follows the token-overlap threshold the
+  # evidence-grounding literature converged on AND the snap trial's measured band
+  # (playbook citation snapping shipped at 0.85 on the same alignment rule).
+  # An unverified credit becomes UNSCORED, never a miss.
+  quote_verify_min_overlap: 0.80
+
+  # Empirical-Bayes pseudo-observations pulling a sparse per-CSM per-move rate
+  # toward the CSM-cohort pooled rate before ranking. 0 disables shrinkage. The
+  # value is a PRIOR STRENGTH in attempts: at 5, a rep with 5 attempts sits halfway
+  # between their raw rate and the cohort's. UNCALIBRATED -- revisit after the
+  # first production run shows the real attempts distribution.
+  shrinkage_prior_strength: 5.0
+
+  # A check whose NAREN rate (same instrument, his own routed moments) falls below
+  # this floor is flagged to the operator and excluded from gap ranking: a check
+  # the expert fails is a bad check, not a rep gap. This is the data-driven answer
+  # to the old rubrics' 24%-of-spend-on-dead-criteria defect. Applied only at
+  # min_attempts_to_rank or more Naren attempts -- unmeasured is not dead.
+  dead_check_naren_floor: 0.50
+
+  # Both sides of a gap (CSM attempts AND Naren attempts) must reach this count
+  # before the gap can rank. Below it, a cell exists in move_performance but is
+  # invisible in the report. UNCALIBRATED; 8 is a floor-of-sanity, not a fit.
+  min_attempts_to_rank: 8
+
 embedding:
   # Cache embeddings on disk so threshold tuning does not re-embed the corpus.
   # Worth far less on a CUDA box than on CPU -- the model runs locally.
@@ -763,12 +984,57 @@ embedding:
   #           NOT reproducible: CUDA matmul reduction order varies, so the same corpus
   #           re-embedded yields slightly different vectors and UMAP amplifies that into
   #           different cluster counts (241 -> 231 -> 226 for one identical corpus).
-  # gemini  -> hosted Gemini embeddings. Deterministic, so it removes that variance --
-  #           but it is rate limited, it can fail mid-run, and EVERY threshold in this
-  #           file was calibrated against bge's cosine bands (trigger p10=0.496
-  #           p50=0.550 p90=0.613, response p50=0.635). Switching backends invalidates
-  #           all of them until they are re-derived. This is not a drop-in.
-  backend: local
+  # gemini  -> hosted Gemini embeddings via GOOGLE AI STUDIO DIRECTLY, ~1k requests/DAY,
+  #           cache embed_cache.db keyed sha256(model|prefix|text). Deterministic, so it
+  #           removes that variance -- but it is rate limited and it can fail mid-run.
+  #           *** THIS IS ALMOST CERTAINLY NOT THE ONE YOU WANT. *** Every vector for this
+  #           corpus was paid for through the JOVEO GATEWAY into a DIFFERENT cache under a
+  #           DIFFERENT key scheme, so selecting `gemini` re-buys the entire corpus
+  #           (~25k vectors) at 1k/day against a cache that holds none of it.
+  # gateway -> the SAME model over the Joveo gateway (added 2026-08-19), cache
+  #           gemini_embed_cache.db keyed sha256(model|dims|text) -- the file that already
+  #           holds the taxonomy, all 12,399 triggers and all 12,398 response clauses. This
+  #           is the near-free hosted option. Needs the Joveo VPN and LLM_GATEWAY_URL /
+  #           LLM_GATEWAY_KEY in Brain/.env. Paced to 140 req/min against the gateway's
+  #           measured 150-per-window-per-key ceiling; NEVER batched, because /embeddings
+  #           intermittently returns fewer vectors than inputs at HTTP 200.
+  #
+  # *** CHANGED local -> gateway ON 2026-08-19. READ THIS BEFORE RUNNING ANYTHING. ***
+  #
+  # WHY. The live 259-scenario taxonomy, all 12,444 kb_pairs and every vector in
+  # narens-brain-3072 are gemini-embedding-2@3072, fetched through the Joveo gateway. This
+  # key said `local` (bge@768). So the config described a DIFFERENT SYSTEM from the one in
+  # production: main.py would have embedded in bge space, clustered a bge pool, and upserted
+  # the result over the live taxonomy. Layer A upserts scenarios, so that is destructive, not
+  # merely inconsistent. `gateway` is now the honest value.
+  #
+  # NOT `gemini`: that name routes to Google AI Studio directly at ~1k requests/day, into
+  # embed_cache.db under a DIFFERENT key scheme that holds none of this corpus. It would
+  # re-buy ~25k vectors. `gateway` reads gemini_embed_cache.db, where they already are --
+  # verified with the transport DISABLED (300/300 real triggers served, zero requests) by
+  # calibration/gateway_backend_check.py.
+  #
+  # *** THIS KEY IS GLOBAL, NOT PER-LAYER, AND THAT HAS CONSEQUENCES BEYOND LAYER A/B. ***
+  # Every absolute cosine threshold in this file was fitted to bge's bands (trigger
+  # p10=0.496 p50=0.550 p90=0.613; response p50=0.635). The gemini trigger band is measured
+  # at p10=0.653 p50=0.690 p90=0.729 -- about +0.14, and tighter. So:
+  #   * layer_b RELATIVE knobs are fine. relative_margin/sink_margin_delta rank against a
+  #     trigger's OWN best match, which is scale-invariant -- and the live routing was
+  #     produced with exactly these values in exactly this space (sink share 47.5%,
+  #     reproducing the measured 47.3%/48.1%).
+  #   * layer_b ABSOLUTE floors (sink_rescue_*) are INVERTED in this space and are FLAGGED,
+  #     not re-tuned. Harmless today: sink_rescue_strategy is `none`.
+  #   * layer_c and layer_d thresholds are NOT re-derived and must be treated as
+  #     UNCALIBRATED until they are. This is tolerable only because both layers are
+  #     currently dark -- rubrics/gap_events/milestone_performance are all empty. DO NOT
+  #     run Layer C or Layer D against this backend and trust the numbers.
+  #
+  # OPERATIONAL: needs the Joveo VPN and LLM_GATEWAY_URL / LLM_GATEWAY_KEY in Brain/.env.
+  # FRESH text costs real requests, paced at 140/min against a 150-per-window-per-key cap,
+  # with in-flight requests clamped to 6 against a max_parallel_requests ceiling of 8.
+  # Corpus-sized work is therefore measured in HOURS, not minutes. Everything already
+  # embedded for this corpus is cached and free.
+  backend: gateway
 
   gemini_model: gemini-embedding-2
 

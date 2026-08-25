@@ -16,6 +16,9 @@ node_modules
 recordings
 csm_recordings
 Brain/recordings_subset*/
+Brain/recordings_pull_4yr/
+Brain/recordings_pull_keep/
+Brain/recordings_excluded_interviews/
 
 # --- Rebuildable local caches (hundreds of MB) ---
 embed_cache.db

@@ -23,6 +23,7 @@ class LayerATuning:
     merge_cosine_threshold: float
     min_content_words: int
     pool_unit: str
+    scenario_vector_mode: str
     grouping_method: str
     primary_topic_merge_threshold: float
     response_taxonomy_purity_gate: float
@@ -35,6 +36,7 @@ class LayerATuning:
 class LayerBTuning:
     relative_margin: float
     max_scenarios_per_pair: int
+    sink_margin_delta: float
     matching_strategy: str
     primary_topic_relative_margin: float
     max_primary_topics_per_pair: int
@@ -102,6 +104,21 @@ class LayerDTuning:
     gap_severity_critical_miss_rate: float
     gap_severity_high_miss_rate: float
     gap_severity_moderate_miss_rate: float
+    # --- Layer D redesign (Brain/layer_d/, 2026-08-20). The keys above this line are
+    # the rubric-era ego_trap knobs, kept until that package retires (deleting them
+    # now would break its modules and tests while both generations coexist). The
+    # redesign reads ONLY the keys below plus similarity_relative_margin and
+    # max_scenarios_per_signal, whose meaning is identical in both generations.
+    segmentation_arm: str
+    grader_arm: str
+    grader_model: str
+    grader_reasoning_effort: str
+    grader_k_runs: int
+    pairwise_swap: bool
+    quote_verify_min_overlap: float
+    shrinkage_prior_strength: float
+    dead_check_naren_floor: float
+    min_attempts_to_rank: int
 
 
 @dataclass(frozen=True)
