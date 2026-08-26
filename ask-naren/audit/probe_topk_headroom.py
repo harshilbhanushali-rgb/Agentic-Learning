@@ -52,6 +52,16 @@ KS = (1, 3, 5, 10, 20)
 
 
 def _connect_read_only(url: str):
+    """A connection Postgres itself refuses to write through.
+
+    close() is wrapped to RESET the session setting first -- see the identical
+    comment in Brain/ops/serve_ask_naren.py._connect_read_only and the entry in
+    Brain/docs/GOTCHAS.md. Left in place, this setting leaks through Neon's
+    POOLED endpoint (PgBouncer transaction pooling) onto whichever unrelated
+    client is handed this backend connection next. Measured 2026-08-26: that is
+    what made a Layer D regrade see the whole database as read-only, repeatedly,
+    in a different process, with no write ever attempted on this connection.
+    """
     if "hostaddr=" not in url:
         url += ("&" if "?" in url else "?") + f"hostaddr={HOSTADDR}"
     conn = storage.get_connection(url)
@@ -60,6 +70,16 @@ def _connect_read_only(url: str):
         "SELECT current_setting('default_transaction_read_only')").fetchone()[0]
     if setting != "on":
         raise RuntimeError(f"read-only enforcement failed: {setting!r}")
+    _real_close = conn.close
+
+    def _close_and_reset():
+        try:
+            conn.execute("SET SESSION default_transaction_read_only = off")
+        except Exception:
+            pass  # best-effort: the connection may already be broken/closed
+        _real_close()
+
+    conn.close = _close_and_reset
     return conn
 
 
@@ -175,7 +195,8 @@ def main() -> int:
 
 def _own_call(rec: dict, pairs: list[dict]) -> str:
     """The call the situation came from -- needed for the leave-one-call-out mask. The raw
-    record does not carry it, so recover it from the pair whose trigger IS the situation."""
+    record does not carry it, so recover it from the pair whose trigger IS the situation.
+    """
     for p in pairs:
         if p["trigger_text"] == rec["situation"]:
             return p["call_filename"]

@@ -49,6 +49,16 @@ OUT = Path(__file__).resolve().parent / "artifacts" / "scenario_mismatch_diagnos
 
 
 def _connect_read_only(url: str):
+    """A connection Postgres itself refuses to write through.
+
+    close() is wrapped to RESET the session setting first -- see the identical
+    comment in Brain/ops/serve_ask_naren.py._connect_read_only and the entry in
+    Brain/docs/GOTCHAS.md. Left in place, this setting leaks through Neon's
+    POOLED endpoint (PgBouncer transaction pooling) onto whichever unrelated
+    client is handed this backend connection next. Measured 2026-08-26: that is
+    what made a Layer D regrade see the whole database as read-only, repeatedly,
+    in a different process, with no write ever attempted on this connection.
+    """
     if "hostaddr=" not in url:
         url += ("&" if "?" in url else "?") + f"hostaddr={HOSTADDR}"
     conn = storage.get_connection(url)
@@ -57,6 +67,16 @@ def _connect_read_only(url: str):
         "SELECT current_setting('default_transaction_read_only')").fetchone()[0]
     if setting != "on":
         raise RuntimeError(f"read-only enforcement failed: {setting!r}")
+    _real_close = conn.close
+
+    def _close_and_reset():
+        try:
+            conn.execute("SET SESSION default_transaction_read_only = off")
+        except Exception:
+            pass  # best-effort: the connection may already be broken/closed
+        _real_close()
+
+    conn.close = _close_and_reset
     return conn
 
 
@@ -75,7 +95,8 @@ def _labels_by_pair_id(conn, pair_ids: list[int]) -> dict[int, dict]:
 def _find_retrieved(conn, call_filename: str, trigger: str, response: str) -> list[dict]:
     """The artifact records the retrieved neighbour by text, not by pair_id. Match on
     (call, trigger, response) content. More than one hit means a content duplicate, which
-    the corpus is known to contain -- reported rather than silently collapsed."""
+    the corpus is known to contain -- reported rather than silently collapsed.
+    """
     rows = conn.execute(
         "SELECT p.pair_id, p.scenario_key, p.scenario_keys, p.trigger_text, p.response_text "
         "FROM kb_pairs p JOIN calls c ON p.call_id = c.call_id WHERE c.filename = %s",

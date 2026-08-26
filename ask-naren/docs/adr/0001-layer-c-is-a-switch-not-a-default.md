@@ -15,3 +15,15 @@ Two corrected runs (24-25 held-out items, ~12-17 paired after excluding items ei
 **Decision: ship pairs-only as the default. The playbook-augmented variant stays off** — not removed, since Layer C's own quality is still evolving (see `Brain/CLAUDE.md`'s Layer C caveats) and a future recalibration could change this, but there is currently no evidence to justify its extra prompt cost and its dependency on Layer C's unresolved criterion-gradability rate.
 
 Caveat carried forward: this is a prototype-scale sample (n=24-25, paired n=12-17), not a statistically powered study. It answers "is there an effect large enough to see here" (no), not "does an effect exist" (unknown). Revisit with a larger sample if the switch decision ever becomes load-bearing enough to need more confidence than that.
+
+## Validation of the instrument (2026-08-26): the paired delta stands
+
+The conclusion above rests on a paired delta in one metric — embedding cosine between a generated answer and Naren's real historical response. That metric was itself suspected of being uninterpretable and was tested directly (`ask-naren/audit/diagnose_similarity_metric.py`).
+
+**It discriminates.** Against a transplant null — the same generated answer scored against a *different* item's ground truth, holding register and length constant — matched pairs score 0.698 against 0.625, a lift of +0.073 at Cohen's d = 1.35, with the true target at median rank 2.5 of 24 candidates against a chance 12.5. So the delta above is not a difference between two meaningless numbers, and **no retraction is needed**.
+
+Two things this adds rather than changes:
+
+**Scale.** The instrument demonstrably resolves a +0.073 effect. The playbook effect measured above was -0.005 to -0.007 — roughly **12x smaller than an effect this metric can see**. That converts "no difference we could detect" from a hope into a statement about resolution, and it supports this ADR's own framing ("is there an effect large enough to see" — no) rather than undermining it.
+
+**A use rule, because the absolute value is NOT interpretable.** Two *unrelated real* Naren answers score 0.717 — higher than a correct generated answer against its own ground truth at 0.698. Real answers share a spoken register (fillers, self-interruption, transcript noise) that clean generated prose does not, and that gap depresses every cross-type cosine regardless of correctness. So a matched score sitting below the unrelated-real null is not evidence of a bad answer. **This metric is valid paired and relative only, same text type on both sides** — which is exactly how it was used above. It must never be quoted as an answer-quality figure.

@@ -77,7 +77,16 @@ def _connect_read_only(database_url: str, hostaddr: str | None = None):
 
     `hostaddr` works around the local resolver refusing `*.neon.tech` (same fix as
     Brain/ops/ship_union_taxonomy.py's `connect()` — `host` stays in the URL for TLS
-    SNI/SCRAM, `hostaddr` just tells the driver which IP to open the socket on)."""
+    SNI/SCRAM, `hostaddr` just tells the driver which IP to open the socket on).
+
+    close() is wrapped to RESET the session setting first -- see the identical
+    comment in Brain/ops/serve_ask_naren.py._connect_read_only and the entry in
+    Brain/docs/GOTCHAS.md. Left in place, this setting leaks through Neon's
+    POOLED endpoint (PgBouncer transaction pooling) onto whichever unrelated
+    client is handed this backend connection next. Measured 2026-08-26: that is
+    what made a Layer D regrade see the whole database as read-only, repeatedly,
+    in a different process, with no write ever attempted on this connection.
+    """
     if hostaddr and "hostaddr=" not in database_url:
         database_url += ("&" if "?" in database_url else "?") + f"hostaddr={hostaddr}"
         print(f"[dns] hostaddr={hostaddr} (host kept in the URL for SNI/SCRAM)")
@@ -86,6 +95,16 @@ def _connect_read_only(database_url: str, hostaddr: str | None = None):
     ro = conn.execute("SELECT current_setting('default_transaction_read_only')").fetchone()[0]
     if ro != "on":
         raise RuntimeError(f"read-only enforcement failed: setting is {ro!r}")
+    _real_close = conn.close
+
+    def _close_and_reset():
+        try:
+            conn.execute("SET SESSION default_transaction_read_only = off")
+        except Exception:
+            pass  # best-effort: the connection may already be broken/closed
+        _real_close()
+
+    conn.close = _close_and_reset
     return conn
 
 

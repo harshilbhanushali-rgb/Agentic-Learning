@@ -105,4 +105,16 @@ A separate Python project (own venv, own dependencies) that lives entirely under
 - Stack, architecture, transcript format, embedding API, checkpointing
 - Pointers to `Brain/docs/GOTCHAS.md`, `Brain/docs/SCHEMA.md`, and `Brain/docs/findings/INDEX.md` — the full calibration/research history (dozens of measured experiments across Layer A/B/C/D), which used to live inline in this file and has since been split out by topic so it loads on demand instead of by default.
 
+## Ask Naren
+
+A third context sharing this repo: an internal tool where a CSM describes a live client situation and gets one answer grounded in Naren's closest real historical response, or a decline. Its docs, ADRs, glossary and audit harnesses are in `ask-naren/`; its **runtime lives in `Brain/ask_naren/`** because it reuses Brain's storage, gateway and embedder directly. See `CONTEXT-MAP.md`.
+
+```bash
+cd Brain
+python ops/serve_ask_naren.py --ask "<situation>"   # answer one situation end to end, then exit
+python ops/serve_ask_naren.py                        # serve on 127.0.0.1:8787
+```
+
+Needs the Joveo VPN. Reads Postgres once at startup and closes the connection before serving — it cannot write to Brain's pipeline.
+
 Do not re-derive or re-propose a threshold, clustering method, or matching strategy for the Brain pipeline without first checking `Brain/docs/findings/INDEX.md` — most ideas here have already been tried and measured, with the outcome recorded.

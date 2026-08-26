@@ -86,6 +86,7 @@ Long dry runs must be launched with `PYTHONUNBUFFERED=1` when redirecting to a l
 - `tests/` — pytest suite (319 tests across 23 files as of 2026-08-10; this count grows every session, use `pytest tests/ --collect-only -q` for the current number rather than trusting this line). `test_cluster_evidence.py` and `test_tuning.py` cover the triage helpers and the config loader; `test_layer_b_assignment.py` covers relative top-K scenario matching using hand-built orthogonal unit vectors, so it tests the *rule* rather than the embedding model; `test_relative_match.py` covers the same rule after its extraction to `shared/relative_match.py`; `test_topic_grouping.py` covers `shared/topic_grouping.py`; `test_two_stage_matching.py` covers `assign_scenarios_two_stage`'s strict/soft/fallback strategies against hand-built vectors (uncalibrated on real data — see below); `test_gemma_retry.py` covers the `httpx.TransportError` retry fix; the six `test_ego_trap_*.py` files cover Layer D, and its similarity-mode tests patch `score_client_turns` with hand-built similarity matrices rather than mocking the embedder and Pinecone — same reasoning as `test_layer_b_assignment.py`
 - `ego_trap/` — the RUBRIC-ERA gap-analysis pipeline (Steps 0-4 + Layer D) scoring CSM calls against Naren's rubrics; `ops/run_ego_trap.py` is its non-interactive batch entry point, `ops/clear_ego_trap_data.py` resets only its own tables. **Dark since the union taxonomy replacement** (rubrics is empty) and superseded by `layer_d/`; retires once the redesign passes its gates
 - `layer_d/` (added 2026-08-20) — the REDESIGNED gap-analysis pipeline scoring CSM calls against **playbooks** (`key_moves`, positional M1..Mn), with the SAME instrument also scoring Naren's own routed kb_pairs so every gap is a rate difference against a measured benchmark. Key properties, each one a fix for a measured ego_trap defect: client-move segmentation arm E (the 98.6%-artifact fix), mandatory verbatim quotes verified programmatically (`verify_quotes.py`; the 23%-fabrication fix), 4-state verdicts where `unscored` ≠ `miss` (the truncation-manufactures-misses fix), natural-key `move_events` upserts + full-recompute `move_performance` (the double-count fix), checkpoint-on-success-only (the lost-signals fix), fail-closed speaker classification (the internal-chatter-as-client fix), and Naren-rate dead-check flags (the 24%-dead-criteria fix). Both grader arms are built (`checks` binary evidence-gated, `pairwise` order-swapped vs exemplar); `tuning.yaml layer_d.grader_arm` selects, and the C2 head-to-head decides the value. Spec: `docs/superpowers/specs/2026-08-20-layer-d-redesign-design.md`
+- `ask_naren/` (added 2026-08-26) — the **Ask Naren** service: a CSM types a live client situation, gets back one answer grounded in Naren's closest real historical response, or a decline. Not part of the mining pipeline — it is a consumer of it, and it **never writes to Postgres** (the read-only connection is closed before the first request is served). `retrieval.py` loads every coachable `kb_pair`, dedupes on normalized (trigger, response) CONTENT (the corpus holds transcripts ingested twice under two filenames — 6528 rows become 6496), and searches by in-memory cosine because `is_coachable` is not in Pinecone's metadata. `grounding.py` is the **grounding gate**: an answer whose quote is not verbatim in the cited response, or that cites a call it was not shown, is regenerated once and then declined — it reuses `layer_d/verify_quotes.py` rather than defining containment twice. `answering.py` orchestrates and passes `no_cache=True` on every generation. `service.py` is stdlib `http.server`, **single-threaded on purpose** (`shared/embed_cache.py` holds a thread-bound SQLite connection) with `Connection: close` on every response. Entry point `ops/serve_ask_naren.py`; `--ask "<situation>"` answers one and exits. Context, ADRs and the answer-quality audit live in `../ask-naren/`
 
 ### Transcript format
 
@@ -286,21 +287,32 @@ Read this before touching the table:
 `rubrics`/`gap_events`/`milestone_performance` are still EMPTY BY DESIGN (keyed to the old
 taxonomy), so the rubric-era Layer D remains regressed and retires with `ego_trap/`.
 
-**THE LAYER D REDESIGN IS CALIBRATED AND HAS PRODUCED ITS FIRST COACHING REPORT
-(2026-08-25).** The instrument is `layer_d_e_pairwise_gemini-3.6-flash_medium_noswap_v2`
-— every piece a measured verdict: pairwise beat checks at C2 (77.1% vs 53.9% discrimination;
-checks is DEAD for arc-level moves — the expert's own per-moment rate is 3–6% under any
-grader/wording, proven 4x at C3); the order swap was dropped on a 95% agreement measurement
-(CSM side randomized per moment); k=1 (zero flips at k=3); C4 blinded reader 11/11. First
-production run 137706da74c6: 100 transcripts, 807 moments graded, 0 failures; a 40-moment
-blinded output audit hit 97.9% agreement; the spec-step-5 read PASSED WITH NOTES. **Three P0
-fixes are owed before any CSM-facing run** (interjection guard, substantive-exemplar filter,
-report grouping) — see `HANDOFF_LAYER_D_CALIBRATED_2026-08-25.md` and
-`docs/findings/layer-d-redesign.md` (the arc's full evidence trail). 26 of 77 rankable cells
-are blurry (≥80% tie) and form the TARGETED playbook-rewrite shortlist. `move_events`/
-`move_performance` key `(playbook_id, move_id)` and are in `ship_union_taxonomy.py`'s
-delete chain. The runner refuses without `csm_recordings/client_speakers.txt`
-(`ops/build_client_roster.py` regenerates it from the Avoma rosters).
+**THE LAYER D REDESIGN IS CALIBRATED, ALL THREE P0 FIXES ARE SHIPPED, AND THE REGRADE IS
+COMPLETE (2026-08-27).** The instrument is
+`layer_d_e_pairwise_gemini-3.6-flash_medium_noswap_v3` (the `_v3` suffix is the
+interjection-guard/exemplar-filter boundary — `_v2` verdicts are stale and were fully
+superseded by the regrade) — every piece a measured verdict: pairwise beat checks at C2
+(77.1% vs 53.9% discrimination; checks is DEAD for arc-level moves — the expert's own
+per-moment rate is 3–6% under any grader/wording, proven 4x at C3); the order swap was dropped
+on a 95% agreement measurement (CSM side randomized per moment); k=1 (zero flips at k=3); C4
+blinded reader 11/11. **The three P0 fixes** (interjection guard — fragment/interruption
+replies recorded but never graded; substantive-exemplar filter — Naren filler can never be
+the benchmark; report grouping — one block per scenario, worst-first, no cutoff) **shipped,
+were audited clean, and the full corpus was regraded**: 100 of 106 mapped transcripts, 0
+failures, fresh `move_performance` (251 rows). The regraded numbers barely moved from the
+pre-fix run (e.g. the top cell's match-or-beat went 23%→22%, attempt counts dropping by
+exactly what the interjection guard predicts) — confirming the original run was mostly real
+signal, not defect-driven noise. A fresh 40-moment blinded output audit on the regraded data
+hit 92.7% agreement (gate ≥70%), consistent with the original run's 97.9%. Full trail:
+`HANDOFF_LAYER_D_P0_SHIPPED_2026-08-27.md` (supersedes `HANDOFF_LAYER_D_CALIBRATED_2026-08-25.md`)
+and `docs/findings/layer-d-redesign.md` (the arc's full evidence trail, including two
+operational bugs the regrade exposed and fixed — a missing connection-reconnect and a
+Neon-pooler session-leak that was making the DB look intermittently read-only; see
+`docs/GOTCHAS.md`). ~24 of the ~75 rankable cells are blurry (≥80% tie) and form the TARGETED
+playbook-rewrite shortlist (P1, not started). `move_events`/`move_performance` key
+`(playbook_id, move_id)` and are in `ship_union_taxonomy.py`'s delete chain. The runner
+refuses without `csm_recordings/client_speakers.txt` (`ops/build_client_roster.py`
+regenerates it from the Avoma rosters).
 
 **New ops scripts** (all dry-run by default, `--apply` required, Neon DNS handled via
 `--hostaddr`): `ops/ship_union_taxonomy.py` (snapshot → delete children-first → load 259
