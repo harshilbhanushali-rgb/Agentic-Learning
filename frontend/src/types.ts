@@ -200,10 +200,20 @@ export interface AskNarenAnswer {
   match: AskNarenMatch;
 }
 
-/** `no_close_match` and `grounding_unverified` come from the answerer; `service_error` is
- *  the service's own 503, which is deliberately decline-SHAPED so a fault can be rendered
- *  as a plain explanation rather than a broken page (issue #6 completes that path). */
-export type AskNarenDeclineReason = 'no_close_match' | 'grounding_unverified' | 'service_error';
+/** Where each one comes from, because they must stay distinguishable to whoever is
+ *  debugging (issue #6): `no_close_match` and `grounding_unverified` are the answerer
+ *  deciding it cannot ground an answer -- the tool working correctly. `service_error` is the
+ *  service's own 503, raised when answering threw. `service_unreachable` is synthesised by
+ *  the proxy when the service could not be reached or timed out at all.
+ *
+ *  The last two are faults; the first two are not. Rendering them identically to a CSM is
+ *  deliberate, but COLLAPSING them would hide an outage behind what looks like normal
+ *  conservative behaviour, so the reason codes stay distinct all the way through. */
+export type AskNarenDeclineReason =
+  | 'no_close_match'
+  | 'grounding_unverified'
+  | 'service_error'
+  | 'service_unreachable';
 
 export interface AskNarenDecline {
   declined: true;

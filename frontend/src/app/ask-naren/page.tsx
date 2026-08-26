@@ -1,6 +1,6 @@
 'use client';
 
-import type { AskNarenResponse } from '@/types';
+import type { AskNarenDecline, AskNarenResponse } from '@/types';
 
 import { useState } from 'react';
 
@@ -18,12 +18,26 @@ import { DeclineNotice } from '@/components/ask-naren/DeclineNotice';
  * The asked situation is COMMITTED on submit -- shown above the response and cleared from
  * the input -- so a CSM can type an unrelated situation immediately without clearing
  * anything first, while still seeing what the answer on screen was answering.
+ *
+ * THERE IS NO ERROR STATE (issue #6). The proxy answers every request with either an answer
+ * or a decline-SHAPED body, including when the service is unreachable, so an outage renders
+ * through the same DeclineNotice as a genuine no-match. One render path cannot drift out of
+ * sync with itself, and there is no state this page can reach holding neither an answer nor
+ * an explanation. UNREACHABLE below is the last resort for the proxy ITSELF being gone --
+ * a bug rather than an expected path, but still not a reason to show a CSM a broken page.
  */
 type Phase =
   | { kind: 'idle' }
   | { kind: 'asking'; asked: string }
-  | { kind: 'answered'; asked: string; result: AskNarenResponse }
-  | { kind: 'failed'; asked: string };
+  | { kind: 'answered'; asked: string; result: AskNarenResponse };
+
+const UNREACHABLE: AskNarenDecline = {
+  declined: true,
+  reason: 'service_unreachable',
+  message:
+    'Ask Naren could not be reached just now. Nothing was answered — this is a fault on ' +
+    'our side, not a "no close match". Try again in a moment.',
+};
 
 export default function AskNarenPage() {
   const [draft, setDraft] = useState('');
@@ -40,16 +54,15 @@ export default function AskNarenPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ situation: asked }),
       });
-      // The service returns a decline-shaped body even on its own 503, so a non-OK status
-      // is still worth parsing before treating anything as a failure.
+      // A non-OK status still carries the contract: the service's own fault is a 503 with a
+      // decline body, and so is the proxy's unreachable response. Status is not the signal.
       const result = (await res.json()) as AskNarenResponse;
       if (typeof result?.declined !== 'boolean') throw new Error('unrecognised response');
       setPhase({ kind: 'answered', asked, result });
     } catch {
-      // Reached only when the service is unreachable or answered with something that is not
-      // its contract. Issue #6 turns this into a proper decline-shaped explanation; until
-      // then it is a plain line rather than a broken page.
-      setPhase({ kind: 'failed', asked });
+      // The proxy itself did not answer -- the app is down, not the service. Rendered as a
+      // decline like any other so the CSM still gets a sentence rather than a dead screen.
+      setPhase({ kind: 'answered', asked, result: UNREACHABLE });
     }
   };
 
@@ -97,13 +110,6 @@ export default function AskNarenPage() {
             phase.result.declined
               ? <DeclineNotice result={phase.result} />
               : <AnswerCard result={phase.result} />
-          )}
-
-          {phase.kind === 'failed' && (
-            <div className="rounded-md border border-dashed border-line bg-surface-raised p-6 text-sm leading-relaxed text-ink-2">
-              Ask Naren could not be reached. Nothing was answered &mdash; this is a fault on
-              our side, not a &ldquo;no close match&rdquo;. Try again in a moment.
-            </div>
           )}
         </section>
       )}
