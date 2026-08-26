@@ -1,0 +1,232 @@
+[
+  {
+    "id": 1,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8173540830612183,
+    "held_out_scenario": "advanced_targeting_and_differentiation",
+    "retrieved_scenario": "reliance_on_major_social_and_professional_networks"
+  },
+  {
+    "id": 2,
+    "kind": "control_right",
+    "cosine": 0.9999998211860657
+  },
+  {
+    "id": 3,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8018011450767517,
+    "held_out_scenario": "job_board_budget_and_direct_agreements",
+    "retrieved_scenario": "campaign_level_performance_tracking"
+  },
+  {
+    "id": 4,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7203974723815918,
+    "held_out_scenario": "vendor_transition_and_partnership_evaluation",
+    "retrieved_scenario": "vendor_transition_and_partnership_evaluation"
+  },
+  {
+    "id": 5,
+    "kind": "control_right",
+    "cosine": 0.9999998211860657
+  },
+  {
+    "id": 6,
+    "kind": "control_right",
+    "cosine": 1.000000238418579
+  },
+  {
+    "id": 7,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7884384989738464,
+    "held_out_scenario": "creative_and_media_plan_review",
+    "retrieved_scenario": "creative_and_media_plan_review"
+  },
+  {
+    "id": 8,
+    "kind": "control_wrong"
+  },
+  {
+    "id": 9,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8238883018493652,
+    "held_out_scenario": "gig_economy_driver_supply_acquisition",
+    "retrieved_scenario": "reliance_on_major_social_and_professional_networks"
+  },
+  {
+    "id": 10,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.834164023399353,
+    "held_out_scenario": "attribution_and_funnel_tracking",
+    "retrieved_scenario": "attribution_and_funnel_tracking"
+  },
+  {
+    "id": 11,
+    "kind": "control_right",
+    "cosine": 1.0
+  },
+  {
+    "id": 12,
+    "kind": "control_wrong"
+  },
+  {
+    "id": 13,
+    "kind": "control_right",
+    "cosine": 1.0
+  },
+  {
+    "id": 14,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7924095392227173,
+    "held_out_scenario": "reliance_on_major_social_and_professional_networks",
+    "retrieved_scenario": "job_board_budget_and_direct_agreements"
+  },
+  {
+    "id": 15,
+    "kind": "control_wrong"
+  },
+  {
+    "id": 16,
+    "kind": "control_right",
+    "cosine": 1.0
+  },
+  {
+    "id": 17,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7515537738800049,
+    "held_out_scenario": "technical_integration_and_timeline_scoping",
+    "retrieved_scenario": "technical_integration_and_timeline_scoping"
+  },
+  {
+    "id": 18,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7644069194793701,
+    "held_out_scenario": "pricing_and_fee_structures",
+    "retrieved_scenario": "budget_allocation_and_testing"
+  },
+  {
+    "id": 19,
+    "kind": "control_wrong"
+  },
+  {
+    "id": 20,
+    "kind": "control_wrong"
+  },
+  {
+    "id": 21,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8578745722770691,
+    "held_out_scenario": "xml_feed_setup_and_ingestion",
+    "retrieved_scenario": "programmatic_advertising_scope_and_capability"
+  },
+  {
+    "id": 22,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8364502787590027,
+    "held_out_scenario": "campaign_level_performance_tracking",
+    "retrieved_scenario": "ats_integration_and_api_mapping"
+  },
+  {
+    "id": 23,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8327710628509521,
+    "held_out_scenario": "pixel_placement_and_tracking",
+    "retrieved_scenario": "pixel_placement_and_tracking"
+  },
+  {
+    "id": 24,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8029957413673401,
+    "held_out_scenario": "specialty_and_niche_job_boards_integration",
+    "retrieved_scenario": "regional_talent_acquisition_and_brand_strategy"
+  },
+  {
+    "id": 25,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8433765172958374,
+    "held_out_scenario": "hiring_forecasts_and_volume_scoping",
+    "retrieved_scenario": "application_volume_and_prioritization"
+  },
+  {
+    "id": 26,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8089859485626221,
+    "held_out_scenario": "application_volume_and_prioritization",
+    "retrieved_scenario": "application_volume_and_prioritization"
+  },
+  {
+    "id": 27,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7570818066596985,
+    "held_out_scenario": "chatbot_and_messaging_implementation",
+    "retrieved_scenario": "chatbot_and_messaging_implementation"
+  },
+  {
+    "id": 28,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8075430393218994,
+    "held_out_scenario": "landing_page_and_conversion_setup",
+    "retrieved_scenario": "landing_page_and_conversion_setup"
+  },
+  {
+    "id": 29,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7892687320709229,
+    "held_out_scenario": "contract_and_legal_review",
+    "retrieved_scenario": "technical_integration_and_timeline_scoping"
+  },
+  {
+    "id": 30,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.766176700592041,
+    "held_out_scenario": "dashboard_access_and_reporting",
+    "retrieved_scenario": "dashboard_access_and_reporting"
+  },
+  {
+    "id": 31,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7620668411254883,
+    "held_out_scenario": "vendor_transition_and_partnership_evaluation",
+    "retrieved_scenario": "programmatic_advertising_scope_and_capability"
+  },
+  {
+    "id": 32,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8392080068588257,
+    "held_out_scenario": "programmatic_advertising_scope_and_capability",
+    "retrieved_scenario": "regional_talent_acquisition_and_brand_strategy"
+  },
+  {
+    "id": 33,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7984738945960999,
+    "held_out_scenario": "multi_language_copy_and_translation",
+    "retrieved_scenario": "multi_language_copy_and_translation"
+  },
+  {
+    "id": 34,
+    "kind": "control_wrong"
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "paired": 18,
+  "fixed_by_k5": 1,
+  "broken_by_k5": 0,
+  "right_in_both": 15,
+  "wrong_in_both": 2,
+  "mcnemar_p": 1.0,
+  "per_arm_right": {
+    "1": 15,
+    "5": 16
+  },
+  "control_wrong_caught": [
+    12,
+    12
+  ],
+  "control_right_kept": [
+    12,
+    12
+  ]
+}

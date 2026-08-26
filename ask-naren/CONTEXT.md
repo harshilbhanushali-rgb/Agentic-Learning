@@ -29,5 +29,13 @@ A minimum-similarity threshold below which Ask Naren would decline regardless of
 _Avoid_: confidence threshold, similarity cutoff.
 
 **Candidate selection**:
-Which retrieved moments reach the prompt. Ask Naren ships top-1 — the single nearest `kb_pair`. Distinct from retrieval quality, and measured to be the more tractable problem: the right-topic moment is usually present in the ranking without being first. Issue #8 measures top-1 against top-5.
+Which retrieved moments reach the prompt. Ask Naren ships top-1 — the single nearest `kb_pair`. Distinct from retrieval quality. Issue #8 measured top-1 against top-5 and found candidate selection is NOT the lever: shown five candidates the model re-selected in 11 of 18 situations and correctness moved once. The right-topic moment usually IS present in the ranking without being first -- that part held -- but reaching it does not make the answer right.
 _Avoid_: reranking, top-k tuning.
+
+**Candidate shortlist**:
+The k nearest `kb_pairs` retrieval hands the model for one situation, nearest first, when Ask Naren is run with `k > 1`. Measured against single-candidate selection in issue #8 and NOT adopted — `answering.DEFAULT_K` is 1, so in the shipped path the shortlist is one exchange long. See `docs/adr/0003-candidate-selection-and-retrieval-floor-measured-and-rejected.md`.
+_Avoid_: top-K, candidate set, the five, retrieval window.
+
+**Grounded candidate**:
+The one exchange from a candidate shortlist that an answer actually rests on — the one whose reply the model's quote verifies against. It is frequently not the nearest one, which is why a response's `citation`, `match.cosine` and `match.rank` all describe the grounded candidate rather than rank 1.
+_Avoid_: chosen pair, selected match, the winner.
