@@ -100,3 +100,24 @@ def test_an_empty_pool_raises_rather_than_answering_from_nothing():
     pool = retrieval.RetrievalPool([], np.empty((0, 2)))
     with pytest.raises(ValueError):
         pool.top1(np.array([1.0, 0.0]))
+
+
+# -- the candidate shortlist (issue #8) -------------------------------------------------
+
+def test_topk_returns_the_k_nearest_pairs_ranked_nearest_first():
+    """Rank order is the whole point of the shortlist: #8's premise is that the right
+    moment is usually PRESENT but not first, so a caller must be able to see position."""
+    pairs = [_pair(1, "budget", "b"), _pair(2, "timeline", "t"),
+             _pair(3, "half way between", "h", "c.txt")]
+    vectors = np.array([[1.0, 0.0], [0.0, 1.0], [0.707, 0.707]])
+    pool = retrieval.RetrievalPool(pairs, vectors)
+    got = pool.topk(np.array([0.9, 0.1]), 2)
+    assert [m.pair["pair_id"] for m in got] == [1, 3]
+
+
+def test_topk_returns_the_whole_pool_when_k_exceeds_it():
+    """A caller must not assume len(...) == k. The live pool is ~6.5k so k=5 never runs
+    short there, but a masked or filtered view can, and padding a shortlist with a repeated
+    or absent candidate would put a moment in the prompt that retrieval never chose."""
+    pool = retrieval.RetrievalPool([_pair(1, "x", "y")], np.array([[1.0, 0.0]]))
+    assert len(pool.topk(np.array([1.0, 0.0]), 5)) == 1

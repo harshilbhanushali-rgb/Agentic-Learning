@@ -51,7 +51,8 @@ model, same grounding gate -- so this audits what was committed rather than the 
 Retrieval masks the situation's own call (leave-one-call-out), since situations are drawn
 from the corpus. Read-only Postgres, no writes anywhere.
 
-    python ask-naren/audit/build_answer_audit.py --n 36 --controls 6
+    python ask-naren/audit/build_answer_audit.py --n 36 --controls 6          # k=1 arm
+    python ask-naren/audit/build_answer_audit.py --n 36 --controls 6 --k 5    # k=5 arm
 """
 from __future__ import annotations
 
@@ -77,6 +78,18 @@ MIN_RESPONSE_LEN = 60
 HOSTADDR = "18.138.49.39"
 ARTIFACTS = Path(__file__).resolve().parent / "artifacts"
 
+# A positive control is generated with the pool UNMASKED, so the situation -- itself a
+# corpus trigger -- embeds identically to its own stored trigger and retrieves it at
+# cosine 1.0. Anything below this did not ground in the situation's own exchange.
+SELF_RETRIEVAL_MIN_COSINE = 0.999
+
+
+def _arm_path(name: str, k: int) -> Path:
+    """Artifacts are named per ARM. k=1 keeps the original filenames, so the already-paid-for
+    top-1 generations stay exactly where --from-raw looks for them, and a k=5 run cannot
+    overwrite the arm it is being compared against."""
+    return ARTIFACTS / (f"{name}.json" if k == 1 else f"{name}_k{k}.json")
+
 
 class MaskedPool:
     """A RetrievalPool view with one call masked out. Wraps rather than modifies the
@@ -88,11 +101,23 @@ class MaskedPool:
         self._keep = np.array([p["call_filename"] != exclude_call for p in pool.pairs])
 
     def top1(self, query_vec) -> retrieval.Match:
+        return self.topk(query_vec, 1)[0]
+
+    def topk(self, query_vec, k: int) -> list[retrieval.Match]:
+        """The shipped path selects through topk now (issue #8), so this view has to answer
+        it too.
+
+        Masked rows are EXCLUDED from the ranking, not merely sorted last. Ranking them to
+        -inf and then slicing [:k] puts the held-out call back into the shortlist whenever k
+        reaches past the kept rows -- a leave-one-call-out violation with a cosine of -inf
+        attached, which is the one thing this class exists to prevent. A request larger than
+        the kept pool therefore returns FEWER candidates, never a masked one."""
         q = np.asarray(query_vec, dtype=np.float32)
         q = q / max(float(np.linalg.norm(q)), 1e-12)
-        sims = np.where(self._keep, self._pool.vectors @ q, -np.inf)
-        best = int(np.argmax(sims))
-        return retrieval.Match(pair=self._pool.pairs[best], cosine=float(sims[best]))
+        sims = self._pool.vectors @ q
+        order = [i for i in np.argsort(-sims) if self._keep[i]][:k]
+        return [retrieval.Match(pair=self._pool.pairs[int(i)], cosine=float(sims[int(i)]))
+                for i in order]
 
 
 def _connect_read_only(url: str):
@@ -148,32 +173,56 @@ def _sample(pairs: list[dict], rng, n: int) -> list[dict]:
     return picked[:n]
 
 
-def _generate(items, pool, gw, out_path):
+def _generate(items, pool, gw, out_path, k):
     records = []
     for n, item in enumerate(items, 1):
         masked = MaskedPool(pool, item["call_filename"])
-        match = masked.top1(embedder.embed_query_matrix([item["trigger_text"]])[0])
+        candidates = masked.topk(
+            embedder.embed_query_matrix([item["trigger_text"]])[0], k)
         try:
             result = answering.answer_situation(
                 item["trigger_text"], masked, gw,
-                embed_query=embedder.embed_query_matrix)
+                embed_query=embedder.embed_query_matrix, k=k)
         except Exception as e:                        # noqa: BLE001 -- recorded, not fatal
             print(f"  [{n}/{len(items)}] FAILED: {e}", flush=True)
             continue
+
+        # WHICH exchange the packet shows the blind reader. It has to be the one the answer
+        # is GROUNDED in, not the nearest one -- under a shortlist those are frequently
+        # different, and the rubric asks whether the answer is supported by the reply shown
+        # beside it. Showing rank 1 next to an answer grounded in rank 4 would make a blind
+        # reader correctly reject a correct answer, and the k=5 arm would lose on a
+        # measurement artifact. Same class of error as the invalid positive control that
+        # issue #7 caught: the material shown has to match the rubric it is scored against.
+        shown = candidates[0]
+        if not result["declined"]:
+            shown = next(m for m in candidates
+                         if m.pair["pair_id"] == result["citation"]["pair_id"])
+
         records.append({
             "situation": item["trigger_text"],
             "own_real_reply": item["response_text"],
             "held_out_scenario": item["scenario_key"],
-            "retrieved_scenario": match.pair["scenario_key"],
-            "retrieved_trigger": match.pair["trigger_text"],
-            "retrieved_response": match.pair["response_text"],
-            "cosine": match.cosine,
-            "same_scenario": item["scenario_key"] == match.pair["scenario_key"],
+            "k": k,
+            # The whole shortlist, chosen and unchosen. #8's question -- was the right-topic
+            # moment present but not selected -- is only answerable later if the ones the
+            # model passed over are kept here.
+            "shortlist": [{"pair_id": m.pair["pair_id"],
+                           "scenario_key": m.pair["scenario_key"],
+                           "call_filename": m.pair["call_filename"],
+                           "cosine": m.cosine} for m in candidates],
+            "grounded_rank": None if result["declined"] else result["match"]["rank"],
+            "retrieved_scenario": shown.pair["scenario_key"],
+            "retrieved_trigger": shown.pair["trigger_text"],
+            "retrieved_response": shown.pair["response_text"],
+            "cosine": shown.cosine,
+            "same_scenario": item["scenario_key"] == shown.pair["scenario_key"],
             "result": result,
         })
         out_path.write_text(json.dumps(records, indent=2), encoding="utf-8")
         state = "DECLINED" if result["declined"] else "answered"
-        print(f"  [{n}/{len(items)}] {state} cos={match.cosine:.3f} "
+        print(f"  [{n}/{len(items)}] {state} cos={shown.cosine:.3f} "
+              f"rank={records[-1]['grounded_rank']} "
               f"same_scenario={records[-1]['same_scenario']}", flush=True)
     return records
 
@@ -219,6 +268,11 @@ def main() -> int:
     ap.add_argument("--n", type=int, default=36)
     ap.add_argument("--controls", type=int, default=6)
     ap.add_argument("--seed", type=int, default=SEED)
+    ap.add_argument("--k", type=int, default=1,
+                    help="candidate shortlist size shown to the model (issue #8). "
+                         "1 is the shipped arm measured at 83%%; 5 is the arm under test. "
+                         "Artifacts are named per arm, so a k=5 run cannot overwrite the "
+                         "k=1 generations it is compared against.")
     ap.add_argument("--from-raw", action="store_true",
                     help="reuse answer_audit_raw.json instead of regenerating "
                          "the real items -- for rebuilding the packet after a "
@@ -240,7 +294,7 @@ def main() -> int:
           f"{len({i['scenario_key'] for i in items})} scenarios", flush=True)
 
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
-    raw_path = ARTIFACTS / "answer_audit_raw.json"
+    raw_path = _arm_path("answer_audit_raw", args.k)
     if args.from_raw:
         # Reuse the already-paid-for generations so a control-design fix does not re-roll
         # the real items under test. Changing the sample and the control in one step would
@@ -249,7 +303,7 @@ def main() -> int:
         print(f"[reused] {len(records)} generations from {raw_path.name}", flush=True)
     else:
         with GatewayClient() as gw:
-            records = _generate(items, pool, gw, raw_path)
+            records = _generate(items, pool, gw, raw_path, args.k)
 
     answered = [r for r in records if not r["result"]["declined"]]
     print(f"\n[generated] {len(records)} items, {len(answered)} answered, "
@@ -260,14 +314,22 @@ def main() -> int:
     # Positive controls: same situations, retrieval UNMASKED. With the full pool the
     # situation retrieves its own call (it IS a corpus trigger), so grounding is exactly on
     # target and a wrong answer here would be the model's fault, not retrieval's.
+    # Generated at the ARM's k, because a control has to run under the same conditions as
+    # the items it validates. That reintroduces one way for a positive to stop being
+    # known-right: with five candidates unmasked, the model can ground in a NEIGHBOUR rather
+    # than the situation's own exchange, and then "the retrieval cannot be off-topic" is no
+    # longer true of it. So a positive is kept only if it grounded at rank 1 at cosine ~1.0,
+    # which unmasked means it grounded in the situation's own exchange. At k=1 that holds
+    # automatically, so the k=1 arm's controls are exactly the ones issue #7 gated on.
     print(f"[positives] generating {args.controls} self-retrieval controls "
-          f"(unmasked pool)...", flush=True)
+          f"(unmasked pool, k={args.k})...", flush=True)
     positives = []
     with GatewayClient() as gw:
         for r in answered[:args.controls]:
             try:
                 res = answering.answer_situation(
-                    r["situation"], pool, gw, embed_query=embedder.embed_query_matrix)
+                    r["situation"], pool, gw,
+                    embed_query=embedder.embed_query_matrix, k=args.k)
             except Exception as e:                    # noqa: BLE001
                 print(f"  positive FAILED: {e}", flush=True)
                 continue
@@ -275,22 +337,31 @@ def main() -> int:
                 print("  positive declined -- skipped (a declined positive is not a "
                       "known-right item)", flush=True)
                 continue
-            match = pool.top1(embedder.embed_query_matrix([r["situation"]])[0])
+            if (res["match"]["rank"] != 1
+                    or res["match"]["cosine"] < SELF_RETRIEVAL_MIN_COSINE):
+                print(f"  positive grounded in a NEIGHBOUR (rank {res['match']['rank']}, "
+                      f"cos {res['match']['cosine']:.3f}) -- skipped: it is no longer "
+                      f"known-right", flush=True)
+                continue
+            candidates = pool.topk(
+                embedder.embed_query_matrix([r["situation"]])[0], args.k)
+            shown = next(m for m in candidates
+                         if m.pair["pair_id"] == res["citation"]["pair_id"])
             positives.append({"situation": r["situation"],
-                              "retrieved_trigger": match.pair["trigger_text"],
-                              "retrieved_response": match.pair["response_text"],
-                              "cosine": match.cosine, "result": res})
+                              "retrieved_trigger": shown.pair["trigger_text"],
+                              "retrieved_response": shown.pair["response_text"],
+                              "cosine": shown.cosine, "result": res})
     print(f"[positives] {len(positives)} usable", flush=True)
 
     blind, answer_key = _assemble(answered, positives, args.controls, rng)
-    (ARTIFACTS / "answer_audit_packet.json").write_text(
-        json.dumps(blind, indent=2), encoding="utf-8")
-    (ARTIFACTS / "answer_audit_key.json").write_text(
+    packet_path = _arm_path("answer_audit_packet", args.k)
+    packet_path.write_text(json.dumps(blind, indent=2), encoding="utf-8")
+    _arm_path("answer_audit_key", args.k).write_text(
         json.dumps(answer_key, indent=2), encoding="utf-8")
     counts: dict[str, int] = {}
-    for k in answer_key:
-        counts[k["kind"]] = counts.get(k["kind"], 0) + 1
-    print(f"[packet] {len(blind)} items {counts} -> artifacts/answer_audit_packet.json",
+    for entry in answer_key:
+        counts[entry["kind"]] = counts.get(entry["kind"], 0) + 1
+    print(f"[packet] {len(blind)} items {counts} -> artifacts/{packet_path.name}",
           flush=True)
     return 0
 

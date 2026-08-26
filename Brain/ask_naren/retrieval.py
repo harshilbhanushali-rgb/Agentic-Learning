@@ -105,16 +105,25 @@ class RetrievalPool:
     def top1(self, query_vec: np.ndarray) -> Match:
         """The closest pair to this situation, with a real cosine.
 
-        Both sides are unit-normalized, so the returned number IS a cosine. Normalizing
-        the query cannot change the ranking (a positive scalar does not reorder an argmax)
-        but it is what makes the reported figure mean what a caller reads it as.
+        Delegates to topk so there is ONE ranking implementation: two would be a place for
+        the shortlist and the shipped rank-1 path to disagree silently about what "closest"
+        means, which is the class of bug issue #8 is being run to avoid, not to introduce.
+        """
+        return self.topk(query_vec, 1)[0]
+
+    def topk(self, query_vec: np.ndarray, k: int) -> list[Match]:
+        """The k closest pairs, nearest first, with real cosines.
+
+        Both sides are unit-normalized, so the returned numbers ARE cosines. Normalizing
+        the query cannot change the ranking (a positive scalar does not reorder a sort) but
+        it is what makes the reported figures mean what a caller reads them as.
         """
         if not self.pairs:
             raise ValueError("retrieval pool is empty -- refusing to answer from nothing")
         q = _unit_rows(np.asarray([query_vec], dtype=np.float32))[0]
         sims = self.vectors @ q
-        best = int(np.argmax(sims))
-        return Match(pair=self.pairs[best], cosine=float(sims[best]))
+        order = np.argsort(-sims)[:k]
+        return [Match(pair=self.pairs[int(i)], cosine=float(sims[int(i)])) for i in order]
 
 
 def _unit_rows(matrix: np.ndarray) -> np.ndarray:

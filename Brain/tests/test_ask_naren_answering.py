@@ -166,3 +166,49 @@ def test_a_blank_situation_is_refused_without_spending_a_generation():
     with pytest.raises(ValueError):
         answering.answer_situation("   ", _pool(), gw, embed_query=_embed_query)
     assert gw.calls == []
+
+
+# -- the candidate shortlist (issue #8) -------------------------------------------------
+
+SECOND_CALL = "other_call.txt"
+SECOND_QUOTE = "come back to you today"
+
+
+def _ask_k(*payloads, k, situation="client says our cost per hire is way too high"):
+    gw = StubGateway(*payloads)
+    result = answering.answer_situation(situation, _pool(), gw,
+                                        embed_query=_embed_query, k=k)
+    return result, gw
+
+
+def test_an_answer_grounded_in_the_second_candidate_cites_the_second_candidate():
+    """#8's premise is that the useful moment is often not rank 1. If the response still
+    described rank 1, a CSM would be handed an answer from one call under another call's
+    citation -- an ADR 0002 violation that no gate metric would show, since the gate itself
+    passed."""
+    result, _ = _ask_k(_payload(answer="Tell them you will confirm today.",
+                                quote=SECOND_QUOTE, cited_call=SECOND_CALL), k=2)
+    assert result["declined"] is False
+    assert result["citation"]["pair_id"] == 22
+    assert result["citation"]["scenario_key"] == "timeline_question"
+    assert result["match"]["scenario_key"] == "timeline_question"
+    assert result["match"]["rank"] == 2
+
+
+def test_the_rank_1_arm_still_sends_the_single_candidate_prompt():
+    """Routing, and it is what keeps issue #8's A/B honest: the k=1 arm is compared against
+    the already-paid-for generations in artifacts/answer_audit_raw.json, which came from
+    build_prompt. Had widening k also routed k=1 through the shortlist prompt, both arms
+    would have moved and there would be nothing left to compare against."""
+    _, gw = _ask(_payload())
+    assert gw.calls[0]["prompt"] == answering.build_prompt(
+        "client says our cost per hire is way too high", _pool().pairs[0])
+
+
+def test_every_candidate_in_the_shortlist_reaches_the_prompt_with_its_own_identifier():
+    """Both replies AND both call identifiers: a candidate shown without its identifier
+    cannot be cited, so the model could only ever ground in the ones that carry one."""
+    _, gw = _ask_k(_payload(quote=SECOND_QUOTE, cited_call=SECOND_CALL), k=2)
+    prompt = gw.calls[0]["prompt"]
+    assert RESPONSE in prompt and "Let me check with the team" in prompt
+    assert CALL in prompt and SECOND_CALL in prompt

@@ -27,31 +27,49 @@ from layer_d.verify_quotes import verify_quote
 # and paraphrase-that-reads-as-a-quote is the failure this gate exists to stop.
 QUOTE_MIN_OVERLAP = 1.0
 
-
 @dataclass(frozen=True)
 class GateResult:
     passed: bool
     reason: str = ""       # "" when passed; a stable machine-readable cause otherwise
+    # On a pass, the ONE candidate the quote verified against. The caller cites this pair,
+    # not the nearest-ranked one -- with a shortlist those are frequently not the same pair,
+    # and citing rank 1 regardless would point a CSM at a call the answer does not come
+    # from while every gate metric still reported a pass.
+    pair: dict | None = None
 
 
 def _norm(text: str | None) -> str:
     return " ".join((text or "").split()).lower()
 
 
-def check(model_json: dict, matched_pair: dict) -> GateResult:
-    """Does this generated payload rest on the exchange it was actually given?
+def check(model_json: dict, candidates: list[dict]) -> GateResult:
+    """Does this generated payload rest on one of the exchanges it was actually given?
+
+    `candidates` is the shortlist the prompt showed, nearest first -- a ONE-element list on
+    the shipped rank-1 path, which is why widening this signature does not change that
+    path's behaviour: with one candidate the checks below reduce exactly to the previous
+    equality-plus-containment pair, in the same order, with the same reasons.
 
     Fails closed on every malformed shape: a missing key, a blank quote and a blank answer
     are all refusals, never "nothing to check".
+
+    Two candidates CAN share a call_filename -- dedup is keyed on content, so two different
+    exchanges from the same call both survive the pool (tests/test_ask_naren_retrieval.py
+    pins that). So cited_call does not always identify a single exchange, and the tie is
+    broken by which candidate's reply the quote actually verifies against rather than by
+    rank: rank would resolve ambiguity in favour of the pair the model may not have used.
     """
     if not _norm(model_json.get("answer")):
         return GateResult(False, "empty_answer")
 
-    if _norm(model_json.get("cited_call")) != _norm(matched_pair["call_filename"]):
+    cited = _norm(model_json.get("cited_call"))
+    named = [c for c in candidates if _norm(c["call_filename"]) == cited]
+    if not named:
         return GateResult(False, "wrong_call_cited")
 
     quote = model_json.get("quote") or ""
-    if not verify_quote(quote, matched_pair["response_text"], QUOTE_MIN_OVERLAP).verified:
-        return GateResult(False, "quote_not_verbatim")
+    for candidate in named:
+        if verify_quote(quote, candidate["response_text"], QUOTE_MIN_OVERLAP).verified:
+            return GateResult(True, pair=candidate)
 
-    return GateResult(True)
+    return GateResult(False, "quote_not_verbatim")
