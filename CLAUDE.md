@@ -13,6 +13,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Do not invoke the `superpowers:writing-plans` skill itself — the user considers it a waste of time. Writing a plan document is still fine (and often useful) after a design/spec is approved (e.g. via `superpowers:brainstorming`) — just write it directly rather than going through that skill's process.
 
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`harshilbhanushali-rgb/Agentic-Learning`), via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Multi-context: `CONTEXT-MAP.md` at the root points to each context's `CONTEXT.md` (currently `ask-naren/`; `frontend/` and `Brain/` get theirs lazily). See `docs/agents/domain.md`.
+
 ## Commands
 
 Run all commands from inside the `frontend/` directory:
