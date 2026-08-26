@@ -10,7 +10,7 @@ module embeds only the incoming situation, generates, and applies the grounding 
 """
 from __future__ import annotations
 
-from ask_naren import grounding
+from ask_naren import citations, grounding
 from ask_naren.retrieval import Match, RetrievalPool
 
 # The licensed config already used for Layer C's playbook backfill and Layer D's pairwise
@@ -131,12 +131,18 @@ def build_candidates_prompt(situation: str, candidates: list[dict]) -> str:
 
 
 def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_query,
-                     k: int = DEFAULT_K) -> dict:
+                     k: int = DEFAULT_K, label_for=citations.resolve_label) -> dict:
     """The one call the HTTP layer makes. Returns the response body itself.
 
     `embed_query` is passed in rather than imported so this module stays free of the
     embedder's disk-cache side effects -- which matter, because that cache holds a
     thread-bound sqlite connection (see ask_naren/service.py).
+
+    `label_for` turns a call filename into the label a CSM reads (issue #4). Injected the
+    same way `embed_query` is, rather than read from module state: resolving an opaque UUID
+    call needs an index built from the recorded participant sidecars at startup, and that
+    index is the caller's to own. The default resolves what the FILENAME alone states, which
+    is everything `--ask` needs and degrades honestly where the corpus is absent.
 
     `k` is how many retrieved exchanges the model is shown. It defaults to DEFAULT_K == 1,
     which is the shipped path and the arm issue #7's 83% was measured on; issue #8 A/Bs
@@ -164,31 +170,31 @@ def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_quer
             no_cache=True,
         )
         if payload.get("declined"):
-            return _decline(NO_CLOSE_MATCH, candidates[0], 1)
+            return _decline(NO_CLOSE_MATCH, candidates[0], 1, label_for)
         gate = grounding.check(payload, pairs)
         if gate.passed:
             # Identity, not equality: two candidates can hold equal dicts, and resolving by
             # value would report whichever compared equal first rather than the exchange the
             # gate actually verified the quote against.
             rank = next(i for i, m in enumerate(candidates, 1) if m.pair is gate.pair)
-            return _answer(payload, candidates[rank - 1], rank)
+            return _answer(payload, candidates[rank - 1], rank, label_for)
 
     # Deliberately NOT the last payload with a warning attached: an ungrounded answer must
     # not reach the caller in any field, or the gate is advisory rather than a gate.
-    return _decline(GROUNDING_UNVERIFIED, candidates[0], 1)
+    return _decline(GROUNDING_UNVERIFIED, candidates[0], 1, label_for)
 
 
-def _answer(payload: dict, match: Match, rank: int) -> dict:
+def _answer(payload: dict, match: Match, rank: int, label_for) -> dict:
     return {
         "declined": False,
         "answer": payload["answer"].strip(),
         "quote": payload["quote"].strip(),
-        "citation": _citation(match.pair),
+        "citation": _citation(match.pair, label_for),
         "match": _match_info(match, rank),
     }
 
 
-def _decline(reason: str, match: Match, rank: int) -> dict:
+def _decline(reason: str, match: Match, rank: int, label_for) -> dict:
     return {
         "declined": True,
         "reason": reason,
@@ -209,16 +215,17 @@ def _match_info(match: Match, rank: int) -> dict:
     return {"cosine": match.cosine, "scenario_key": match.pair["scenario_key"],
             "rank": rank}
 
-def _citation(pair: dict) -> dict:
+def _citation(pair: dict, label_for) -> dict:
     """Unredacted per ADR 0002, and resolvable back to its exact source rows.
 
-    `label` is what a CSM reads and is the raw filename for now; issue #4 resolves it to an
-    account and a date. It is a separate key from `call_filename` so that resolution is not
-    a shape change for every caller -- and so the raw identifier stays available to an
-    engineer tracing a bad answer, which is what pair_id and call_filename are for.
+    `label` is what a CSM reads: an account and a date where the recorded data states them
+    unambiguously, else the raw filename (ask_naren/citations.py). It is a SEPARATE key from
+    `call_filename` precisely so resolving it was not a shape change for any caller -- and so
+    the raw identifier stays available to an engineer tracing a bad answer, which is what
+    pair_id and call_filename are for.
     """
     return {
-        "label": pair["call_filename"],
+        "label": label_for(pair["call_filename"]) or pair["call_filename"],
         "call_filename": pair["call_filename"],
         "pair_id": pair["pair_id"],
         "scenario_key": pair["scenario_key"],

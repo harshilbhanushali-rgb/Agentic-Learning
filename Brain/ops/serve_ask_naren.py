@@ -34,7 +34,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ask_naren import answering, retrieval, service   # noqa: E402
+from ask_naren import answering, citations, retrieval, service   # noqa: E402
 from config import load_config                        # noqa: E402
 from preprocessing import embedder                    # noqa: E402
 from shared import storage                            # noqa: E402
@@ -45,10 +45,29 @@ from shared.gateway import GatewayClient              # noqa: E402
 # reason as ops/ship_union_taxonomy.py and the Ask Naren prototype.
 DEFAULT_HOSTADDR = "18.138.49.39"
 
+# Where the recorded participant sidecars live (`<stem>.speakers.json`, beside each
+# transcript). They are the ONLY source that names the account for the ~31% of citable pairs
+# whose call is an opaque UUID -- there is no meeting subject anywhere in the corpus. Read
+# ONCE here at startup, the same lifetime as the pool; nothing is read while answering.
+#
+# These directories are gitignored and machine-local, so their absence must DEGRADE rather
+# than break: without them every UUID call cites its raw filename, exactly as before issue #4.
+SIDECAR_DIRS = ("recordings", "csm_recordings", "recordings_pull_keep", "recordings_pull_4yr")
+
 
 def _connect_read_only(database_url: str, hostaddr: str | None):
     """A connection Postgres refuses to write through -- lifted from
-    calibration/probe_retrieval_gate.py's `_connect_read_only`."""
+    calibration/probe_retrieval_gate.py's `_connect_read_only`.
+
+    close() is wrapped to RESET the session setting first. Neon's pooled
+    endpoint reuses the same backend server connection across unrelated
+    clients (PgBouncer transaction pooling) -- SET SESSION here, left in
+    place, silently poisons whichever client gets this backend NEXT.
+    Measured 2026-08-26: this is what made Brain's Layer D regrade see the
+    whole database as read-only, repeatedly, with no write ever attempted on
+    THIS connection's own session -- confirmed by reproducing the leak
+    directly and then flushing the poisoned pool back to 'off'.
+    """
     if hostaddr and "hostaddr=" not in database_url:
         database_url += ("&" if "?" in database_url else "?") + f"hostaddr={hostaddr}"
         print(f"[dns] hostaddr={hostaddr} (host kept in the URL for SNI/SCRAM)")
@@ -57,6 +76,14 @@ def _connect_read_only(database_url: str, hostaddr: str | None):
     ro = conn.execute("SELECT current_setting('default_transaction_read_only')").fetchone()[0]
     if ro != "on":
         raise RuntimeError(f"read-only enforcement failed: setting is {ro!r}")
+    _real_close = conn.close
+    def _close_and_reset():
+        try:
+            conn.execute("SET SESSION default_transaction_read_only = off")
+        except Exception:
+            pass  # best-effort: the connection may already be broken/closed
+        _real_close()
+    conn.close = _close_and_reset
     return conn
 
 
@@ -80,6 +107,19 @@ def build_pool(hostaddr: str | None) -> retrieval.RetrievalPool:
     return pool
 
 
+def build_label_resolver():
+    """The filename -> readable-citation function, with the account index baked in."""
+    root = Path(__file__).resolve().parent.parent
+    index = citations.build_account_index(root / d for d in SIDECAR_DIRS)
+    if index:
+        print(f"[citations] {len(index)} UUID-named calls resolved to an account from "
+              f"recorded participants", flush=True)
+    else:
+        print("[citations] no participant sidecars found -- UUID-named calls will cite "
+              "their raw filename", flush=True)
+    return lambda filename: citations.resolve_label(filename, index)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -92,11 +132,13 @@ def main() -> int:
     args = ap.parse_args()
 
     pool = build_pool(args.hostaddr or None)
+    label_for = build_label_resolver()
 
     with GatewayClient() as gateway:
         def answerer(situation: str) -> dict:
             return answering.answer_situation(
-                situation, pool, gateway, embed_query=embedder.embed_query_matrix)
+                situation, pool, gateway, embed_query=embedder.embed_query_matrix,
+                label_for=label_for)
 
         if args.ask:
             print(json.dumps(answerer(args.ask), indent=2))

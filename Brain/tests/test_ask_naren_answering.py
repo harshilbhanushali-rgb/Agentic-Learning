@@ -212,3 +212,15 @@ def test_every_candidate_in_the_shortlist_reaches_the_prompt_with_its_own_identi
     prompt = gw.calls[0]["prompt"]
     assert RESPONSE in prompt and "Let me check with the team" in prompt
     assert CALL in prompt and SECOND_CALL in prompt
+
+
+# -- readable citations (issue #4) -------------------------------------------------------
+
+def test_the_citation_label_is_resolved_to_an_account_and_a_date():
+    """The raw filename stays available beside it -- an engineer tracing a bad answer needs
+    the exact source rows, and a CSM needs to recognise the call."""
+    result, _ = _ask(_payload())
+    assert result["citation"]["label"] == "Uber · Weekly Performance Review · 3 May 2023"
+    assert result["citation"]["call_filename"] == CALL
+    assert result["citation"]["pair_id"] == 11
+    assert result["citation"]["scenario_key"] == "performance_pushback"
