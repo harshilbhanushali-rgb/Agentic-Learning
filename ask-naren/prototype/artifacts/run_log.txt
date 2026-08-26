@@ -1,0 +1,280 @@
+[dns] hostaddr=18.138.49.39 (host kept in the URL for SNI/SCRAM)
+test set: 25 held-out items across 25 coachable scenarios (seed=20260826)
+will spend ~50 gemini-3.6-flash calls (reasoning_effort=medium)
+embedding 6528 coachable triggers (warm gateway cache -> mostly free)...
+  [1/25] advanced_targeting_and_differentiation -> retrieved campaign_level_performance_tracking (cos=0.785, playbook=yes)
+  [2/25] application_volume_and_prioritization -> retrieved downstream_activation_and_cost_metrics (cos=0.792, playbook=yes)
+  [3/25] ats_integration_and_api_mapping -> retrieved campaign_level_performance_tracking (cos=0.876, playbook=yes)
+  [4/25] attribution_and_funnel_tracking -> retrieved ats_integration_and_api_mapping (cos=0.860, playbook=yes)
+  [5/25] budget_allocation_and_testing -> retrieved programmatic_advertising_scope_and_capability (cos=0.825, playbook=yes)
+  [6/25] craigslist_and_classifieds_strategy -> retrieved craigslist_and_classifieds_strategy (cos=0.855, playbook=yes)
+  [7/25] dashboard_access_and_reporting -> retrieved technical_integration_and_timeline_scoping (cos=0.826, playbook=yes)
+  [8/25] downstream_activation_and_cost_metrics -> retrieved application_volume_and_prioritization (cos=0.850, playbook=yes)
+  [9/25] geographic_targeting_and_location_mapping -> retrieved geographic_targeting_and_location_mapping (cos=0.826, playbook=yes)
+  [10/25] gig_economy_driver_supply_acquisition -> retrieved gig_economy_driver_supply_acquisition (cos=0.821, playbook=yes)
+  [11/25] job_board_budget_and_direct_agreements -> retrieved specialty_and_niche_job_boards_integration (cos=0.851, playbook=yes)
+  [12/25] job_role_taxonomy_and_scoping -> retrieved regional_talent_acquisition_and_brand_strategy (cos=0.809, playbook=yes)
+  [13/25] landing_page_and_conversion_setup -> retrieved campaign_level_performance_tracking (cos=0.877, playbook=yes)
+  [14/25] multi_language_copy_and_translation -> retrieved multi_language_copy_and_translation (cos=0.798, playbook=yes)
+  [15/25] niche_talent_scarcity_and_budget_reallocation -> retrieved regional_talent_acquisition_and_brand_strategy (cos=0.819, playbook=yes)
+  [16/25] non_technical_stakeholder_translation -> retrieved advanced_targeting_and_differentiation (cos=0.816, playbook=yes)
+  [17/25] pixel_placement_and_tracking -> retrieved pixel_placement_and_tracking (cos=0.801, playbook=yes)
+  [18/25] pricing_and_fee_structures -> retrieved pricing_and_fee_structures (cos=0.801, playbook=yes)
+  [19/25] publisher_management_and_exclusions -> retrieved publisher_management_and_exclusions (cos=0.829, playbook=yes)
+  [20/25] regional_talent_acquisition_and_brand_strategy -> retrieved regional_talent_acquisition_and_brand_strategy (cos=0.836, playbook=yes)
+  [21/25] reliance_on_major_social_and_professional_networks -> retrieved application_volume_and_prioritization (cos=0.844, playbook=yes)
+  [22/25] slack_communication_and_channel_setup -> retrieved slack_communication_and_channel_setup (cos=0.824, playbook=yes)
+  [23/25] specialty_and_niche_job_boards_integration -> retrieved job_role_taxonomy_and_scoping (cos=0.795, playbook=yes)
+  [24/25] technical_integration_and_timeline_scoping -> retrieved technical_integration_and_timeline_scoping (cos=0.794, playbook=yes)
+  [25/25] testing_and_implementation_timeline -> retrieved testing_and_implementation_timeline (cos=0.835, playbook=yes)
+checkpointed 25 items (0 failed) -> C:\PF\Joveo\CS-platform\ask-naren\prototype\artifacts\eval_pairs_vs_playbook.json
+embedding 63/75 non-empty texts for ground-truth similarity scoring (12 declined/empty, skipped)...
+wrote C:\PF\Joveo\CS-platform\ask-naren\prototype\artifacts\eval_pairs_vs_playbook.json
+
+==============================================================================
+n=25  model=gemini-3.6-flash  reasoning=medium  seed=20260826
+==============================================================================
+
+--- item 1/25: advanced_targeting_and_differentiation ---
+CSM situation (held-out real trigger): Yes, and no. So that's it is DNI because that's the whole campaign, but I also want there's limitation in how many DNI people you're gonna get with your business sales. So Got it.
+Ground truth Naren response [20240923_pink_squid_joveo_onboarding_kick_off_16503b13.txt]: Awesome. Got it. So maybe one of the things we could do, Washington, is yeah. If you're if we could settle back on this, right, like, on on what we potentially can look at success criteria for this because, like, again, 
+Retrieved neighbour: campaign_level_performance_tracking / 20250326_joveo_x_oracle_implementation_requiremen_e0fb21bc.txt (cos=0.785)  playbook=yes
+  [pairs_only] declined=True  cites_retrieved=False  quote_verbatim=False  sim_to_gt=n/a
+    answer: 
+  [playbook_augmented] declined=True  cites_retrieved=False  quote_verbatim=False  sim_to_gt=n/a
+    answer: 
+
+--- item 2/25: application_volume_and_prioritization ---
+CSM situation (held-out real trigger): Like, the num candidates is number of leads, pros completed in 1st x days for application start. That's 7 day for jobs and 28 day for jobs.
+Ground truth Naren response [20240927_angi_services_joveo_weekly_connect_e6549941.txt]: Okay. Nope. This is this is awesome. Okay. Okay. Perfect. I I think we're we're good with the format, Ali, and then you did mention this would be coming through on a daily basis if you want to.
+Retrieved neighbour: downstream_activation_and_cost_metrics / 20231031_uber_corporate_joveo_connect_na_latam_f64c012e.txt (cos=0.792)  playbook=yes
+  [pairs_only] declined=True  cites_retrieved=False  quote_verbatim=False  sim_to_gt=n/a
+    answer: 
+  [playbook_augmented] declined=True  cites_retrieved=False  quote_verbatim=False  sim_to_gt=n/a
+    answer: 
+
+--- item 3/25: ats_integration_and_api_mapping ---
+CSM situation (held-out real trigger): And then I if I may, can I share my screen just to show you the back of UKG? Yep. So let's see. Wait. The entire screen. There we go. One moment. So anytime we create a new source, it does have an applicant source ID ver
+Ground truth Naren response [20250321_new_story_joveo_weekly_onboarding_connec_9439bb79.txt]: Yeah. It it's it's a lot more hi, David. This is Narayan here. I've I've worked with UKG before. So it like, I think you'll have to create these individually, right, to to actually do it. So my suggestion would be that w
+Retrieved neighbour: campaign_level_performance_tracking / 20250312_joveo_q2_kick_off_call_657615f5.txt (cos=0.876)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.709
+    answer: You can let the client know that we can have those tracking parameters or codes appended on our end. You can also mention that as part of the process, we can conduct a test application—giving them a heads-up beforehand s
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.705
+    answer: You can explain to the client that we can append the necessary tracking tags on our end. As part of our standard process for testing tracking, pixels, and UTMs, we can submit a single test application—giving them advance
+
+--- item 4/25: attribution_and_funnel_tracking ---
+CSM situation (held-out real trigger): Okay. Perfect. Thank you so much, and then my other question kinda goes back to the previous screen that you showed in terms of, like, our funnel and follow up and things of that nature. Knowing that Workday's got some t
+Ground truth Naren response [20250226_vendor_demo_hope_leigh_marketing_group_8b5bf46b.txt]: Yes. It does. Okay. Yes. So so you you brought up a great point. Right? So first things first is our our funnel tracking technology is not based on source level tracking because we do understand that there are challenges
+Retrieved neighbour: ats_integration_and_api_mapping / 20241106_joveo_migration_info_session_46e2380c.txt (cos=0.860)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.796
+    answer: You can inform the client that we set up source tracking and perform testing prior to launch to ensure that the proper source values pass through and appear in Workday as expected. Crucially, regardless of Workday's nati
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.784
+    answer: You can explain to the client that we set up source tracking and conduct testing before launch to ensure the created sources appear directly within Workday. In setups involving a CRM or career site partner (like Phenom),
+
+--- item 5/25: budget_allocation_and_testing ---
+CSM situation (held-out real trigger): So there might be some gaps, which is why when I started this conversation, I said I still have to spend an hour or two trying to understand where these people are and the quality of these people. So maybe when I communi
+Ground truth Naren response [db20a991-f797-459b-a683-2a135b1915e1.txt]: Okay. Yep. Okay, and and yeah. Even, like, typically, what you see is a quality score across other channels. Right? Like because our our idea is definitely to move the needle beyond the passcode. Right? But, of course, i
+Retrieved neighbour: programmatic_advertising_scope_and_capability / f1981d79-2ea4-4b82-a98e-79af073b3860.txt (cos=0.825)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.668
+    answer: Sounds good. Once you're able to dig into the tools and gather more information, we can connect and work together on the plan.
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.573
+    answer: You can acknowledge their plan to review the tools and confirm that you'll collaborate as soon as they have the details ready. A good response would be: "Sounds good! Once you get more information and dig into the data, 
+
+--- item 6/25: craigslist_and_classifieds_strategy ---
+CSM situation (held-out real trigger): Okay. We do. Yep. Yeah. We have. That's that's what I was talking about in terms of the XML feeds, and and that, like, titles, copy, we have images that we use for Craigslist specifically. Most of that should be able to 
+Ground truth Naren response [20240723_joveo_for_angi_implementation_kick_off_ac71e12d.txt]: Fabulous. Yep. If you're. I can share the format if we're able to take a look at that. Sure. I can I can just get my team to start providing recommendations if any? We'll, of course, start with, you know, what we have. R
+Retrieved neighbour: craigslist_and_classifieds_strategy / 20230510_uber_joveo_weekly_performance_review_e7430473.txt (cos=0.855)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.680
+    answer: Acknowledge that this makes sense, and suggest setting up a dedicated follow-up call to dive deeper into the strategy and recommendations. Mention that we can run smaller tests and come back with specific recommendations
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.707
+    answer: Acknowledge that they have approved content ready to go, and propose setting up a separate follow-up call to align on execution. Suggest starting with smaller, targeted tests (around a $5,000 budget) to evaluate performa
+
+--- item 7/25: dashboard_access_and_reporting ---
+CSM situation (held-out real trigger): Yeah. I mean, we could potentially set it up to just send a export and email too so it could be daily.
+Ground truth Naren response [20240801_fusion_medical_staffing_joveo_onboarding_0cd6c213.txt]: Yep. We we have customers that do this, send it to us on a daily basis as well. So, we can just go ahead and pick it up from there and and just import it into our system.
+Retrieved neighbour: technical_integration_and_timeline_scoping / 20240716_getscale_joveo_intro_to_implementation_k_2ebd6112.txt (cos=0.826)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.702
+    answer: You can tell the client you will check on that for them, and suggest that instead of just a standard export, we might be able to set up a server-to-server connection, which could also work for tracking lead events.
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.675
+    answer: When discussing export options with the client, acknowledge their suggestion and offer to look into setting that up (including whether it can cover lead events), while also suggesting that a direct server-to-server integ
+
+--- item 8/25: downstream_activation_and_cost_metrics ---
+CSM situation (held-out real trigger): Quality over quantity, which I know this, you know, is something that this tool helps with as well, and I think one of the things we talked about was also being able to look at, you know, number of hires from a source, b
+Ground truth Naren response [1280e21c-b6c6-4545-a01b-943607f70be3.txt]: Yep. Yep. So great point, Amy. But you can also track up to you know, what I was very briefly referring to is is stages me on the hire as well if if that's what you're referring to, right? So as long as it's it's set up 
+Retrieved neighbour: application_volume_and_prioritization / 20250326_blu_ivy_joveo_deep_dive_platform_social_f160d8d5.txt (cos=0.850)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.684
+    answer: You can explain that our platform goes beyond tracking simple application volume or clicks by optimizing directly for quality metrics. By establishing a feedback loop with the client's ATS (such as Workday, iCIMS, or Ora
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.700
+    answer: You can explain that while the platform tracks top-of-funnel metrics like clicks and cost-per-application, our AI also optimizes around downstream quality metrics such as qualified candidates, shortlists, interviews, and
+
+--- item 9/25: geographic_targeting_and_location_mapping ---
+CSM situation (held-out real trigger): So then basically, we'll have to maintain a separate mapping in between that converts this into state, like city, state, and country. Because, otherwise, we will run into this issue of, let's say, Korea or any other coun
+Ground truth Naren response [ecbdbf14-3759-430d-aee1-072b929b8ae8.txt]: And and is this because so when the wreck is open, Vashi, I'm I'm assuming this is based on a fixed list of drop downs and fixed values. Right? Because the challenge that I want to avoid is, like, you've seen David point
+Retrieved neighbour: geographic_targeting_and_location_mapping / 20250320_ta_joveo_deep_dive_session_7dddc36f.txt (cos=0.826)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.752
+    answer: When we ran into a similar location structure issue with Japan/Tokyo, the solution we used last time was including the required region/province detail in the office address column so it could pass through successfully. I
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.723
+    answer: When handling country-specific location mapping issues where region or state formats differ—such as meeting publisher requirements like Indeed's organic traffic rules in international markets—you can resolve it by placin
+
+--- item 10/25: gig_economy_driver_supply_acquisition ---
+CSM situation (held-out real trigger): Like Moe said, I'm responsible for career acquisition now soon in 4 markets, and like you like you were already introduced, we usually source in some cities in in different markets where we need careers a lot of times we
+Ground truth Naren response [20240502_stuart_joveo_deep_dive_demo_driver_sourc_799e83dc.txt]: Thank you for that, Anna. I I think that that sort of resonates. With similar challenges that we are seeing. We have been working with Uber for sourcing drivers, Uber Uber Eats for delivery drivers, and just the takeaway
+Retrieved neighbour: gig_economy_driver_supply_acquisition / 20240412_stuart_joveo_intro_to_driver_advertising_2813fcdc.txt (cos=0.821)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=False  sim_to_gt=0.772
+    answer: Thank you so much for your time, it is a pleasure to meet you. I head the onboarding and solutions team here at Joveo and have been with the company for close to seven years. I've been heavily involved in implementations
+  [playbook_augmented] declined=True  cites_retrieved=False  quote_verbatim=False  sim_to_gt=n/a
+    answer: 
+
+--- item 11/25: job_board_budget_and_direct_agreements ---
+CSM situation (held-out real trigger): Job slots, or is that promoted jobs? That that's that's promoted. But.
+Ground truth Naren response [20250326_blu_ivy_joveo_deep_dive_platform_social_f160d8d5.txt]: In case that again, similar to Indeed, if, you know, they're they're already providing organic. So, typically, Linkedin provides organic if you have, like, a promoted contract and so on. Yeah. We can then separate it out
+Retrieved neighbour: specialty_and_niche_job_boards_integration / 180386e1-eafe-4cd7-ba58-26481a84eae5.txt (cos=0.851)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.665
+    answer: Even though you might have a much higher total volume of organic jobs (potentially thousands), only a specific number equal to your total available slots will actually be sponsored or promoted.
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.676
+    answer: You can explain to the client that even if they have thousands of organic or basic jobs coming through, only a specific set number of slots will actually be sponsored or promoted.
+
+--- item 12/25: job_role_taxonomy_and_scoping ---
+CSM situation (held-out real trigger): There. Yeah. Because the roles could be an either entity, right, which is kind of why it's better to just go through you guys. Yep. But ops roles are gonna be more likely to be Uber Japan and sales roles are more likely 
+Ground truth Naren response [20240710_uber_corp_apac_joveo_connect_9aeefe3f.txt]: Yeah. That that was gonna be my question. Does it matter, like, advertising on the right entity? Like, I mean, like, as long as if this is advertised as Uber, it it shouldn't matter. Correct?
+Retrieved neighbour: regional_talent_acquisition_and_brand_strategy / 20240717_uber_corp_apac_joveo_connect_facf4f1c.txt (cos=0.809)  playbook=yes
+  [pairs_only] declined=True  cites_retrieved=False  quote_verbatim=False  sim_to_gt=n/a
+    answer: 
+  [playbook_augmented] declined=True  cites_retrieved=False  quote_verbatim=False  sim_to_gt=n/a
+    answer: 
+
+--- item 13/25: landing_page_and_conversion_setup ---
+CSM situation (held-out real trigger): Actually have one other question pop into my head while I'm talking about that. For our destination URLs, that, do we need to do any mapping of that for you, or I mean, it's pretty self explanatory when there's only, lik
+Ground truth Naren response [20250327_cielo_joveo_checkin_call_f58d0dd9.txt]: Okay. Yes. Correct. Unless there is I I believe you're not doing any Google Analytics or or not as in Nova. Right? So. No. Yep, then we're good. Okay. Okay. Okay. Okay. Awesome. Well, thank you so much, team. You can all
+Retrieved neighbour: campaign_level_performance_tracking / 20250226_inova_joveo_rocketlane_c7c3d873.txt (cos=0.877)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.659
+    answer: Either approach works for us and we can be flexible. You can either provide us with the finalized destination URLs with the parameters already included, or you can just give us the URL format and we can append the UTM pa
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.680
+    answer: You can let the client know that either approach works and we can be flexible. They can either provide the finalized URLs with the tracking/UTM codes already included, or we can append the parameters on our end as long a
+
+--- item 14/25: multi_language_copy_and_translation ---
+CSM situation (held-out real trigger): I'll follow up. I'm pinging her right now. Just I just wanna make sure that that's ready. Like, if we get the feed stuff ready, I wanna make sure the translations are done so we don't waste time. Okay.
+Ground truth Naren response [20231130_uber_corporate_joveo_connect_na_latam_58528c6c.txt]: Awesome Perfect. So the next, and the second update on this as well, Neha, is that we were also waiting on the locations to be normalized. Philip, and Neha, if you remember, like, there was a problem with Indeed providin
+Retrieved neighbour: multi_language_copy_and_translation / e3d161a4-b2f5-4190-af6c-2c2dc78a27c4.txt (cos=0.798)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.571
+    answer: Consider suggesting to the client that they begin getting approvals for the English copies first while the translated versions are being prepared. You can ask if waiting to do everything together might actually delay the
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.579
+    answer: To keep things moving and prevent delays, suggest starting the approval process for the primary English copies with the other teams right away while the translated versions are being finalized. You can express concern th
+
+--- item 15/25: niche_talent_scarcity_and_budget_reallocation ---
+CSM situation (held-out real trigger): Almost always through expansion except within Indeed because f****** is that. I totally get that, and that's why it's it's probably harder for us than other roles. Right? If you're just Hiring for a sales associate job o
+Ground truth Naren response [20240208_cnb_joveo_product_requirements_f17633d7.txt]: Exactly. So so that Probably brings it to the second point, which is another lever as well, which is obviously bidding. Yep. Which is also it it also is proportionate to the CPC's Right. Some there there are some locatio
+Retrieved neighbour: regional_talent_acquisition_and_brand_strategy / 20240605_joveo_for_angi_pro_sourcing_0b968570.txt (cos=0.819)  playbook=yes
+  [pairs_only] declined=True  cites_retrieved=False  quote_verbatim=False  sim_to_gt=n/a
+    answer: 
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.665
+    answer: Acknowledge the client's difficulty with Indeed compared to other channels. You can explain that while other publishers typically do not have this issue, Indeed is known to be a bit more sticky with complex location or e
+
+--- item 16/25: non_technical_stakeholder_translation ---
+CSM situation (held-out real trigger): You know, like, like, came up, and so. I mean, that's as far, I guess, from, like, a persona perspective. It's something, you know, I could, you know, share, and yeah, unfortunately, we don't have the exact personas yet,
+Ground truth Naren response [082374e7-211c-4d56-b86e-58d762e05775.txt]: Yes. That is that is very helpful, Marie. Couple of quick questions, right, and and then I can give you a very quick, you know, just walk through of what we just put together since, you know, since we received the brief,
+Retrieved neighbour: advanced_targeting_and_differentiation / 91318b13-772e-4408-ab38-ccf6fc5d1426.txt (cos=0.816)  playbook=yes
+  [pairs_only] declined=True  cites_retrieved=False  quote_verbatim=False  sim_to_gt=n/a
+    answer: 
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.658
+    answer: Acknowledge that the context makes complete sense. Then, explain that now that the addition is set, you can extrapolate these estimates into a pricing column for a 3-month campaign. Ask the client for their guidance on w
+
+--- item 17/25: pixel_placement_and_tracking ---
+CSM situation (held-out real trigger): Basically, placing that pixel so it would basically account for everything. So I could basically have the summation. But, no, that that's that's fine. I could obviously read label it and and understand it, that that numb
+Ground truth Naren response [20240417_joveo_appvault_weekly_touchbase_161cf9ac.txt]: Yeah, and if you would want us to change it from a nomenclature perspective, like, I think that can be renamed, Moli. Like, we can change lead to, let's say, short form, but that I believe that's a backend change. Like, 
+Retrieved neighbour: pixel_placement_and_tracking / a0bf4c53-3d24-434e-9eac-6813d380f52e.txt (cos=0.801)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.702
+    answer: Reassure the client that the value or ID does not need to be explicitly displayed on the UI. As long as we know where it is generated on the page (for instance, within a data layer or similar element), we can write a fun
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.696
+    answer: You can inform the client that the value or ID doesn't need to be explicitly visible on the UI. As long as we know where it is being generated on the page—such as in a data layer or similar structure—and they let us know
+
+--- item 18/25: pricing_and_fee_structures ---
+CSM situation (held-out real trigger): And if we were to do it on an outcome based model, how would that work from a pricing standpoint?
+Ground truth Naren response [40fc4d01-9a9e-4da2-855d-e26f549c418f.txt]: Yep. So so we would essentially agree on on those, pricing elements, Ida. Right? Just depending on on of course, it can't be one price. Right? Like, because these different roles have different complexities. Right? For e
+Retrieved neighbour: pricing_and_fee_structures / 5b27c3d7-1584-406c-9161-412d0bab5b08.txt (cos=0.801)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.749
+    answer: When setting up an outcome-based model, we align on dedicated campaign budgets and establish target directional metrics that our AI optimizes toward. We work off targets at two main levels: top-of-funnel goals (such as t
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.740
+    answer: When setting up an outcome-based or target-driven model, we structure campaigns around dedicated budgets and operate off targets across two key levels:
+
+1. **Top-Funnel Targets:** We align on volume and cost-per-applicat
+
+--- item 19/25: publisher_management_and_exclusions ---
+CSM situation (held-out real trigger): Yeah. Yeah. See, actually, wanted to touch up on this, topic as well because, yeah, we're not happy with, indeed, you know, how it's been handled, because I think, yeah, it's taken unnecessary time. So I wanted to check 
+Ground truth Naren response [20241113_jet_courier_joveo_weekly_check_in_d0dccf8c.txt]: Yep. Yep. I I think that can certainly be done. Lisa, I think we've already sent out feeds to all the publishers, as well. So we we can always launch, campaigns as well, and it's not like indeed will be inactive for the 
+Retrieved neighbour: publisher_management_and_exclusions / 20240814_placeholder_jet_courier_joveo_weekly_che_a55d6e17.txt (cos=0.829)  playbook=yes
+  [pairs_only] declined=True  cites_retrieved=False  quote_verbatim=False  sim_to_gt=n/a
+    answer: 
+  [playbook_augmented] declined=True  cites_retrieved=False  quote_verbatim=False  sim_to_gt=n/a
+    answer: 
+
+--- item 20/25: regional_talent_acquisition_and_brand_strategy ---
+CSM situation (held-out real trigger): We don't have, like, a huge global market right now. Like, we have a network of 1,000 global providers, and those have all been hired, like, one off based on our clients' re like, recruiting needs, and so we just haven't
+Ground truth Naren response [20250211_spring_health_joveo_onboarding_catchup_ba95e1e0.txt]: Absolutely, Danette. Yep, and and and I think that's what's great about this. Right? Like, you know, our partnership where we can just bring these, you know, aspects that that, you know, Springhill should be thinking abo
+Retrieved neighbour: regional_talent_acquisition_and_brand_strategy / 20241115_scale_ai_joveo_customized_demonstration__1892e48d.txt (cos=0.836)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.644
+    answer: That is completely fine and understandable. We are completely job board agnostic, so we have no qualms working with whichever providers or boards you need. We have a dedicated supply division that handles new job board a
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.655
+    answer: Reassure the client that it is completely fine if their global process is still evolving and built around one-off provider needs. Emphasize that Joveo is completely job board agnostic and highly flexible—we do not force 
+
+--- item 21/25: reliance_on_major_social_and_professional_networks ---
+CSM situation (held-out real trigger): I have a I have a question. All these media efforts will led to candidates applying, right, into our job posting. So in a recruiter or a sourcer perspective, they will see a a regular application. Right?
+Ground truth Naren response [20240729_uber_corp_latam_joveo_latam_plan_and_res_9724642d.txt]: Yes. Absolutely. That that's a great question, Victor. Yes. So for the candidate's journey or or looking at it from the candidate perspective, when we have the the CTA or what we call as a call to action, it is always go
+Retrieved neighbour: application_volume_and_prioritization / 20250721_prep_call_managed_crm_flint_hire_value_0e4c6c77.txt (cos=0.844)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.734
+    answer: Yes, it will work as long as we are hosting the apply process universally. When a candidate clicks to apply on the career site, they are redirected to our apply process (powered by Mojo Apply) as an overlay. However, kee
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.704
+    answer: You can explain to the client that as long as we are hosting the application process universally across the career site (e.g., powering the apply experience via Mojo Apply as an overlay), candidates clicking to apply wil
+
+--- item 22/25: slack_communication_and_channel_setup ---
+CSM situation (held-out real trigger): I think it's like I I don't know. Like, what is everyone's ideal way of, like, keeping track of all these things? Because sometimes, like, I forget to update things, and then Yeah. There's, like, too many flying pieces. 
+Ground truth Naren response [e3d161a4-b2f5-4190-af6c-2c2dc78a27c4.txt]: Yeah. I also think it's because, a lot of people have also been ad hoc and time sensitive, so I think we constantly, like, prioritize, deprioritize. Are you comfortable with Asana, Cindy, and Monica? Like like, we can al
+Retrieved neighbour: slack_communication_and_channel_setup / 20240725_uber_corp_latam_joveo_connect_677bf762.txt (cos=0.824)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.719
+    answer: To keep track of multiple moving pieces and avoid losing items in general communication noise, maintain a centralized document as a repository for tracking everything. Paired with that, set up a dedicated thread with jus
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=False  sim_to_gt=0.733
+    answer: Acknowledge that keeping track of multiple moving pieces can get overwhelming, and propose consolidating tracking into a central document to serve as a single repository. To streamline day-to-day updates without creating
+
+--- item 23/25: specialty_and_niche_job_boards_integration ---
+CSM situation (held-out real trigger): And that'll be, obviously, that'll be unlimited posting, or is there an average posting you can you can do?
+Ground truth Naren response [7cb6c543-fe8b-4532-b35c-d58c70569864.txt]: Yeah. So so we typically can, you know, divide that budget into, like, a job level budget because most of the sources that we distribute to their programmatic sources. So we can, you know, essentially, you know, have dif
+Retrieved neighbour: job_role_taxonomy_and_scoping / 20240626_uber_corp_apac_joveo_connect_0a7df064.txt (cos=0.795)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.682
+    answer: To get started, evaluating the database quality can be our initial litmus test to gather early feedback, and we can always manage the job posting based on those insights as well.
+  [playbook_augmented] declined=True  cites_retrieved=False  quote_verbatim=False  sim_to_gt=n/a
+    answer: 
+
+--- item 24/25: technical_integration_and_timeline_scoping ---
+CSM situation (held-out real trigger): So it's, yeah, if, like, if if you back the product and and and and willing to move fast with us, like, we could get a trial set up pretty quick on our end at least from the technical side, put the work in, and then hope
+Ground truth Naren response [600a71bf-9dc1-4b31-a915-6d90d9ecd269.txt]: Yep. Absolutely. Yep, and and yeah, to to Yaz' point, we we just spoke to another client about this, like, you know, this this very same quarter and and being transparent. They're they're one of the largest AI staffing p
+Retrieved neighbour: technical_integration_and_timeline_scoping / 20240925_roadie_joveo_weekly_connect_40c50c57.txt (cos=0.794)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.699
+    answer: Acknowledge that getting aligned for a deeper long-term integration takes time and won't happen overnight. Reassure the client by highlighting success with other partners (such as Uber), and propose a clear, concrete nex
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.731
+    answer: Acknowledge that moving forward with a deeper integration or trial won't happen overnight and requires working through necessary technical and security steps. Validate their long-term vision while sharing a relevant succ
+
+--- item 25/25: testing_and_implementation_timeline ---
+CSM situation (held-out real trigger): So as I said to Sue that and I said this way back when when they agreed to to move forward is just that if we if we have this moving if we have this ready to go by the 1st June, we've done we've done our job really well.
+Ground truth Naren response [20240402_yoke_joveo_mha_weekly_project_call_b206048e.txt]: Awesome. Awesome, Paul, and and we're obviously while, a lot of the the the work is going to be done by our backend team, right, just just getting all of these. Right, and Ntuna and myself are also going to be working wi
+Retrieved neighbour: testing_and_implementation_timeline / 20240408_jack_ryan_joveo_implementation_discussio_945eb14c.txt (cos=0.835)  playbook=yes
+  [pairs_only] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.673
+    answer: You can confirm that you completely agree with their approach and let them know that the proposed timeline is perfectly reasonable. Frame it by setting a clear target launch date to work towards, emphasizing that complet
+  [playbook_augmented] declined=False  cites_retrieved=True  quote_verbatim=True  sim_to_gt=0.652
+    answer: Agree with the client and validate their proposed timeline. Reassure them that those timelines are perfectly reasonable, and that having several weeks gives everyone plenty of time to work towards a target launch date wi
+
+==============================================================================
+AGGREGATE — evidence-gated checks, NOT a holistic LLM judge (that shape already
+failed on this corpus: see Brain/docs/findings/head-to-head-comparison.md)
+==============================================================================
+
+pairs_only: n=25
+  declined:              6/25
+  cites retrieved call:  19/25 (76%)
+  verbatim quote:        18/25 (72%)
+  sim to ground truth:   mean=0.698  median=0.699  (n=19/25)
+
+playbook_augmented: n=25
+  declined:              6/25
+  cites retrieved call:  19/25 (76%)
+  verbatim quote:        18/25 (72%)
+  sim to ground truth:   mean=0.686  median=0.696  (n=19/25)

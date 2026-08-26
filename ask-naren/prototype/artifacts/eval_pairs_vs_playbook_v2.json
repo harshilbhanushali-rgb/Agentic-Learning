@@ -1,0 +1,1186 @@
+{
+  "config": {
+    "model": "gemini-3.6-flash",
+    "reasoning": "medium",
+    "n": 24,
+    "seed": 20260826
+  },
+  "results": [
+    {
+      "held_out": {
+        "scenario_key": "advanced_targeting_and_differentiation",
+        "pair_id": 37092,
+        "call_filename": "20240923_pink_squid_joveo_onboarding_kick_off_16503b13.txt",
+        "trigger_text": "Yes, and no. So that's it is DNI because that's the whole campaign, but I also want there's limitation in how many DNI people you're gonna get with your business sales. So Got it.",
+        "ground_truth_response": "Awesome. Got it. So maybe one of the things we could do, Washington, is yeah. If you're if we could settle back on this, right, like, on on what we potentially can look at success criteria for this because, like, again, like, we're we're gonna be limited in how we could optimize d and I sources on our end, and I I wanna make sure that we will be on the same page there."
+      },
+      "retrieved": {
+        "scenario_key": "campaign_level_performance_tracking",
+        "call_filename": "20250326_joveo_x_oracle_implementation_requiremen_e0fb21bc.txt",
+        "cosine": 0.7854628562927246,
+        "trigger_text": "So they so they wouldn't be so I guess I'm getting confused because now, like, we're talking campaigns, but we're talking about applies. So it's a combination of both, is what I'm hearing?",
+        "response_text": "Oh, no. No. It it's it's the apply sorry. What I'm referring to as campaigns here, Brendan, think of it as as the types of jobs or or what we're actually sponsoring or what we're running. Right? The the jobs that we're actually sponsoring, that that's what I was referring to as campaigns."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "application_volume_and_prioritization",
+        "pair_id": 37154,
+        "call_filename": "20241009_roadie_joveo_weekly_connect_c765c495.txt",
+        "trigger_text": "Can I ask what date the prescreening was launched for us in terms of the relaunch?",
+        "ground_truth_response": "I I can give you the exact date. I'm just pulling up the the email thread, ma'am, because I I think that's that's when we had confirmed it. It was a couple of weeks back, or I I believe one, days back. But but I can just shoot you a note on that."
+      },
+      "retrieved": {
+        "scenario_key": "testing_and_implementation_timeline",
+        "call_filename": "1a031715-78cf-4bce-b61a-21031a7b5c1b.txt",
+        "cosine": 0.7631120681762695,
+        "trigger_text": "Got it. Okay, and then what would be the anticipated launch date?",
+        "response_text": "September. Actually, immediately. The ones we get approval, we can turn it on the next day."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": false,
+          "answer": "You can inform the client that once approval is received, it can be launched immediately or turned on the next day.",
+          "quote": "The ones we get approval, we can turn it on the next day.",
+          "cited_call": "1a031715-78cf-4bce-b61a-21031a7b5c1b.txt"
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "You can inform the client that once we get approval, the relaunch can be turned on almost immediately or by the very next day.",
+          "quote": "The ones we get approval, we can turn it on the next day.",
+          "cited_call": "1a031715-78cf-4bce-b61a-21031a7b5c1b.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.6702728271484375
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.666303813457489
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "ats_integration_and_api_mapping",
+        "pair_id": 38316,
+        "call_filename": "20250321_new_story_joveo_weekly_onboarding_connec_9439bb79.txt",
+        "trigger_text": "And then I if I may, can I share my screen just to show you the back of UKG? Yep. So let's see. Wait. The entire screen. There we go. One moment. So anytime we create a new source, it does have an applicant source ID versus a UTM. So, like, for example, if I just copy this, this is the code on the backend. Again, I don't know if they're, excuse that one. Double booked per use. So this is, folks, I don't know if this is there's no UTM in this. This is just straight up an actual direct source code. So there's no UTM parameters, I don't think, within that. Right? So we've had Jovio historically, and then this is all we get. So I can follow up again, but I just thought with all these smart folks on the call, this is what we're seeing on the backend, and I I just don't think there's any UT and parameters here, and then Yeah.",
+        "ground_truth_response": "Yeah. It it's it's a lot more hi, David. This is Narayan here. I've I've worked with UKG before. So it like, I think you'll have to create these individually, right, to to actually do it. So my suggestion would be that we can probably take two approaches. One, for now, we could just use your preexisting sources. Right? If you could just share the ID, we can just pass them as parameters. Right? One of the things I wanted to call out is, like, you will get access to Jovio's reporting dashboard. Right? That's always gonna give you a transparent view. So you're always gonna have that. So but that's not gonna go missing. It's just that from a data sacrosanctity perspective, we try to see if we can get it on your ATS as well. If not, that's that's not a problem at all."
+      },
+      "retrieved": {
+        "scenario_key": "campaign_level_performance_tracking",
+        "call_filename": "20250312_joveo_q2_kick_off_call_657615f5.txt",
+        "cosine": 0.8758080005645752,
+        "trigger_text": "Yeah. So all I'll do is I'll send you the UTM tags you have you have to attach to the back of each URL. We don't do source tracking in ISIMs. That's actually turned off. So it's never gonna work in there, but I'll follow up with the, with the UTMs that you guys could use, and it's usually, like, we have, like, the big players like Indeed, I don't know why I'm blank. Indeed, like Jobcase. Yeah. There were some other big players that we break out separately, but then we have one just for, like, Jovio's exchange for, like, those smaller, job boards that you guys run through. So Yep. I'll send that over. Perfect. Yep. We we.",
+        "response_text": "Can have that appended on our end. One of the things we can do as part of, you know, it's all also part of the process, Samantha, is that we when we test both tracking and pixels, right, and and the UTM tracking as well, we we will probably just do one test application. Of course, we'll give you a heads up. Right? Because we we know that this is production. Right? So we can probably just do one test application, make sure that it's pulling through Tallentj correctly, and then that way, we we can be sure that, you know, the the UTM codes are set up the right way as well. Okay. Sounds good."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": false,
+          "answer": "We can have those tracking parameters appended on our end. As part of our standard setup process, we can run a test application\u2014giving you a heads-up beforehand since it's a live production environment\u2014to ensure the tracking codes pull through correctly and everything is set up properly.",
+          "quote": "Can have that appended on our end.",
+          "cited_call": "20250312_joveo_q2_kick_off_call_657615f5.txt"
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "You can let the client know that Joveo can append the required tracking codes or parameters on our end. Explain that as part of our testing process for tracking and UTMs, we can run a single test application\u2014giving them a heads-up beforehand since it's a production environment\u2014to verify that the parameters pull through correctly to the backend and ensure everything is set up properly.",
+          "quote": "we can probably just do one test application, make sure that it's pulling through Tallentj correctly, and then that way, we we can be sure that, you know, the the UTM codes are set up the right way as well.",
+          "cited_call": "20250312_joveo_q2_kick_off_call_657615f5.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.7331444621086121
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.7330930233001709
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "attribution_and_funnel_tracking",
+        "pair_id": 38020,
+        "call_filename": "20250226_vendor_demo_hope_leigh_marketing_group_8b5bf46b.txt",
+        "trigger_text": "Okay. Perfect. Thank you so much, and then my other question kinda goes back to the previous screen that you showed in terms of, like, our funnel and follow up and things of that nature. Knowing that Workday's got some tricky limitations in terms of tracking and having to append source codes and bridging the gap between the two data points, how do you typically go about that from, like, a reporting standpoint with Workday clients, and how do you how do you essentially get this level of granularity and or what would be required from our end to help enable something like that? Does that make sense?",
+        "ground_truth_response": "Yes. It does. Okay. Yes. So so you you brought up a great point. Right? So first things first is our our funnel tracking technology is not based on source level tracking because we do understand that there are challenges that come with source level technology. Right? There is a a challenge of what if the the URL parameters that you, you know, essentially append, what if they get stripped, and so on. Right? So all of our funnel tracking is actually based on a unique applicant ID. So it's completely non PII. Right? We capture a unique application or an applicant ID that could help us identify an applicant, and and then we essentially have an API connection with Workday. It's a very simple reporting as a service API connection, which in real time reports or pushes data to our platform. Right? Saying that, okay. Are the hundred applicant IDs. Here are the different stages. So if you think about it, regardless of what the source is on Workday, because we know the source of truth for the source, you know, we're essentially able to accurately attribute this as well. So this happens at the applicant ID level, for us."
+      },
+      "retrieved": {
+        "scenario_key": "ats_integration_and_api_mapping",
+        "call_filename": "20241106_joveo_migration_info_session_46e2380c.txt",
+        "cosine": 0.8595365285873413,
+        "trigger_text": "Okay. Good. Thank you, and another question. Sorry. Once we receive the applications in word day, are we gonna be able to see, in terms of the source for the reports within the system, within word they where they're coming from or will that be like an external report? Like, we'll be able to see just Jobio and then we'll have to log in in Jobio to see actually the source of the applicants or from where they will be able see if they come from Linkedin or Indeed or any other job portals?",
+        "response_text": "Yeah. That's a great question. Yes. So we are setting up source tracking and and we're going to do another round of testing as well to make sure that, you know, the the the created sources are appearing on birthday as expected. That that's one of the the final checks that we're going to do before launching as well, so that they will appear, on on Workday. But that is an integration that will be between Phenom people and Workday because Phenom essentially pushes the lead into the Workday as an application. So that that's something that we'll test, and and at at any given point, through the Jovio dashboard, we are always recording sources as well. So outside of what is there on Workday, Ray also has access to all the sources that come through. But, yes, the the intention is definitely going to be to pass the source on Workday as well."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": false,
+          "answer": "When dealing with Workday reporting and source tracking, we set up source tracking and run test cycles before launch to ensure created sources correctly pass through and appear in Workday as expected. Note that passing applicant sources directly into Workday often involves the integration between your CRM/career site platform (such as Phenom) and Workday, as that system pushes the lead into Workday. Regardless of Workday's native tracking limitations, you will always have complete granular source reporting directly inside the Joveo dashboard, where all applicant sources are continuously tracked and recorded.",
+          "quote": "through the Jovio dashboard, we are always recording sources as well.",
+          "cited_call": "20241106_joveo_migration_info_session_46e2380c.txt"
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "You can let the client know that we work on setting up source tracking and running testing rounds to ensure created sources appear in Workday as expected. Point out that passing the source directly into Workday often relies on the upstream integration or CRM (such as Phenom) pushing the lead into Workday as an application. Reassure them that regardless of any Workday-side limitations, Joveo continuously captures and records all candidate source data accurately within the Joveo dashboard, ensuring full visibility into source granularity.",
+          "quote": "at any given point, through the Jovio dashboard, we are always recording sources as well.",
+          "cited_call": "20241106_joveo_migration_info_session_46e2380c.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.80720454454422
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.7849794626235962
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "budget_allocation_and_testing",
+        "pair_id": 30923,
+        "call_filename": "db20a991-f797-459b-a683-2a135b1915e1.txt",
+        "trigger_text": "So there might be some gaps, which is why when I started this conversation, I said I still have to spend an hour or two trying to understand where these people are and the quality of these people. So maybe when I communicate the remaining budget to you, I can share a few lines on what I have understood so far by digging into some tools.",
+        "ground_truth_response": "Okay. Yep. Okay, and and yeah. Even, like, typically, what you see is a quality score across other channels. Right? Like because our our idea is definitely to move the needle beyond the passcode. Right? But, of course, it as you're probably aware, we can be 9 and only for a week. Right? Like, as we continue to do this, it'll it'll definitely get better. But at the same time, if you can just kind of understand what the benchmark is. Right? So that way we're not just aspiring for anybody to to be at above that 50 mark. Right? But if we know that, okay, channel a is at 75. Right? That automatically gives us an understanding of what are the corrective actions we should do and so on as well."
+      },
+      "retrieved": {
+        "scenario_key": "programmatic_advertising_scope_and_capability",
+        "call_filename": "f1981d79-2ea4-4b82-a98e-79af073b3860.txt",
+        "cosine": 0.8249226808547974,
+        "trigger_text": "I think we can get credible candidates from them. So I do wanna have conversation with you, but I don't have everything with me right now. So hopefully later, maybe 4 to 5 hours down the line, we might have a set budget, and then maybe you and I can connect and whosoever wants to job, join that, and we can discuss how we plan that out. But I I wanna work with you very closely on how we plan that out.",
+        "response_text": "Sounds good, Nishaj. Okay, and and and you mentioned, you know, of course, once you get more information, we can work on that. But from what I understand, it's not restricted just to India. Like, we."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": false,
+          "answer": "Sounds good. Once you gather more information and dig into those details, we can definitely work together on that.",
+          "quote": "once you get more information, we can work on that.",
+          "cited_call": "f1981d79-2ea4-4b82-a98e-79af073b3860.txt"
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "Sounds good. Once you have a chance to dig into the tools and gather more information, we can definitely work together on planning out the strategy based on what you find.",
+          "quote": "once you get more information, we can work on that",
+          "cited_call": "f1981d79-2ea4-4b82-a98e-79af073b3860.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.6781101226806641
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.6687783002853394
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "craigslist_and_classifieds_strategy",
+        "pair_id": 36078,
+        "call_filename": "20240723_joveo_for_angi_implementation_kick_off_ac71e12d.txt",
+        "trigger_text": "Okay. We do. Yep. Yeah. We have. That's that's what I was talking about in terms of the XML feeds, and and that, like, titles, copy, we have images that we use for Craigslist specifically. Most of that should be able to I guess, you know, obviously, if you guys have recommendations, longer, shorter copy, etcetera, we're having to make those edits. But anywhere that those can be duplicated, I think that's all copy copy and content that's been approved by legal, so we're we're good to go on that.",
+        "ground_truth_response": "Fabulous. Yep. If you're. I can share the format if we're able to take a look at that. Sure. I can I can just get my team to start providing recommendations if any? We'll, of course, start with, you know, what we have. Right, and then we can make recommendations a consistent practice on some of our week or week reviews and and just so on as well. Okay. Okay. Perfect. So I I think we we covered all the aspects. The the only last one that I wanted to check on is the UTM tags, and I know we're gonna pass a specific UTM tag for, you know, capturing the click ID on your end, which you can pass back. Do you have a UTM structure outside of this? Because I did notice some of the Craigslist postings, they had, like, specific parameters with, like, a UTM medium equals details, source equals Craigslist. So if you have a mapping, we can just go ahead and append that as well."
+      },
+      "retrieved": {
+        "scenario_key": "craigslist_and_classifieds_strategy",
+        "call_filename": "20230510_uber_joveo_weekly_performance_review_e7430473.txt",
+        "cosine": 0.8547006249427795,
+        "trigger_text": "So I think I think we could probably talk about it outside of this meeting just because. It's been a while since we posted on Craigslist, but we do have a team already. We have a company that we already utilize for us. So I'm not sure if things have changed year over year from how we were doing things previously, but we do have a pretty long history with Craigslist.",
+        "response_text": "Got it. Got it. Yep. Makes sense. Get it. So maybe, you know, what what I'm thinking is maybe early next week as well. Right? Like, I we could just set up, like, a a follow up call. Right? Just to see this, like, we could do much smaller tests. That that would be the advantage. Right? Like, I I'm thinking, like, even literally, like, like, 5,000 dollar budgets or so on. Right, and and and we could actually, like, maybe test gigs in this so that even if we could still have the reporting pass back as a separate sub channel and and have the UTMs and everything set up. But I I'm just thinking it could be, like, smaller test, but but we can, you know, have, like, a a separate call for this as well to just see, you know, what we could do with that. Like, it doesn't have to be, like, even full fledged. Like and and like, completely agreed on your point is it's bound to see lesser efficiencies across certain markets because of their model, which is paper post. That's why we could probably, like, come back with recommendations on markets to, like, pick and choose Right? They are active on the gig, you know, market as well. Like, their gig section as well. So Yep. But but happy to to revisit this probably on a separate call or so. Yep. Okay. Sounds good. Okay. I think the the next point was just regarding, you know, CPIFT goals. The change from 2,800 to 2385. So yep. I I think that thanks for letting us know. So we we, you know, make sure that like, we optimize towards bringing, you know, CPFTs down further. I I think. Jackss CPFT was closer to to 2,400 mark, so we're a little above at this point. But since we've cut down on pacing and and again slashed cost per us pretty significantly, we should already start seeing that come through within, like, the next week or so. Right? But but yes. Happy to make changes, and and like, right now, Caitlin, as a channel, are we you know, over goal. I'm just going to to that right now because it's come down from 2,800 to 22385."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "Acknowledge that they have approved copy and images ready for Craigslist, and propose setting up a dedicated follow-up call to detail the testing strategy. Recommend starting with smaller-scale tests (such as a $5,000 budget) to test gig listings while ensuring proper sub-channel reporting and UTM tracking are established. Let them know you will also provide recommendations on specific markets to target based on gig activity and the pay-per-post model.",
+          "quote": "we could just set up, like, a a follow up call. Right? Just to see this, like, we could do much smaller tests.",
+          "cited_call": "20230510_uber_joveo_weekly_performance_review_e7430473.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.7100204229354858
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "dashboard_access_and_reporting",
+        "pair_id": 36400,
+        "call_filename": "20240801_uber_corp_emea_joveo_connect_6240fae5.txt",
+        "trigger_text": "I use that report, yes, for my monthly reporting on paid media performance. So I have that report. I I have that also in in a sheet that is linked in my reporting to my senior stakeholders. Because I wanted to have, like, one source of truth, and Mayur said, like, that's the data that you guys use for the reports as well for the monthly reports that you so I just wanted to make sure that I'm using the same data as you guys. Because when I was pulling some reports in the past, like, they were I found found discrepancies between the dashboard and the report and like and I always have to, like, ping me your for these kind of things, and then I was I just found, like, the data instead of having, like, data discrepancies, I just wanted to, like, have one single source of truth that I then know that you guys are pulling, and that's the data that you're using. So at least there's a match there.",
+        "ground_truth_response": "Okay. Got it. Nope. Make makes complete sense. So one of the things that we're also working on in the dashboard, is to see if we can kind of have the region specific filter as well. I was mentioning to me, the only thing that makes it tricky is that we don't get this information from ISIM. So, we're we're trying to see if there's a classification that we can just make as as, like, you know, just just based on the countries that that this belongs to as well. Okay. So this one is more related to the source of truth, is is what I understand when you're using Yeah."
+      },
+      "retrieved": {
+        "scenario_key": "campaign_level_performance_tracking",
+        "call_filename": "20240222_uber_corporate_joveo_connect_emea_apac_7adb28c3.txt",
+        "cosine": 0.8037116527557373,
+        "trigger_text": "For each country. I mean, for each of the countries that we're running campaigns in. So not not all EMEA countries, but just the the ones with the campaigns. Okay. Perfect. Right. Yeah, and also just wanted to check with you. I know we're out of time. But, so for the monthly reports, just so I can, like, so this data automated data report will then like, probably need to coincide with, like, the monthly report we get with with the slides. But when when does the cut off state when you guys lock in the data? Because I was looking to manage expectations with my stakeholders when they can expect to, like, get an update on a monthly basis.",
+        "response_text": "Yeah. So typically, because we we freeze numbers one, our end, Charlotte, I I would probably say at the latest, the the 7th of every month. Right, and and that's what we're we're trying to to just make as a standard, because, you know, we, you know, provided the the the report that we had for EMEA, like, the month over month comparison and and so one, and and we're kind of, again, going to use a similar format for Latam so so that we get you a more detailed report as well. So what we're trying to do is is we standardize this across as as the 7th of the the month, to get the automated report and you know, the the the monthly reports with with the callouts as well."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "downstream_activation_and_cost_metrics",
+        "pair_id": 27765,
+        "call_filename": "1280e21c-b6c6-4545-a01b-943607f70be3.txt",
+        "trigger_text": "Quality over quantity, which I know this, you know, is something that this tool helps with as well, and I think one of the things we talked about was also being able to look at, you know, number of hires from a source, but also the, retention of the individuals from that source as well, and so I don't know if that's something that's, like, built in on this demo dashboard, but I know that was something we had discussed as well that I just wanted to call out.",
+        "ground_truth_response": "Yep. Yep. So great point, Amy. But you can also track up to you know, what I was very briefly referring to is is stages me on the hire as well if if that's what you're referring to, right? So as long as it's it's set up and and we can define that, you you can track this beyond the hire, right, and and kind of understand what your lifetime value of a source really looks like. Like, our source could be bringing in a lot of offers, right, or or a lot of interviews. Right? But if there's a source that has a much better, you know, like, acceptance rate and and you know, a lot more hires, right, and and people who stay for longer. Right? So you can get into more, you know, qualitative metrics, through the dashboard as well. Awesome. Thanks. Perfect. I know we talked a lot about, you know, more of the the quantitative elements. Very quick aspect and a few qualitative elements that you can get from the platform as well is one is, of course, a lot more deeper insights, powered by our AI into, your job quality as well. Right, because that plays a very big part when you're essentially publishing not only across job boards, but, you know, I'm sure Nathan agrees across the likes of social search. The content is is extremely important. Your ad copy and and things like that. Right? So, the platform will also provide quality scores for your current job titles, you know, and and compare that to the current performance metrics that we have. At any given time, we're sponsoring 30,000,000 plus jobs. Right? So we're able to make recommendations based on what converts better, and and you can also get recommendations of where it's as easy as you can, at the click of a button, copy paste much more optimized job descriptions, right, to understand what works better, and and the platform will also mention why, as well. The other aspect is we we talked a lot about social. Right? But it's it's also getting a lot more deeper and getting more analytics into social. Right? So, for example, again, we might be running, you know, some of these campaigns is, for example, to create awareness, right, or or to create more, you know, impact with respect to, you know, something that's a lot more top funnel. Right? So you can also get very detailed insights from a social perspective, understand what kind of impressions is this driving, how many applications, and eventually how many hires, but also get to understand individually, you know, how these are performing across multiple tactics. Right? So you could see this where, you know, how your social campaigns are performing compared to, like, Google, compared to, you know, you we could be doing a Linkedin sponsored ad campaign and and so on and so forth. You could also get insights into, you know, what are the distribution, elements from with respect to impressions. So to your point, that you were making earlier, Allison, with respect to when you're looking at demographic information, right, and understanding what kind of location these these data points are coming from. Right? You can get those for for social campaigns as well. Right? If we're running something on meta or or so on, that could be more focused towards, you know, building and apply a brand, right, and creating more awareness and and so on and so forth as well. Right? So you can again filter down by any of these tactics, to get more awareness, about these, and last but not the least, couple of, again, very interesting confidence. I do wanna be mindful of time for questions because I know we have about 3 minutes until the bottom of the hour, but the platform can also enable you to get, market insights, right, where you can understand what your talent demand is, talent supply is, understand more demographic information, understand salary details and wage rates, etcetera as well. So we, you know, essentially are partnered with Talent Neuron, but we also have data sources that pull from the Bureau of Labor Statistics. We also have our own first party data. So beyond just inputs on, you know, how your campaigns are performing, you can actually get a lot more visibility into, okay, what does the labor market look like? Right? If I need to, you know, go after registered nurses in Ohio, or if you're or in Minnesota, right, here are, you know, some of the the the dynamics from a talent, labor market perspective as well. Right, and and also, can be set up to also get competitor insights as well where, you know, through our AI, we can also set up competitor insights for you to understand what are your talent competitors doing. Right? Are are they making changes to their benefits? Are they making changes to their salaries? Right, had there been any location wide changes, etcetera, and so you can also get access to a lot more qualitative information as well."
+      },
+      "retrieved": {
+        "scenario_key": "application_volume_and_prioritization",
+        "call_filename": "20250326_blu_ivy_joveo_deep_dive_platform_social_f160d8d5.txt",
+        "cosine": 0.8502426147460938,
+        "trigger_text": "My other question was on so something we often, you know, lose out on clarity on. So, obviously, the system here, I'm sure it's it it would be able to optimize between job boards and look at, like, look at, like, volume of applications and things like that. Can you speak a little bit about, like, quality of applications? Like, how do we measure and track that? Because that's often something that clients, lose visibility on. Right? Because just all the systems don't really talk as well as we would want them to, so anything that you can speak to that about, Naren? Yep. Absolutely.",
+        "response_text": "Yep. So that that's a great point. So I'm I'm gonna come back to this as well, Shishan, when I'm going to talk about some of the automations and and or even the reporting. But just a very you know, to to give you, you know, a high level answer for now and then we could love to dive deeper as well as we go, is, you know, what you see here is, let's say, cost per applications or clicks that you see here, right, are, of course, metrics that we track. Right? But we also optimize or or our AI also optimizes on quality metrics as well. So it not only looks at applications, but it could be, like, what a qualified application would be or or what a shortlist or an interview or or let's say even a hire would be as well. So in an ideal scenario, what we do is we set up a feedback loop with, you know, some of the applicant tracking systems that might call out. Right? Is you know, it could be a Workday. It could be an ISIMS, you know, an Oracle. Right? So when we have a feedback loop, we also get visibility into not only, you know, anybody who's completing an application, but every stage that they're being disposition to, so at every given point, the the platform's also looking at, okay, your my CPA is x, but my, you know, cost per interview is y or my cost per, you know, shortlist is a z. Right? So the a lot of the decisions that you talked about, which means bidding or budget allocation and so on and so forth, are also based on those qualitative metrics as well, and then not just, you know, an application per se."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": false,
+          "answer": "You can explain to the client that while standard metrics like cost per application or clicks are tracked, the platform's AI actively optimizes for quality metrics beyond just initial application volume. By establishing an ATS feedback loop (with systems like Workday, iCIMS, or Oracle), the platform gets complete visibility into every disposition stage a candidate reaches\u2014such as qualified applications, shortlists, interviews, and hires. This allows key decisions like bidding and budget allocations to be driven by downstream qualitative metrics rather than relying solely on cost per application.",
+          "quote": "in an ideal scenario, what we do is we set up a feedback loop with, you know, some of the applicant tracking systems that might call out. Right? Is you know, it could be a Workday. It could be an ISIMS, you know, an Oracle. Right? So when we have a feedback loop, we also get visibility into not only, you know, anybody who's completing an application, but every stage that they're being disposition to",
+          "cited_call": "20250326_blu_ivy_joveo_deep_dive_platform_social_f160d8d5.txt"
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "You can reassure the client that while the platform tracks top-of-funnel metrics like clicks and cost per application, it also optimizes for quality downstream metrics. By establishing an automated feedback loop with their applicant tracking system (such as Workday, iCIMS, or Oracle), the platform gains visibility into every disposition stage a candidate moves through\u2014including qualified applicants, shortlists, interviews, and hires. This allows the platform's AI to base bidding and budget allocation decisions on qualitative metrics (like cost per shortlist or cost per interview) rather than focusing solely on application volume.",
+          "quote": "So in an ideal scenario, what we do is we set up a feedback loop with, you know, some of the applicant tracking systems that might call out. Right? Is you know, it could be a Workday. It could be an ISIMS, you know, an Oracle. Right? So when we have a feedback loop, we also get visibility into not only, you know, anybody who's completing an application, but every stage that they're being disposition to",
+          "cited_call": "20250326_blu_ivy_joveo_deep_dive_platform_social_f160d8d5.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.6688652038574219
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.6651146411895752
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "geographic_targeting_and_location_mapping",
+        "pair_id": 31266,
+        "call_filename": "ecbdbf14-3759-430d-aee1-072b929b8ae8.txt",
+        "trigger_text": "So then basically, we'll have to maintain a separate mapping in between that converts this into state, like city, state, and country. Because, otherwise, we will run into this issue of, let's say, Korea or any other country like Taiwan, which doesn't have state. It's just city country.",
+        "ground_truth_response": "And and is this because so when the wreck is open, Vashi, I'm I'm assuming this is based on a fixed list of drop downs and fixed values. Right? Because the challenge that I want to avoid is, like, you've seen David pointed out a few instances where even in ISIMS currently, sometimes the location is in input correctly. Right, and and let's say even if it's user error or manual error. Right? The the thing is even if we pass it out on our end, we there needs to be some consistency. Right? So for example, row number 7, sorry. Row number two 5 8. Right? Let's say Minneapolis, Minnesota, United States. Right? Is this going to always be the standard format? Right? So because. US? Yes. Okay."
+      },
+      "retrieved": {
+        "scenario_key": "geographic_targeting_and_location_mapping",
+        "call_filename": "20250320_ta_joveo_deep_dive_session_7dddc36f.txt",
+        "cosine": 0.8258585929870605,
+        "trigger_text": "That's actually a good question. I would need to check how this will, will be built in the HCM extract. So based on that I can answer. Okay. This, this also, we called me one question that you had brought up, especially for Japan, where I think yeah, a broader region is considered Japan. Yeah, or Tokyo. I think that was the problem.",
+        "response_text": "Yeah. Yeah. It, it, it was for Japan. Yeah, for Tokyo, like they essentially have the province, as well, that you need to have like indeed specifically have, this is a requirement, to approve us for like organic traffic. But I can bump that, email back to you Vhi for your reference. Where we just had the, I think only Tokyo should be the one, because I think all our openings anyway in Tokyo. So I believe, I think the last time the solve that you had was, I think we were able to add this in the office address column and then we kind of passed it. Do That. Yeah. But, but I, I can just forward that information to you as well."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": false,
+          "answer": "When dealing with specific country location formatting requirements (like in Japan where a province/region was needed), a previous solution was adding the missing detail into the office address column to get it passed through. You can look into whether a similar adjustment works here or share that previous context.",
+          "quote": "I think the last time the solve that you had was, I think we were able to add this in the office address column and then we kind of passed it.",
+          "cited_call": "20250320_ta_joveo_deep_dive_session_7dddc36f.txt"
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "Address the country-specific location mapping requirement by referencing past solutions for international location nuances. You can explain that for regions with unique location or publisher requirements (such as Tokyo where a province was needed for Indeed organic traffic approval), a previous fix was to map or add the required detail into the office address column to pass validation. Offer to forward the email documentation from that previous fix for their reference.",
+          "quote": "I think the last time the solve that you had was, I think we were able to add this in the office address column and then we kind of passed it.",
+          "cited_call": "20250320_ta_joveo_deep_dive_session_7dddc36f.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.7421056032180786
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.681492269039154
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "job_board_budget_and_direct_agreements",
+        "pair_id": 38417,
+        "call_filename": "20250326_joveo_x_oracle_implementation_requiremen_e0fb21bc.txt",
+        "trigger_text": "Yep. Also, I guess, like yeah. We're kinda using Beamarray too. So the main difference is that you guys just start connecting us to those job boards and allowing the flow to come through. That's the main difference. Right?",
+        "ground_truth_response": "Correct, and we're we're also able to track this end to end as well, Brandon. That's the other point. Right? Like, where, you know, we're we're, you know, able to track the number of people who have completed it, but also track all their dispositions and and then kind of feed that back into our whole campaign. Understanding, okay, how many interviews or how many shortlist did this lead to, and therefore making additional decisions or optimizations on these job boards as well."
+      },
+      "retrieved": {
+        "scenario_key": "ats_integration_and_api_mapping",
+        "call_filename": "20250410_job_boards_conversational_ai_discovery_c_4d572c12.txt",
+        "cosine": 0.8415915966033936,
+        "trigger_text": "Yeah. Yeah. But, like, essentially, the work on our end is still, easy apply. Right? Like, it's we just have to activate the integration.",
+        "response_text": "Yep. Yep. It it would it would have to, yeah, support, like, a mechanism, or or the other thing that Bennett was also talking about is I don't know if this is possible, is is that, we could also have, you know, like, an automated submission through even the existing sign up flow. Right? Like, if, for example, we can verify, that when we make it easier for users. Right? If there is a way that we can kind of mimic that, like, we can write a script to have the sign up completed even on the existing flow. Right? He did mention there could be a possibility that we could get white listed to not have the authentication as well. Right? Because so that could be another easier way as well. Right? Like, where we could, you know, for example, build, you know, like, a a selenium based automation or a browser automation technology, or so on to to even go through the current sign up flow. Right? So if there's a possibility we can get white listed from the authentication, right, that that will also help this, work as well."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "job_role_taxonomy_and_scoping",
+        "pair_id": 35727,
+        "call_filename": "20240710_uber_corp_apac_joveo_connect_9aeefe3f.txt",
+        "trigger_text": "There. Yeah. Because the roles could be an either entity, right, which is kind of why it's better to just go through you guys. Yep. But ops roles are gonna be more likely to be Uber Japan and sales roles are more likely to be Uber Eats, but they're you know, we're looking at both. Got it. We don't have to be limited by which entity we can hire in.",
+        "ground_truth_response": "Yeah. That that was gonna be my question. Does it matter, like, advertising on the right entity? Like, I mean, like, as long as if this is advertised as Uber, it it shouldn't matter. Correct?"
+      },
+      "retrieved": {
+        "scenario_key": "regional_talent_acquisition_and_brand_strategy",
+        "call_filename": "20240717_uber_corp_apac_joveo_connect_facf4f1c.txt",
+        "cosine": 0.8089649677276611,
+        "trigger_text": "Ops. Yeah. I think, like, it would be helpful to just have some, like, general options for Japan and Taiwan. Like and I think it's worth including those things in the kind of strategy and plan. Like, what you would recommend if we wanted just for like any role in Japan kind of thing. Yep. This is like just specifically for L5 and L6. Because I feel like while they started off hyper targeted and these were the roles that they needed to, like, really, like, improve their time to start on as more and more people pile in on this, like, need to focus on North Asia, the scope is getting bigger. So, like, comm ops was never part of the issue or like, part of the strategy and now comm ops is, like, all included. So I expect things to expand.",
+        "response_text": "Yep. Perfect. Yeah. Okay. Yeah. Awesome. So we we'll get cracking on that, Amy. So just to confirm on the point with respect to restarting now that we have the Vmeri pages. So this will be based on the budget that we had before, kind of be restarting that just based on the the leftover budget that we had before."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "landing_page_and_conversion_setup",
+        "pair_id": 38766,
+        "call_filename": "20250416_joveo_scale_ai_36018df7.txt",
+        "trigger_text": "Sorry. Can you link the tracker, or is it linked to the channel?",
+        "ground_truth_response": "It's it's linked on the channel. Let me just reshare it on the channel. Thank you. Right now as well."
+      },
+      "retrieved": {
+        "scenario_key": "campaign_level_performance_tracking",
+        "call_filename": "20240625_roadie_vert_joveo_kick_off_implementatio_8d9a213c.txt",
+        "cosine": 0.7360389232635498,
+        "trigger_text": "We have tracking, in the short term and the long term in place.",
+        "response_text": "Yep. Sounds good. Yeah. I was gonna address that as well, Cindy. I think with with just our our project plan that we've generated, right, just by a standard timelines that, we were looking somewhere in the the end of the 1st week of April or or sorry. In the 1st week of July, start, you know, the within the 1st 10 days of of July, is is what it looks like. But but yeah. I I think the major thing is, you know, if we can get our tracking set up, that can help our, you know Yeah. Versus fast track a lot of this. Because I know we already covered a lot of the existing info, so so that should make it easy. So I I think we have a, you know, pretty good setup and understanding on context. So I'll I'll go ahead and share my screen, if everybody can see my screen. Just confirming. Okay. Awesome. So. Zach and and team, and and the work team as well, we'll give you access to this project plan. It's the idea you know, we we drive our entire on onboarding process of all the implementation process through this project plan. The idea is to make it super easy where we're not exchanging, you know, like, tens of emails, and and then we we have very specific task defined. We we make it easy that way and kind of centralize the the entire project. We've already generated a project plan for, this project. Kind of included a snapshot of that in the proposal as well, but this is essentially what it would look like. Typically, our our, you know, onboarding process is, you know, we we, you know, have it in in 3 phases. The 4th phase is more like a hand off to customer success, but the first one is is discovery and planning. This is where we finalize most of the tracking mechanisms team, you know, have our pixels placed, kind of agree on on what phase two is going to be from a tracking perspective. Implementation is all Jovio. So So that's essentially what we do on our end. As soon as we get the tracking set up, this is the area that we can move the fastest, assuming that we have everything on the contract front approved and good to go. You know, typically, that would consist of where we get your job feed. If you don't I I know that we'll be standing up like a manual feed. Like, you don't have to give us an XML necessary. We we could do that. We'll be testing, tracking on our end, setting up campaigns, working with the Indeed team to set up, you know, your jobs specifically because Indeed works slightly differently. But but that's typically what happens in the implementation phase, and then we we finally have, like, the the go live phase as well, which essentially is, again, mostly a Jovio lift, where we go ahead. Zach, we'll we'll run a more final success plan by you as well, which is just a very simple document that says, here's our understanding of our KPIs. Below is what your glide path is gonna look for the next 3 months, and then we we just go ahead and launch. So so right now, we're we're targeting to to get this, by by the 10th. But but, of course, we can move a lot faster, as you know, once we have packing set up and and once we're good on the legal front. So this is more of what the the the one, feet view or 50 feet view of the plan essentially looks like. So before I I double click into any of these, I'll take a pause. Any questions? Anything that I can help clarify so far?"
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "multi_language_copy_and_translation",
+        "pair_id": 32726,
+        "call_filename": "20231130_uber_corporate_joveo_connect_na_latam_58528c6c.txt",
+        "trigger_text": "I'll follow up. I'm pinging her right now. Just I just wanna make sure that that's ready. Like, if we get the feed stuff ready, I wanna make sure the translations are done so we don't waste time. Okay.",
+        "ground_truth_response": "Awesome Perfect. So the next, and the second update on this as well, Neha, is that we were also waiting on the locations to be normalized. Philip, and Neha, if you remember, like, there was a problem with Indeed providing organic visibility Because we didn't get the right location granularity, right, so we just had it as Tokyo, Japan, like, whereas they were expecting, like, the the the specific. District or or you know, sub province as well. Right? So, Wissi had mentioned that he would be able to make that change as well. Right? So he's probably going to, make that on a test feed, and and then we could test it out and then have that indexed by Indeed as well. So that's also something that should hopefully solve for getting organic visibility on, the the jobs in Indeed."
+      },
+      "retrieved": {
+        "scenario_key": "multi_language_copy_and_translation",
+        "call_filename": "e3d161a4-b2f5-4190-af6c-2c2dc78a27c4.txt",
+        "cosine": 0.7984738945960999,
+        "trigger_text": "Yes. So after, I get. The policy confirmation. Everyone's okay. It also looks like she's saying that they'll need to also review the translated versions. So out of, like would you launch without Spanish at all, and we just start with English, or do we want to kind of include the translated version along with it and then just get it all done and all booked.",
+        "response_text": "Would you be able to start getting the approval for the English copies for the from the other teams while we're getting giving you the Spanish copies as well. Like, I'm just wondering if we do everything together, will it get delayed further? Because I know this team will have to go through the Spanish copies now as well."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": false,
+          "answer": "Consider suggesting that they begin securing approvals for the primary/English versions first while the translated copies are being finalized. Doing everything at once might cause further delays, so splitting the process can help avoid wasting time.",
+          "quote": "I'm just wondering if we do everything together, will it get delayed further?",
+          "cited_call": "e3d161a4-b2f5-4190-af6c-2c2dc78a27c4.txt"
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "Recommend staggering the process by getting sign-off on the primary English copies first while the translations are being prepared. Point out to the client that waiting to review and launch everything together could cause additional delays.",
+          "quote": "Would you be able to start getting the approval for the English copies for the from the other teams while we're getting giving you the Spanish copies as well. Like, I'm just wondering if we do everything together, will it get delayed further?",
+          "cited_call": "e3d161a4-b2f5-4190-af6c-2c2dc78a27c4.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.5919681191444397
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.5907068252563477
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "niche_talent_scarcity_and_budget_reallocation",
+        "pair_id": 33716,
+        "call_filename": "20240208_cnb_joveo_product_requirements_f17633d7.txt",
+        "trigger_text": "Almost always through expansion except within Indeed because f****** is that. I totally get that, and that's why it's it's probably harder for us than other roles. Right? If you're just Hiring for a sales associate job one, miles around the city. It's pretty easy. When you're hiring for people all along a route that goes From California to Pennsylvania, and they're like, yeah. Yeah. We want people all along the route. Ideally, we would like an even split between these one, cities. It gets a little bit more complicated and it does lead to those problems that we're seeing here.",
+        "ground_truth_response": "Exactly. So so that Probably brings it to the second point, which is another lever as well, which is obviously bidding. Yep. Which is also it it also is proportionate to the CPC's Right. Some there there are some locations or some titles that that need higher bids. Some of them that that need, you know, lower bids, especially when you have. Lesser budget that that you're looking to stretch through, you know, an extended period of time. Bids also, you know, come into the picture. So we understand."
+      },
+      "retrieved": {
+        "scenario_key": "regional_talent_acquisition_and_brand_strategy",
+        "call_filename": "20240605_joveo_for_angi_pro_sourcing_0b968570.txt",
+        "cosine": 0.8188221454620361,
+        "trigger_text": "I do I know the other like, we talked about it kind of quickly last time. Is there a challenge with Indeed and like, basically, the breakout of companies. Like, we can't have these jobs posted with our our actual HQ. Uber seems to have a work already, like, an workaround. So one, like, is that like, was that something that you led or like, experience there? Because That's a very good question. That's gonna hold us.",
+        "response_text": "Yep. Nope. Thanks thanks for the elaboration. Yes. So couple of points there. 1st, the the second question is an easier one to answer. So other publishers will will not have this problem. Indeed is typically known to be a little more sticky when it comes to this, and and to to answer the first point, Bridget, we do have a couple of solutions on our end for that. So to give you some context, you know, we we I led the the setup on for Uberjobs and Indeed as well. So we've actually seen multiple phases of this started off when Indeed actually had a separate site for gig employers for this reason, and then they actually sunset the Indeed gig site, and and then now they have all gig jobs back on their site. So for Uber, much like what you said, that they're not advertised through the domain Uber page. We've actually created an Uber driver page, and for Uber Eats, it's essentially, you know, Uber Eats for all their courier hiring. So what we can definitely do with Indeed is to see if we can set up, like, separate company pages that don't have to that isn't linked to the the corporate or the the head SKU page as well. So that's something that's super easy."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "non_technical_stakeholder_translation",
+        "pair_id": 27610,
+        "call_filename": "082374e7-211c-4d56-b86e-58d762e05775.txt",
+        "trigger_text": "You know, like, like, came up, and so. I mean, that's as far, I guess, from, like, a persona perspective. It's something, you know, I could, you know, share, and yeah, unfortunately, we don't have the exact personas yet, I wanna say, by the engineer type. You know, but I hope that is at least helpful to know kinda that that kind of idea that, we heard from, like, the Raytheon team is that, you know, the reason why they kinda were big on Twitch and gaming and whatnot is because a lot of these engineers, you know, that's that's one of the things that they do, like, you know, with their time. Yeah. Got it. So so I hope that's, you know, helpful.",
+        "ground_truth_response": "Yes. That is that is very helpful, Marie. Couple of quick questions, right, and and then I can give you a very quick, you know, just walk through of what we just put together since, you know, since we received the brief, and we can flesh that out further. So one is, you know, when when I understand this if we're looking at this mode of awareness, right, you know, obviously, the objectives or let's say, the KPIs that you're looking for would just be more top funding, correct, in terms of impressions and in terms of, you know, you know, how many people like more eyeballs in their initial click throughs and so on as well. Right? Did did you, at this point, have a concept in mind as well? Like, let's say when we're driving these 10 campaigns. Right? Like, was was there gonna be a landing page where candidates would probably express interest or would would just love to understand that?"
+      },
+      "retrieved": {
+        "scenario_key": "advanced_targeting_and_differentiation",
+        "call_filename": "91318b13-772e-4408-ab38-ccf6fc5d1426.txt",
+        "cosine": 0.8156620860099792,
+        "trigger_text": "Okay. Thank you. I appreciate that, and just for some historical context, the Raytheon team has been. I don't wanna use the word obsessed, but the Raytheon team has been, quite, curious about Youtube ads since last year. So Got it. This is why we're kinda manually, like, squeezing it in, you know, as one of, like, you know, like, a low hanging fruit, and kinda positioning it as, you know, like, engineer heavy kinda slash or you know, like, kinda emerging, like, channels. You know? But it's because they it's something that they've been wanting to do, like, since, last year and just haven't been able to, and so I just wanted to give you guys some context, of why we're, like, manually, like, squeezing it in, like, onto the list.",
+        "response_text": "Yep. No. That makes complete sense, Marie. Yeah, and and you know, now that we have that added, your your other two points were so I can go ahead and extrapolate this into a pricing column for a 3 month campaign. Right? So I'll just add an additional column and just say 3 week sorry, 3 month estimates. But since these are ranges, Marie, just just for the sake of wanted to get your guidance is do we just on the to be on the safer side, just take the upper limit and then convert that into a 3 month, or or what what thoughts do you have on that?"
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "pixel_placement_and_tracking",
+        "pair_id": 34463,
+        "call_filename": "20240417_joveo_appvault_weekly_touchbase_161cf9ac.txt",
+        "trigger_text": "Basically, placing that pixel so it would basically account for everything. So I could basically have the summation. But, no, that that's that's fine. I could obviously read label it and and understand it, that that number slightly differently. But, yeah, that that's that's fine.",
+        "ground_truth_response": "Yeah, and if you would want us to change it from a nomenclature perspective, like, I think that can be renamed, Moli. Like, we can change lead to, let's say, short form, but that I believe that's a backend change. Like, we'd have to, you know, work with, you know, Barag's team to to make that change, and we can decommission and rename the the older short form, the custom conversion pixels, and call it archived or something of that sort, maybe."
+      },
+      "retrieved": {
+        "scenario_key": "pixel_placement_and_tracking",
+        "call_filename": "a0bf4c53-3d24-434e-9eac-6813d380f52e.txt",
+        "cosine": 0.8005623817443848,
+        "trigger_text": "And that would be, picked up via the pixel The pixel. Might come up correctly. Yeah. Correct.",
+        "response_text": "Correct. Yeah. So it does not have to be explicitly on the UI. Typically, what happens is that, you know, it is, you know, somewhere on the page. Right? As long as we know if, you know, where it's being generated on the page. Right? It could be in a bit with the layer or or something of that sort, and and as long as we're told, what is that, we can write a function to basically capture that ID on our end."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": false,
+          "answer": "You can explain to the client that the information captured by the pixel doesn't need to be explicitly displayed on the UI. As long as we know where it's generated on the page (like in a data layer or similar structure), we can write a custom function on our end to capture that identifier.",
+          "quote": "we can write a function to basically capture that ID on our end.",
+          "cited_call": "a0bf4c53-3d24-434e-9eac-6813d380f52e.txt"
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "Reassure the client that the value or ID does not need to be explicitly visible on the UI for the pixel to track it. Explain that as long as we are informed where it is generated on the page\u2014such as within a data layer\u2014we can write a function on our end to capture that specific ID.",
+          "quote": "So it does not have to be explicitly on the UI. Typically, what happens is that, you know, it is, you know, somewhere on the page. Right? As long as we know if, you know, where it's being generated on the page. Right? It could be in a bit with the layer or or something of that sort, and and as long as we're told, what is that, we can write a function to basically capture that ID on our end.",
+          "cited_call": "a0bf4c53-3d24-434e-9eac-6813d380f52e.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.7115170955657959
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.6904497146606445
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "pricing_and_fee_structures",
+        "pair_id": 28496,
+        "call_filename": "40fc4d01-9a9e-4da2-855d-e26f549c418f.txt",
+        "trigger_text": "And if we were to do it on an outcome based model, how would that work from a pricing standpoint?",
+        "ground_truth_response": "Yep. So so we would essentially agree on on those, pricing elements, Ida. Right? Just depending on on of course, it can't be one price. Right? Like, because these different roles have different complexities. Right? For example, one of the the roles that we had fill out, which which you, you know, provided a call out for. Right? Like, that included that that needed significant investment on on our end. Right? Just with respect to, you know, how we're we're solving for those and and how we're we're essentially bringing applications into that. Right? But if you look at the referral bonus, that doesn't really correlate, right, where it's $250. Right? Like, that that that's, like, probably a 10th of the actual applications that we have to source. Right? So we we can, of course, agree on what that outcome would be. Right? That's why, typically, you know, customers like Mercur, they see better scale and more predictability when, you know, we did work on, you know, option one. Right? Like, when we're still."
+      },
+      "retrieved": {
+        "scenario_key": "pricing_and_fee_structures",
+        "call_filename": "5b27c3d7-1584-406c-9161-412d0bab5b08.txt",
+        "cosine": 0.8011584281921387,
+        "trigger_text": "So can you tell a little bit about the pricing model? You said we will set targets, like, KPIs for us, and then we try to hit them. Could you expand there?",
+        "response_text": "Yep. Absolutely. You know, so I'll I'll probably use an example of, you know, a partner that Steve referenced. Right? Like the likes of Scale dot AI. Right, or or or Uber AI. Right? They have their AI solutions as well. Right? So when we quickly go after these roles, we set up different campaigns either. Right? Like, the what are the load that you're going after. Right? Like, I'm gonna pick up finance experts as an example, doctors, and and so on. Right? Like, we have campaigns that we set up for them. We have a dedicated budget. Right? Just depending on the number of applications or the number of offers that we need to make. Right, and then what they also provide us is what a cost per offer goal or a cost per application goal or a cost per, let's say, qualified application goal would be, right, so that we you know, our AI still has directional metrics that we can optimize towards. Right? So that we're just not spending let's say you have a campaign budget of $30,000 a week, right, for for that particular campaign. Right? We will have guardrails in place and and optimizations in place to make sure that we're not just spending the $30,000 and we get, like, just a few 100 applications. Right? We essentially work off targets on two levels. One is any top funnel targets. Right? How many applications you need? What the cost per application should be? Right, and the second is down funnel metric targets as well. So it could be a cost per offer target, or it could be an apply to offer conversion ratio and so on as well. Right? Like, where we targets that that we can essentially optimize towards. Of course, they're not gonna be the same for each role, you know. Right? Like, each role is gonna have its own nuances. Right? Like, we might have a much higher apply to offer conversion for a finance expert versus a bilingual Japanese lawyer. Right? English and Japanese. Right? So so we essentially will understand what your targets are for each of these."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": false,
+          "answer": "In an outcome-based model, we establish campaigns with dedicated budgets and work against targets on two distinct levels: top-of-funnel goals (such as total applications needed and target cost per application) and down-funnel goals (such as cost per offer, cost per qualified applicant, or apply-to-offer conversion rates). We set up strict budget guardrails and give our AI these target metrics as directional benchmarks to continuously optimize toward, ensuring your budget is spent efficiently to deliver the specific outcomes required for each role.",
+          "quote": "We essentially work off targets on two levels. One is any top funnel targets. Right? How many applications you need? What the cost per application should be? Right, and the second is down funnel metric targets as well.",
+          "cited_call": "5b27c3d7-1584-406c-9161-412d0bab5b08.txt"
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "When structuring an outcome-based pricing and campaign model, we operate off performance targets across two distinct levels to guide optimization:\n\n1. **Top-Funnel Targets:** Setting clear goals around required application volume and target metrics like cost per application (CPA) or cost per qualified application.\n2. **Down-Funnel Targets:** Establishing benchmarks deeper in the hiring funnel, such as cost per offer or apply-to-offer conversion ratios.\n\nWithin a dedicated campaign budget, these targets act as directional metrics and guardrails for our AI to optimize toward, ensuring spend is controlled rather than blindly exhausted. Each role will have its own targets based on specific hiring nuances and conversion expectations.",
+          "quote": "We essentially work off targets on two levels. One is any top funnel targets. Right? How many applications you need? What the cost per application should be? Right, and the second is down funnel metric targets as well.",
+          "cited_call": "5b27c3d7-1584-406c-9161-412d0bab5b08.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.7444174885749817
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.7341741323471069
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "publisher_management_and_exclusions",
+        "pair_id": 37319,
+        "call_filename": "20241113_jet_courier_joveo_weekly_check_in_d0dccf8c.txt",
+        "trigger_text": "Yeah. Yeah. See, actually, wanted to touch up on this, topic as well because, yeah, we're not happy with, indeed, you know, how it's been handled, because I think, yeah, it's taken unnecessary time. So I wanted to check because, of course, we're also eager to start as soon as possible, and we have all the other publishers that are basically ready to go. Do you think there's a way maybe also to find, like, a workaround, this and having, publishers, to launch first Vinod if indeed it's not on the mix now?",
+        "ground_truth_response": "Yep. Yep. I I think that can certainly be done. Lisa, I think we've already sent out feeds to all the publishers, as well. So we we can always launch, campaigns as well, and it's not like indeed will be inactive for the the entire month. So hopefully, it'll be a math the difference of just a few days. So so we can definitely launch the other publishers, as well. My only advice is there are a couple of markets that we were planning to run only indeed because of the the low budgets that we had. Like, I think Belgium in particular, right? The just the our system and team recommended that, I think it was honestly only Belgium where, you know, the budgets were actually 12 00 dollars. Like, we did not want to add too many publishers, which means that we would spend the budget very quickly. That that's probably the only market that I can think of where we wanted to wait a little bit more before a little bit more before launching. But but everything else, you know, we we can just set it live, you know, tomorrow as well. That that shouldn't be a problem."
+      },
+      "retrieved": {
+        "scenario_key": "publisher_management_and_exclusions",
+        "call_filename": "20240814_placeholder_jet_courier_joveo_weekly_che_a55d6e17.txt",
+        "cosine": 0.8286195993423462,
+        "trigger_text": "Yeah. Also, from my side, to be totally fair with you, I'm trying to push as much to already, start pausing as many programs that we have on a win. Because, yeah, for us at the moment, it's also low season. So we did not have huge needs. So I really try to, yeah, push it to save the budget, for months. So I think because where I'm coming from is that it will be a a rather easier transition because we don't have as many campaigns live at the moment. But I think it's just a matter of having contract signed so we can send the official communication, and then yeah. I think it it will be also with this strategy. I think it will be a bit more in the interest also of publishers to, do that as much, yeah, as fast as possible because we've been pausing campaigns for a bit.",
+        "response_text": "Awesome Yep. Perfect, Lisa. Yeah. That sounds good. Yeah. As long as the the only so typically in these scenarios, what what I also always keep in mind in my experience is, like, sometimes when there's a downtime, right, like like, I I just wanted to avoid a scenario, but like you said, if if it's anyway a lower or slower season, right, then that shouldn't be a problem. Because what tends to happen is leading up to our campaigns, let's say there is a pause, it puts extra pressure on the ramp up time for our campaigns. Right? So and and that that becomes a scenario where, you know, with the business team, sometimes we need to level set expectations saying that, hey. We just launched. Typically, there's a learning period and and stuff like that. But if if I think, we're already thinking these scenarios through, so I think we should be good."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "regional_talent_acquisition_and_brand_strategy",
+        "pair_id": 37865,
+        "call_filename": "20250211_spring_health_joveo_onboarding_catchup_ba95e1e0.txt",
+        "trigger_text": "We don't have, like, a huge global market right now. Like, we have a network of 1,000 global providers, and those have all been hired, like, one off based on our clients' re like, recruiting needs, and so we just haven't had to build out, like Got it. As much of a process for things like this, and so you'll see, like, we're working through some of that right now with you all. But this is generally, like, rather new to us. Got it. Well, yes. The team doesn't have all that baked out, but we'll do what we can to give you what we need to get qualified providers. But this is largely, like, a learning experience for us as well. So just wanna call that out.",
+        "ground_truth_response": "Absolutely, Danette. Yep, and and and I think that's what's great about this. Right? Like, you know, our partnership where we can just bring these, you know, aspects that that, you know, Springhill should be thinking about. Right, and you can absolutely, at any point, just tell me or or tell my team saying that, hey. These are probably things that we need more time on, and then then we can also say that, okay. We we'll find work at all for some of these things. Right? But we just wanna make sure that our targeting is working tight. That that's where we're coming from. Yep. Makes sense. Awesome. The the second question again was content specific, Daniel, is is we we did receive the periods. This is super helpful and useful. Are are we okay to convert them into the local currencies and and have them as ranges? For example, INR in India, Euro and Germany, and and so on. That would be wonderful, please, if you don't mind doing that. Yeah. Yeah. III was just asking because sometimes there is, like, you know, like, legal implications and and so on as well. So we just wanted to make sure that we're we're getting confirmation."
+      },
+      "retrieved": {
+        "scenario_key": "regional_talent_acquisition_and_brand_strategy",
+        "call_filename": "20241115_scale_ai_joveo_customized_demonstration__1892e48d.txt",
+        "cosine": 0.8357101082801819,
+        "trigger_text": "Yeah. So I think, like yeah. So I guess one of the biggest reasons we're looking for an agency, like, unless you guys know for the international aspect, and my understanding, like, recruit it because it's like, they have a network of, like, international job boards, but it's like, if we have a net new one that we wanna add, it's not easy for them to integrate. So I wanna understand, like, if we came to you and we're like, hey. There's a job where we really wanna get one, and we wanna, like, post a one, posts. Like, what is that process for you guys?",
+        "response_text": "Yep. It's it's usually a very easy process, Julia. If if if a job board is is so we're completely job board agnostic. Right? So we we have no qualms of working with any job board. We're not affiliated to any of them. Right? Saket, who you see on this call, is the head of our supply division of of new job boards acquisition as well. So he has a dedicated team that essentially works with job boards into integrating with them. So if tomorrow you have a request that says, you know, you have a new job board, right, you would simply you don't have to just let us know what that job board is. Right? We we will 99 99 percent of times have contacts to that job board and would have had previous experiences working with them. If not, we're we're more than happy to just be introduced and and just take that forward as well, and we also understand that some of these job boards also are not as technologically evolved as we are as well. So we understand that maybe not all of them can support XML feeds. So to your point, if you have a request that says, hey. You you wanna buy a job board, try out a one, posts. Right? We we understand that it it might mean that you, you know, don't necessarily have to integrate with them, but we can find ways to work with them as well. Right? So we're we're also really flexible from that standpoint and understand what the the actual requirement is. So it's not a mechanism of saying, hey. Here are the 50 fixed job boards that we work with. Right? That's that's how our approach is different."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": false,
+          "answer": "Reassure the client that Joveo is completely job board agnostic and highly flexible when dealing with new or one-off provider needs. Emphasize that Joveo does not restrict clients to a fixed list of publishers or job boards. Instead, Joveo has a dedicated supply team that works to onboard and integrate new sources as requested. Even if these global providers or job boards aren't as technologically evolved or require custom arrangements, Joveo adapts to understand the actual requirement and finds ways to support them.",
+          "quote": "so we're completely job board agnostic. Right? So we we have no qualms of working with any job board.",
+          "cited_call": "20241115_scale_ai_joveo_customized_demonstration__1892e48d.txt"
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "Reassure the client that it is completely fine if their process isn't fully baked out yet and that Joveo is built to be flexible as they navigate one-off global needs. You can explain that Joveo is completely agnostic and not tied to a fixed set of channels, meaning we can easily adapt and work with new local or international partners as needs arise. Let them know we have a dedicated supply team that handles onboarding and integrating new sources, even if those regional platforms are not technologically advanced or standard XML-based feeds, making it an easy and supportive process for them as they learn and build out their global strategy.",
+          "quote": "we're also really flexible from that standpoint and understand what the the actual requirement is. So it's not a mechanism of saying, hey. Here are the 50 fixed job boards that we work with.",
+          "cited_call": "20241115_scale_ai_joveo_customized_demonstration__1892e48d.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.6584992408752441
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.6751881241798401
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "reliance_on_major_social_and_professional_networks",
+        "pair_id": 36286,
+        "call_filename": "20240729_uber_corp_latam_joveo_latam_plan_and_res_9724642d.txt",
+        "trigger_text": "I have a I have a question. All these media efforts will led to candidates applying, right, into our job posting. So in a recruiter or a sourcer perspective, they will see a a regular application. Right?",
+        "ground_truth_response": "Yes. Absolutely. That that's a great question, Victor. Yes. So for the candidate's journey or or looking at it from the candidate perspective, when we have the the CTA or what we call as a call to action, it is always going to be to to get the candidate to the specific job listing on the Uber Carriers site. So if I, for example, get targeted with the Linkedin Inmail one, and then let's say, you know, I I click on the call to action, I'm gonna be taken to that specific job where I could go ahead and complete my application. So from a sourcer perspective, it's going to come through just like any other application would into ISIMS where, you know, the application is completed through Uber Carriers, and then it it it flows into ISIMS as well, and and the other aspect that we have also put in place with Stephanie is is, you know, we also have a mechanism where, let's say, every week, we will also share the list of, let's say, applicant IDs that are on ISIMS so that we can also get more specific feedback tailored to these as well, and and we can provide that by channel so that, you know, that that can also just help our feedback process as well. Okay. Does that answer your question, Ritu?"
+      },
+      "retrieved": {
+        "scenario_key": "application_volume_and_prioritization",
+        "call_filename": "20250721_prep_call_managed_crm_flint_hire_value_0e4c6c77.txt",
+        "cosine": 0.8444710969924927,
+        "trigger_text": "Okay. I think maybe then I was just confused. So this this will work regardless of how the candidate comes in. So this does work for organic as Yeah. I the paid.",
+        "response_text": "Correct. As long as so think of it as as long as we're, you know, hosting the apply process, right, throughout universally. Right? Like, we this will work. Right? But let's say there's a workflow, Leah, like, there there will be a small percentage of candidates. For example, if few of the recruiters are directly uploading onto, like, smart recruiters and so on. Right? Those will obviously any anybody who does not go through their universal apply flow. Yeah. Right? Will will not be part of this. Okay. No. But they they won't go through the prescreening and and stuff. Right? So Yeah. It's better to think of it as they won't. Like, because having the data is one and then having prescreened and and all of that. So this will be still outside the workflow because they will not go through the same things. Got it. Got it. Yep. So the the apply process on their career site has to be powered by Mocha Apply. Like, Like, when somebody clicks on apply, right, they will just be redirected to our apply process. So we can it'll have to be an overlay across the entire thing. So today, for example, if you go to Flint, they're Flint carriers and and then click on a job to apply. Right? I believe that the the application must be on Smartrecruiters. Right? Yes. Yes. Instead of that, it will be Mojo applied."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "You can explain that as long as we are hosting and powering the universal apply process (as an overlay on their career site), candidates coming in through these media efforts will go through the apply and pre-screening workflow. However, keep in mind that if recruiters or sourcers directly upload candidate files into the ATS (such as SmartRecruiters) outside of this universal apply flow, those candidates will remain outside of this workflow and won't go through the pre-screening steps.",
+          "quote": "Correct. As long as so think of it as as long as we're, you know, hosting the apply process, right, throughout universally. Right? Like, we this will work. Right?",
+          "cited_call": "20250721_prep_call_managed_crm_flint_hire_value_0e4c6c77.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.7358638048171997
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "slack_communication_and_channel_setup",
+        "pair_id": 31047,
+        "call_filename": "e3d161a4-b2f5-4190-af6c-2c2dc78a27c4.txt",
+        "trigger_text": "I think it's like I I don't know. Like, what is everyone's ideal way of, like, keeping track of all these things? Because sometimes, like, I forget to update things, and then Yeah. There's, like, too many flying pieces. Yeah. I do feel like as our tasks get more and more Yeah. Like, it's it's hard getting harder to keep track of things. Yeah.",
+        "ground_truth_response": "Yeah. I also think it's because, a lot of people have also been ad hoc and time sensitive, so I think we constantly, like, prioritize, deprioritize. Are you comfortable with Asana, Cindy, and Monica? Like like, we can always go back to that, use it as a starting point, or would you wanna go back to our, like, really original way of having their action items tracker on Google Sheet? You know, we could we could kind of rebuild that as well, and you know, I could also take it upon myself. I can work with the team to, like, ensure that track is updated every day or every two days so that, you know, even if you do reach out to me on Slack, we can have that documented on the tracker, if that if that's going to be an easy piece or even Asana or I can also look around to see what else we can use as a just a project management tool, to see if it's gonna be easier, unless you have any thoughts. Yeah. I think I."
+      },
+      "retrieved": {
+        "scenario_key": "slack_communication_and_channel_setup",
+        "call_filename": "20240725_uber_corp_latam_joveo_connect_677bf762.txt",
+        "cosine": 0.8242270350456238,
+        "trigger_text": "Yeah. Exactly, and it's, like especially in the team channel, it's like I'm like, I don't even see my stuff because it's, like, we have so many people, like, posting. So I think it just might be easier for all of us, and then we can, like, refer back to it. Yep.",
+        "response_text": "Nope Makes complete sense, and and one, of the other things that we've kept it to the doc kind of on purpose as well, is is is the fact that we we already are tracking a lot of the the channel related stuff here. So that's why, you know, keep it in the doc. So, I mean, we can kinda use that as a repository and and then just just between the 3 of us, you, David and I, you know, we can just have that Slack thread so that we cut off the noise of the the overall. So then and that's fast. Because I know I think I think it'll be perfect. Yeah. III know it makes sense. Morning on a couple of things. So just to clarify and so that."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": false,
+          "answer": "To manage all the moving parts and keep track of your tasks without getting lost in the noise, rely on a central document as a repository for tracking everything. Additionally, you can create a dedicated, smaller group thread with key stakeholders to cut off the overall channel noise and communicate quickly.",
+          "quote": "we can kinda use that as a repository and and then just just between the 3 of us, you, David and I, you know, we can just have that Slack thread so that we cut off the noise of the overall.",
+          "cited_call": "20240725_uber_corp_latam_joveo_connect_677bf762.txt"
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "Validate the challenge of managing multiple moving parts and communication clutter. Recommend using a central shared document as a single repository to track all details and updates in one organized place. To avoid getting overwhelmed by general channel noise, suggest establishing a dedicated, smaller group thread with only the key stakeholders to keep communication focused and streamlined.",
+          "quote": "we can kinda use that as a repository and and then just just between the 3 of us, you, David and I, you know, we can just have that Slack thread so that we cut off the noise",
+          "cited_call": "20240725_uber_corp_latam_joveo_connect_677bf762.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": 0.7101967334747314
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.7176443338394165
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "specialty_and_niche_job_boards_integration",
+        "pair_id": 29351,
+        "call_filename": "76e5c022-83c9-49f4-8e74-3137aefbc237.txt",
+        "trigger_text": "That's correct. The jobs that are attached to the commercial careers page would land on this Indeed, Syneos Health Commercial Solutions. Okay, and and that's that's total of about 422 jobs that you have today.",
+        "ground_truth_response": "Okay. Okay. Awesome. So this makes a lot of sense. So it it looks like, you know, at least from a commercial carrier standpoint, these are all branded as Syneos, commercial, right, across Indeed, and I'm assuming that's the same across, let's say, any other job boards, distributions, or or any other external talent attraction that you're currently doing as well. Yes."
+      },
+      "retrieved": {
+        "scenario_key": "programmatic_advertising_scope_and_capability",
+        "call_filename": "2b1cc972-0b2e-48d1-b563-dc2f1afec4ac.txt",
+        "cosine": 0.7980512976646423,
+        "trigger_text": "So we we have a career page today. Right? So I'm assuming that is this intended to replace, like, a Medline domain career page and this would be the central location that's driving?",
+        "response_text": "Yeah. That that that would be one of the options. So, essentially, like, we we would again just have that replace this. Right? Again, does not have to be even something that we start with phase one. Right, Kelly? So it does not have to be we need to have the entire career side experience go live. Right? Uh, this is just as as an FYI in in in the interest of showing you our our more accurate capabilities as well. Right, uh and and the same goes as for the job search page. I know you and I briefly touched upon it the last time, so when I was looking into your roles, uh this job search experience specifically goes goes into Workday for example, right, uh all of a sudden as a candidate, you know, I'm taken into a different branded page. I I get into Workday, and that's where my job search experience is. Right? So one of the things that that we do for a lot of our customers is our job search experience is still remaining one point from a brand perspective. Right? And is also a lot more robust and lends itself for candidates to be able to search for jobs, uh, in a very easy fashion. Right? So for example, right, like, one is, of course, you can add multiple filters through which candidates can look look up jobs by. But outside of that, they can you know, you have a lot more elements and flexibility when it comes to job search. Right?"
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "pair_id": 29028,
+        "call_filename": "5f72798f-cc20-4ecb-90b1-072c680c58c9.txt",
+        "trigger_text": "Admins. They have to add you. Yeah. Okay, and then again, it takes it's very easy. They have unlimited licenses, so it shouldn't be a heavy lift. There's no, like, usage worry. You know? They have they have the product.",
+        "ground_truth_response": "Okay, and and David, for one of our other clients, we do have their Linkedin access, right, if if I'm not wrong? I have no admin access on the dashboard. So. Okay. Yeah. So we can do something similar to this. Okay. Got it. Okay. So."
+      },
+      "retrieved": {
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "call_filename": "20240229_joveo_scg_weekly_touchbase_9cb90c1b.txt",
+        "cosine": 0.7801657915115356,
+        "trigger_text": "Okay. Perfect. Perfect, and tell me again the technical nuances. So if we get the API, they don't have to sign on. Right? How does that happen? Yep. I'm just curious. It's been a little bit and I've forgotten to tell you the truth.",
+        "response_text": "No worries. So typically what happens, Mike, is that we. API is essentially a mechanism for us to write applications back or submit the applications back into ISIMs directly. That's more of a delivery method. In parallel, what we will build custom for For sure. Past champions is an application process. That that's essentially so you can think of Mojo as two halves. The the first half is building the applied process itself. The second half is submission. So the API will enable us for the submission part of it. But when it comes to the just building the applied forms, right, like, once we get confirmation, it's it's still tied to the the delivery. Right? So what we'll start doing is on our end, we'd start developing the application forms. Right? So that, you know, you can almost think of it as when a candidate clicks on, let's say, any job put. Right, they will no longer get redirected to license, but our application process will almost act like a wrap up around that. They will see a more optimized version of the applied process that does not require a login, a sign in Got it. That has to parse information from the resume where we can reengage candidates, all of the things that come to module play, and then we submit them into the ideas using, you know, the like so you can almost think of this as a wrapper or a replacement of the current application process on ISEC. Of course, for all the jobs that we're sponsoring and powering. Right? All their career side traffic or their all the traffic that goes outside Jovio that still remains the same, this is more for their non career side, which is, like, advertising through the sources we advertise for."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "answer": "",
+          "quote": "",
+          "cited_call": ""
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        },
+        "playbook_augmented": {
+          "declined": true,
+          "cites_retrieved_call": false,
+          "quote_verbatim": false,
+          "sim_to_ground_truth": null
+        }
+      }
+    },
+    {
+      "held_out": {
+        "scenario_key": "testing_and_implementation_timeline",
+        "pair_id": 34324,
+        "call_filename": "20240402_yoke_joveo_mha_weekly_project_call_b206048e.txt",
+        "trigger_text": "So as I said to Sue that and I said this way back when when they agreed to to move forward is just that if we if we have this moving if we have this ready to go by the 1st June, we've done we've done our job really well. So we've got plenty of time. So this isn't gonna be a I told her it's not gonna be a quick a quick process. So, yeah, 3rd week of May, that's that's totally fine. That gives us, say, 6 or 7 weeks.",
+        "ground_truth_response": "Awesome. Awesome, Paul, and and we're obviously while, a lot of the the the work is going to be done by our backend team, right, just just getting all of these. Right, and Ntuna and myself are also going to be working with you, right, just to get all the configuration pieces. Right? So we have all of that laid out on the project plan. Right?"
+      },
+      "retrieved": {
+        "scenario_key": "testing_and_implementation_timeline",
+        "call_filename": "20240408_jack_ryan_joveo_implementation_discussio_945eb14c.txt",
+        "cosine": 0.8352446556091309,
+        "trigger_text": "Ome, has budget to run to the end of April, so that gives us gives us a few weeks just now. If if we need a bit of extra time or anything, then then we can, you know obviously, from an agency perspective, it's something that's something we wanna do. But, we can we can suggest the client to transition or or move about, you know, give us an extra week or two or whatever. So we're quite happy to be guided here. We just we will it's just to us properly first rather than something that's gonna come online and not work properly or if there's gonna be a bit of a fall down in terms of application numbers and things. So, yeah, it's it's as as quite as we can, but done properly rather than rather than rushed.",
+        "response_text": "Yep. Nope. Couldn't agree more. Right, and and I I think those timelines are are perfectly reasonable. I I think if we aim for a May 1st launch, that's something that that we could certainly, work towards. I I think the the sooner we can get our place, the sooner we can get Indeed started. I think, that that's something."
+      },
+      "playbook_available": true,
+      "answers": {
+        "pairs_only": {
+          "declined": false,
+          "answer": "Reassure the client by letting them know you completely agree with taking the proper time to get things right rather than rushing. Reiterate that the proposed timelines are perfectly reasonable and that having a clear target launch date gives everyone a realistic goal to work towards.",
+          "quote": "Couldn't agree more. Right, and and I I think those timelines are are perfectly reasonable.",
+          "cited_call": "20240408_jack_ryan_joveo_implementation_discussio_945eb14c.txt"
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "answer": "Agree with the client's proposed schedule and confirm that the timeline is completely reasonable. Validate that having several weeks gives enough runway to comfortably work toward the target launch date and get all necessary components ready.",
+          "quote": "I think those timelines are are perfectly reasonable. I I think if we aim for a May 1st launch, that's something that that we could certainly, work towards.",
+          "cited_call": "20240408_jack_ryan_joveo_implementation_discussio_945eb14c.txt"
+        }
+      },
+      "served_model": {
+        "pairs_only": "gemini-3.6-flash",
+        "playbook_augmented": "gemini-3.6-flash"
+      },
+      "scores": {
+        "pairs_only": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.6575354337692261
+        },
+        "playbook_augmented": {
+          "declined": false,
+          "cites_retrieved_call": true,
+          "quote_verbatim": true,
+          "sim_to_ground_truth": 0.6788880825042725
+        }
+      }
+    }
+  ]
+}
