@@ -1,0 +1,542 @@
+[
+  {
+    "situation": "We're just changing for the sake of changing, and David Weinstock from",
+    "held_out_scenario": "vendor_transition_and_partnership_evaluation",
+    "declined": true,
+    "verdict": null,
+    "top1_primary": "programmatic_advertising_scope_and_capability",
+    "first_same_primary_rank": 14,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 0,
+      "5": 0,
+      "10": 0,
+      "20": 1
+    }
+  },
+  {
+    "situation": "You know, we're hiring for sort of gig work, not, I guess, you know, y",
+    "held_out_scenario": "gig_economy_driver_supply_acquisition",
+    "declined": true,
+    "verdict": null,
+    "top1_primary": "craigslist_and_classifieds_strategy",
+    "first_same_primary_rank": 2,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 1,
+      "5": 1,
+      "10": 1,
+      "20": 1
+    }
+  },
+  {
+    "situation": "Yeah. It's it's it's Informatica. CAI, which is more a cloud applicati",
+    "held_out_scenario": "technical_integration_and_timeline_scoping",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "technical_integration_and_timeline_scoping",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 3,
+      "5": 5,
+      "10": 8,
+      "20": 13
+    }
+  },
+  {
+    "situation": "In the campaigns, that is the ideal state. I'm only mentioning that be",
+    "held_out_scenario": "regional_talent_acquisition_and_brand_strategy",
+    "declined": true,
+    "verdict": null,
+    "top1_primary": "regional_talent_acquisition_and_brand_strategy",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 3,
+      "5": 5,
+      "10": 6,
+      "20": 12
+    }
+  },
+  {
+    "situation": "You said I I actually, Harin, we have a good rotation. Right? Because ",
+    "held_out_scenario": "reliance_on_major_social_and_professional_networks",
+    "declined": false,
+    "verdict": "wrong",
+    "top1_primary": "job_board_budget_and_direct_agreements",
+    "first_same_primary_rank": 5,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 0,
+      "5": 1,
+      "10": 3,
+      "20": 3
+    }
+  },
+  {
+    "situation": "Alright. I'll work on this. Name quick question since I have you and w",
+    "held_out_scenario": "chatbot_and_messaging_implementation",
+    "declined": false,
+    "verdict": "wrong",
+    "top1_primary": "reliance_on_major_social_and_professional_networks",
+    "first_same_primary_rank": 3,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 1,
+      "5": 1,
+      "10": 1,
+      "20": 3
+    }
+  },
+  {
+    "situation": "However, that was the only way that we had to cap on Costa, and indeed",
+    "held_out_scenario": "job_board_budget_and_direct_agreements",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "downstream_activation_and_cost_metrics",
+    "first_same_primary_rank": 4,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 0,
+      "5": 1,
+      "10": 3,
+      "20": 7
+    }
+  },
+  {
+    "situation": "Yeah. So just to understand better. So because also with the new setup",
+    "held_out_scenario": "xml_feed_setup_and_ingestion",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "programmatic_advertising_scope_and_capability",
+    "first_same_primary_rank": 3,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 1,
+      "5": 2,
+      "10": 4,
+      "20": 5
+    }
+  },
+  {
+    "situation": "Yeah. So, basically, your product is a little bit more wider than what",
+    "held_out_scenario": "programmatic_advertising_scope_and_capability",
+    "declined": false,
+    "verdict": "wrong",
+    "top1_primary": "specialty_and_niche_job_boards_integration",
+    "first_same_primary_rank": 8,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 0,
+      "5": 0,
+      "10": 1,
+      "20": 3
+    }
+  },
+  {
+    "situation": "Bob lives at Cincinnati. Right? So that's fine. Yeah. Correct. I guess",
+    "held_out_scenario": "market_insights_and_competitive_intelligence",
+    "declined": true,
+    "verdict": null,
+    "top1_primary": "ats_integration_and_api_mapping",
+    "first_same_primary_rank": 25,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 0,
+      "5": 0,
+      "10": 0,
+      "20": 0
+    }
+  },
+  {
+    "situation": "So we should be seeing, like, more down funnel attribution, you think?",
+    "held_out_scenario": "attribution_and_funnel_tracking",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "attribution_and_funnel_tracking",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 2,
+      "5": 3,
+      "10": 5,
+      "20": 10
+    }
+  },
+  {
+    "situation": "Agreed, and that's also a project that we're about kick off internally",
+    "held_out_scenario": "hiring_forecasts_and_volume_scoping",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "application_volume_and_prioritization",
+    "first_same_primary_rank": 25,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 0,
+      "5": 0,
+      "10": 0,
+      "20": 0
+    }
+  },
+  {
+    "situation": "Is there, like, a task under here around, the, like, sponsored brand c",
+    "held_out_scenario": "creative_and_media_plan_review",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "creative_and_media_plan_review",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 3,
+      "5": 5,
+      "10": 6,
+      "20": 12
+    }
+  },
+  {
+    "situation": "Yeah. So then I guess, like, if you use this contract and I say I wann",
+    "held_out_scenario": "budget_allocation_and_testing",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "budget_allocation_and_testing",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 1,
+      "5": 3,
+      "10": 4,
+      "20": 10
+    }
+  },
+  {
+    "situation": "Yeah, and then you know, we can take things from there. That sounds gr",
+    "held_out_scenario": "job_role_taxonomy_and_scoping",
+    "declined": true,
+    "verdict": null,
+    "top1_primary": "application_volume_and_prioritization",
+    "first_same_primary_rank": 8,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 0,
+      "5": 0,
+      "10": 3,
+      "20": 3
+    }
+  },
+  {
+    "situation": "So it's not just copy and pasting job descriptions like we've been doi",
+    "held_out_scenario": "niche_talent_scarcity_and_budget_reallocation",
+    "declined": true,
+    "verdict": null,
+    "top1_primary": "application_volume_and_prioritization",
+    "first_same_primary_rank": 3,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 1,
+      "5": 1,
+      "10": 2,
+      "20": 4
+    }
+  },
+  {
+    "situation": "So I said I wanna use this starting June one. I have a dead how do we ",
+    "held_out_scenario": "testing_and_implementation_timeline",
+    "declined": false,
+    "verdict": "wrong",
+    "top1_primary": "attribution_and_funnel_tracking",
+    "first_same_primary_rank": 2,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 1,
+      "5": 2,
+      "10": 2,
+      "20": 4
+    }
+  },
+  {
+    "situation": "But we would still be getting. Oracle that we wouldn't otherwise from ",
+    "held_out_scenario": "publisher_management_and_exclusions",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "publisher_management_and_exclusions",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 3,
+      "5": 5,
+      "10": 7,
+      "20": 15
+    }
+  },
+  {
+    "situation": "I'll follow up. I'm pinging her right now. Just I just wanna make sure",
+    "held_out_scenario": "multi_language_copy_and_translation",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "multi_language_copy_and_translation",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 3,
+      "5": 4,
+      "10": 5,
+      "20": 6
+    }
+  },
+  {
+    "situation": "Maybe not the initial click. Yep. Yeah. It should be I'll I'll double ",
+    "held_out_scenario": "downstream_activation_and_cost_metrics",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "landing_page_and_conversion_setup",
+    "first_same_primary_rank": 4,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 0,
+      "5": 1,
+      "10": 2,
+      "20": 4
+    }
+  },
+  {
+    "situation": "We did the media buying, the planning, campaign execution, give them t",
+    "held_out_scenario": "pricing_and_fee_structures",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "campaign_level_performance_tracking",
+    "first_same_primary_rank": 3,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 1,
+      "5": 1,
+      "10": 2,
+      "20": 3
+    }
+  },
+  {
+    "situation": "It was something that I just explored on my own. I was just curious if",
+    "held_out_scenario": "specialty_and_niche_job_boards_integration",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "regional_talent_acquisition_and_brand_strategy",
+    "first_same_primary_rank": 5,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 0,
+      "5": 1,
+      "10": 2,
+      "20": 3
+    }
+  },
+  {
+    "situation": "I actually don't talk to the ops teams. Okay. Like, I talk to somebody",
+    "held_out_scenario": "slack_communication_and_channel_setup",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "slack_communication_and_channel_setup",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 2,
+      "5": 2,
+      "10": 3,
+      "20": 5
+    }
+  },
+  {
+    "situation": "Specifically, Narayan, if they get and I'll share those. But it'll mai",
+    "held_out_scenario": "landing_page_and_conversion_setup",
+    "declined": true,
+    "verdict": null,
+    "top1_primary": "pixel_placement_and_tracking",
+    "first_same_primary_rank": 2,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 2,
+      "5": 2,
+      "10": 3,
+      "20": 8
+    }
+  },
+  {
+    "situation": "So it's a combination of things. Like, we rank our assessments as, lik",
+    "held_out_scenario": "application_volume_and_prioritization",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "application_volume_and_prioritization",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 3,
+      "5": 5,
+      "10": 10,
+      "20": 19
+    }
+  },
+  {
+    "situation": "No. I don't I don't think so. If you just, if you just, send over the ",
+    "held_out_scenario": "pixel_placement_and_tracking",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "pixel_placement_and_tracking",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 3,
+      "5": 5,
+      "10": 10,
+      "20": 20
+    }
+  },
+  {
+    "situation": "Yeah. I think that's what you would, what you should expect that the p",
+    "held_out_scenario": "contract_and_legal_review",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "contract_and_legal_review",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 1,
+      "5": 1,
+      "10": 1,
+      "20": 4
+    }
+  },
+  {
+    "situation": "I do have a question, more of a a request, I guess. When it comes to, ",
+    "held_out_scenario": "advanced_targeting_and_differentiation",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "reliance_on_major_social_and_professional_networks",
+    "first_same_primary_rank": 5,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 0,
+      "5": 1,
+      "10": 1,
+      "20": 3
+    }
+  },
+  {
+    "situation": "Just so I understand. So the main issue here is when a city is missing",
+    "held_out_scenario": "geographic_targeting_and_location_mapping",
+    "declined": true,
+    "verdict": null,
+    "top1_primary": "geographic_targeting_and_location_mapping",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 2,
+      "5": 3,
+      "10": 5,
+      "20": 7
+    }
+  },
+  {
+    "situation": "Yeah. I think as you guys do have you guys already done onboarding wit",
+    "held_out_scenario": "craigslist_and_classifieds_strategy",
+    "declined": true,
+    "verdict": null,
+    "top1_primary": "craigslist_and_classifieds_strategy",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 3,
+      "5": 5,
+      "10": 8,
+      "20": 13
+    }
+  },
+  {
+    "situation": "I guess the question I have then is, along with that is, is that infor",
+    "held_out_scenario": "ats_integration_and_api_mapping",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "ats_integration_and_api_mapping",
+    "first_same_primary_rank": 1,
+    "same_primary_in_topk": {
+      "1": 1,
+      "3": 2,
+      "5": 2,
+      "10": 3,
+      "20": 7
+    }
+  },
+  {
+    "situation": "Is there automation on that where we can get it either fired to an inb",
+    "held_out_scenario": "dashboard_access_and_reporting",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "technical_integration_and_timeline_scoping",
+    "first_same_primary_rank": 3,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 1,
+      "5": 1,
+      "10": 3,
+      "20": 5
+    }
+  },
+  {
+    "situation": "Right? Like, it's Vishy is not my resource. So I have to luckily, I ha",
+    "held_out_scenario": "non_technical_stakeholder_translation",
+    "declined": true,
+    "verdict": null,
+    "top1_primary": "testing_and_implementation_timeline",
+    "first_same_primary_rank": 11,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 0,
+      "5": 0,
+      "10": 0,
+      "20": 1
+    }
+  },
+  {
+    "situation": "No. This one's not. This is a, the Google Analytics is UTM UTM based, ",
+    "held_out_scenario": "campaign_level_performance_tracking",
+    "declined": false,
+    "verdict": "right",
+    "top1_primary": "programmatic_advertising_scope_and_capability",
+    "first_same_primary_rank": 5,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 0,
+      "5": 1,
+      "10": 2,
+      "20": 5
+    }
+  },
+  {
+    "situation": "Like, after transition? Like, who's gonna be our main account manager?",
+    "held_out_scenario": "vendor_transition_and_partnership_evaluation",
+    "declined": true,
+    "verdict": null,
+    "top1_primary": "reliance_on_major_social_and_professional_networks",
+    "first_same_primary_rank": 3,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 1,
+      "5": 2,
+      "10": 3,
+      "20": 4
+    }
+  },
+  {
+    "situation": "Like, 10 so I understood. Like, 10 Street is more than just an applica",
+    "held_out_scenario": "gig_economy_driver_supply_acquisition",
+    "declined": true,
+    "verdict": null,
+    "top1_primary": "craigslist_and_classifieds_strategy",
+    "first_same_primary_rank": 25,
+    "same_primary_in_topk": {
+      "1": 0,
+      "3": 0,
+      "5": 0,
+      "10": 0,
+      "20": 0
+    }
+  }
+]
