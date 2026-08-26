@@ -25,6 +25,7 @@ const ORACLE_DATA = [
 const NAV_ITEMS = [
   { href: '/workspace', label: 'Workspace', shortcut: 'G W', key: 'w' },
   { href: '/library',   label: 'Library',   shortcut: 'G L', key: 'l' },
+  { href: '/ask-naren', label: 'Ask Naren', shortcut: 'G A', key: 'a' },
   { href: '/simulator', label: 'Simulator', shortcut: 'G S', key: 's' },
 ];
 

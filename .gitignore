@@ -11,6 +11,13 @@ __pycache__
 # --- Node ---
 node_modules
 .next
+# Written by `npm run build` (the type-check gate), rebuilt on every run.
+tsconfig.tsbuildinfo
+
+# --- Browser-check scratch output ---
+# Playwright MCP writes snapshots, screenshots and console logs here during a UI
+# verification pass. Evidence for one check, not source.
+.playwright-mcp
 
 # --- Transcript corpora (large, not source; supplied per-machine) ---
 recordings

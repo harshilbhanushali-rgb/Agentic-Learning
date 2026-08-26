@@ -159,3 +159,59 @@ export interface FailureEntry {
   quarter: string;
   fullPostMortem: string;
 }
+
+/* -- Ask Naren -------------------------------------------------------------------------
+ * The response shape of the Ask Naren service (Brain/ask_naren/service.py, POST /ask),
+ * mirrored exactly. The proxy at app/api/ask-naren returns it unchanged, so these types
+ * describe the service's contract and must not drift from it.
+ *
+ * Discriminated on `declined`, which is what makes the two render paths exhaustive: an
+ * answer always carries a citation, a decline never does. The service guarantees this --
+ * an answer that fails its grounding gate becomes a decline rather than an answer with a
+ * missing citation. */
+
+export interface AskNarenCitation {
+  /** What a CSM reads. The raw call filename for now; issue #4 resolves it to an account
+   *  and a date. Deliberately separate from `call_filename` so that resolution is not a
+   *  shape change for every caller. */
+  label: string;
+  call_filename: string;
+  pair_id: number;
+  scenario_key: string;
+}
+
+export interface AskNarenMatch {
+  /** In gemini-embedding-2@3072 space -- NOT comparable to any threshold in Brain's
+   *  tuning.yaml, which was fitted in bge@768. Recorded, never rendered as a score. */
+  cosine: number;
+  scenario_key: string;
+  /** Position in the candidate shortlist the answer was grounded at. Always 1 on the
+   *  shipped path, where the shortlist is one exchange long (see ADR 0003). */
+  rank: number;
+}
+
+export interface AskNarenAnswer {
+  declined: false;
+  answer: string;
+  /** The verbatim fragment of Naren's real reply the answer rests on. Verified server-side
+   *  by the grounding gate before it is ever sent. */
+  quote: string;
+  citation: AskNarenCitation;
+  match: AskNarenMatch;
+}
+
+/** `no_close_match` and `grounding_unverified` come from the answerer; `service_error` is
+ *  the service's own 503, which is deliberately decline-SHAPED so a fault can be rendered
+ *  as a plain explanation rather than a broken page (issue #6 completes that path). */
+export type AskNarenDeclineReason = 'no_close_match' | 'grounding_unverified' | 'service_error';
+
+export interface AskNarenDecline {
+  declined: true;
+  reason: AskNarenDeclineReason;
+  /** Already written for a CSM to read. Render it as-is; do not compose a message from
+   *  `reason` in the frontend, or there are two sources of truth for the same sentence. */
+  message: string;
+  match?: AskNarenMatch;
+}
+
+export type AskNarenResponse = AskNarenAnswer | AskNarenDecline;
