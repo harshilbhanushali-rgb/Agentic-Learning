@@ -1,0 +1,122 @@
+[
+  {
+    "n": 1,
+    "kind": "both_say_wrong",
+    "source": "arms_key.json",
+    "id": 39,
+    "reader_verdict": "wrong",
+    "judge_relation": "different_question",
+    "cosine": 0.803981363773346,
+    "arm": 1
+  },
+  {
+    "n": 2,
+    "kind": "both_say_right",
+    "source": "unpaired_key.json",
+    "id": 28,
+    "reader_verdict": "right",
+    "judge_relation": "answers_directly",
+    "cosine": 0.8411383628845215,
+    "arm": 1
+  },
+  {
+    "n": 3,
+    "kind": "both_say_right",
+    "source": "arms_key.json",
+    "id": 27,
+    "reader_verdict": "right",
+    "judge_relation": "answers_directly",
+    "cosine": 0.8327710628509521,
+    "arm": 5
+  },
+  {
+    "n": 4,
+    "kind": "both_say_right",
+    "source": "arms_key.json",
+    "id": 52,
+    "reader_verdict": "right",
+    "judge_relation": "answers_directly",
+    "cosine": 0.8392080068588257,
+    "arm": 5
+  },
+  {
+    "n": 5,
+    "kind": "disputed",
+    "source": "arms_key.json",
+    "id": 53,
+    "reader_verdict": "right",
+    "judge_relation": "different_question",
+    "cosine": 0.8433765172958374,
+    "arm": 5
+  },
+  {
+    "n": 6,
+    "kind": "disputed",
+    "source": "arms_key.json",
+    "id": 17,
+    "reader_verdict": "right",
+    "judge_relation": "different_question",
+    "cosine": 0.7884384989738464,
+    "arm": 5
+  },
+  {
+    "n": 7,
+    "kind": "disputed",
+    "source": "arms_key.json",
+    "id": 36,
+    "reader_verdict": "right",
+    "judge_relation": "different_question",
+    "cosine": 0.8578745722770691,
+    "arm": 5
+  },
+  {
+    "n": 8,
+    "kind": "both_say_wrong",
+    "source": "arms_key.json",
+    "id": 12,
+    "reader_verdict": "wrong",
+    "judge_relation": "different_question",
+    "cosine": 0.7570818066596985,
+    "arm": 5
+  },
+  {
+    "n": 9,
+    "kind": "disputed",
+    "source": "arms_key.json",
+    "id": 41,
+    "reader_verdict": "right",
+    "judge_relation": "different_question",
+    "cosine": 0.7885903716087341,
+    "arm": 1
+  },
+  {
+    "n": 10,
+    "kind": "disputed",
+    "source": "arms_key.json",
+    "id": 11,
+    "reader_verdict": "right",
+    "judge_relation": "different_question",
+    "cosine": 0.7588144540786743,
+    "arm": 1
+  },
+  {
+    "n": 11,
+    "kind": "disputed",
+    "source": "arms_key.json",
+    "id": 42,
+    "reader_verdict": "right",
+    "judge_relation": "different_question",
+    "cosine": 0.7892687320709229,
+    "arm": 5
+  },
+  {
+    "n": 12,
+    "kind": "both_say_wrong",
+    "source": "arms_key.json",
+    "id": 33,
+    "reader_verdict": "wrong",
+    "judge_relation": "different_question",
+    "cosine": 0.7724458575248718,
+    "arm": 1
+  }
+]

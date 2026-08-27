@@ -85,14 +85,53 @@ ask the same kind of question about the same subject as the situation?* If that 
 wrong from 37 right, it is a runtime relevance gate that beats cosine and it fills the
 structural hole above. Needs only committed artifacts and ~46 judgments.
 
-## The larger unknown, still unmeasured
+## The input distribution: MEASURED 2026-08-27, and it moves retrieval
 
-Every situation in every read so far is a **verbatim client turn** lifted from a transcript.
-A CSM types a *description* of a situation, not a transcript fragment. #7 flagged this as the
-largest remaining production unknown and it remains untested. It could move the baseline in
-either direction — a CSM's paraphrase states the actual question explicitly, which is exactly
-what these nine failures lost — so it is worth measuring *before* optimising against the
-current input distribution.
+Every situation in every read is a **verbatim client turn** lifted from a transcript. What a
+CSM actually types is the client's words RELAYED inside a request frame -- established by
+asking the operator, who put it as: *"A client said this thing, so can you help on how would
+Naren reply to this situation?"* That is a relay, not a paraphrase, which means the eval's
+query CONTENT was closer to production than assumed. The frame was the missing part.
+
+`../audit/probe_query_framing.py` measures what the frame does. No generation, no reader --
+only embeddings, so it was cheap enough to run before anything else.
+
+| frame | top-1 changed | mean cosine | cosine range | same-scenario |
+| --- | --- | --- | --- | --- |
+| bare turn (what every eval used) | -- | 0.808 | 0.734-0.858 | 14/36 |
+| operator's phrasing | **29/36 (81%)** | 0.766 | 0.737-0.813 | 9/36 |
+| terse variant | 26/36 (72%) | 0.786 | 0.745-0.847 | 17/36 |
+| verbose variant | **31/36 (86%)** | 0.766 | 0.738-0.805 | 6/36 |
+
+**Production retrieval is not what any eval measured.** With a request frame, retrieval
+reaches a DIFFERENT exchange in ~81% of situations. The ~80% accuracy figure was measured on
+a retrieval distribution production would essentially not reproduce.
+
+**The mechanism is dilution by boilerplate, and it is general rather than one bad template.**
+The cosine range collapses from 0.124 wide to 0.076 and the top end falls 0.858 -> 0.813:
+text shared by every query pulls all queries toward each other. The effect scales with frame
+length (terse 26 < operator 29 < verbose 31), which is what rules out "just reword the
+template".
+
+**It also degrades cosine as an instrument** -- a compressed range carries less information,
+so a retrieval floor is even less usable than ADR 0005 already found.
+
+### What this does NOT establish
+
+**That accuracy drops.** Retrieval changing is not retrieval degrading, and this project's own
+issue #8 result is the counterweight: the model selecting a DIFFERENT exchange in 11 of 18
+cases moved correctness exactly once. Different source does not imply different verdict.
+
+Against that: both degrading signals point the same way here (cosine down, same-scenario
+14->9), and unlike #8 -- which reshuffled within one query's top-5 -- framing moves the query
+vector to a different neighbourhood entirely. Unmeasured, and it is the next experiment.
+
+### The fix this suggests is a PRODUCT fix, not a model one
+
+Do not embed the frame. Rather than build an extractor to guess which span of free text is
+the client's words, **ask for them separately**: two fields, *what the client said* and *what
+you need*, where only the first reaches retrieval and both reach generation. Cheaper and more
+reliable than extraction, and mostly a change to the page built in #3.
 
 ## Standing limits on every number here
 
