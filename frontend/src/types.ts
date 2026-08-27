@@ -186,7 +186,7 @@ export interface AskNarenMatch {
   cosine: number;
   scenario_key: string;
   /** Position in the candidate shortlist the answer was grounded at. Always 1 on the
-   *  shipped path, where the shortlist is one exchange long (see ADR 0003). */
+   *  shipped path, where the shortlist is one exchange long (see ADR 0005). */
   rank: number;
 }
 

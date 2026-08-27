@@ -5,7 +5,7 @@ build the rest of the MVP on (#3, #4, #5, #6) before returning to it. This file 
 that work resumes from evidence instead of re-deriving it. Follow-up: issue #9.
 
 **Do not re-propose candidate selection, a retrieval-cosine floor, or a rank cutoff.** All
-three were measured and rejected — see `adr/0003-candidate-selection-and-retrieval-floor-measured-and-rejected.md`.
+three were measured and rejected — see `adr/0005-candidate-selection-and-retrieval-floor-measured-and-rejected.md`.
 
 ## The number
 

@@ -33,7 +33,7 @@ Which retrieved moments reach the prompt. Ask Naren ships top-1 — the single n
 _Avoid_: reranking, top-k tuning.
 
 **Candidate shortlist**:
-The k nearest `kb_pairs` retrieval hands the model for one situation, nearest first, when Ask Naren is run with `k > 1`. Measured against single-candidate selection in issue #8 and NOT adopted — `answering.DEFAULT_K` is 1, so in the shipped path the shortlist is one exchange long. See `docs/adr/0003-candidate-selection-and-retrieval-floor-measured-and-rejected.md`.
+The k nearest `kb_pairs` retrieval hands the model for one situation, nearest first, when Ask Naren is run with `k > 1`. Measured against single-candidate selection in issue #8 and NOT adopted — `answering.DEFAULT_K` is 1, so in the shipped path the shortlist is one exchange long. See `docs/adr/0005-candidate-selection-and-retrieval-floor-measured-and-rejected.md`.
 _Avoid_: top-K, candidate set, the five, retrieval window.
 
 **Grounded candidate**:
