@@ -41,9 +41,9 @@ No test framework is configured. `npm run build` is the type-check gate — ther
 
 - **Next.js 14** App Router, **TypeScript** (`strict: true`)
 - **Tailwind CSS** for component styling
-- **State:** React hooks + `localStorage` + `CustomEvent` — no Redux/Zustand, no data fetching
+- **State:** React hooks + `localStorage` + `CustomEvent` — no Redux/Zustand. No data fetching library: the one page that fetches (`/ask-naren`) uses bare `fetch` against a same-origin route
 - **Icons:** inline SVG components in `frontend/src/components/icons/index.tsx` — no icon library
-- All data is hardcoded mock in `frontend/src/data/` — no API routes, database, or auth
+- All page data is hardcoded mock in `frontend/src/data/` — no database and no auth. **One API route exists**: `frontend/src/app/api/ask-naren/route.ts`, a pass-through proxy to the Python Ask Naren service. It is the only network seam in the frontend, and it holds no retrieval, grounding or model logic — see `ask-naren/` and `Brain/CLAUDE.md`
 
 ## Architecture
 
@@ -54,11 +54,12 @@ All source lives under `frontend/`. `frontend/src/app/layout.tsx` wraps every ro
 - `frontend/src/components/workspace/` — workspace cards (one file per card, veteran + newbie variants)
 - `frontend/src/components/library/` — library tabs, cards, and modals
 - `frontend/src/components/shared/` — components used across pages (`TQItem`, `RadarBriefingPanel`, `RadarRow`, `RadarDeckStack`)
+- `frontend/src/components/ask-naren/` — the Ask Naren page's three components (`SituationForm`, `AnswerCard`, `DeclineNotice`). Unlike workspace/ and library/ these have **no veteran/newbie variants**, deliberately: the page must render identically in both modes, and not branching is the only implementation of that which cannot drift
 - `frontend/src/data/workspace.ts`, `frontend/src/data/library.ts` — all mock data, typed against `frontend/src/types.ts`
 - `frontend/src/hooks/useMode.ts` — the mode subscription hook
-- `frontend/src/types.ts` — the single source of domain types (`EgoTrap`, `RadarMeeting`, `CaseStudy`, `FailureEntry`, `Mode`, etc.); annotate new data and props against these
+- `frontend/src/types.ts` — the single source of domain types (`EgoTrap`, `RadarMeeting`, `CaseStudy`, `FailureEntry`, `Mode`, etc.); annotate new data and props against these. `AskNaren*` at the bottom mirror the Python service's response contract **exactly** and must not drift from it — `AskNarenResponse` is a discriminated union on `declined`, which is what makes the answered/declined render paths exhaustive
 
-Routing: `/` redirects to `/workspace`. `/workspace` and `/library` are implemented; `/simulator` is a stub.
+Routing: `/` redirects to `/workspace`. `/workspace`, `/library` and `/ask-naren` are implemented; `/simulator` is a stub. `/ask-naren` is the only page that talks to a backend, and the only one that is mode-agnostic.
 
 ### Mode system (Veteran / Newbie)
 

@@ -39,3 +39,6 @@ _Avoid_: top-K, candidate set, the five, retrieval window.
 **Grounded candidate**:
 The one exchange from a candidate shortlist that an answer actually rests on — the one whose reply the model's quote verifies against. It is frequently not the nearest one, which is why a response's `citation`, `match.cosine` and `match.rank` all describe the grounded candidate rather than rank 1.
 _Avoid_: chosen pair, selected match, the winner.
+**Request frame**:
+The wrapper a CSM puts around a client's words when asking Ask Naren for help — "A client said this, can you help with how Naren would reply?" A CSM RELAYS the client's words inside a frame rather than paraphrasing them, which is why the eval's query content was closer to production than assumed and the frame was the missing part. Measured 2026-08-27: adding a frame changes which exchange retrieval reaches for 81% of situations, because boilerplate shared by every query pulls all queries toward each other. See `docs/findings/answer-failure-modes.md`.
+_Avoid_: prompt prefix, wrapper text, preamble.
