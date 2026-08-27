@@ -224,3 +224,68 @@ def test_the_citation_label_is_resolved_to_an_account_and_a_date():
     assert result["citation"]["call_filename"] == CALL
     assert result["citation"]["pair_id"] == 11
     assert result["citation"]["scenario_key"] == "performance_pushback"
+
+
+# -- the playbook-augmented variant, dark by default (issue #5) --------------------------
+
+MOVES = [
+    {"name": "Reframe on their own baseline",
+     "criterion": "Compare cost per hire against the client's own prior period, not a "
+                  "Joveo benchmark."},
+    {"name": "Name the window",
+     "criterion": "State the exact lookback window used, in days."},
+]
+
+
+def _moves_for(_scenario_key):
+    return MOVES
+
+
+def test_by_default_the_playbook_is_not_in_the_prompt():
+    """ADR 0001 measured no lift, so pairs-only is the shipped path. This asserts the
+    DEFAULT, which is the half of the switch that actually ships."""
+    _, gw = _ask(_payload())
+    assert "best-practice moves" not in gw.calls[0]["prompt"]
+    assert MOVES[0]["name"] not in gw.calls[0]["prompt"]
+
+
+def test_with_no_moves_supplied_the_prompt_is_byte_identical_to_pairs_only():
+    _, gw = _ask(_payload())
+    assert gw.calls[0]["prompt"] == answering.build_prompt(
+        "client says our cost per hire is way too high", _pool().pairs[0])
+
+
+def test_when_switched_on_the_key_moves_reach_the_prompt():
+    gw = StubGateway(_payload())
+    answering.answer_situation("client says our cost per hire is way too high", _pool(), gw,
+                               embed_query=_embed_query, moves_for=_moves_for)
+    prompt = gw.calls[0]["prompt"]
+    for move in MOVES:
+        assert move["name"] in prompt
+        assert move["criterion"] in prompt
+
+
+def test_switched_on_but_the_scenario_has_no_live_playbook_degrades_to_pairs_only():
+    """33 of 34 coachable scenarios have a live playbook; contract_and_legal_review has
+    none. A missing playbook must not be an error -- it is the ordinary case for that
+    scenario, and a CSM asking about it should still get an answer."""
+    gw = StubGateway(_payload())
+    result = answering.answer_situation(
+        "client says our cost per hire is way too high", _pool(), gw,
+        embed_query=_embed_query, moves_for=lambda _key: None)
+    assert result["declined"] is False
+    assert gw.calls[0]["prompt"] == answering.build_prompt(
+        "client says our cost per hire is way too high", _pool().pairs[0])
+
+
+def test_the_grounding_gate_applies_identically_in_the_playbook_variant():
+    """The gate is not relaxed because the prompt got richer -- a fabricated quote still
+    declines, and still after exactly one retry."""
+    fabricated = _payload(answer="Promise them a 40% lift.", quote="a 40% lift by Friday")
+    gw = StubGateway(fabricated, fabricated)
+    result = answering.answer_situation(
+        "client says our cost per hire is way too high", _pool(), gw,
+        embed_query=_embed_query, moves_for=_moves_for)
+    assert result["declined"] is True
+    assert result["reason"] == "grounding_unverified"
+    assert "40% lift" not in repr(result)

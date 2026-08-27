@@ -2,8 +2,10 @@
 
 The prompt is the one the prototype eval validated (ask-naren/prototype/
 eval_pairs_vs_playbook.py `_build_prompt`), in its pairs-only form: ADR 0001 measured no
-lift from adding the scenario's Layer C playbook, so the playbook-augmented prompt is not
-built here (issue #5 adds it behind internal config, off by default).
+lift from adding the scenario's Layer C playbook, so the PAIRS-ONLY prompt is what ships.
+The playbook-augmented variant lives here too (issue #5) and is dark -- reachable only by a
+caller passing `moves_for`, which only the service entry point does, and only when its own
+PLAYBOOK_AUGMENTED constant is flipped in code. Nothing a request carries can select it.
 
 Nothing here talks to Postgres. The pool arrives already loaded, deduped and embedded; this
 module embeds only the incoming situation, generates, and applies the grounding gate.
@@ -130,8 +132,51 @@ def build_candidates_prompt(situation: str, candidates: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def build_playbook_prompt(situation: str, matched: dict, moves: list[dict]) -> str:
+    """The playbook-augmented variant (issue #5), byte-identical in shape to the prototype
+    that ADR 0001 measured -- the pairs-only prompt plus the scenario's Layer C `key_moves`.
+
+    Held to the measured shape deliberately: ADR 0001 found no lift and explicitly left the
+    switch as an empirical question to revisit if Layer C's criterion quality improves. A
+    re-measure is only comparable to the recorded result if the variant is the same variant.
+    Improving this wording would silently invalidate the number it would be compared against.
+    """
+    lines = [
+        'You are "Ask Naren", an internal Joveo tool that helps a CSM handle a live client '
+        "situation by grounding the answer in Naren's closest real historical response.",
+        "",
+        f"CSM's situation: {situation}",
+        "",
+        "Closest matching real exchange from Naren's own calls:",
+        f"  Client said: {matched['trigger_text']}",
+        f"  Naren replied: {matched['response_text']}",
+        f"  (call: {matched['call_filename']})",
+        "",
+        "Known best-practice moves for this type of situation:",
+    ]
+    for move in moves:
+        lines.append(f"  - {move.get('name', '')}: {move.get('criterion', '')}")
+    lines += [
+        "",
+        "Using ONLY the grounding above, write the answer a CSM should give. Paraphrase "
+        "Naren's real reply rather than inventing a new answer. If the retrieved exchange "
+        "is not actually a close match to the CSM's situation, decline instead of "
+        "answering ungrounded.",
+        "",
+        "Respond as JSON with exactly these keys:",
+        '  "declined": boolean,',
+        '  "answer": the coaching answer for the CSM (empty string if declined),',
+        '  "quote": a verbatim substring copied from Naren\'s reply above that the answer '
+        'is based on (empty string if declined),',
+        '  "cited_call": the call identifier given above, copied exactly (empty string if '
+        "declined).",
+    ]
+    return "\n".join(lines)
+
+
 def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_query,
-                     k: int = DEFAULT_K, label_for=citations.resolve_label) -> dict:
+                     k: int = DEFAULT_K, label_for=citations.resolve_label,
+                     moves_for=None) -> dict:
     """The one call the HTTP layer makes. Returns the response body itself.
 
     `embed_query` is passed in rather than imported so this module stays free of the
@@ -144,6 +189,14 @@ def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_quer
     index is the caller's to own. The default resolves what the FILENAME alone states, which
     is everything `--ask` needs and degrades honestly where the corpus is absent.
 
+    `moves_for` selects the PLAYBOOK-AUGMENTED variant (issue #5) and defaults to None,
+    which is pairs-only -- the shipped path, byte-identical to what ADR 0001 measured. When
+    supplied it is called with the grounded scenario's key and may return None, which is the
+    ordinary case for a scenario with no live playbook (1 of 34) and degrades to pairs-only
+    rather than failing. It is a CALLER-SUPPLIED function rather than a lookup here because
+    the service holds no database handle while answering: the playbooks are read once at
+    startup, like the pool.
+
     `k` is how many retrieved exchanges the model is shown. It defaults to DEFAULT_K == 1,
     which is the shipped path and the arm issue #7's 83% was measured on; issue #8 A/Bs
     k=5 against it. With k == 1 every step below reduces to what that measurement ran on.
@@ -154,8 +207,18 @@ def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_quer
     query_vec = embed_query([situation])[0]
     candidates = pool.topk(query_vec, k)
     pairs = [m.pair for m in candidates]
-    prompt = (build_prompt(situation, pairs[0]) if len(pairs) == 1
-              else build_candidates_prompt(situation, pairs))
+    # The playbook variant is defined for the SINGLE-candidate path, which is what ADR
+    # 0001 measured and what ships. Combining a shortlist with playbook moves is a prompt
+    # nobody has evaluated, so k > 1 uses the shortlist prompt and ignores moves rather than
+    # inventing a third variant at request time. Both switches are off by default, so this
+    # combination cannot arise in production.
+    moves = moves_for(pairs[0]["scenario_key"]) if moves_for and len(pairs) == 1 else None
+    if len(pairs) > 1:
+        prompt = build_candidates_prompt(situation, pairs)
+    elif moves:
+        prompt = build_playbook_prompt(situation, pairs[0], moves)
+    else:
+        prompt = build_prompt(situation, pairs[0])
 
     for _ in range(MAX_ATTEMPTS):
         payload, _meta = gateway.chat_json(

@@ -127,3 +127,28 @@ def test_an_idle_client_connection_does_not_block_the_next_caller(serve_with):
         assert r.status_code == 200
     finally:
         lingering.close()
+
+
+def test_a_request_cannot_select_the_playbook_variant(serve_with):
+    """Issue #5: the playbook-augmented prompt is selectable by internal configuration
+    ONLY. The HTTP layer reads exactly one field and hands the answerer a plain string, so
+    there is no channel for a request to carry a variant, a flag, or a prompt override --
+    extra keys are not rejected, they are simply never read. This pins that boundary: the
+    day someone adds `body.get("playbook")` to the handler, this test fails."""
+    seen = []
+
+    def answerer(situation):
+        seen.append(situation)
+        return ANSWER
+
+    base = serve_with(answerer)
+    r = httpx.post(f"{base}/ask", json={
+        "situation": "cost per hire is too high",
+        "playbook": True,
+        "use_playbook": True,
+        "moves": [{"name": "injected", "criterion": "injected"}],
+        "prompt_variant": "playbook_augmented",
+    })
+    assert r.status_code == 200
+    # The answerer received the situation and nothing else -- one positional string.
+    assert seen == ["cost per hire is too high"]

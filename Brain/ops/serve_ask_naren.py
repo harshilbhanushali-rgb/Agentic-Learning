@@ -54,6 +54,22 @@ DEFAULT_HOSTADDR = "18.138.49.39"
 # than break: without them every UUID call cites its raw filename, exactly as before issue #4.
 SIDECAR_DIRS = ("recordings", "csm_recordings", "recordings_pull_keep", "recordings_pull_4yr")
 
+# THE PLAYBOOK SWITCH (issue #5, ADR 0001). OFF, and flipping it is a CODE EDIT here --
+# deliberately not an env var, a CLI flag or a request field:
+#
+#   * a request field would let a CSM (or anything calling the endpoint) select an
+#     unevaluated prompt variant, which is what the ticket forbids;
+#   * an env var or CLI flag can be set by accident on a restart, and this variant has
+#     MEASURED no lift (ADR 0001: paired delta -0.005 to -0.007, roughly 12x smaller than
+#     the effect the instrument can resolve). Something with no measured benefit should not
+#     be one typo away from serving CSMs.
+#
+# It is kept rather than deleted because Layer C's criterion quality is still moving, and a
+# recalibration should be able to re-measure this without rebuilding the variant. Both
+# prompts are byte-identical to the prototype ADR 0001 actually measured, so a re-measure
+# compares against the recorded number instead of a drifted prompt.
+PLAYBOOK_AUGMENTED = False
+
 
 def _connect_read_only(database_url: str, hostaddr: str | None):
     """A connection Postgres refuses to write through -- lifted from
@@ -87,11 +103,21 @@ def _connect_read_only(database_url: str, hostaddr: str | None):
     return conn
 
 
-def build_pool(hostaddr: str | None) -> retrieval.RetrievalPool:
+def build_pool(hostaddr: str | None):
+    """The pool, and (only when the playbook switch is on) the key moves per scenario.
+
+    Both are read in ONE connection window, which is then closed before the first request is
+    served -- the property this whole module is built around. A playbook cannot be fetched
+    per request because there is no database handle to fetch it with, which is why
+    answer_situation takes a `moves_for` function rather than looking one up itself.
+    """
     config = load_config()
     conn = _connect_read_only(config.database_url, hostaddr)
+    moves_by_scenario: dict[str, list] = {}
     try:
         pairs = retrieval.load_coachable_pairs(conn)
+        if PLAYBOOK_AUGMENTED:
+            moves_by_scenario = _load_key_moves(conn, pairs)
     finally:
         conn.close()
     if not pairs:
@@ -104,7 +130,33 @@ def build_pool(hostaddr: str | None) -> retrieval.RetrievalPool:
     pool = retrieval.RetrievalPool(pairs, vectors)
     print(f"[pool] ready: {len(pool)} pairs across "
           f"{len({p['scenario_key'] for p in pairs})} coachable scenarios", flush=True)
-    return pool
+    return pool, moves_by_scenario
+
+
+def _load_key_moves(conn, pairs: list[dict]) -> dict[str, list]:
+    """`scenario_key` -> live playbook `key_moves`, for the scenarios in the pool.
+
+    Reads through storage.get_playbook_for_scenario, whose status='live' default is the
+    guard that matters: the placebo twins and the UNRESOLVED r1 trial documents share this
+    table and are indistinguishable from production content without it. A scenario with no
+    live playbook is simply absent, and answering degrades to pairs-only for it -- which is
+    the ordinary case for contract_and_legal_review, the 1 of 34 coachable scenarios whose
+    playbook snap collapsed below the move floor.
+    """
+    moves: dict[str, list] = {}
+    missing = []
+    for key in sorted({p["scenario_key"] for p in pairs}):
+        playbook = storage.get_playbook_for_scenario(conn, key)
+        found = (playbook or {}).get("playbook", {}).get("key_moves")
+        if found:
+            moves[key] = found
+        else:
+            missing.append(key)
+    print(f"[playbook] AUGMENTED PROMPT IS ON -- {len(moves)} scenarios have live key "
+          f"moves, {len(missing)} do not and will use the pairs-only prompt", flush=True)
+    if missing:
+        print(f"[playbook] no live playbook: {', '.join(missing)}", flush=True)
+    return moves
 
 
 def build_label_resolver():
@@ -131,14 +183,17 @@ def main() -> int:
                          "Pass '' to disable.")
     args = ap.parse_args()
 
-    pool = build_pool(args.hostaddr or None)
+    pool, moves_by_scenario = build_pool(args.hostaddr or None)
     label_for = build_label_resolver()
+    # None unless the constant above was edited. answer_situation treats None as pairs-only,
+    # so the shipped path never touches the playbook code at all.
+    moves_for = moves_by_scenario.get if PLAYBOOK_AUGMENTED else None
 
     with GatewayClient() as gateway:
         def answerer(situation: str) -> dict:
             return answering.answer_situation(
                 situation, pool, gateway, embed_query=embedder.embed_query_matrix,
-                label_for=label_for)
+                label_for=label_for, moves_for=moves_for)
 
         if args.ask:
             print(json.dumps(answerer(args.ask), indent=2))
