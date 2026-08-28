@@ -7,12 +7,16 @@ import { RetrievalTrace } from './RetrievalTrace';
 /* Renders one turn. Oracle turns are full-width prose rather than bubbles —
  * these are cited, multi-paragraph answers people read, not chat banter. */
 
-function Paragraphs({ text }: { text: string }) {
+function Paragraphs({ text, cursor }: { text: string; cursor: boolean }) {
+  const paras = text.split('\n\n');
   return (
     <>
-      {text.split('\n\n').map((para, i) => (
+      {paras.map((para, i) => (
         <p key={i} className="text-sm text-ink leading-relaxed whitespace-pre-wrap [&:not(:last-child)]:mb-3">
           {para}
+          {/* Trails the final word inline — a cursor on its own line reads
+              as a rendering glitch rather than as live output. */}
+          {cursor && i === paras.length - 1 && <Cursor />}
         </p>
       ))}
     </>
@@ -72,10 +76,7 @@ export function MessageBubble({
         <RetrievalTrace sources={message.retrieval} live={streaming} />
 
         {message.text ? (
-          <div>
-            <Paragraphs text={message.text} />
-            {streaming && <Cursor />}
-          </div>
+          <Paragraphs text={message.text} cursor={streaming} />
         ) : (
           streaming && message.retrieval.length === 0 && <ThinkingDots />
         )}
