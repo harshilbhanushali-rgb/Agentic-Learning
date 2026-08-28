@@ -159,3 +159,65 @@ export interface FailureEntry {
   quarter: string;
   fullPostMortem: string;
 }
+
+/* ── Chat / Knowledge Oracle ───────────────────────────────── */
+
+/** A grounding reference. `label` follows the app-wide source convention,
+ *  e.g. 'QBR Mastery · Module 2 · §1.1'. */
+export interface Citation {
+  id: string;
+  label: string;
+  kind: 'module' | 'case-study' | 'failure' | 'transcript' | 'account';
+  /** Optional in-app destination, when the cited artefact has a page. */
+  href?: string;
+  /** Verbatim supporting passage, shown on expand. */
+  excerpt?: string;
+}
+
+/** One knowledge source the Oracle consulted, surfaced while it thinks.
+ *  Design Principle 5 — show the work. */
+export interface RetrievalSource {
+  id: string;
+  label: string;
+  kind: Citation['kind'];
+  matches: number;
+}
+
+export type ChatRole = 'user' | 'oracle';
+
+export type ChatMessageStatus = 'streaming' | 'complete' | 'error';
+
+export interface ChatMessage {
+  id: string;
+  role: ChatRole;
+  text: string;
+  status: ChatMessageStatus;
+  createdAt: string;
+  /** Populated progressively for oracle turns. */
+  citations: Citation[];
+  retrieval: RetrievalSource[];
+  error?: ChatError;
+}
+
+export interface ChatError {
+  code: 'network' | 'timeout' | 'rate_limit' | 'server' | 'aborted';
+  message: string;
+  retryable: boolean;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
+/** Wire protocol. The mock adapter and the eventual SSE transport emit
+ *  exactly these — the UI never parses raw text. */
+export type StreamEvent =
+  | { type: 'retrieval'; sources: RetrievalSource[] }
+  | { type: 'token'; text: string }
+  | { type: 'citation'; citation: Citation }
+  | { type: 'done'; messageId: string }
+  | { type: 'error'; error: ChatError };
