@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { href: '/workspace', label: 'Workspace', shortcut: 'G W', key: 'w' },
   { href: '/library',   label: 'Library',   shortcut: 'G L', key: 'l' },
   { href: '/simulator', label: 'Simulator', shortcut: 'G S', key: 's' },
+  { href: '/chat',      label: 'Oracle',    shortcut: 'G O', key: 'o' },
 ];
 
 const MODE_LABEL: Record<Mode, string> = { veteran: 'Veteran', newbie: 'Newbie' };
