@@ -970,3 +970,31 @@ def get_hit_quotes(
     for pb, move_id, quote in rows:
         out.setdefault((pb, move_id), []).append(quote)
     return out
+
+
+def get_verified_quotes(
+    conn: psycopg.Connection, rater_id: str, grader_arm: str,
+    verdicts: tuple[str, ...] = ("hit", "partial"),
+) -> dict[tuple[int, str], list[str]]:
+    """Like get_hit_quotes, but over any credited verdict. The say arm's partial
+    ("stated generically") carries a verified quote too, and the repertoire report
+    (layer_d/repertoire.py) counts EITHER as an instance -- so its 'your call'
+    evidence must include both, or a rep whose only instances are generic would
+    show 'uses it' with no quote to back it."""
+    if grader_arm not in _VALID_GRADER_ARMS:
+        raise ValueError(f"invalid grader_arm {grader_arm!r}")
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT e.playbook_id, v.value->>'move_id', v.value->>'quote'
+            FROM move_events e
+            CROSS JOIN LATERAL jsonb_array_elements(e.verdicts) AS v
+            WHERE e.rater_id = %s AND e.grader_arm = %s
+              AND v.value->>'verdict' = ANY(%s)
+              AND COALESCE(v.value->>'quote', '') <> ''
+            ORDER BY e.move_event_id
+        """, (rater_id, grader_arm, list(verdicts)))
+        rows = cur.fetchall()
+    out: dict[tuple[int, str], list[str]] = {}
+    for pb, move_id, quote in rows:
+        out.setdefault((pb, move_id), []).append(quote)
+    return out

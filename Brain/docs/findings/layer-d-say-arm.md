@@ -486,3 +486,65 @@ session wants to revisit W1 it must bring a NEW feature (something beyond trigge
 cosine -- e.g. call-position, prior-turn content, or the account's state), re-freeze a
 rule of the same strictness, and clear it. Re-running THIS probe with a looser bar
 is not a revisit, it is the thing the pre-registration exists to prevent.
+
+
+## 11. THE REPERTOIRE PASS (Task A) -- pre-registered 2026-09-05, before the production say run
+
+Operator-approved 2026-09-05 (HANDOFF_LAYER_D_REPERTOIRE_AND_W0_2026-09-05.md §1).
+This section is written BEFORE `tuning.yaml grader_arm` is flipped to `say` and
+before a single CSM moment is graded under the say identity.
+
+**What ships.** `layer_d/repertoire.py` (pure code, tests in
+`tests/test_layer_d_repertoire.py`) + a REPERTOIRE section leading
+`pipeline.build_combined_reports` (`ops/run_layer_d.py --report-combined`). Per
+(CSM, in-repertoire SAY move), one of three states:
+
+| state | rule | reported as |
+| --- | --- | --- |
+| `uses it` | >= 1 quote-verified instance (hit OR partial) on any of her routed calls | fact + up to 3 of her verified quotes |
+| `never` | zero instances AND her routed-call count n >= n_needed(p_hat) | a repertoire gap: the move, Naren's frequency ("every ~N calls"), his verbatim evidence quotes |
+| `insufficient data` | zero instances, n < n_needed | listed as data with the count still needed; NEVER worded as a gap |
+
+Definitions, fixed: in-repertoire = Naren said it on >= 2 distinct benchmark calls
+(61/87 SAY moves, recomputed from `move_performance` 2026-09-05); p_hat = his
+(hits + partials) / attempts on the naren/say row (attempts count CALLS);
+n_needed = ceil(ln 0.05 / ln(1 - p_hat)) -- median 13, 46/61 <= 20; her n = the
+csm/say row's attempts (calls with >= 1 scored moment for the move).
+
+**Spend.** The CSM production say run over the same 100 mapped transcripts as the
+pairwise run (~300-400 gateway requests). The Naren benchmark pass inside the batch
+is SKIPPED by copying run `695837c37614`'s 33 `_naren` checkpoint rows to the
+batch's run_id (identical instrument identity, identical items, identical sample):
+re-grading would UPSERT over the very benchmark events that G-S4 and W0 were
+measured on, so skipping is correctness, not thrift.
+
+**Gates (pre-registered; a failure STOPS the work and brings options, it does not
+get renegotiated after the numbers exist):**
+
+- **G-R1 blind output audit.** `calibration/layer_d_output_audit.py --audit-say`
+  over the stored CSM say verdicts (40 moments, stratified 60% with a positive
+  claim / 40% miss-only), TWO fresh Sonnet reader subagents, packet-only (no
+  model verdicts, opaque item ids), every read persisted to `artifacts/` before
+  scoring. `--score-say`: **>= 70% exact 3-way agreement** (no/generic/specific vs
+  miss/partial/hit) among mutually decisive verdicts, pooled over both readers.
+  Binary said/not-said agreement is reported as a diagnostic; the repertoire
+  report only USES the binary collapse, so if 3-way fails but binary >= 80% the
+  verdict is "3-way FAIL, binary PASS" and the operator decides -- written up,
+  not waved through.
+- **G-R2 spot-read of every `never` cell.** Zero spend. For EVERY cell the report
+  calls `never`, read its stored moment population (the CSM's scored moments on
+  that playbook): are they real client moments on that scenario, with substantive
+  CSM replies? A `never` whose moments are mis-routed, deferrals mis-classified as
+  CSM replies, or fragments is a segmentation artifact and is struck from the
+  report (and counted). Bar: **>= 80% of `never` cells survive**; below that the
+  section does not ship and the segmentation, not the prompt, is the suspect.
+- **G-R3 power rule in code.** Enforced per cell in `repertoire.classify`, pinned
+  by `tests/test_layer_d_repertoire.py` (n_needed(0.15) == 19; 18 zero-calls ->
+  insufficient; 19 -> never). Already green before this section was written.
+
+**Fallback if G-R1 or G-R2 fails (pre-listed):** do-type-only coaching -- the 34
+pairwise-routed cells (§7/§9(c)). No prompt iteration (refuted 6x); no floor
+tuning. **After the run, regardless of outcome:** `grader_arm` flips back to
+`pairwise` (fail-safe convention).
+
+Results are appended below as §11b.

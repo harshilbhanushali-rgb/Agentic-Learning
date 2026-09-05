@@ -721,13 +721,19 @@ def build_reports(conn, csm_names: dict[str, str]) -> str:
 
 
 def build_combined_reports(conn, csm_names: dict[str, str]) -> str:
-    """The production report once BOTH arms have data: pairwise verdicts rank the
-    DO/MIXED-routed moves (run 137706da74c6's events -- the benchmark exemplar is
-    inside every verdict), say verdicts rank the SAY-routed moves against the
-    measured Naren call-level benchmark. The two gap semantics are different
-    numbers (1 - match_or_beat vs naren_rate - csm_rate) so they are REPORTED as
-    separate sections, never merged into one ranking. Pure read."""
-    from layer_d import move_classes
+    """The production report once BOTH arms have data. Three sections, never
+    merged into one ranking because their semantics differ:
+
+    1. REPERTOIRE (layer_d/repertoire.py, findings §11): for every SAY move in
+       Naren's repertoire, uses it / never / insufficient data, with the power rule
+       enforced per cell. This is the coaching deliverable for say-type moves --
+       the rate framing below is dead at the shipped floor (G-S4).
+    2. SAY rate-vs-benchmark (kept as a diagnostic: naren_rate - csm_rate, with
+       dead-check flags -- expect most cells flagged, that IS the G-S4 finding).
+    3. PAIRWISE on DO/MIXED-routed moves (run 137706da74c6's events -- the
+       benchmark exemplar is inside every verdict; gap = 1 - match_or_beat).
+    Pure read."""
+    from layer_d import move_classes, repertoire
     classes = move_classes.load_move_classes()
     tuning_d = get_tuning().layer_d
 
@@ -739,22 +745,34 @@ def build_combined_reports(conn, csm_names: dict[str, str]) -> str:
     route_by_cell: dict[tuple[int, str], str] = {}
     for pb in live_playbooks_flat(conn):
         for m in pb["key_moves"]:
-            first_quote = (m.get("evidence") or [{}])[0].get("quote", "")
+            quotes = [q for q in ((ev.get("quote") or "").strip()
+                                  for ev in (m.get("evidence") or [])) if q]
             cell = (pb["playbook_id"], m["move_id"])
             move_meta[cell] = {
                 "scenario_key": pb["scenario_key"], "name": m.get("name", ""),
-                "criterion": m.get("criterion", ""), "naren_quote": first_quote,
-            }
+                "criterion": m.get("criterion", ""),
+                "naren_quote": quotes[0] if quotes else "",
+                "naren_quotes": quotes,       # every evidence quote: the repertoire
+            }                                 # report shows his real deployments
             entry = classes.get(f"{pb['scenario_key']}:{m['move_id']}")
             route_by_cell[cell] = entry["route"] if entry else "pairwise"
 
     blocks: list[str] = []
 
-    # --- SAY section (rate-vs-benchmark) -------------------------------------
     say_csm = {rid: to_rates(rows)
                for rid, rows in storage.get_move_rates(conn, "csm", "say").items()}
     say_naren = to_rates(
         storage.get_move_rates(conn, "naren", "say").get(aggregate.NAREN, []))
+
+    # --- REPERTOIRE section (the say-type coaching deliverable) --------------
+    rep_moves = repertoire.naren_repertoire(say_naren)
+    coverage = repertoire.repertoire_coverage(rep_moves, say_csm)
+    for rater_id, cells in sorted(coverage.items()):
+        blocks.append(repertoire.format_repertoire_report(
+            csm_names.get(rater_id, rater_id), cells, move_meta,
+            csm_quotes=storage.get_verified_quotes(conn, rater_id, "say")))
+
+    # --- SAY section (rate-vs-benchmark, diagnostic) -------------------------
     ranked_say, dead = aggregate.rank_gaps(
         say_csm, say_naren,
         prior_strength=tuning_d.shrinkage_prior_strength,
