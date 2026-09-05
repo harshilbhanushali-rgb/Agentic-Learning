@@ -31,6 +31,50 @@ def reconnect_if_closed(conn: psycopg.Connection) -> psycopg.Connection:
         return get_connection(_database_url)
 
 
+def is_read_only(conn: psycopg.Connection) -> bool:
+    """Cheap pre-flight check (SHOW, no write) so a caller can fail fast before
+    spending on grading, instead of discovering the database refuses writes only
+    after an INSERT dies. A read-only project is a DIFFERENT failure from a dead
+    connection: the connection itself is alive and healthy (reconnect_if_closed's
+    SELECT 1 passes), so only an explicit permission check catches it.
+
+    ROOT CAUSE, confirmed 2026-08-26 (not just observed): this is NEVER Neon
+    itself restricting the project. It is a `SET SESSION
+    default_transaction_read_only = on` left behind by some OTHER client (this
+    project's own `_connect_read_only` helpers were one confirmed source, now
+    fixed to reset before close) that leaks through Neon's pooled endpoint --
+    PgBouncer transaction pooling reuses the same backend server connection
+    across unrelated clients, so a session-level SET one client forgets to undo
+    poisons whichever client gets that backend next. Proven directly: `SET
+    SESSION default_transaction_read_only = off` on a "read-only" connection
+    clears it immediately, every time, including live during this incident --
+    a genuine server-side restriction could not be overridden that way. Because
+    other, unfixed sources of the same anti-pattern can still exist (outside
+    this codebase), see clear_read_only() below for the self-healing form
+    production code should actually call.
+    """
+    with conn.cursor() as cur:
+        cur.execute("SHOW default_transaction_read_only")
+        return cur.fetchone()[0] == "on"
+
+
+def clear_read_only(conn: psycopg.Connection) -> bool:
+    """Actively un-poison conn if it inherited a leaked read-only session
+    setting (see is_read_only's docstring), then report whether it's STILL
+    read-only afterward. Prefer this over a bare is_read_only check in any
+    loop that's about to spend before writing: a bare check only detects the
+    leak and gives up, while this neutralizes it and lets the run continue
+    (measured 2026-08-26: the leak recurred from an unidentified external
+    source even after fixing this project's own known contributors, so
+    detect-and-abort alone kept losing progress to something outside this
+    codebase's control). A True return means the reset itself didn't take --
+    the one shape a genuine, non-leak restriction would produce -- and the
+    caller should treat it exactly like the old detect-and-abort path.
+    """
+    conn.execute("SET SESSION default_transaction_read_only = off")
+    return is_read_only(conn)
+
+
 def upsert_call(conn: psycopg.Connection, filename: str) -> int:
     with conn.cursor() as cur:
         cur.execute("""

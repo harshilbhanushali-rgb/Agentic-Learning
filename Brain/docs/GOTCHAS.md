@@ -253,6 +253,14 @@ second. Layer D's shipped `checks` arm asks a strictly BINARY `performed: true/f
 disagreement — it causes **hit inflation**, because the grader anchors its mandatory verbatim
 quote on the easiest clause.
 
+## The `calls` corpus contains real transcript duplicates under different filenames (2026-08-26)
+
+Measured while auditing `ask-naren/prototype/eval_pairs_vs_playbook.py`'s retrieval-holdout logic: some transcripts were ingested twice into `calls`/`kb_pairs` under two different `filename` values, with byte-identical `(trigger_text, response_text)` pairs on both sides. Confirmed against the live coachable-scenario pool (6,528 rows): **64 rows are exact content duplicates — 32 distinct pairs, each present under 2 different call filenames — spread across 15 of the 34 coachable scenarios** (e.g. `Call5.txt` and `2a2bd7c6-4920-4762-a62b-41f5ae1dec50.txt` share all 16 pairs; similarly for `Call3.txt`/`Call4.txt` and their UUID-named twins).
+
+`calls.filename` is UNIQUE (`db/schema.sql`), so these are genuinely two distinct rows in `calls`, not a constraint violation — Postgres has no way to know they're the same recording. Anything that assumes "one call = one filename = one real conversation" (a leave-one-call-out holdout, a `support_calls`/account-diversity count, a call-level dedup) can silently double-count a duplicate or fail to exclude its content-twin.
+
+**Not fixed at the source.** `ask-naren/prototype/eval_pairs_vs_playbook.py` works around it downstream by deduping its own retrieval pool on normalized `(trigger_text, response_text)` content before use (`_load_coachable_pool`) — a per-consumer patch, not a corpus fix. Layer C's playbook `support_calls`/single-account diversity gates and Layer D's `move_events` may already be inflated by these duplicates, and this has **not** been checked. Worth a `calls`-level audit (e.g. grouping filenames whose transcripts hash identically) before trusting any per-call diversity metric at face value.
+
 ## A hardcoded status list in a plan summary hid five documents from the approval step (2026-08-24)
 
 `ops/load_playbooks.py` printed its dry-run plan with `for status in ("live", "placebo",
@@ -267,3 +275,73 @@ count equals the document count, so an unaccounted-for status now raises instead
 
 Same class as `EXPECTED_COUNTS` meaning two things: a literal list that must be kept in sync
 with data it does not derive from.
+
+## `SET SESSION default_transaction_read_only = on` leaks across clients through Neon's pooler (2026-08-26)
+
+A Layer D regrade kept failing with `cannot execute INSERT in a read-only transaction` —
+repeatedly, across unrelated attempts, with no `ALTER DATABASE`/`ALTER ROLE` setting it
+(`pg_db_role_setting` was empty) and no replica involved (`pg_is_in_recovery()` was `False`).
+**Root cause, confirmed by direct reproduction, not inferred:** four scripts
+(`ops/serve_ask_naren.py`, `calibration/probe_retrieval_gate.py`,
+`calibration/score_naren_ceiling.py`, `calibration/layer_d_output_audit.py`) each open a
+"safety" connection with `SET SESSION default_transaction_read_only = on` and then `conn.close()`
+**without resetting it first**. Neon's pooled endpoint (PgBouncer transaction pooling) reuses the
+same backend server connection across totally unrelated clients, so the leftover session GUC
+poisons whichever client is handed that backend next — including a completely different script
+in a completely different process, minutes later.
+
+**Reproduced and fixed live, both directions**: poisoning a connection then opening a fresh one
+made the fresh one inherit `read-only`; running `SET SESSION default_transaction_read_only = off`
+on a "read-only" connection cleared it instantly, every time — proof it was always a leaked
+session setting, never a genuine Neon-enforced restriction (a real restriction cannot be
+overridden by a plain session `SET`). Fixed at the source in all four scripts: `.close()` is now
+wrapped to reset the setting before the real close. Fixed defensively in Layer D itself too
+(`storage.clear_read_only`, wired into every write loop in `layer_d/pipeline.py`): rather than
+merely detecting read-only and aborting, it actively resets a leaked setting first and only
+treats it as genuine if the reset doesn't take — because an unidentified fifth source of the same
+anti-pattern can exist outside this codebase's control (e.g. another app sharing the database),
+and detect-and-abort alone kept losing a full run's progress to something nobody could fix from
+here.
+
+**If you write a new "read-only connection" helper**: never leave `SET SESSION
+default_transaction_read_only = on` in place when a connection returns to the pool. Either reset
+it explicitly before `.close()` (see any of the four fixed scripts for the wrapped-close pattern)
+or use `storage.get_connection` + `storage.clear_read_only` instead of hand-rolling it.
+
+## Bash heredocs eat backslashes, and backticks get command-substituted (2026-08-27)
+
+Feeding a Python script to `python -` through a **quoted** bash heredoc (`<<'PYEOF'`) does not
+reliably preserve the content on this machine. Two distinct corruptions, both silent:
+
+1. **`"\n"` arrives as a real newline.** A patch script containing
+   `return "\n".join(lines)` wrote a file with an unterminated string literal. The script
+   reported success, because the replacement it performed was a no-op — its `old` and `new`
+   strings had both been mangled identically, so the assertion on occurrence count passed.
+   It took three attempts to see it.
+2. **Backticks are command-substituted even inside a quoted heredoc.** A markdown doc written
+   this way silently lost the file path inside `` `like_this` `` — bash tried to execute it and
+   substituted the empty result. The doc committed cleanly with a sentence beginning
+   " measures what the frame does."
+
+Both failures produce plausible-looking output, which is what makes them worth a gotcha.
+
+**What works:** build such strings with `chr(10)` and `chr(92)` instead of escapes, or write
+the script to a file with the Write tool and run it as a file. For markdown or any content
+containing backticks, use the Write/Edit tools and never a heredoc.
+
+## A monotonically numbered directory cannot refuse a duplicate (2026-08-27)
+
+Two sessions were working the same worktree and branch. One listed `ask-naren/docs/adr/` at
+session start, saw 0001 and 0002, and later wrote a new ADR as 0003. The other session had
+committed **0003 and 0004** in between. Two files carried the same number, and both were
+committed before anyone noticed; `c2521cd` renumbered the later one to 0005 and fixed three
+references.
+
+Nothing detects this — the filesystem accepts the name, git accepts the commit, and both
+documents read as authoritative. **Re-list a numbered directory immediately before writing
+into it, not once at the start of a session.** The same applies to migration files, fixture
+numbers, and anything else whose identity is a counter.
+
+Corollary, since the same conditions caused it: when another session may be writing to the
+worktree, stage explicit paths and never `git add -A`. That discipline is what kept this
+session's ten commits free of the other session's uncommitted Layer D work.

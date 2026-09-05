@@ -348,7 +348,12 @@ CREATE TABLE IF NOT EXISTS move_events (
     grader_arm       TEXT NOT NULL CHECK (grader_arm IN ('checks', 'pairwise')),
     grader_model     TEXT NOT NULL DEFAULT '',  -- per-row provenance: which model graded
     via              TEXT NOT NULL,      -- 'last_turn' | 'stitched' (segmentation arm e)
-    response_outcome TEXT NOT NULL CHECK (response_outcome IN ('csm', 'other_joveo', 'none')),
+    -- 'interjection' (added 2026-08-26): a "csm" reply too short/fragmentary to
+    -- grade (an interruption or backchannel caught by the response window) --
+    -- recorded like a deferral, never graded. Kept distinct from 'other_joveo'
+    -- so it doesn't silently change the already-reported deferral rate.
+    response_outcome TEXT NOT NULL CHECK (response_outcome IN
+        ('csm', 'other_joveo', 'none', 'interjection')),
     trigger_text     TEXT NOT NULL,
     response_text    TEXT NOT NULL,
     verdicts         JSONB NOT NULL DEFAULT '[]',  -- [{move_id, verdict, quote, quote_score, reason}]
@@ -357,6 +362,14 @@ CREATE TABLE IF NOT EXISTS move_events (
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (rater_population, call_id, source_ref, playbook_id, grader_arm)
 );
+
+-- Postgres cannot ALTER a CHECK constraint's condition in place, so a live table
+-- created before 'interjection' existed needs a drop+add. Idempotent (safe to
+-- re-run): DROP IF EXISTS, then ADD. A no-op on a database created fresh from the
+-- CREATE TABLE above, which already has the widened list inline.
+ALTER TABLE move_events DROP CONSTRAINT IF EXISTS move_events_response_outcome_check;
+ALTER TABLE move_events ADD CONSTRAINT move_events_response_outcome_check
+    CHECK (response_outcome IN ('csm', 'other_joveo', 'none', 'interjection'));
 
 CREATE INDEX IF NOT EXISTS idx_move_events_rater ON move_events (rater_population, rater_id);
 CREATE INDEX IF NOT EXISTS idx_move_events_playbook ON move_events (playbook_id);

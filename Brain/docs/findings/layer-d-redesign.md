@@ -464,3 +464,125 @@ page; the page sometimes shows the wrong thing):**
 None of the three changes the direction of any finding; #1 shaves magnitudes.
 All three are small, named, and pre-production for any run whose numbers get
 shown to a CSM.
+
+## THE THREE P0 FIXES SHIPPED, THE REGRADE COMPLETED, AND THE OUTPUT AUDIT RE-PASSED (2026-08-26/27)
+
+**Interjection guard** (`layer_d/signals.py::detect_moments`): a `"csm"` response window
+whose joined text fails `v1.layer_b._is_substantive` (the same ≥5-content-word bar used
+project-wide for "is this a real utterance or noise", lazy-imported to avoid paying spaCy's
+load cost on every process that touches `layer_d.signals`) is reclassified to a new
+`response_outcome` value, `"interjection"` — recorded like a deferral (ungraded), but kept in
+its own bucket rather than folded into `"other_joveo"`, so the already-reported 33% deferral
+rate doesn't silently move. Required a schema change: `move_events.response_outcome`'s CHECK
+constraint gained `'interjection'` as a fourth allowed value (idempotent `DROP
+CONSTRAINT`/`ADD CONSTRAINT` in `db/schema.sql`, since Postgres can't alter a CHECK condition
+in place). Checkpoint identity bumped `_v2` → `_v3` (the guard changes which moments get
+graded at all, so cached `_v2` verdicts can't be reused).
+
+**Exemplar-substantive filter** (`layer_d/pipeline.py::make_exemplar_picker`): candidates are
+now filtered through `_is_substantive` before the top-cosine pick, so a CSM reply can no
+longer be benchmarked against Naren filler. Falls back to the unfiltered pool (with a printed
+warning) if filtering would empty it for a scenario — failing that scenario's whole grading
+batch would be worse than grading against an imperfect benchmark for once, per the C3
+"landing_page is ~0 under every unit" precedent that a thin scenario is itself a finding, not
+grounds to crash.
+
+**Report grouping** (`layer_d/aggregate.py::group_by_scenario` + rewritten
+`format_pairwise_priorities`): the report now shows ONE block per scenario (moves nested
+inside), ordered by each scenario's WORST move's gap (max, not average — a scenario with one
+severe, specific problem must not be diluted by fine moves in the same scenario). The old
+`_REPORT_TOP_N = 5` cutoff was dropped for the pairwise arm entirely: verified against the
+first production run's own data that the real scale is ~19 scenarios / ~51 rankable cells for
+one CSM, not hundreds, so a full report reads fine and a cutoff was only ever hiding real
+findings for no reason.
+
+All three fixes passed audit #5 (general-purpose agent, blind, zero findings) before the
+regrade spent anything.
+
+### The regrade took eight attempts, and the failures taught more than the fixes did
+
+Two DISTINCT operational bugs, neither in the three P0 fixes' own code, surfaced only once
+real spend was on the line — both fixed, both now part of the standing toolkit:
+
+**Bug 1 — a dropped connection cascaded into every remaining transcript's write failing.**
+`run_layer_d_batch` (and the sibling `run_naren_benchmark`) held one long-lived `psycopg`
+connection for the whole batch with no health check. A WiFi drop mid-run killed it once; every
+subsequent transcript then failed identically on write, its grading spend wasted for nothing,
+because nothing ever re-established the connection. Audit #6 found the SAME gap in
+`run_naren_benchmark` (skipped for `pairwise`, the shipped arm, but reachable via
+`--naren-only` regardless of arm). Fixed with `storage.reconnect_if_closed` — already the
+established pattern everywhere else in this project (`ego_trap/pipeline.py`, `v2/layer_c.py`,
+several `ops/*.py` scripts) — wired into both functions' per-item loops for the first time.
+Both functions now return `(result, conn)` so the caller rebinds to the live connection
+(reconnecting swaps in a new object; the caller's original handle can be dead by the time the
+function returns) — same contract as `ego_trap.pipeline.run_ego_trap_batch`.
+
+**Bug 2 — the real one: a leaked session GUC through Neon's connection pooler.** Even after
+Bug 1's fix, the regrade kept hitting `cannot execute INSERT in a read-only transaction`,
+recurring across attempts with no `ALTER DATABASE`/`ALTER ROLE` setting it and no replica
+involved. Systematic root-cause investigation (not a guess): four scripts
+(`ops/serve_ask_naren.py`, `calibration/probe_retrieval_gate.py`,
+`calibration/score_naren_ceiling.py`, `calibration/layer_d_output_audit.py`) each open a
+"safety" read-only connection via `SET SESSION default_transaction_read_only = on` and close
+it WITHOUT resetting first. Neon's pooled endpoint reuses the same backend across unrelated
+clients (PgBouncer transaction pooling), so the leftover session setting poisons whichever
+client gets that backend next. Directly reproduced (poison → fresh connection inherits
+read-only) and directly disproved as a real restriction (`SET SESSION ... = off` cleared it
+instantly, every single time it was tried, including live mid-incident — a genuine
+Neon-enforced restriction could not be overridden that way). Full writeup:
+`docs/GOTCHAS.md` §"`SET SESSION default_transaction_read_only = on` leaks across clients
+through Neon's pooler".
+
+Two layers of fix, because the source kept recurring from outside this codebase's visibility
+even after the four known scripts were patched (confirmed via `pg_stat_activity`: no
+`serve_ask_naren` process was running, so an unidentified fifth source — plausibly a separate
+concurrent application sharing the database — was still doing the same thing):
+
+1. All four scripts fixed at the source: `.close()` wrapped to reset the session setting first.
+2. Layer D made self-healing regardless of source: `shared/storage.py::clear_read_only(conn)`
+   actively resets a possibly-leaked setting and only reports "still read-only" (triggering the
+   existing abort path) if the reset genuinely doesn't take. Wired into `run_layer_d_batch`'s
+   per-transcript check, its final-aggregate check (audit #7 found this second site was
+   unguarded — a read-only flip at the very last step, after every transcript had already
+   succeeded, would have crashed with a raw traceback and lost the printed report for a run
+   that had, in substance, completed), and `run_naren_benchmark`'s per-scenario check. Audit #8
+   confirmed clean, including tracing that a dead connection can never reach
+   `clear_read_only` (reconnect_if_closed always runs first) and that the reset cannot produce
+   a false "cleared" against a genuine restriction (Postgres session GUCs aren't gated by
+   recovery state; the one theoretical blind spot — a real hot-standby connection — already
+   existed identically under the old code and isn't a regression).
+
+**Result: attempt 7 (self-healing fix) pushed through THREE separate re-poisoning events in
+one run** rather than aborting on the first one, losing only the one transcript that happened
+to be mid-flight each time instead of every remaining transcript. Attempt 8 (a 3-transcript
+mop-up) completed clean. Eight audits total across this arc's full lifetime (this session added
+audits 5 through 8), all clean or promptly fixed.
+
+### Final regrade: 100 of 106 mapped transcripts, zero failures, output audit re-passed
+
+Same instrument identity except version (`layer_d_e_pairwise_gemini-3.6-flash_medium_noswap_v3`
+— the `_v3` suffix IS the interjection-guard/exemplar-filter boundary). 6 transcripts excluded
+(Avoma "Unknown Speaker", same fail-closed gate as the first run). 807→ a fresh grade of every
+moment under the new instrument; `move_performance` fully rebuilt (251 rows).
+
+**The numbers barely moved — which is the right result, not a null one.** Same top cell,
+before vs after: 11 attempts/1-3-7/23% match-or-beat → 9 attempts/1-2-6/22%. Other cells:
+publisher_management M1 15→11 attempts, 33%→32%; specialty_and_niche M3 19→16 attempts, 34%→34%
+unchanged. Attempt counts dropped by exactly what the interjection guard removing fragment
+moments predicts; the rates themselves held within 1-2 points everywhere checked. This confirms
+the original numbers were mostly real signal with only the small artifact-driven distortion the
+read-through had already estimated (~2 of 11 top-cell losses) — not an instrument that was
+quietly reporting noise the whole time.
+
+**`calibration/layer_d_output_audit.py --audit` / `--score` re-run on the fresh data: 92.7%
+agreement (38/41 mutually decisive) between two independent blind readers and the model's own
+verdicts, gate ≥70% PASSED** — consistent with the original run's 97.9%. `connect_ro()` in this
+script carried the SAME leaked-session-GUC bug as the other three (a fourth instance, found and
+fixed the same way, before this re-run).
+
+**Verdict, updated:** still SHIPPABLE AS COACH-FACING DRAFT. The P0 gap to CSM-facing is
+closed (all three named fixes shipped, regraded, and re-validated). What's NOT closed by this
+work, and shouldn't be read as closed: this is still one CSM (Madhumita), still ~a third of
+playbook moves are blurry/unmeasured, and rates are still relative/shrunk rather than precise
+— none of that was in scope for P0, all of it is P1/P2 (report the deferral finding, targeted
+playbook rewrites on the blurry cells, more CSMs, frontend wiring).

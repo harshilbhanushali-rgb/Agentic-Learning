@@ -99,6 +99,11 @@ def main() -> None:
     conn = storage.get_connection(url)
     try:
         if args.report_only:
+            conn = storage.reconnect_if_closed(conn)
+            if storage.clear_read_only(conn):
+                print("ERROR: database is currently read-only; try again once "
+                      "it's writable.")
+                sys.exit(3)
             storage.refresh_move_performance(conn)
             names = {cid: name for cid, name in mapping.values()}
             print(pipeline.build_reports(conn, names))
@@ -129,9 +134,21 @@ def main() -> None:
             print(f"Naren benchmark only: {len(selected)} of {len(live_keys)} live "
                   f"playbook(s), sample {sample}/scenario; run_id {run_id}")
             checkpoint.init(run_id)
-            out = pipeline.run_naren_benchmark(
+            out, conn = pipeline.run_naren_benchmark(
                 config, conn, chat=pipeline.gateway_chat(), run_id=run_id,
                 sample=sample, only=only)
+            if out.get("aborted_read_only"):
+                print(f"\n=== NAREN BENCHMARK ===\n{json.dumps(out, indent=2)}")
+                print("\nABORTED: DB went read-only mid-benchmark. Graded scenarios "
+                      "are checkpointed; re-run once writable to resume.")
+                sys.exit(3)
+            conn = storage.reconnect_if_closed(conn)
+            if storage.clear_read_only(conn):
+                print(f"\n=== NAREN BENCHMARK ===\n{json.dumps(out, indent=2)}")
+                print("\nABORTED: DB went read-only right at the aggregate step -- "
+                      "grading is checkpointed, only the rebuild was skipped. "
+                      "Re-run with --report-only once writable.")
+                sys.exit(3)
             rows = storage.refresh_move_performance(conn)
             print(f"\n=== NAREN BENCHMARK ===\n{json.dumps(out, indent=2)}")
             print(f"move_performance rows: {rows}")
@@ -175,7 +192,13 @@ def main() -> None:
             sys.exit(1)
 
         checkpoint.init(run_id)
-        report = pipeline.run_layer_d_batch(
+        # Rebind: run_layer_d_batch reconnects internally on a dropped connection,
+        # which swaps in a NEW object -- the handle created above can be dead by
+        # the time this returns. Same contract as ops/run_ego_trap.py's "Rebind"
+        # comment. Using the returned conn (not the original) below is what lets
+        # build_reports succeed after a mid-run network blip instead of failing
+        # immediately on a connection everyone else already moved past.
+        report, conn = pipeline.run_layer_d_batch(
             config, conn,
             recordings_dir=_RECORDINGS, run_id=run_id,
             limit=args.limit, exclude=excluded,
@@ -188,10 +211,16 @@ def main() -> None:
         print("\n=== RUN REPORT ===")
         print(json.dumps(report, indent=2, default=str))
 
+        conn = storage.reconnect_if_closed(conn)
         names = {cid: name for cid, name in mapping.values()}
         print("\n=== COACHING REPORTS ===")
         print(pipeline.build_reports(conn, names))
 
+        if report.get("aborted_read_only"):
+            print("\nABORTED: the database went READ-ONLY mid-run (likely something "
+                  "else writing to the same database). Nothing past the abort point "
+                  "was checkpointed -- re-run once it's writable again to resume.")
+            sys.exit(3)
         if report["failed"] or report["naren"]["failed"]:
             print("\nSOME ITEMS FAILED AND WERE NOT CHECKPOINTED -- re-run to retry them.")
             sys.exit(2)

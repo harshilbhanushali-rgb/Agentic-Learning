@@ -19,6 +19,8 @@ This is a plain-language history of the Brain pipeline: what it does, what went 
 | Response-taxonomy auto-pass | 2026-08-07 → 08-08 | Built a permanent, automatic version of the manual "graduate a homeless topic" fix; hit and fixed a known connection-drop bug again in the wild; ran it for real and rescued 164 pairs into 4 new real scenarios |
 | **Pool unit: the taxonomy is built from fragments** | **2026-08-14 → 08-15** | **Tested whether the SCENARIOS are sound, which four earlier efforts had assumed. Two thirds fail a random-null test. Cause: Layer A groups sentence fragments while Layer B matches whole turns, so 59% of the pool carries no subject. Fix built and shipped OFF; also moved to the Gemini backend and validated against Layer D** |
 | **The ceiling measurement** | **2026-08-11** | **Graded the expert against his own rubrics to find out whether the CSM's 3.1% means anything. It doesn't: the scorer barely tells a matched rubric from a random one. Found the real defect — the rubrics are bimodal, and contingent moves are being graded as mandatory** |
+| **Layer D P0 fixes + the regrade that took 8 tries** | **2026-08-26 → 08-27** | **Shipped the three fixes owed before any CSM-facing run (fragment replies, filler benchmarks, tripled report rows), then spent a day fighting a database that kept going read-only mid-run. The real cause was a leaked session setting leaking through Neon's connection pooler from four different scripts — not the DB, not a quota, not even the thing everyone suspected first. Fixed at the source and made Layer D self-healing against it. Regrade completed clean; the regraded numbers barely moved, which means the original ones were mostly right** |
+| **Ask Naren shipped, and two false alarms about its quality** | **2026-08-26** | **Built the CSM-facing tool that answers a live client situation from Naren real past calls, then measured whether the answers are actually RIGHT -- something no earlier number had ever asked. Two alarming figures that triggered the investigation both turned out to be mistakes in how they were measured, not defects. The real answer is 83% right, with every failure traced to one mechanism: the tool uses only the single closest past moment, and the right one is often second or third** |
 
 ---
 
@@ -3077,6 +3079,117 @@ away, doing the correct thing for every other caller. Two blind code audits read
 and neither flagged it. What found it was reading the helper because a different task required
 knowing whether it committed.
 
+---
+
+## Layer D's last three fixes, and a day spent chasing a database that kept refusing to write (2026-08-26 → 27)
+
+The Layer D redesign (the pipeline that grades a CSM's real call replies against Naren's own,
+moment by moment — see the entries above) had been calibrated and had produced its first
+coaching report, but a human read-through against the raw transcripts had found three specific
+things wrong with what the report actually showed, all small and all named. This session shipped
+all three, then spent most of a day getting the resulting re-grade to actually finish, because
+the database kept refusing to write partway through — for a reason that had nothing to do with
+the fixes themselves.
+
+### The three fixes
+
+**Fragments were getting graded as real answers.** Sometimes what the system captured as "the
+CSM's reply" wasn't a reply at all — it was a scrap of an interruption, like someone getting cut
+off mid-sentence ("So the last.") or a filler word said while someone else was still talking
+("Yeah I hear."). The grader had no way to tell that apart from a real, if short, answer, so an
+interruption could get scored as a loss unfairly. **Fixed by** checking whether the captured text
+has enough actual content (at least five meaningful words) before grading it at all — below that
+bar, it's recorded but excluded from scoring, the same way a "she didn't answer, a teammate did"
+moment already was.
+
+**The benchmark she was compared against was sometimes filler too.** The system picks whichever
+of Naren's real replies is the closest topical match to compare a CSM's reply against. Occasionally
+that pick was itself just a throwaway line — "Yep. Absolutely. Perfect." — which made comparisons
+against it meaningless in both directions. **Fixed by** applying the same five-word content check
+to the benchmark candidates before picking one, so a filler line can never be the standard she's
+measured against. If every one of Naren's candidates for a topic happens to be filler, the system
+falls back to picking from the unfiltered list rather than refusing to grade that whole topic —
+losing one topic's worth of accuracy for one CSM is a smaller cost than losing all of that topic's
+data.
+
+**The report was showing the same finding three times.** Because the report used to be a flat list
+of the worst individual sub-skills, one topic that happened to have several weak sub-skills could
+fill three of the five available slots, all really being one coaching conversation. **Fixed by**
+grouping the report by topic — one entry per topic, its sub-skills listed underneath — and, since
+that meant checking how many topics there really were (turned out to be about 19 for one CSM, not
+hundreds), dropping the old five-item cutoff entirely. Nothing needs hiding at that scale.
+
+All three were reviewed by an independent read of the code before anything was re-run for real
+(this project's standing rule: never spend real money running an LLM grader over new code without
+a second pair of eyes reading it cold first) — clean, no defects found.
+
+### Then the re-grade wouldn't finish, and the reason took real investigation to find
+
+Re-running the grader over all the real call transcripts, so the fixed numbers would actually
+exist, should have been the easy part. It took eight attempts.
+
+The database kept saying, partway through, that it couldn't write anything — as if someone had
+made the whole thing "read only." First guess, reasonable enough: a WiFi drop killed the one
+long-lived connection the batch job was using, and nothing ever tried to reconnect, so every
+transcript after the drop failed for nothing while the job cheerfully kept grading them (spending
+real money on each) before discovering the write would fail anyway. That got fixed properly —
+the same "reconnect if the connection died" pattern already used everywhere else in this project,
+just missing here.
+
+But the exact same failure came right back, even after that fix. And it kept coming back, at
+different points each time, sometimes within minutes of a fresh start. The tempting explanation —
+"something else must be writing to the same database at the same time" — turned out to be half
+right and half a red herring. Checking who else was actually connected to the database, at the
+exact moment it was refusing writes, found: nobody. Just the one connection making the check.
+So it wasn't two things fighting over the database at once.
+
+What it actually was: this project has a small "Ask Naren" chatbot tool, plus a couple of other
+one-off scripts, that each open a connection to the database, deliberately mark that ONE
+connection "read only" as a safety measure (so a bug in those tools could never accidentally
+write anything), and then just close it when done — without ever turning "read only" back off
+first. That should be harmless. It isn't, because of how the database's connection pooler works:
+rather than opening a fresh, dedicated line to the database for every tool that asks, the pooler
+hands out a small number of shared, reusable lines and recycles them between whichever tool asks
+next. If Tool A marks its borrowed line "read only" and hangs up without undoing that, Tool B —
+a completely different, unrelated program, started minutes later — can get handed that exact same
+recycled line, and inherit the "read only" mark it never asked for and doesn't know is there.
+
+This was proven directly, not just reasoned about: deliberately marking a connection "read only,"
+closing it, then opening a brand new unrelated connection right after showed the new one really
+did inherit the block. And un-marking it — telling the database "actually, allow writes again" —
+cleared it instantly, every single time, which is itself proof it was never a real restriction:
+a genuine "this database is locked" from the database's own side could not have been undone by
+just asking nicely on a different connection. Four scripts across the project had this exact same
+habit. All four got fixed the same way: turn "read only" back off before hanging up, every time,
+so the connection goes back into the shared pool clean.
+
+That fix alone should have been the end of it, but the exact same symptom came back again — from
+somewhere outside these four scripts, since none of them were even running at the time. Rather
+than keep hunting for a fifth culprit that might never be found, Layer D itself was changed to
+stop assuming a "read only" database means "give up." Now, before spending money grading anything,
+it actively tries to turn "read only" back off itself, right there, and only treats it as a real
+problem — and stops the run cleanly — if that doesn't work. On the very next attempt, the exact
+same interruption happened three separate times during one run, and instead of the whole run
+dying each time, it quietly fixed itself and kept going, losing at most the one call it happened
+to be grading at that exact moment instead of everything still left to do.
+
+### What came out the other end
+
+The full re-grade finished clean: every real call transcript processed, nothing left un-graded.
+The new numbers, compared against the ones from before any of this session's fixes, barely moved —
+the same top finding went from "lost 7 of 11 times, 23% match-or-beat" to "lost 6 of 9 times, 22%,"
+with the drop in count matching almost exactly how many interruption-fragments the first fix
+removed. That's a good outcome, not a disappointing one: it means the original numbers were mostly
+telling the truth already, and this session mainly removed a small amount of noise rather than
+correcting something badly wrong. A second independent blind read of a sample of the new grades
+came back agreeing with the machine 92.7% of the time, comfortably clearing the bar this project
+has used throughout (70%).
+
+The standing lesson, worth carrying into the next database-adjacent script anyone writes here:
+never mark a borrowed database connection "read only" (or change any other connection-wide
+setting) without explicitly changing it back before letting go of it. The connection doesn't
+belong only to you — it gets handed to the next tool that asks, exactly as it was left.
+
 ### And four tests that had been red long enough to stop meaning anything
 
 The playbook storage suite had four failures, all of them stale expectations from before the
@@ -3088,3 +3201,207 @@ asserts the thing that matters, which is that it never reaches the load. And the
 four was comparing post-exclusion counts against the raw artifact count — the identical "one
 constant, two meanings" confusion that had broken this same loader a session earlier and been
 fixed there. The test was the last place still making it.
+
+---
+
+## Ask Naren shipped, and two false alarms about whether its answers are any good (2026-08-26)
+
+**Ask Naren** is a new tool, separate from the grading pipeline described above. A CSM types a
+live client situation in their own words — "the client says our cost per hire looks terrible" —
+and gets back one answer based on how Naren, the most senior CSM, actually handled the closest
+comparable moment in his own real calls. If nothing in his history is close enough, it declines
+rather than guessing.
+
+It was built this session and, importantly, it was **measured** this session. That distinction
+turned out to matter more than expected.
+
+### What "grounded" guarantees, and what it does not
+
+Every answer the tool gives must cite a specific real call and include a word-for-word quote from
+what Naren actually said, and the tool checks that quote is really in that call before showing
+anything to a CSM. If the check fails it regenerates once, and if it fails again it declines. That
+check is called the **grounding gate**.
+
+That guarantee is about **traceability**: you can always trace an answer back to a real moment.
+It says nothing at all about whether the answer is a good answer to the question that was asked.
+An answer can quote Naren perfectly, cite the right call, and still be about something else
+entirely. Keeping those two ideas apart is the single most useful thing this session established.
+
+### Two alarming numbers that were both wrong
+
+An early look at the tool's output produced two worrying figures, and both were investigated
+before anything was built on top of them. Both were mistakes in the measurement, not real defects.
+
+**"Retrieval lands on the wrong topic 10 times out of 24."** Every trigger→response pair in the
+knowledge base is filed under a topic. What was missed is that a pair can be filed under **up to
+three** topics at once — 74% of them are — and the comparison was only looking at the first one on
+each list. Comparing the full lists instead: 20 of 24 shared a topic, and among the answers the
+tool actually gave, **12 of 12** did. The alarm was an artifact of reading one field instead of
+the list it belongs to.
+
+**"The quality score is meaningless."** One scoring method compares the tool's answer against what
+Naren really said, as a number. It scored 0.698, and 0.698 looked suspiciously like the average
+score of *anything* in this corpus — so it looked like the metric was measuring nothing. Wrong
+comparison: that "average" came from comparing a completely different pair of text types. Tested
+properly — by scoring each answer against a **different** question's correct answer, which is
+guaranteed wrong — right answers scored 0.698 and wrong ones 0.625. The metric works.
+
+But it produced a genuinely strange fact along the way: **two unrelated REAL answers from Naren
+score 0.717 — higher than a correct machine-written answer scores against its own target.** Real
+answers are spoken transcript, full of "yeah, so, um" and half-finished sentences, so they
+resemble each other in *style* no matter what they are about. Machine answers are clean prose.
+The style gap drags every comparison between the two types down. So the raw number cannot be read
+as "70% right" — it only means something when comparing two things of the same kind. That rule is
+now written down, because ADR 0001's whole conclusion rests on this metric being used that way.
+
+### The real measurement, and the trap in doing it
+
+The only honest way left to ask "are these answers right?" was to have a reader look at each
+situation and answer and judge it. But this project has already measured that **a reader's verdict
+depends heavily on how the reader is framed** — two blind reads of the same 123 documents returned
+84% and 17% usable, purely from framing. So a bare "X% of answers are right" from any reader is
+worth nothing on its own.
+
+The fix is to hide known-answer items in the pile:
+
+- **known-wrong** items — a real answer shown under someone else's question. A reader that passes
+  these is too credulous, so its approval means nothing.
+- **known-right** items — an answer built from exactly the correct moment. A reader that rejects
+  these is too harsh, so its rejections mean nothing.
+
+Only a reader that separates both gets its verdicts on the real items counted.
+
+**The first attempt at the known-right items was broken, and the reader caught it.** Naren's own
+real reply was used as the "definitely right answer", on the reasoning that it is literally what
+he said. The reader rejected all six — correctly. His raw reply is spoken fragments that are not
+a usable answer to hand anyone, and it also broke the rule the reader had been given (judge whether
+the answer is supported by the moment shown), because it came from a different call than the moment
+shown. **A known-good example has to satisfy the same rule it is being judged against, or it tests
+the example instead of the reader.** Rebuilt correctly, the reader scored 6 out of 6 on both kinds.
+
+### The result
+
+**20 of 24 answers judged right — 83%**, on a range of 64% to 93% given how few items were checked.
+
+Every one of the four wrong answers came from the same mechanism: the tool retrieves the **single**
+closest past moment, and when that moment is about an adjacent topic, the answer follows the moment
+instead of the question. The clearest case: a client asked whether the product covers all job boards
+worldwide. When the tool reached the moment where Naren really answered that, it correctly said
+"no, not all of them". When it had to work from a nearby moment about regional coverage where he'd
+said "yes, that does" to a different question, it said "yes, our reach extends broadly". **Opposite
+answers to the same question — both perfectly quoted and correctly cited.** The grounding gate
+cannot catch that, by design.
+
+A follow-up check found the right moment is usually *in* the ranking, just not first: present in
+the top 5 for 3 of the 4 failures, and for 19 of 20 successes against only 11 of 20 at rank 1. So
+retrieval is mostly finding the right moment and the tool is throwing it away by only using the
+first. That is now its own piece of work.
+
+### A bug this tool caused in someone else's
+
+Ask Naren opens its database connection in **read-only** mode on purpose, so it can never write to
+Brain's data. It then closes it. But the database host recycles connections between programs, and
+the read-only flag was staying stuck on them — which is what made Layer D's regrade keep failing to
+write, in a different process, for reasons that looked like a database problem. That story, and the
+fix, is the entry directly above this one.
+
+Four more scripts on the Ask Naren side had the identical flaw and were fixed the same way. The
+pattern had been copied from an existing "safe connection" helper that already had the bug —
+copying a safety helper copied its defect. Worth noting that **none of the tool's 44 tests could
+have caught this**: the damage happens to a different process, later, through shared infrastructure
+that no unit test sees.
+
+
+## The number was right, the question was wrong (2026-08-26 → 08-27)
+
+Ask Naren shipped, and this is the arc of measuring it — three plausible fixes killed, one
+leak found in the measuring apparatus itself, and a finding that put an asterisk on every
+accuracy number the tool has.
+
+### Rank-1 selection looked like the bug. It was not.
+
+Issue #7's blind read put Ask Naren at 20/24 answers right and traced **all four** wrong
+answers to one mechanism: retrieval whose primary scenario differed from the situation's. A
+ranking probe then found the right-topic moment was usually *present in the ranking but not
+first* — in the top-5 for 3 of the 4 failures, and for 19 of 20 successes against only 11 at
+rank 1. That is an attractive story: retrieval already finds the right moment and rank-1
+selection throws it away.
+
+It did not survive measurement. Shown five candidates instead of one, the model **re-selected
+in 11 of 18 paired situations** — and rank-1's pick was available in the shortlist all 18
+times — yet correctness moved in exactly **one** case, which was itself an item two readers
+disagreed about. Over all 36 situations: k=1 delivered 24 answers, 19 right; k=5 delivered 22,
+18 right. A dead heat.
+
+The lesson is not "top-K is bad". It is that *several exchanges in this corpus support an
+equally-right answer*, so which one gets picked mostly does not decide correctness — and the
+genuinely wrong answers are wrong for a reason selection cannot reach. Full record: issue #8
+and `ask-naren/docs/adr/0005`.
+
+### The retrieval floor would have been actively harmful
+
+#7 left open whether Ask Naren needs a cosine floor below which it declines regardless. Over
+all 46 delivered answers: right n=37, mean cosine 0.809, range 0.720–0.858; wrong n=9, mean
+0.793, range 0.757–0.845. The distributions sit on top of each other, and **the two
+lowest-cosine answers in the whole set are both right** while wrong answers appear at 0.845.
+
+Every threshold tested destroys two to three right answers per wrong one removed. A floor is
+not merely useless here — it is negative. Rank fails as a gate for the same reason: by
+grounded rank, k=5 scored 1→7/8, 2→4/4, 3→3/5, 4→2/3, 5→2/2. The shortlist's tail is not junk.
+
+### An interim tally mixed two reads, and the design existed to prevent exactly that
+
+Partway through, the coverage comparison was reported as "20 right for k=1 against 16 for
+k=5". That scored one arm with the new read and the other arm with #7's read — two different
+framings, subtracted. It is the error the whole within-packet design was built to avoid,
+committed inside the analysis that was built to avoid it.
+
+Judging the exclusive items properly (the answers only one arm gives, in their own gated read)
+turned a claimed coverage loss into a dead heat: **19 vs 18**, not 20 vs 16. The correction
+also produced a reassuring measurement nobody had made: two independent reads of **18
+identical answers** agreed 16/18 and returned the same 15/18 marginal. So answer right/wrong
+is a far more stable judgment than criterion *gradability*, which swung 84%→17% under
+reframing. Both facts now live in `docs/GOTCHAS.md`.
+
+### The apparatus enforcing leave-one-call-out was leaking the held-out call
+
+`MaskedPool` in `ask-naren/audit/build_answer_audit.py` exists for one purpose: keep a
+situation from retrieving its own call, since the eval situations are corpus rows. It ranked
+masked rows to `-inf` and then sliced `[:k]` — so any `k` reaching past the kept rows put the
+held-out call **back into the shortlist**, at a cosine of negative infinity.
+
+Latent at k=5 on a 6,496-row pool, and it would have contaminated an arm of the very A/B it
+was built for. **No unit test could have caught it**: `ask-naren/audit/` sits outside Brain's
+package, so nothing in `Brain/tests/` ever touches that class. It was found on the first run of
+`ask-naren/audit/sanity_check_harness.py`, written specifically to cover that gap — a script
+that needs no database, gateway or VPN and runs in a second. My own docstring above the bug
+claimed the opposite of what the code did.
+
+### What a CSM types is not what the eval measured
+
+Every Ask Naren accuracy number embeds a **bare verbatim client turn** as the query. Asked
+what a CSM would actually type, the operator described relaying the client's words inside a
+request frame — "A client said this thing, so can you help on how would Naren reply to this
+situation?" That is a relay, not a paraphrase, so the query *content* was closer to production
+than assumed. **The frame was the missing part.**
+
+Adding it changes retrieval for **29 of 36 situations (81%)**, and the mean cosine drops
+0.808 → 0.766 with the range collapsing from 0.124 wide to 0.076. The mechanism is dilution by
+boilerplate and it is general rather than one bad template: the effect scales with frame length
+(terse 26, operator 29, verbose 31 of 36).
+
+So `~80% of answers are right` describes a retrieval distribution production will not
+reproduce. Whether accuracy actually *drops* is unmeasured — and this project's own #8 result
+is the counterweight, since a different exchange selected in 11 of 18 cases moved correctness
+once. The identified fix is a product change rather than a model one: two input fields, where
+only *what the client said* reaches retrieval. Tracked in issue #9;
+`ask-naren/docs/findings/answer-failure-modes.md` carries the numbers.
+
+### The through-line
+
+Four plausible mechanisms were proposed and killed with measurements: candidate selection, a
+retrieval floor, a rank cutoff, and a relevance gate (which caught 9/9 wrong answers while
+blocking 31 of 37 right ones — strictness, not discrimination). Each would otherwise have been
+re-proposed by the next person to look at the 20%. The cheapest work in the whole arc was the
+one-second sanity script that found a real leak, and the embeddings-only probe that reframed
+the entire quality question without generating a single answer.

@@ -35,7 +35,7 @@ class Moment:
     trigger_text: str
     signal_turn_index: int
     via: str                        # "last_turn" | "stitched"
-    response_outcome: str           # "csm" | "other_joveo" | "none"
+    response_outcome: str           # "csm" | "other_joveo" | "none" | "interjection"
     response_text: str              # the CSM's turns in the window, joined
 
     @property
@@ -104,7 +104,19 @@ def detect_moments(
 
     Primes the scorer for the whole transcript up front (block last-turns plus, for
     arm e, every individual block turn), so admit() never single-embeds in the loop.
+
+    THE INTERJECTION GUARD: a "csm" response window whose joined text fails
+    _is_substantive (the same >=5-content-word bar used everywhere else in this
+    project to mean "is this a real utterance or noise") is reclassified as
+    "interjection" -- an interruption artifact or backchannel ("So the last.",
+    "Yeah I hear.") caught by the response window, not a real reply. This is a
+    STRUCTURAL rule on the response's shape, not a cosine/semantic filter --
+    per-item embedding threshold filters have failed 9 times in this project.
+    Recorded like a deferral (never graded), but kept out of "other_joveo" so it
+    doesn't silently change the already-reported deferral rate.
     """
+    from v1.layer_b import _is_substantive  # lazy: spaCy model load
+
     blocks = segmentation.client_blocks(turns)
     to_prime = [b[-1].text for b in blocks]
     if arm == "e":
@@ -113,6 +125,10 @@ def detect_moments(
 
     moments: list[Moment] = []
     for sig in segmentation.segment_moves(turns, arm, scorer.admit):
+        outcome = classify_response_outcome(turns, sig.signal_turn_index)
+        response_text = csm_response_text(turns, sig.signal_turn_index)
+        if outcome == "csm" and not _is_substantive(response_text):
+            outcome = "interjection"
         moments.append(Moment(
             call_id=call_id,
             scenario_key=sig.scenario_keys[0],
@@ -120,8 +136,8 @@ def detect_moments(
             trigger_text=sig.trigger_text,
             signal_turn_index=sig.signal_turn_index,
             via=sig.via,
-            response_outcome=classify_response_outcome(turns, sig.signal_turn_index),
-            response_text=csm_response_text(turns, sig.signal_turn_index),
+            response_outcome=outcome,
+            response_text=response_text,
         ))
     return moments
 

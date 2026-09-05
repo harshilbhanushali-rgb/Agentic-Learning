@@ -48,9 +48,13 @@ def checkpoint_layer(tuning_d) -> str:
     # _v2: the checks contract gained the partial tier (2026-08-24) -- a prompt/
     # vocabulary change is an instrument change, so prior progress must invalidate.
     # The swap flag is part of the identity for the same reason.
+    # _v3 (2026-08-26): the interjection guard changes which moments get graded at
+    # all, and the exemplar-substantive filter changes WHAT they're graded against
+    # -- both change verdicts for moments already checkpointed under _v2, so prior
+    # progress must invalidate the same way a model/effort change would.
     swap = "swap" if tuning_d.pairwise_swap else "noswap"
     return (f"layer_d_{tuning_d.segmentation_arm}_{tuning_d.grader_arm}"
-            f"_{tuning_d.grader_model}_{tuning_d.grader_reasoning_effort}_{swap}_v2")
+            f"_{tuning_d.grader_model}_{tuning_d.grader_reasoning_effort}_{swap}_v3")
 
 
 def gateway_chat(model: str | None = None,
@@ -187,7 +191,7 @@ def grade_moment_set(
             runs_by_moment.setdefault(g.moment_id, []).append(g.verdicts)
 
     return {
-        mid: graders.aggregate_runs(runs, playbook_move_specs(playbook))
+        mid: graders.aggregate_runs(runs, moves)
         for mid, runs in runs_by_moment.items()
     }
 
@@ -197,17 +201,33 @@ def make_exemplar_picker(
     embed_query_matrix: Callable[[list[str]], np.ndarray],
 ) -> Callable[[dict], dict]:
     """Pairwise arm only: the Naren pair whose TRIGGER is most similar to the
-    moment's trigger. Pair-trigger vectors are already paid for in the gateway
-    cache; the moment trigger was embedded by signal detection, so this re-read is
-    a cache hit. Falls back to the first pair when embedding is unavailable."""
+    moment's trigger, picked only from pairs whose RESPONSE is itself substantive
+    -- the exemplar-misfire fix. Benchmarking a CSM reply against Naren filler
+    ("Yep. Absolutely. Perfect.") produced both false wins and unfair losses in
+    the first production run's read-through. Falls back to the full unfiltered
+    pool, with a printed warning, if the filter empties it for this scenario:
+    failing that scenario's whole grading batch would be a worse outcome than
+    grading against an imperfect benchmark for once (see the C3 "landing_page is
+    ~0 under every unit" precedent -- a thin scenario is a real finding, not
+    grounds to crash).
+
+    Pair-trigger vectors are already paid for in the gateway cache; the moment
+    trigger was embedded by signal detection, so this re-read is a cache hit."""
     if not pairs:
         raise ValueError("no Naren pairs to pick an exemplar from")
-    trigger_vecs = embed_query_matrix([p["trigger_text"] for p in pairs])
+    from v1.layer_b import _is_substantive  # lazy: spaCy model load
+    substantive = [p for p in pairs if _is_substantive(p["response_text"])]
+    if not substantive:
+        print(f"[layer_d] WARNING: all {len(pairs)} Naren exemplar candidates for "
+              f"this scenario are non-substantive; falling back to the unfiltered "
+              f"pool")
+        substantive = pairs
+    trigger_vecs = embed_query_matrix([p["trigger_text"] for p in substantive])
 
     def pick(moment: dict) -> dict:
         vec = embed_query_matrix([moment["trigger_text"]])
         sims = relative_match.cosine_sims(np.asarray(vec), np.asarray(trigger_vecs))[0]
-        best = pairs[int(np.argmax(sims))]
+        best = substantive[int(np.argmax(sims))]
         return {"trigger_text": best["trigger_text"],
                 "response_text": best["response_text"]}
 
@@ -234,8 +254,29 @@ def run_layer_d_batch(
     allow_unverified_speakers: bool = False,
     chat: Callable[[str], Any] | None = None,
     naren_sample: int = NAREN_SAMPLE_PER_SCENARIO,
-) -> dict:
-    """The full batch. Returns the run report dict (also printed by ops/run_layer_d.py).
+) -> tuple[dict, Any]:
+    """The full batch. Returns (report, conn) -- also printed by ops/run_layer_d.py.
+
+    The connection is reconnected (storage.reconnect_if_closed) at the start of
+    every transcript when conn is not None, so a dropped connection self-heals
+    instead of cascading into every remaining transcript's write failing (and its
+    grading spend being wasted) for the rest of the run. conn is returned because
+    reconnecting swaps in a NEW object -- the caller's original handle can be dead
+    by the time this returns, so the caller must rebind to what comes back, same
+    contract as ego_trap.pipeline.run_ego_trap_batch.
+
+    A DIFFERENT failure, also checked per transcript (storage.clear_read_only):
+    the connection can inherit a LEAKED `SET SESSION
+    default_transaction_read_only = on` from an unrelated client sharing the
+    same pooled Neon backend (confirmed 2026-08-24/26 -- see clear_read_only's
+    docstring for the pooling mechanism and the direct proof). The connection
+    stays alive (reconnect above is a no-op), only writes are refused, so this
+    needs its own check. Unlike a dead connection, THIS one self-heals --
+    clear_read_only actively resets the leaked setting rather than merely
+    detecting it, so the run continues instead of losing progress to
+    something outside this codebase's control. The batch only ABORTS
+    (report["aborted_read_only"] = True) if the reset itself doesn't take,
+    which is what a genuine (non-leak) restriction would look like.
 
     Refuses to start without a client roster unless the operator explicitly allows
     it: fail-open speaker classification is how internal chatter became coaching
@@ -273,15 +314,35 @@ def run_layer_d_batch(
         "segmentation_arm": tuning_d.segmentation_arm,
         "transcripts": len(stems), "processed": 0, "skipped_checkpointed": 0,
         "excluded_unverified_speakers": [], "failed": [],
-        "moments": 0, "graded": 0, "deferrals": 0, "silence": 0,
+        "moments": 0, "graded": 0, "deferrals": 0, "silence": 0, "interjections": 0,
         "coverage_gaps": {},        # scenario_key -> moment count (coachable, no playbook)
-        "events_written": 0,
+        "events_written": 0, "aborted_read_only": False,
     }
 
     for stem in stems:
         if checkpoint.is_done(run_id, stem, layer):
             report["skipped_checkpointed"] += 1
             continue
+        # A dropped connection (idle timeout, a network blip during the previous
+        # transcript's chat calls) otherwise cascades: every subsequent transcript's
+        # write fails identically and its grading spend is wasted for nothing --
+        # measured 2026-08-26, ~60-95 transcripts lost to exactly this per incident.
+        # Same fix already used everywhere else in this project (ego_trap/pipeline.py,
+        # v2/layer_c.py, etc.) -- this was the one place it had never been wired in.
+        # Skipped when conn is None: every layer_d test drives this function with
+        # storage entirely mocked and no real connection to reconnect.
+        if conn is not None:
+            conn = storage.reconnect_if_closed(conn)
+            if storage.clear_read_only(conn):
+                remaining = len(stems) - report["processed"] - report["skipped_checkpointed"]
+                print(f"[layer_d] DB is READ-ONLY and a reset didn't clear it (a "
+                      f"genuine restriction, not just a leaked session setting) -- "
+                      f"aborting before '{stem}' rather than wasting grading spend "
+                      f"on {remaining} more transcript(s) that would fail to write "
+                      f"anyway. Nothing checkpointed this call; re-run once writable "
+                      f"to resume from here.")
+                report["aborted_read_only"] = True
+                break
         csm_id, csm_name = mapping[stem]
         turns = parse_transcript(
             str(recordings / f"{stem}.txt"), csm_name.strip().lower(),
@@ -324,9 +385,14 @@ def run_layer_d_batch(
                     by_playbook.setdefault(m.scenario_key, []).append(
                         {**base, "moment_id": m.moment_id})
                 else:
-                    # Deferral / silence: stored ungraded so the rates are queryable.
-                    report["deferrals" if m.response_outcome == "other_joveo"
-                           else "silence"] += 1
+                    # Deferral / silence / interjection: stored ungraded so the
+                    # rates are queryable. "interjection" gets its own bucket
+                    # rather than folding into "deferrals" -- the deferral rate is
+                    # an already-reported finding and shouldn't silently move.
+                    bucket = {"other_joveo": "deferrals",
+                              "interjection": "interjections"}.get(
+                                  m.response_outcome, "silence")
+                    report[bucket] += 1
                     events.append({**base, "verdicts": []})
 
             for scen_key, pb_moments in by_playbook.items():
@@ -360,23 +426,56 @@ def run_layer_d_batch(
         report["processed"] += 1
         print(f"  {stem}: {len(moments)} moments, {report['graded']} graded so far")
 
+    if report.get("aborted_read_only"):
+        # Skip the naren pass and the aggregate rebuild too -- both are writes
+        # (or, for refresh_move_performance, a DELETE) that would fail identically
+        # and pointlessly, on top of the abort already logged above.
+        report["naren"] = {"skipped": "aborted_read_only", "failed": []}
+        report["move_performance_rows"] = None
+        return report, conn
+
     if tuning_d.grader_arm == "pairwise":
         # The benchmark is INSIDE every pairwise judgment (Naren's exemplar is
         # reply B), so a separate benchmark pass would measure nothing the
         # verdicts don't already contain. C2 (2026-08-24) settled the arm.
         report["naren"] = {"skipped": "pairwise embeds the benchmark", "failed": []}
     else:
-        report["naren"] = run_naren_benchmark(
+        report["naren"], conn = run_naren_benchmark(
             config, conn, chat=chat, run_id=run_id, sample=naren_sample)
+        if report["naren"].get("aborted_read_only"):
+            report["aborted_read_only"] = True
+            report["move_performance_rows"] = None
+            return report, conn
 
+    if conn is not None:
+        conn = storage.reconnect_if_closed(conn)
+        if storage.clear_read_only(conn):
+            # Audit #7 gap: every transcript already checkpointed successfully at
+            # this point (nothing lost), but an unguarded DELETE here would raise
+            # an unhandled traceback and lose the printed report for a run that,
+            # in substance, fully completed. Same clean-abort shape as mid-loop.
+            print("[layer_d] DB is READ-ONLY at the final aggregate step and a "
+                  "reset didn't clear it (a genuine restriction) -- all grading "
+                  "is safely checkpointed, only the move_performance rebuild was "
+                  "skipped. Re-run once writable (cheap: --report-only) to "
+                  "rebuild it and print the report.")
+            report["aborted_read_only"] = True
+            report["move_performance_rows"] = None
+            return report, conn
     report["move_performance_rows"] = storage.refresh_move_performance(conn)
-    return report
+    # Return the LIVE connection: reconnect_if_closed above may have swapped it for
+    # a fresh object, so the caller's original handle can be dead by now. Same
+    # rebind contract as ego_trap.pipeline.run_ego_trap_batch -- returning the live
+    # one is what lets the caller close the connection it actually still has open,
+    # and use it for anything after this call (e.g. build_reports), instead of a
+    # dead handle.
+    return report, conn
 
 
 def run_naren_benchmark(
     config, conn, *, chat: Callable[[str], Any], run_id: str, sample: int,
     only: set[str] | None = None,
-) -> dict:
+) -> tuple[dict, Any]:
     """Grade a sample of Naren's own routed moments per live playbook -- the SAME
     instrument, so the benchmark rate is measured, never assumed.
 
@@ -386,10 +485,17 @@ def run_naren_benchmark(
     2026-08-24 when the OG-5 documents were remade under the gradability rule).
     A failed scenario is retried next run, never marked done. `only` restricts to
     named scenario_keys -- the caller pays per scenario, so the caller chooses.
+
+    Returns (out, conn) -- same rebind contract as run_layer_d_batch. Reconnects
+    per scenario when conn is not None: this loop is exactly as exposed to a
+    dropped connection cascading through every remaining scenario's write as the
+    per-transcript loop was (audit #6, 2026-08-26) -- it grades real moments
+    (real spend) before writing, and its except/continue would otherwise turn a
+    single connection drop into every subsequent scenario's spend being wasted.
     """
     tuning_d = get_tuning().layer_d
     layer = checkpoint_layer(tuning_d) + "_naren"
-    out = {"scenarios": 0, "graded": 0, "failed": []}
+    out = {"scenarios": 0, "graded": 0, "failed": [], "aborted_read_only": False}
 
     for pb in live_playbooks_flat(conn):
         scen_key = pb["scenario_key"]
@@ -398,6 +504,15 @@ def run_naren_benchmark(
         item = f"{scen_key}:pb{pb['playbook_id']}"
         if checkpoint.is_done(run_id, item, layer):
             continue
+        if conn is not None:
+            conn = storage.reconnect_if_closed(conn)
+            if storage.clear_read_only(conn):
+                print(f"[layer_d] DB is READ-ONLY (reset didn't clear it -- a "
+                      f"genuine restriction) -- aborting naren benchmark before "
+                      f"'{scen_key}' rather than wasting grading spend on the "
+                      f"remaining live playbooks. Re-run once writable to resume.")
+                out["aborted_read_only"] = True
+                break
         pairs = storage.get_pairs_for_scenario_multilabel(conn, scen_key)
         # Deterministic sample: primary-label pairs first, then pair_id order --
         # reproducible across runs without a seed.
@@ -441,7 +556,7 @@ def run_naren_benchmark(
             continue
         checkpoint.mark_done(run_id, item, layer)
         out["scenarios"] += 1
-    return out
+    return out, conn
 
 
 def build_reports(conn, csm_names: dict[str, str]) -> str:
@@ -477,7 +592,7 @@ def build_reports(conn, csm_names: dict[str, str]) -> str:
         )
         for rater_id, gaps in sorted(ranked.items()):
             blocks.append(aggregate.format_pairwise_priorities(
-                csm_names.get(rater_id, rater_id), gaps, move_meta, _REPORT_TOP_N))
+                csm_names.get(rater_id, rater_id), gaps, move_meta))
         if blurry:
             lines = ["", "BLURRY-AXIS FLAGS (the judge calls nearly every comparison",
                      "equal on these moves; rewrite candidates, not coachable gaps):"]
@@ -510,3 +625,4 @@ def build_reports(conn, csm_names: dict[str, str]) -> str:
                          f"naren {d.naren_rate:.0%} over {d.naren_attempts} attempts")
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
+

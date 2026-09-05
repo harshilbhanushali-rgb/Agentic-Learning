@@ -201,34 +201,64 @@ def rank_pairwise(
     return ranked, blurry
 
 
+def group_by_scenario(
+    gaps: list[dict],
+    move_meta: dict[tuple[int, str], dict],
+) -> list[dict]:
+    """One entry per SCENARIO, moves within -- the report-grouping fix. Before
+    this, the flat top-N list could (and on the first production run, did) show
+    the same scenario three times as unrelated-looking rows.
+
+    `gaps` is assumed already sorted by "gap" descending (rank_pairwise's
+    contract), so a group's move order -- and therefore its first/worst move --
+    falls out of the input order for free, no re-sort needed. Scenarios are
+    ordered by their single WORST move's gap: the report's job is to surface the
+    sharpest coaching opportunity, and averaging a scenario's moves together
+    would let one severe, specific problem hide behind several fine ones."""
+    groups: dict[str, list[dict]] = {}
+    for g in gaps:
+        scenario_key = move_meta.get(
+            (g["playbook_id"], g["move_id"]), {}).get("scenario_key", "?")
+        groups.setdefault(scenario_key, []).append(g)
+    out = [{"scenario_key": sk, "worst_gap": moves[0]["gap"], "moves": moves}
+           for sk, moves in groups.items()]
+    out.sort(key=lambda o: o["worst_gap"], reverse=True)
+    return out
+
+
 def format_pairwise_priorities(
     csm_name: str,
     gaps: list[dict],
     move_meta: dict[tuple[int, str], dict],
-    top_n: int,
 ) -> str:
-    """Ranked pairwise coaching priorities: the deliverable, benchmark-relative by
-    construction. No headline score; only cells measured past the ranking floor."""
+    """Ranked pairwise coaching priorities, grouped one block per scenario
+    (moves within), scenarios worst-first. No top-N cutoff: verified 2026-08-26
+    that the real scale is small (19 scenarios / 51 rankable cells on the first
+    production run) -- a full report reads fine, and hiding a scenario just to
+    hit a count would drop real signal for no reason."""
     lines = [f"Coaching priorities -- {csm_name}", "=" * 60]
     if not gaps:
         lines.append("No rankable gaps (every measured move is at or near benchmark, "
                       "or attempts are below the ranking floor).")
         return "\n".join(lines)
-    for i, g in enumerate(gaps[:top_n], start=1):
-        meta = move_meta.get((g["playbook_id"], g["move_id"]), {})
-        lines.append(
-            f"\n#{i}  [{meta.get('scenario_key', '?')}] {g['move_id']}: "
-            f"{meta.get('name', '(unnamed move)')}"
-        )
-        lines.append(
-            f"    vs benchmark: won {g['wins']}, equal {g['equals']}, "
-            f"lost {g['losses']} of {g['attempts']} moments "
-            f"(match-or-beat {g['match_or_beat_shrunk']:.0%})"
-        )
-        if meta.get("criterion"):
-            lines.append(f"    the move: {meta['criterion']}")
-        if meta.get("naren_quote"):
-            lines.append(f"    benchmark example: \"{meta['naren_quote']}\"")
+    for i, grp in enumerate(group_by_scenario(gaps, move_meta), start=1):
+        lines.append(f"\n#{i}  {grp['scenario_key']}  "
+                     f"(worst move: {grp['worst_gap']:.0%} gap, "
+                     f"{len(grp['moves'])} move(s) measured)")
+        for g in grp["moves"]:
+            meta = move_meta.get((g["playbook_id"], g["move_id"]), {})
+            lines.append(
+                f"    {g['move_id']}: {meta.get('name', '(unnamed move)')}"
+            )
+            lines.append(
+                f"        vs benchmark: won {g['wins']}, equal {g['equals']}, "
+                f"lost {g['losses']} of {g['attempts']} moments "
+                f"(match-or-beat {g['match_or_beat_shrunk']:.0%})"
+            )
+            if meta.get("criterion"):
+                lines.append(f"        the move: {meta['criterion']}")
+            if meta.get("naren_quote"):
+                lines.append(f"        benchmark example: \"{meta['naren_quote']}\"")
     return "\n".join(lines)
 
 

@@ -152,12 +152,25 @@ def _connect_read_only(database_url: str):
 
     Lifted from score_naren_ceiling._connect_read_only -- stronger than a promise in a docstring,
     and it also protects a future edit that accidentally introduces a write.
+
+    close() is wrapped to RESET the session setting first -- see the identical
+    comment in ops/serve_ask_naren.py._connect_read_only for why: left in place,
+    this leaks through Neon's pooled endpoint (PgBouncer transaction pooling)
+    onto whichever unrelated client gets this backend connection next.
     """
     conn = storage.get_connection(database_url)
     conn.execute("SET SESSION default_transaction_read_only = on")
     ro = conn.execute("SELECT current_setting('default_transaction_read_only')").fetchone()[0]
     if ro != "on":
         raise RuntimeError(f"read-only enforcement failed: setting is {ro!r}")
+    _real_close = conn.close
+    def _close_and_reset():
+        try:
+            conn.execute("SET SESSION default_transaction_read_only = off")
+        except Exception:
+            pass
+        _real_close()
+    conn.close = _close_and_reset
     return conn
 
 

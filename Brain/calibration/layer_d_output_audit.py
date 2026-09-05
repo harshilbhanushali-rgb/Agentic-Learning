@@ -55,6 +55,15 @@ PACKET_SIZE = 20
 
 
 def connect_ro():
+    """A connection Postgres refuses to write through.
+
+    close() is wrapped to RESET the session setting first -- see
+    ops/serve_ask_naren.py._connect_read_only's docstring for why: left in
+    place, this leaks through Neon's pooled endpoint (PgBouncer transaction
+    pooling) onto whichever unrelated client gets this backend connection
+    next -- confirmed 2026-08-26 as the root cause behind Layer D's regrade
+    repeatedly seeing the whole database as read-only.
+    """
     cfg = load_config()
     url = cfg.database_url
     if "hostaddr=" not in url:
@@ -63,6 +72,15 @@ def connect_ro():
     conn = psycopg.connect(url, connect_timeout=30)
     with conn.cursor() as cur:
         cur.execute("SET SESSION default_transaction_read_only = on")
+    _real_close = conn.close
+    def _close_and_reset():
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SET SESSION default_transaction_read_only = off")
+        except Exception:
+            pass
+        _real_close()
+    conn.close = _close_and_reset
     return conn
 
 

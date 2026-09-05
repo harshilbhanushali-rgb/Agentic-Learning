@@ -98,6 +98,38 @@ def test_csm_response_text_excludes_teammate_turns():
     assert csm_response_text(turns, 0) == "csm reply"
 
 
+# ------------------------------------------------------------- interjection guard
+
+def test_fragment_csm_reply_is_classified_as_interjection(monkeypatch):
+    """The read-through's real defect: an interruption artifact ("So the last.")
+    gets graded as a loss because SOMETHING csm-shaped followed the client turn.
+    Below the substantiveness bar, response_outcome must NOT be "csm" -- the text
+    itself stays intact so it's still visible in the stored event."""
+    patch_scores(monkeypatch, {"real question": (0.9, 0.2)})
+    turns = [
+        t(0, C, "real question", "Alexa"),
+        t(1, S, "So the last."),
+    ]
+    s = SignalScorer(SCEN_MAP, margin=0.95, cap=1)
+    [m] = detect_moments(turns, "call1", s, arm="today")
+    assert m.response_outcome == "interjection"
+    assert m.response_text == "So the last."
+
+
+def test_substantive_csm_reply_stays_csm(monkeypatch):
+    """A short-but-real answer should not be misclassified: this pins that the
+    guard is the SAME _is_substantive rule everywhere else, not a stricter one --
+    still fires True as long as the reply clears 5 content words."""
+    patch_scores(monkeypatch, {"real question": (0.9, 0.2)})
+    turns = [
+        t(0, C, "real question", "Alexa"),
+        t(1, S, "Let me walk you through the pixel firing setup."),
+    ]
+    s = SignalScorer(SCEN_MAP, margin=0.95, cap=1)
+    [m] = detect_moments(turns, "call1", s, arm="today")
+    assert m.response_outcome == "csm"
+
+
 # ------------------------------------------------------------------ fail closed
 
 def test_unverified_speakers_flags_unknown_clients():

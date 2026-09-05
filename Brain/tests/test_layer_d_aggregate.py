@@ -100,7 +100,9 @@ def test_shrinkage_prior_pools_across_the_csm_cohort():
 
 # ------------------------------------------------------------- pairwise ranking
 
-from layer_d.aggregate import format_pairwise_priorities, rank_pairwise  # noqa: E402
+from layer_d.aggregate import (  # noqa: E402
+    format_pairwise_priorities, group_by_scenario, rank_pairwise,
+)
 
 
 def test_rank_pairwise_orders_by_shrunken_loss_share():
@@ -145,11 +147,86 @@ def test_format_pairwise_priorities_renders_record_and_benchmark_quote():
     text = format_pairwise_priorities(
         "Madhumita", gaps,
         {(1, "M1"): {"scenario_key": "app_volume", "name": "Track down-funnel",
-                     "criterion": "Confirm UTM tags", "naren_quote": "do you have UTM tags?"}},
-        top_n=5)
+                     "criterion": "Confirm UTM tags", "naren_quote": "do you have UTM tags?"}})
     assert "won 1, equal 2, lost 11 of 14" in text
     assert "18%" in text and "UTM tags" in text
     assert "score" not in text.lower()
+
+
+def test_format_pairwise_priorities_empty_says_so():
+    assert "No rankable gaps" in format_pairwise_priorities("M", [], {})
+
+
+# ---------------------------------------------------------- scenario grouping
+
+MOVE_META = {
+    (1, "M1"): {"scenario_key": "attribution", "name": "Explain mechanisms"},
+    (1, "M2"): {"scenario_key": "attribution", "name": "Diagnose discrepancies"},
+    (2, "M1"): {"scenario_key": "publisher_mgmt", "name": "Guide platform UI"},
+}
+
+
+def test_group_by_scenario_groups_moves_and_orders_by_worst_gap():
+    # Globally sorted by gap desc (rank_pairwise's contract): attribution's M2 is
+    # its worst move and appears before its M1; publisher_mgmt is worse overall
+    # than attribution's WORST move, so it must rank first as its own group.
+    gaps = [
+        {"playbook_id": 2, "move_id": "M1", "gap": 0.90},
+        {"playbook_id": 1, "move_id": "M2", "gap": 0.77},
+        {"playbook_id": 1, "move_id": "M1", "gap": 0.20},
+    ]
+    groups = group_by_scenario(gaps, MOVE_META)
+    assert [g["scenario_key"] for g in groups] == ["publisher_mgmt", "attribution"]
+    assert groups[1]["worst_gap"] == 0.77
+    assert [m["move_id"] for m in groups[1]["moves"]] == ["M2", "M1"]
+
+
+def test_group_by_scenario_worst_move_not_averaged():
+    # A scenario with one severe move (0.90) and one fine move (0.10) must still
+    # rank ahead of a scenario that is uniformly mediocre (0.40, 0.40) -- an
+    # average would flip this order (0.50 vs 0.40) and bury the severe move.
+    gaps = [
+        {"playbook_id": 1, "move_id": "M1", "gap": 0.90},
+        {"playbook_id": 3, "move_id": "M1", "gap": 0.40},
+        {"playbook_id": 3, "move_id": "M2", "gap": 0.40},
+        {"playbook_id": 1, "move_id": "M2", "gap": 0.10},
+    ]
+    meta = {**MOVE_META,
+            (3, "M1"): {"scenario_key": "mediocre_everywhere"},
+            (3, "M2"): {"scenario_key": "mediocre_everywhere"}}
+    groups = group_by_scenario(gaps, meta)
+    assert groups[0]["scenario_key"] == "attribution"       # the 0.90 scenario
+    assert groups[0]["worst_gap"] == 0.90
+
+
+def test_format_pairwise_priorities_shows_every_scenario_no_cutoff():
+    """The report-grouping fix: no top-N truncation. Verified 2026-08-26 that the
+    real scale (19 scenarios on the first production run) doesn't need one --
+    this pins the CONTRACT (all scenarios appear), not the specific count."""
+    gaps = [{"playbook_id": i, "move_id": "M1", "attempts": 10, "wins": 0,
+             "equals": 0, "losses": 10, "match_or_beat_raw": 0.0,
+             "match_or_beat_shrunk": 0.0, "gap": 1.0 - i * 0.01}
+            for i in range(8)]                                    # more than the old top_n=5
+    meta = {(i, "M1"): {"scenario_key": f"topic_{i}"} for i in range(8)}
+    text = format_pairwise_priorities("Madhumita", gaps, meta)
+    for i in range(8):
+        assert f"topic_{i}" in text
+    assert "#8" in text                                            # all 8 printed, not just 5
+
+
+def test_format_pairwise_priorities_groups_one_scenario_into_one_block():
+    """The exact defect from the read-through: one scenario's moves must render
+    as ONE numbered block, not one block per move."""
+    gaps = [
+        {"playbook_id": 1, "move_id": "M2", "attempts": 11, "wins": 1, "equals": 3,
+         "losses": 7, "match_or_beat_raw": 0.23, "match_or_beat_shrunk": 0.23, "gap": 0.77},
+        {"playbook_id": 1, "move_id": "M1", "attempts": 11, "wins": 0, "equals": 7,
+         "losses": 4, "match_or_beat_raw": 0.32, "match_or_beat_shrunk": 0.32, "gap": 0.68},
+    ]
+    text = format_pairwise_priorities("Madhumita", gaps, MOVE_META)
+    assert text.count("#1") == 1                       # one heading for the group
+    assert "attribution" in text
+    assert "M2" in text and "M1" in text                # both moves listed within it
 
 
 # ---------------------------------------------------------------------- report
