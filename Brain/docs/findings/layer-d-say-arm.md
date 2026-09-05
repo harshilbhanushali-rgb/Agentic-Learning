@@ -548,3 +548,62 @@ tuning. **After the run, regardless of outcome:** `grader_arm` flips back to
 `pairwise` (fail-safe convention).
 
 Results are appended below as §11b.
+
+
+## 12. Layer C census of the 26 out-of-repertoire SAY moves (2026-09-05, zero spend)
+
+**The question.** 26 of the 87 SAY moves were said by Naren on fewer than 2 of his own
+benchmark calls (G-S4 data). The queue's hypothesis (handoff §3 item 5): these are
+Layer C over-specification -- moves built from too little evidence -- and a rule
+"every move needs evidence from >= 2 distinct calls" for the NEXT playbook generation
+would have prevented them. The census reads each move's stored evidence
+(`key_moves[].evidence[].call`) and checks whether that rule separates the two groups.
+
+**Result: the evidence-count rule does NOT separate them.**
+
+| distinct calls in a move's evidence | out-of-repertoire (26) | in-repertoire (61) |
+| --- | --- | --- |
+| 1 | 3 | 2 |
+| 2 | 9 | 9 |
+| 3 | 8 | 33 |
+| 4 | 6 | 17 |
+| share with >= 2 calls | 88% | 97% |
+| share with >= 3 calls | 54% | 82% |
+
+Evidence quotes per move (2/3/4): out 4/15/7, in 3/39/19. Playbook `n_evidence`
+median: 50 for both groups. The proposed ">= 2 distinct calls" rule would remove 3 of
+the 26 out-of-repertoire moves and 2 of the 61 in-repertoire ones -- it does not
+identify the problem set. A stricter ">= 3" rule removes 12/26 but also 11/61 good
+moves. There is an association (in-repertoire moves are better evidenced on average)
+but it is far too weak to be a generation rule.
+
+**Two better readings of the 26, both from the data already in hand:**
+
+1. **Much of "out of repertoire" is small-n.** The benchmark measured each scenario on
+   11-26 of Naren's calls. A move he genuinely says on 1 call in 10 shows <= 1
+   instance in 15 calls 55% of the time. Twelve of the 26 were said exactly once
+   (1/11 to 1/26); at the median benchmark rate they are indistinguishable from the
+   in-repertoire tail. The in/out split at ">= 2 calls" is a power floor for the
+   repertoire report (it keeps p_hat estimable), not a verdict on the move.
+2. **The moves that were said ZERO times in 11-16 calls are described at a level he
+   does not state whole.** Names like "Transition to an omnichannel distribution
+   strategy", "Enforce job feed data integrity and highlight API...", "Structure
+   campaign hierarchy and budget allocation" are ARC-level summaries of what he does
+   across a call, with 3-4 real evidence quotes each. The say contract (v1, the one
+   that passed its gate) credits a move only when the reply states the move's content
+   whole -- and a summary of several statements is rarely stated in one reply. This is
+   the same unit finding as C3 and G-S4 one level down: the evidence is real, the
+   description is at the wrong grain for occurrence grading.
+
+**What this means for the next playbook generation (a rule the census DOES support):**
+not "more evidence calls", but "one statable thing per move". A move whose criterion is
+a conjunction of things Naren says in different turns should be split into its
+statable parts, each with its own evidence, OR be routed DO/pairwise. The routing
+classification already flags MIXED moves; the census suggests the SAY class itself
+contains bundled criteria that a per-reply occurrence grader can never credit. This is
+a Layer C content note for the next generation, per the handoff: live playbooks are
+NOT rewritten (wording-as-lever refuted; a replacement re-triggers reclassification
+through the hash pins, by design).
+
+The full 26-row table (scenario, move, evidence quotes, distinct evidence calls,
+said/calls) is in `logs/layer_c_census_20260905.txt`.
