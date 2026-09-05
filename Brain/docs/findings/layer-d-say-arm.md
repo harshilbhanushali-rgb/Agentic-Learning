@@ -431,3 +431,58 @@ as a second chance.
 
 Artifact: `artifacts/layer_d_w0_warrant_probe.json`; script:
 `calibration/layer_d_w0_warrant_probe.py`. Results are appended below as §10b.
+
+### 10b. W0 RESULT (2026-09-05, run as frozen; zero spend): **NOT LEGIBLE**
+
+Artifact `artifacts/layer_d_w0_warrant_probe.json`; log `logs/w0_warrant_probe_20260905.log`;
+seed 20260905, 500 permutations. 1,001 events, 61/87 in-repertoire cells, 1,840
+(moment, move) pairs scored under leave-one-call-out (0 dropped for lack of a
+reference); base deployment rate 0.155.
+
+| decile (10 = most similar) | cosine range | deployment rate |
+| --- | --- | --- |
+| 10 | 0.800-1.000 | **0.283** |
+| 9 | 0.784-0.800 | 0.217 |
+| 8 | 0.774-0.784 | 0.196 |
+| 7 | 0.762-0.774 | 0.130 |
+| 6 | 0.752-0.762 | 0.168 |
+| 5 | 0.743-0.752 | 0.114 |
+| 4 | 0.731-0.743 | 0.120 |
+| 3 | 0.717-0.731 | 0.120 |
+| 2 | 0.697-0.717 | 0.092 |
+| 1 | 0.591-0.697 | 0.114 |
+
+| rule clause | needed | measured | |
+| --- | --- | --- | --- |
+| (a) top decile >= 3x base | >= 0.465 | 0.283 (1.82x) | **FAIL** |
+| (b) top decile >= 0.50 absolute | >= 0.50 | 0.283 | **FAIL** |
+| (c) permutation p < 0.05 | < 0.05 | 0.000 (null mean 0.167, p95 0.223) | pass |
+
+Diagnostics: AUC(similarity -> deployed) = 0.611 primary, 0.637 leave-one-moment-out
+(top decile 0.310 there -- the same-call leak is small: only 18% of deployed moments
+have their nearest other deployment in the same call, so the stricter construction
+cost little). Top-20% band: 0.250.
+
+**Reading.** There IS a trace of warrant in the trigger text -- the enrichment is
+far outside the permutation null, so this is not noise -- but it is weak in the way
+that matters: even among the 10% of moments MOST like the ones where Naren deployed
+a move, he deployed it on 28%. A per-moment "you missed the chance here" detector
+built on trigger similarity would be wrong about 7 times in 10 in its very best
+band, and worse everywhere else. That is the same shape as ADR 0005's finding one
+problem over (cosine finds the topic, not the decision). The decision to deploy is
+made on something the trigger text does not carry -- what was said earlier in the
+call, the account's history, what the CSM already knows -- and none of that is
+recoverable per moment from the transcript. The rule was frozen with a 3x/50% bar
+precisely so a "real but weak" signal like this one would not get talked into a
+build; it is not being talked into one.
+
+**Consequence (pre-registered).** Per-moment missed-chance claims from transcript
+data are OFF THE TABLE. W1 is not designed. Coaching stays at the repertoire level
+(§9 / §11): "you have never used this move over n calls" is a claim the data can
+carry; "you should have used it at 14:32" is not.
+
+**One door left ajar, not opened.** The 0.61 AUC is a measured fact. If a future
+session wants to revisit W1 it must bring a NEW feature (something beyond trigger
+cosine -- e.g. call-position, prior-turn content, or the account's state), re-freeze a
+rule of the same strictness, and clear it. Re-running THIS probe with a looser bar
+is not a revisit, it is the thing the pre-registration exists to prevent.
