@@ -20,6 +20,7 @@ This is a plain-language history of the Brain pipeline: what it does, what went 
 | **Pool unit: the taxonomy is built from fragments** | **2026-08-14 → 08-15** | **Tested whether the SCENARIOS are sound, which four earlier efforts had assumed. Two thirds fail a random-null test. Cause: Layer A groups sentence fragments while Layer B matches whole turns, so 59% of the pool carries no subject. Fix built and shipped OFF; also moved to the Gemini backend and validated against Layer D** |
 | **The ceiling measurement** | **2026-08-11** | **Graded the expert against his own rubrics to find out whether the CSM's 3.1% means anything. It doesn't: the scorer barely tells a matched rubric from a random one. Found the real defect — the rubrics are bimodal, and contingent moves are being graded as mandatory** |
 | **Layer D P0 fixes + the regrade that took 8 tries** | **2026-08-26 → 08-27** | **Shipped the three fixes owed before any CSM-facing run (fragment replies, filler benchmarks, tripled report rows), then spent a day fighting a database that kept going read-only mid-run. The real cause was a leaked session setting leaking through Neon's connection pooler from four different scripts — not the DB, not a quota, not even the thing everyone suspected first. Fixed at the source and made Layer D self-healing against it. Regrade completed clean; the regraded numbers barely moved, which means the original ones were mostly right** |
+| **The say arm, the repertoire question, and the night the numbers said "not yet"** | **2026-08-28 → 09-06** | **Built a third grader that asks "did the rep SAY this playbook move" instead of "who did it better", because 84% of the playbook is things Naren says. It graded correctly (blind readers agreed with it ~90%), but measuring Naren against it showed he says any given move on only ~1 call in 7: the playbook is a repertoire he draws from, not a checklist he runs. So the question was reframed to "which of his moves has she NEVER used, over enough calls for never to mean something". Ran it on Madhumita's 100 calls: she uses 33 of his 61 repertoire moves; for the other 28 there are not yet enough calls to say. A probe also showed that WHEN he chooses to deploy a move is not readable from the client's words, so "you missed the chance right here" coaching is off the table for good** |
 | **Ask Naren shipped, and two false alarms about its quality** | **2026-08-26** | **Built the CSM-facing tool that answers a live client situation from Naren real past calls, then measured whether the answers are actually RIGHT -- something no earlier number had ever asked. Two alarming figures that triggered the investigation both turned out to be mistakes in how they were measured, not defects. The real answer is 83% right, with every failure traced to one mechanism: the tool uses only the single closest past moment, and the right one is often second or third** |
 
 ---
@@ -3405,3 +3406,88 @@ blocking 31 of 37 right ones — strictness, not discrimination). Each would oth
 re-proposed by the next person to look at the 20%. The cheapest work in the whole arc was the
 one-second sanity script that found a real leak, and the embeddings-only probe that reframed
 the entire quality question without generating a single answer.
+
+---
+
+## The say arm, the repertoire question, and the night the numbers said "not yet" (2026-08-28 → 09-06)
+
+### Why a third grader existed at all
+
+The Layer D grader that shipped in August compares a CSM's reply to Naren's reply on a
+similar client moment and asks which one better performs a playbook move. That works when
+the move is something you DO (walk the client through a screen, propose a rollout plan).
+It ties — "both the same" — almost 70% of the time, and a look at the playbook explained
+why: about 84% of its moves are things Naren SAYS ("explain how last-touch attribution
+works", "warn them the tracking window will drop late applicants"). Once a fact is either
+stated or not, there is no "better".
+
+So a third grader was built with a different question: for each move, did the rep's reply
+state its content at all — and if so, in words that fit any client, or anchored to this
+client's names and numbers? Every credit has to carry an exact quote from the reply, checked
+by code, so the grader cannot invent credit. Before spending anything on it, the team wrote
+down the gates it had to pass and what would happen if it failed each one.
+
+### What passed, what failed, and the finding that changed the plan
+
+It told matched playbooks from unrelated ones every time it decided (7 of 7, at the level of
+whole calls), and every quote it produced was real (126 of 126). The "generic vs specific"
+distinction never materialised — when she states playbook content at all she nearly always
+does so with client detail — so that tier was demoted to a note.
+
+Then the benchmark: Naren's own calls, graded by the same instrument. He states a given
+playbook move on a median of **15% of the calls where that scenario comes up**. Not because the
+grader is broken — its credits are right — but because a playbook move is something he
+deploys when a call warrants it, roughly one call in seven. Grading anyone on "did you say
+this on this call" against a 15% benchmark is meaningless, and the pre-registered gate said
+so: the production run did not launch that day.
+
+### The reframe: repertoire, not checklist
+
+If the playbook is a repertoire, the coachable question is not "did you say it today" but
+"have you EVER said it, across all your calls on that topic?" And "never" is a real
+statistical claim: if Naren says a move on 15% of his calls, a rep who behaves like him has
+only a 5% chance of showing zero instances in 19 calls. So for each move, the code computes
+how many calls a zero must span before it counts, and any zero over fewer calls is filed as
+"not enough data yet" — never as a gap. That rule is enforced in code and pinned by tests.
+
+Before running it for real, two more checks were pre-registered: a blind audit of the
+grader's verdicts on the new data by two readers who could not see them, and a manual read
+of every "never" the report produced, moment by moment.
+
+### The run, and what it found
+
+One hundred transcripts, ~340 grading requests, no failures, and Naren's benchmark left
+untouched (a checkpoint copy made sure it was not re-graded and overwritten). The audit came
+back at **89.6% agreement** — the same range as the earlier graders' audits. The readers agreed
+with each other at 91.7%.
+
+Madhumita **verifiably uses 33 of the 61 moves in Naren's repertoire**, with her own quotes
+behind every one. The report produced exactly one "never": explaining attribution mechanics,
+which Naren does every third call and she had not done in nine. The moment-by-moment read
+found one of those nine "replies" was just "Sounds good. Sounds good. Okay." — a backchannel
+the fragment filter let through because it happens to be five words. Strike it and she has
+eight qualifying calls; the rule requires nine. **So the honest result is: no repertoire gap
+is claimable for her today.** Twenty-seven other moves sit on topics where she has had too
+few calls for a zero to mean anything. Every new call ingested moves that number.
+
+### Two side findings, both free
+
+**"You missed the chance right here" is not buildable from transcripts.** A zero-cost probe
+asked whether the client's words at a moment where Naren deploys a move look different from
+his other moments. There is a trace — the most similar tenth of moments deploy at 28% vs 15%
+overall — but a detector built on it would be wrong seven times in ten in its best band. The
+bar was set before the numbers existed (3× and 50%), and the trace did not clear it. Per-moment
+claims are closed; coaching stays at the repertoire level.
+
+**A third of client moments are answered by someone else.** Across her 96 calls, 33% of the
+client moments the system detects were answered by a Joveo colleague, not her — concentrated
+in about a quarter of the calls and heaviest on money topics. That is how those calls are
+staffed, not a fault, and it is the denominator every graded number silently sits on.
+
+### The lesson
+
+Every one of the failures here was caught by a gate written down before the money was spent,
+and every one of them turned into a finding rather than a fight about the number. The
+instrument that "failed" G-S4 is the same instrument that later passed its audit at 90% — it
+was never wrong, it was being asked the wrong question. The question, not the prompt, was the
+lever, for the seventh time in this project.

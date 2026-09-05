@@ -314,21 +314,25 @@ playbook-rewrite shortlist (P1, not started). `move_events`/`move_performance` k
 refuses without `csm_recordings/client_speakers.txt` (`ops/build_client_roster.py`
 regenerates it from the Avoma rosters).
 
-**THE SAY ARM (2026-08-28) IS BUILT AND GATED BUT NOT IN PRODUCTION — read
+**THE SAY ARM (2026-08-28 → 09-06) IS IN PRODUCTION AS A REPERTOIRE INSTRUMENT — read
 `docs/findings/layer-d-say-arm.md` before touching it.** A third `grader_arm` for the
 87 SAY-routed moves (blind-classified, hash-pinned in
 `artifacts/layer_d_move_classes.json`; DO/MIXED stay on pairwise): occurrence verdicts
 per moment, quote-gated, ROLLED UP TO THE CALL in `refresh_move_performance`
-(say-arm `attempts` counts CALLS). Its discrimination and quote gates PASSED
-(call-level 7-0 p=0.008; 126/126 quotes), but **G-S4 failed: Naren's own call-level
-occurrence is median ~15% (3/87 cells at the 0.50 floor) — the playbook is a
-repertoire, not a per-call checklist — so the CSM production say run is NOT licensed**
-and `grader_arm` stays `pairwise`. The 910 naren/say benchmark events (run
-`695837c37614`) are in `move_events`, keyed by arm. A repertoire-coverage reframe
-awaits an operator decision — see `HANDOFF_LAYER_D_SAY_ARM_2026-08-28.md` §4. The
-specificity tier (hit=specific vs partial=generic) is DIAGNOSTIC ONLY (G-S3 failed),
-and the say prompt's strict v1 contract is measured — do not loosen it (the
-element-credit variant failed its gate; comment in `layer_d/prompts.py`).
+(say-arm `attempts` counts CALLS). **G-S4 measured Naren's own call-level occurrence
+at median ~15% — the playbook is a repertoire, not a per-call checklist — so say
+verdicts are NEVER reported as rate gaps.** They feed `layer_d/repertoire.py`: per
+(CSM, move Naren says on ≥2 of his calls) → `uses it` / `never` / `insufficient
+data`, with the power rule n ≥ ln(.05)/ln(1−p̂) enforced per cell. The production
+say run over Madhumita's 100 transcripts is DONE (run `137706da74c6`, say events
+alongside the pairwise ones; blind audit 89.6%); result: she uses 33 of 61 repertoire
+moves, zero `never` cells survive the power rule today. `ops/run_layer_d.py
+--report-combined` prints repertoire + say-rate (diagnostic) + pairwise sections at
+zero spend. `tuning.yaml grader_arm` is `pairwise` — setting it to `say` RE-RUNS the
+say grade (checkpointed; new transcripts only). W0 (§10) closed per-moment
+"missed-chance" claims: trigger-text similarity carries too little warrant. The
+specificity tier is DIAGNOSTIC ONLY (G-S3 failed); the say prompt's strict v1
+contract is measured — do not loosen it (comment in `layer_d/prompts.py`).
 
 **New ops scripts** (all dry-run by default, `--apply` required, Neon DNS handled via
 `--hostaddr`): `ops/ship_union_taxonomy.py` (snapshot → delete children-first → load 259

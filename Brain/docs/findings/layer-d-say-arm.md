@@ -607,3 +607,111 @@ through the hash pins, by design).
 
 The full 26-row table (scenario, move, evidence quotes, distinct evidence calls,
 said/calls) is in `logs/layer_c_census_20260905.txt`.
+
+
+### 11b. RESULTS (2026-09-05 -> 06): the run completed, G-R1 and G-R3 PASS, G-R2 downgrades the only `never` -- zero repertoire gaps are claimable today
+
+**The run.** `tuning.yaml grader_arm: say`, `ops/run_layer_d.py --hostaddr 18.138.49.39`,
+23:06 -> ~00:50 IST, log `logs/say_production_20260905.log`. 106 selected, **100
+processed, 0 failed**, 6 excluded by the fail-closed speaker gate (the same 6 as the
+pairwise run). 1,206 moments -> 621 graded / 395 deferrals / 186 interjections / 3
+silence -- identical segmentation to the pairwise run, as it must be (same arm-e
+moments, only the grader changed). 1,205 say events written under run
+`137706da74c6`; the Naren benchmark pass was skipped by the copied checkpoints
+(`"naren": {"scenarios": 0}`), so the 1,001 benchmark events G-S4 and W0 were
+measured on are byte-for-byte the rows they were. CSM say verdicts: 1,464 miss /
+125 hit / 27 partial / 73 unscored (4.3% -- the quote gate refusing unverifiable
+credits, the arm working as designed). `move_performance` rebuilt: 416 rows, 78 of
+them csm/say. `grader_arm` flipped back to `pairwise` at 00:52 before any report
+was read.
+
+**The report** (`ops/run_layer_d.py --report-combined`, saved as
+`logs/combined_report_20260906.log`), repertoire section for Madhumita:
+
+| state | cells (of 61 in-repertoire moves) |
+| --- | --- |
+| uses it | **33** |
+| never | 1 (before G-R2; 0 after, see below) |
+| insufficient data | 27 |
+
+Her routed-call count per scenario runs from 0 (five scenarios where her calls
+never route -- pricing, forecasts, stakeholder translation) to 54
+(application_volume). Every "uses it" cell carries her verified quotes; every
+"insufficient" cell says how many calls it still needs.
+
+**G-R1 blind output audit: PASS, 89.6%.** `--audit-say` built 2 packets / 40
+moments (24 with a positive model claim, 16 miss-only, stratified by scenario); two
+fresh Sonnet readers, packet-only, both reads persisted
+(`artifacts/layer_d_oa_say_reader{1,2}.json`; model verdicts in
+`layer_d_oa_say_model_verdicts.json`, never shown to a reader).
+
+| | exact 3-way | binary said/not-said | n |
+| --- | --- | --- | --- |
+| pooled (the pre-registered number) | **181/202 = 89.6%** (bar >= 70%) | 183/202 = 90.6% | 202 |
+| reader 1 | 89/101 = 88.1% | 89.1% | 101 |
+| reader 2 | 92/101 = 91.1% | 92.1% | 101 |
+| reader 1 vs reader 2 | 100/109 = 91.7% | 92.7% | 109 |
+
+Confusion (model, reader), pooled: miss/miss 145, hit/hit 31, **hit/miss 11**,
+partial/partial 5, miss/hit 4, partial/miss 3, partial/hit 2, miss/partial 1. The
+readers are on the same level as the pairwise audits (97.9% / 92.7%) and agree with
+each other as often as with the model. The one asymmetry worth naming: of 21
+disagreements, 14 are the model crediting where a reader did not (hit->miss 11,
+partial->miss 3) and 5 the reverse -- the model is slightly the more generous
+party. That means a "uses it" built on a single hit has roughly a 1-in-4 chance
+the reader would have called it no; "uses it" cells with >= 2 instances are solid,
+and the report already shows the count.
+
+**G-R2 spot-read of every `never` cell: the one cell SURVIVES the content bar
+and FAILS the power rule after correction.** The single never cell --
+attribution_and_funnel_tracking M1 "Explain Attribution Mechanisms and Operational
+Edge Cases", Naren 6/20 calls (every ~3), her 0 of 9 calls with n_needed = 9 --
+has 9 scored moments on 9 distinct calls. Packet `artifacts/layer_d_never_cells_CSM_MADHUMITA.txt`;
+my own read and an independent Sonnet read (`layer_d_never_cells_read1.json`)
+agree exactly: **8 OK, 0 MISROUTED, 1 NOT_HER** -- moment 2's "reply" is
+`"Sounds good. Sounds good. Okay."`, a backchannel the interjection guard let
+through (it clears the >= 5 content-word bar on word count alone). 8/9 = 89% >=
+80%, so the cell is not a segmentation artifact. But striking that moment removes
+its call, and **8 valid calls < 9 needed: under the power rule the cell is
+`insufficient data`, one call short.** It is downgraded. The report as generated
+shows it under NEVER; the report as READ has zero never cells. This is the rule
+doing exactly what it was frozen to do -- a zero that is one call short of
+significance is not a gap.
+
+**G-R3 power rule: PASS** -- enforced per cell in `repertoire.classify`, pinned by
+`tests/test_layer_d_repertoire.py` (suite 1,664 passing), including the strict
+boundary the pre-spend audit found (`n_needed(19/20) == 2`).
+
+**What this says, in plain terms.** Madhumita verifiably uses 33 of the 61 moves
+in Naren's repertoire -- more than half -- with quotes behind every one. Of the 28
+she has never been seen using, 27 sit on scenarios where she has had too few
+routed calls for a zero to mean anything (median n needed 13-23; her median on
+those scenarios is 1-7 calls), and the one that was measurable is one call short.
+**There is no repertoire gap the data can carry today.** That is a real result,
+not a null: the instrument passed its audit, the rule held, and the honest answer
+is "she covers the repertoire broadly and we cannot yet say what she never does."
+Every additional ingested call on her thin scenarios moves cells out of
+insufficient; the attribution cell needs exactly one more clean routed call.
+
+**Two things the run exposed, for the queue (not fixed tonight -- instrument
+changes mid-gate are exactly what pre-registration forbids):**
+1. **The interjection guard has a word-count hole.** 6 of 621 graded CSM moments
+   (1%) are <= 8 words, all backchannels ("Got it. Sounds good. Sounds good.",
+   "Hi, Jim. Hello. Hey. Hi. Welcome."); 2 are <= 5 words. Tiny in volume, but one
+   landed in the one cell where it mattered. A content-word rule that also
+   requires a verb or a noun phrase would catch these; it is a `_v4` checkpoint
+   bump and a regrade of the affected moments, i.e. an operator decision.
+2. **The say arm is slightly generous on single hits** (14 of 21 disagreements).
+   The repertoire report is robust to this by construction (any verified instance
+   is an instance, and the count is shown), but a future rate-style use of these
+   verdicts should not assume symmetric error.
+
+**Spend.** ~340 gateway requests for the CSM grading (621 moments in batches of
+<= 6 per playbook per transcript; k=1), zero for the benchmark, zero for W0, zero
+for G-R2; reader tokens for G-R1.
+
+**State after this section.** `grader_arm: pairwise`. Say events for both
+populations in `move_events`; `--report-combined` prints repertoire + say-rate +
+pairwise sections from stored data at zero spend. The say-rate section still
+prints its dead-check flags for ~84 cells -- that is the G-S4 finding restated
+every time, and the operator may want it demoted to a one-line count.

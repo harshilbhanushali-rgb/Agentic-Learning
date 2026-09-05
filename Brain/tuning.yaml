@@ -939,7 +939,9 @@ layer_d:
   # 2026-09-05: DECIDED. Set to 'say' for the operator-approved repertoire pass
   # (docs/findings/layer-d-say-arm.md §11, gates pre-registered). Flip back to
   # 'pairwise' the moment the run completes -- the fail-safe convention.
-  grader_arm: say
+  # 2026-09-06: the run completed (CSM say events under run 137706da74c6);
+  # flipped back. --report-combined reads the say events regardless of this key.
+  grader_arm: pairwise
 
   # Grading model + reasoning effort (operator, 2026-08-23). 'none' = param not sent.
   # Both are part of the instrument identity (checkpoint_layer) and recorded per row

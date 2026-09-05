@@ -1,0 +1,678 @@
+[
+ {
+  "item": 1,
+  "move_event_id": 5524,
+  "verdicts": [
+   [
+    "M1",
+    "hit"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 2,
+  "move_event_id": 5478,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M2",
+    "hit"
+   ],
+   [
+    "M3",
+    "miss"
+   ],
+   [
+    "M4",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 3,
+  "move_event_id": 5406,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M3",
+    "hit"
+   ],
+   [
+    "M5",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 4,
+  "move_event_id": 5455,
+  "verdicts": [
+   [
+    "M3",
+    "hit"
+   ]
+  ]
+ },
+ {
+  "item": 5,
+  "move_event_id": 5720,
+  "verdicts": [
+   [
+    "M1",
+    "hit"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 6,
+  "move_event_id": 6163,
+  "verdicts": [
+   [
+    "M1",
+    "hit"
+   ]
+  ]
+ },
+ {
+  "item": 7,
+  "move_event_id": 5560,
+  "verdicts": [
+   [
+    "M2",
+    "partial"
+   ],
+   [
+    "M3",
+    "miss"
+   ],
+   [
+    "M4",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 8,
+  "move_event_id": 5790,
+  "verdicts": [
+   [
+    "M1",
+    "hit"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ],
+   [
+    "M4",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 9,
+  "move_event_id": 5462,
+  "verdicts": [
+   [
+    "M1",
+    "hit"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 10,
+  "move_event_id": 5408,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M2",
+    "partial"
+   ],
+   [
+    "M3",
+    "miss"
+   ],
+   [
+    "M4",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 11,
+  "move_event_id": 5893,
+  "verdicts": [
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "hit"
+   ]
+  ]
+ },
+ {
+  "item": 12,
+  "move_event_id": 5415,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M2",
+    "partial"
+   ],
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 13,
+  "move_event_id": 6489,
+  "verdicts": [
+   [
+    "M1",
+    "partial"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 14,
+  "move_event_id": 5860,
+  "verdicts": [
+   [
+    "M1",
+    "hit"
+   ],
+   [
+    "M4",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 15,
+  "move_event_id": 5561,
+  "verdicts": [
+   [
+    "M1",
+    "hit"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 16,
+  "move_event_id": 5409,
+  "verdicts": [
+   [
+    "M1",
+    "hit"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ],
+   [
+    "M4",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 17,
+  "move_event_id": 5608,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M2",
+    "hit"
+   ]
+  ]
+ },
+ {
+  "item": 18,
+  "move_event_id": 5458,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M2",
+    "hit"
+   ],
+   [
+    "M3",
+    "miss"
+   ],
+   [
+    "M4",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 19,
+  "move_event_id": 5908,
+  "verdicts": [
+   [
+    "M1",
+    "hit"
+   ]
+  ]
+ },
+ {
+  "item": 20,
+  "move_event_id": 5803,
+  "verdicts": [
+   [
+    "M3",
+    "hit"
+   ]
+  ]
+ },
+ {
+  "item": 21,
+  "move_event_id": 5540,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ],
+   [
+    "M4",
+    "miss"
+   ],
+   [
+    "M5",
+    "partial"
+   ]
+  ]
+ },
+ {
+  "item": 22,
+  "move_event_id": 5629,
+  "verdicts": [
+   [
+    "M2",
+    "hit"
+   ],
+   [
+    "M3",
+    "hit"
+   ]
+  ]
+ },
+ {
+  "item": 23,
+  "move_event_id": 5638,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M2",
+    "hit"
+   ],
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 24,
+  "move_event_id": 5491,
+  "verdicts": [
+   [
+    "M1",
+    "hit"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ],
+   [
+    "M4",
+    "hit"
+   ]
+  ]
+ },
+ {
+  "item": 25,
+  "move_event_id": 5413,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 26,
+  "move_event_id": 5416,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 27,
+  "move_event_id": 5410,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ],
+   [
+    "M4",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 28,
+  "move_event_id": 5746,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ],
+   [
+    "M5",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 29,
+  "move_event_id": 5454,
+  "verdicts": [
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 30,
+  "move_event_id": 5411,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 31,
+  "move_event_id": 6103,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 32,
+  "move_event_id": 5889,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M4",
+    "miss"
+   ],
+   [
+    "M5",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 33,
+  "move_event_id": 5488,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 34,
+  "move_event_id": 5414,
+  "verdicts": [
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ],
+   [
+    "M4",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 35,
+  "move_event_id": 5486,
+  "verdicts": [
+   [
+    "M1",
+    "unscored"
+   ],
+   [
+    "M2",
+    "unscored"
+   ],
+   [
+    "M3",
+    "unscored"
+   ],
+   [
+    "M4",
+    "unscored"
+   ]
+  ]
+ },
+ {
+  "item": 36,
+  "move_event_id": 5942,
+  "verdicts": [
+   [
+    "M2",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 37,
+  "move_event_id": 6422,
+  "verdicts": [
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 38,
+  "move_event_id": 5476,
+  "verdicts": [
+   [
+    "M1",
+    "miss"
+   ],
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ },
+ {
+  "item": 39,
+  "move_event_id": 5575,
+  "verdicts": [
+   [
+    "M1",
+    "unscored"
+   ],
+   [
+    "M2",
+    "unscored"
+   ],
+   [
+    "M3",
+    "unscored"
+   ],
+   [
+    "M4",
+    "unscored"
+   ]
+  ]
+ },
+ {
+  "item": 40,
+  "move_event_id": 5563,
+  "verdicts": [
+   [
+    "M2",
+    "miss"
+   ],
+   [
+    "M3",
+    "miss"
+   ]
+  ]
+ }
+]

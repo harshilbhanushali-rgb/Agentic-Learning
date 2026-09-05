@@ -1,0 +1,12 @@
+[
+ {
+  "cell": 1,
+  "rater_id": "CSM_MADHUMITA",
+  "playbook_id": 162,
+  "move_id": "M1",
+  "scenario_key": "attribution_and_funnel_tracking",
+  "csm_calls": 9,
+  "calls_needed": 9,
+  "n_moments": 9
+ }
+]

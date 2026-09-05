@@ -55,6 +55,15 @@ Brain/artifacts/*
 !Brain/artifacts/layer_d_move_classes.json
 !Brain/artifacts/ld_moveclass_read1.txt
 !Brain/artifacts/ld_moveclass_read2.txt
+# Blind reads behind the repertoire pass's gates (G-R1, G-R2; findings §11b) and the
+# W0 probe artifact -- the provenance of committed gate results, not regenerable
+# (a re-read is a different read).
+!Brain/artifacts/layer_d_oa_say_reader1.json
+!Brain/artifacts/layer_d_oa_say_reader2.json
+!Brain/artifacts/layer_d_oa_say_model_verdicts.json
+!Brain/artifacts/layer_d_never_cells_key.json
+!Brain/artifacts/layer_d_never_cells_read1.json
+!Brain/artifacts/layer_d_w0_warrant_probe.json
 
 # --- Local agent tooling scratch state ---
 # Personal CLAUDE.md companion: machine-specific tooling quirks, never team-shared.
