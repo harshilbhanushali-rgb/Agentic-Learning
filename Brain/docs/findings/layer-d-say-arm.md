@@ -366,3 +366,68 @@ revision was spent (v2, failed), and wording-as-lever is refuted 6x in this
 project. (c) Abandoning say moves entirely and coaching only the 34
 pairwise-routed cells -- discards 72% of the playbook when a viable aggregation
 exists; keep as the fallback if the operator rejects the repertoire run.
+
+## 10. W0 -- the warrant-legibility probe (PRE-REGISTERED 2026-09-05, before the probe ran)
+
+**The question.** Naren deploys a given SAY move on ~1 routed call in 7 (§8, G-S4).
+Is whatever makes him deploy it at one moment and not another VISIBLE in the
+client's trigger text? If yes, a per-moment "you missed the chance HERE" detector
+(W1) is buildable from transcripts; if no, it is impossible from transcripts in
+principle and per-moment missed-chance claims come off the table with evidence.
+Ask Naren's ADR 0005 already found retrieval cosine alone could not separate right
+from wrong answers in a neighbouring problem, so the prior here is skeptical --
+which is exactly why this is a zero-spend probe and not a build.
+
+**Data (already in the DB, no spend).** The naren/say `move_events` of run
+`695837c37614` (all 33 live playbooks; 1,001 events with verdicts, 850 distinct
+trigger texts -- the doc's earlier "910" counted the readout's scored cells at the
+time; the stored row count is what the probe reads). Per (playbook, move, moment):
+deployed = verdict hit or partial; not deployed = miss; unscored excluded. A move
+is in scope if it is IN NAREN'S REPERTOIRE (deployed on >= 2 distinct calls; 61 of
+87 SAY moves, recomputed 2026-09-05 from `move_performance`).
+
+**Embeddings.** gateway/gemini-embedding-2 @ 3072, CACHE-ONLY through
+`calibration.layer_bc_arms._load_cached` (the same reader the calibration shim
+uses): abort on any cache miss, assert width 3072. Verified before freezing this
+section: all 850 trigger texts are cached, 0 missing. (The 2026-08-19 gotcha -- a
+script that forgets the shim silently compares two embedding spaces -- cannot bite
+a script that never calls the embedder at all.)
+
+**Method (frozen).**
+1. For each in-repertoire move: its deployment triggers = the trigger texts of the
+   moments where Naren deployed it.
+2. For EVERY scored moment of that move's scenario, the score is the max cosine
+   similarity to the move's deployment triggers, **leave-one-CALL-out**: deployment
+   triggers from the same call as the moment being scored are excluded. This is
+   stricter than the handoff's leave-one-moment-out and it is the primary rule on
+   purpose: a W1 detector would score a CSM's moment against Naren's deployments on
+   OTHER calls, and two on-topic moments inside one call are similar because they
+   share a client, not because the trigger carries warrant. Leave-one-moment-out is
+   reported as a diagnostic. A moment with no remaining reference deployment is
+   dropped from the pool (reported).
+3. Pool all (moment, move) pairs across moves (per-move n is 2-8 deployments, too
+   thin alone); base rate = deployed pairs / all pairs. Bucket by similarity decile
+   and report deployment rate per decile. Per-move curves are diagnostics only.
+4. Permutation null: within each move, shuffle the deployed labels over that move's
+   moments and recompute steps 1-3 (the reference set moves with the labels), 500
+   times; p = share of permutations whose top-decile deployment rate >= the observed.
+
+**Decision rule (frozen; adjust nothing after the numbers exist).**
+Warrant is **LEGIBLE** iff, on the primary (leave-one-call-out) pooled curve, the
+TOP DECILE of (moment, move) pairs by similarity has deployment rate
+(a) >= 3x the base rate AND (b) >= 0.50 absolute AND (c) permutation p < 0.05.
+Otherwise **NOT LEGIBLE**. The top-20% band is reported alongside as context, not
+as a second chance.
+
+**What each outcome means, decided now.**
+- LEGIBLE -> design the W1 ladder: a per-moment detector calibrated on Naren's own
+  conditional deployment rates, validated on held-out Naren calls, then a blind
+  read of flagged CSM moments. W1 is a PER-ITEM CLASSIFIER -- the shape that has
+  failed 9 times in this project -- so its gates must be merciless, and it must
+  never be validated against an LLM's opinion of "warranted", only against Naren's
+  measured behaviour.
+- NOT LEGIBLE -> per-moment missed-chance claims from transcript data are closed,
+  with this as the evidence. Coaching stays at the repertoire level (§9 / §11).
+
+Artifact: `artifacts/layer_d_w0_warrant_probe.json`; script:
+`calibration/layer_d_w0_warrant_probe.py`. Results are appended below as §10b.
