@@ -345,7 +345,12 @@ CREATE TABLE IF NOT EXISTS move_events (
     source_ref       TEXT NOT NULL,      -- 'turn:<anchor_index>' or 'pair:<pair_id>'
     scenario_key     TEXT NOT NULL,
     playbook_id      INTEGER NOT NULL REFERENCES playbooks(playbook_id),
-    grader_arm       TEXT NOT NULL CHECK (grader_arm IN ('checks', 'pairwise')),
+    -- 'say' (added 2026-08-28): occurrence+specificity grading for speech-act
+    -- moves (docs/findings/layer-d-say-arm.md). Verdict semantics are PER ARM:
+    --   checks   hit=performed fully      partial=substantive start   miss=not attempted
+    --   pairwise hit=beat the exemplar    partial=judged equal        miss=lost
+    --   say      hit=stated SPECIFICALLY  partial=stated generically  miss=not stated
+    grader_arm       TEXT NOT NULL CHECK (grader_arm IN ('checks', 'pairwise', 'say')),
     grader_model     TEXT NOT NULL DEFAULT '',  -- per-row provenance: which model graded
     via              TEXT NOT NULL,      -- 'last_turn' | 'stitched' (segmentation arm e)
     -- 'interjection' (added 2026-08-26): a "csm" reply too short/fragmentary to
@@ -371,6 +376,12 @@ ALTER TABLE move_events DROP CONSTRAINT IF EXISTS move_events_response_outcome_c
 ALTER TABLE move_events ADD CONSTRAINT move_events_response_outcome_check
     CHECK (response_outcome IN ('csm', 'other_joveo', 'none', 'interjection'));
 
+-- Same drop+add dance for grader_arm: 'say' (2026-08-28) widens the list.
+-- (move_performance gets its own drop+add below, AFTER its CREATE TABLE.)
+ALTER TABLE move_events DROP CONSTRAINT IF EXISTS move_events_grader_arm_check;
+ALTER TABLE move_events ADD CONSTRAINT move_events_grader_arm_check
+    CHECK (grader_arm IN ('checks', 'pairwise', 'say'));
+
 CREATE INDEX IF NOT EXISTS idx_move_events_rater ON move_events (rater_population, rater_id);
 CREATE INDEX IF NOT EXISTS idx_move_events_playbook ON move_events (playbook_id);
 
@@ -379,7 +390,11 @@ CREATE TABLE IF NOT EXISTS move_performance (
     rater_id         TEXT NOT NULL,
     playbook_id      INTEGER NOT NULL REFERENCES playbooks(playbook_id),
     move_id          TEXT NOT NULL,      -- 'M1'..'Mn', positional (see playbooks DDL note)
-    grader_arm       TEXT NOT NULL CHECK (grader_arm IN ('checks', 'pairwise')),
+    grader_arm       TEXT NOT NULL CHECK (grader_arm IN ('checks', 'pairwise', 'say')),
+    -- attempts counts MOMENTS for checks/pairwise rows and CALLS for say rows:
+    -- the say arm rolls each (rater, call, playbook, move) up to its BEST verdict
+    -- across the call's scored moments before counting (a speech act is a per-call
+    -- event -- storage.refresh_move_performance, docs/findings/layer-d-say-arm.md).
     attempts         INTEGER NOT NULL,   -- scored verdicts only; unscored excluded
     hits             INTEGER NOT NULL,
     partials         INTEGER NOT NULL,
@@ -387,3 +402,7 @@ CREATE TABLE IF NOT EXISTS move_performance (
     refreshed_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (rater_population, rater_id, playbook_id, move_id, grader_arm)
 );
+
+ALTER TABLE move_performance DROP CONSTRAINT IF EXISTS move_performance_grader_arm_check;
+ALTER TABLE move_performance ADD CONSTRAINT move_performance_grader_arm_check
+    CHECK (grader_arm IN ('checks', 'pairwise', 'say'));

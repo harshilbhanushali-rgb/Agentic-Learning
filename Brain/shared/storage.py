@@ -761,7 +761,7 @@ def get_playbooks(conn: psycopg.Connection, status: str | None = None) -> list[d
 #     -- never incremented in place (the old `attempts = attempts + 1` defect).
 
 _VALID_RATER_POPULATIONS = {"csm", "naren"}
-_VALID_GRADER_ARMS = {"checks", "pairwise"}
+_VALID_GRADER_ARMS = {"checks", "pairwise", "say"}
 
 
 def get_pairs_for_scenario_multilabel(
@@ -843,6 +843,16 @@ def refresh_move_performance(conn: psycopg.Connection) -> int:
     reproducible from events alone (calibration/layer_d_replay.py proves it), and
     re-running after ANY combination of upserts converges to the same table.
     'unscored' verdicts are counted in their own column and excluded from attempts.
+
+    THE SAY ARM ROLLS UP TO THE CALL, NOT THE MOMENT (docs/findings/layer-d-say-arm.md
+    §2): a say-arm move is a speech act -- "did the rep state this anywhere on the
+    call" is the natural unit, and the per-moment unit is the measured cause of the
+    old checks arm's death (3-6% expert base rate -> coin-flip discrimination). So
+    for grader_arm='say', a (rater, call, playbook, move) cell contributes ONE
+    attempt whose verdict is the BEST across that call's scored moments
+    (hit > partial > miss); a call whose every moment is unscored lands in the
+    unscored column. move_performance.attempts therefore counts CALLS for say rows
+    and MOMENTS for checks/pairwise rows -- documented at the schema too.
     """
     with conn.cursor() as cur:
         cur.execute("DELETE FROM move_performance")
@@ -858,13 +868,59 @@ def refresh_move_performance(conn: psycopg.Connection) -> int:
                    COUNT(*) FILTER (WHERE v.value->>'verdict' = 'unscored')
             FROM move_events e
             CROSS JOIN LATERAL jsonb_array_elements(e.verdicts) AS v
-            WHERE v.value->>'move_id' IS NOT NULL
+            WHERE v.value->>'move_id' IS NOT NULL AND e.grader_arm <> 'say'
             GROUP BY e.rater_population, e.rater_id, e.playbook_id,
                      v.value->>'move_id', e.grader_arm
         """)
         n = cur.rowcount
+        cur.execute("""
+            INSERT INTO move_performance
+              (rater_population, rater_id, playbook_id, move_id, grader_arm,
+               attempts, hits, partials, unscored)
+            SELECT rater_population, rater_id, playbook_id, move_id, 'say',
+                   COUNT(*) FILTER (WHERE best >= 1),
+                   COUNT(*) FILTER (WHERE best = 3),
+                   COUNT(*) FILTER (WHERE best = 2),
+                   COUNT(*) FILTER (WHERE best = 0)
+            FROM (
+                SELECT e.rater_population, e.rater_id, e.playbook_id, e.call_id,
+                       v.value->>'move_id' AS move_id,
+                       MAX(CASE v.value->>'verdict'
+                           WHEN 'hit' THEN 3 WHEN 'partial' THEN 2
+                           WHEN 'miss' THEN 1 ELSE 0 END) AS best
+                FROM move_events e
+                CROSS JOIN LATERAL jsonb_array_elements(e.verdicts) AS v
+                WHERE e.grader_arm = 'say' AND v.value->>'move_id' IS NOT NULL
+                GROUP BY e.rater_population, e.rater_id, e.playbook_id, e.call_id,
+                         v.value->>'move_id'
+            ) per_call
+            GROUP BY rater_population, rater_id, playbook_id, move_id
+        """)
+        n += cur.rowcount
     conn.commit()
     return n
+
+
+def get_say_densities(conn: psycopg.Connection) -> dict[tuple[str, int, str], tuple[int, int]]:
+    """Say arm's opportunity-asymmetry diagnostic (layer-d-say-arm.md §2): per
+    (rater_population, playbook_id, move_id), how many SCORED MOMENTS fed how many
+    CALLS. CSM segmentation and Layer B routing find moments at different densities;
+    a call-level rate built from systematically more moments per call gets more
+    chances at its best verdict, and this readout is what makes that visible."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT e.rater_population, e.playbook_id, v.value->>'move_id',
+                   COUNT(*) FILTER
+                       (WHERE v.value->>'verdict' IN ('hit', 'partial', 'miss')),
+                   COUNT(DISTINCT e.call_id) FILTER
+                       (WHERE v.value->>'verdict' IN ('hit', 'partial', 'miss'))
+            FROM move_events e
+            CROSS JOIN LATERAL jsonb_array_elements(e.verdicts) AS v
+            WHERE e.grader_arm = 'say' AND v.value->>'move_id' IS NOT NULL
+            GROUP BY 1, 2, 3
+        """)
+        rows = cur.fetchall()
+    return {(r[0], r[1], r[2]): (r[3], r[4]) for r in rows}
 
 
 def get_move_rates(

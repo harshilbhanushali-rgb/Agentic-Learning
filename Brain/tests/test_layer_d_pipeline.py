@@ -223,7 +223,8 @@ def test_naren_benchmark_grades_pairs_with_the_same_instrument(monkeypatch, reco
     monkeypatch.setattr(pipeline, "grade_moment_set", grade)
     out, _conn = pipeline.run_naren_benchmark(CONFIG, conn=None, chat=lambda p: [],
                                               run_id="r1", sample=5)
-    assert out == {"scenarios": 1, "graded": 1, "failed": [], "aborted_read_only": False}
+    assert out == {"scenarios": 1, "graded": 1, "skipped_no_say_moves": 0,
+                   "failed": [], "aborted_read_only": False}
     [e] = fs.events
     assert e["rater_population"] == "naren" and e["rater_id"] == aggregate.NAREN
     assert e["source_ref"] == "pair:3"
@@ -280,7 +281,8 @@ def test_naren_benchmark_only_filter_skips_other_scenarios(monkeypatch):
     out, _conn = pipeline.run_naren_benchmark(CONFIG, conn=None, chat=lambda p: [],
                                               run_id="r1", sample=5,
                                               only={"some_other_scenario"})
-    assert out == {"scenarios": 0, "graded": 0, "failed": [], "aborted_read_only": False}
+    assert out == {"scenarios": 0, "graded": 0, "skipped_no_say_moves": 0,
+                   "failed": [], "aborted_read_only": False}
     assert fs.events == [] and fc.done == set()
 
 

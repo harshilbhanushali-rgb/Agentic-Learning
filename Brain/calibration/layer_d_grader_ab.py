@@ -138,8 +138,11 @@ def collect_moments(cfg, playbooks: dict[str, dict], per_scenario: int,
     filename order, first-N per scenario."""
     d = get_tuning().layer_d
     conn = storage.get_connection(cfg.database_url)
-    with conn.cursor() as cur:
-        cur.execute("SET SESSION default_transaction_read_only = on")
+    # No default_transaction_read_only "safety" here: that session setting leaks
+    # across unrelated clients through Neon's pooler when the connection closes
+    # without resetting it (docs/GOTCHAS.md, 2026-08-26 -- this script was a FIFTH
+    # instance of the pattern, found 2026-08-28 after the four known ones were
+    # fixed). The script simply never writes.
     scenario_map = {r["scenario_key"]: r for r in storage.get_scenarios(conn)}
     conn.close()
 
@@ -230,8 +233,7 @@ def main() -> None:
                          f"--allow-unverified-speakers (biases the arms; see docstring).")
 
     conn = storage.get_connection(cfg.database_url)
-    with conn.cursor() as cur:
-        cur.execute("SET SESSION default_transaction_read_only = on")
+    # (Same leak rationale as collect_moments: no read-only session GUC.)
     playbooks = {p["scenario_key"]: p for p in live_playbooks_flat(conn)
                  if p["scenario_key"] in PBQ_KEYS}
     assert len(playbooks) == 5, sorted(playbooks)

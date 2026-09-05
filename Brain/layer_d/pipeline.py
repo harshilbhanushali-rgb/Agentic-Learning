@@ -40,7 +40,7 @@ NAREN_SAMPLE_PER_SCENARIO = 30
 _REPORT_TOP_N = 5
 
 
-def checkpoint_layer(tuning_d) -> str:
+def checkpoint_layer(tuning_d, classes_fp: str = "") -> str:
     """Checkpoint identity: segmentation arm, grader arm, MODEL and EFFORT are all
     load-bearing (changing any of them MUST invalidate prior progress — same rule
     as the old ego_trap_{mode}_v2 suffix, extended so two instruments' verdicts can
@@ -52,9 +52,12 @@ def checkpoint_layer(tuning_d) -> str:
     # all, and the exemplar-substantive filter changes WHAT they're graded against
     # -- both change verdicts for moments already checkpointed under _v2, so prior
     # progress must invalidate the same way a model/effort change would.
+    # classes_fp (say arm only): the SAY/DO routing fingerprint. A re-classified
+    # move changes which moves get graded at all -- an instrument change, same rule.
     swap = "swap" if tuning_d.pairwise_swap else "noswap"
+    cls = f"_cls{classes_fp}" if classes_fp else ""
     return (f"layer_d_{tuning_d.segmentation_arm}_{tuning_d.grader_arm}"
-            f"_{tuning_d.grader_model}_{tuning_d.grader_reasoning_effort}_{swap}_v3")
+            f"_{tuning_d.grader_model}_{tuning_d.grader_reasoning_effort}_{swap}{cls}_v3")
 
 
 def gateway_chat(model: str | None = None,
@@ -158,10 +161,22 @@ def grade_moment_set(
     moments: list[dict],
     tuning_d,
     exemplar_for: Callable[[dict], dict] | None = None,
+    say_specs: list[dict] | None = None,
 ) -> dict[str, list[graders.MoveVerdict]]:
     """Grade a set of same-playbook moments under the configured arm, k_runs times,
-    with the k-run consensus applied. Returns {moment_id: verdicts}."""
-    moves = playbook_move_specs(playbook)
+    with the k-run consensus applied. Returns {moment_id: verdicts}.
+
+    say arm: `say_specs` (move_classes.say_moves output -- the SAY-routed subset,
+    anchors included) replaces the full move list; verdicts cover ONLY those moves.
+    Grading a say playbook against its full move list would write unscored rows for
+    every DO move under the say identity, polluting the arm's unscored rate."""
+    if tuning_d.grader_arm == "say":
+        if not say_specs:
+            raise ValueError("say arm needs a non-empty say_specs list "
+                             "(callers skip playbooks with no SAY-routed moves)")
+        moves = say_specs
+    else:
+        moves = playbook_move_specs(playbook)
     scenario_key = playbook["scenario_key"]
     signature = playbook.get("situation_signature", "")
     k = tuning_d.grader_k_runs
@@ -170,6 +185,10 @@ def grade_moment_set(
     for _ in range(k):
         if tuning_d.grader_arm == "checks":
             graded = graders.grade_checks_batch(
+                chat, scenario_key, signature, moves, moments,
+                tuning_d.quote_verify_min_overlap)
+        elif tuning_d.grader_arm == "say":
+            graded = graders.grade_say_batch(
                 chat, scenario_key, signature, moves, moments,
                 tuning_d.quote_verify_min_overlap)
         elif tuning_d.grader_arm == "pairwise":
@@ -291,13 +310,32 @@ def run_layer_d_batch(
         )
 
     tuning_d = get_tuning().layer_d
-    layer = checkpoint_layer(tuning_d)
+
+    # say arm: the routing classification is part of the instrument. Loaded ONCE,
+    # fail-closed (a live move missing from the artifact, or whose criterion hash
+    # drifted, raises in say_specs_for below), and its fingerprint is part of the
+    # checkpoint identity so a re-classification invalidates prior progress.
+    classes = fp = None
+    if tuning_d.grader_arm == "say":
+        from layer_d import move_classes
+        classes = move_classes.load_move_classes()
+        fp = move_classes.classes_fingerprint(classes)
+    layer = checkpoint_layer(tuning_d, classes_fp=fp or "")
     chat = chat or gateway_chat()
 
     scenario_rows = storage.get_scenarios(conn)
     scenario_map = {r["scenario_key"]: r for r in scenario_rows}
     coachable_keys = {k for k, r in scenario_map.items() if r["is_coachable"]}
     live_playbooks = {p["scenario_key"]: p for p in live_playbooks_flat(conn)}
+
+    # Validate + pre-compute the SAY move subset per playbook up front: a routing
+    # problem should refuse the RUN, before any spend, not fail one transcript in.
+    say_specs_by_key: dict[str, list[dict]] = {}
+    if classes is not None:
+        say_specs_by_key = {
+            k: move_classes.say_moves(pb, classes)
+            for k, pb in live_playbooks.items()
+        }
 
     recordings = Path(recordings_dir)
     mapping = csm_registry.load_mapping(recordings / "mapping.csv")
@@ -316,6 +354,7 @@ def run_layer_d_batch(
         "excluded_unverified_speakers": [], "failed": [],
         "moments": 0, "graded": 0, "deferrals": 0, "silence": 0, "interjections": 0,
         "coverage_gaps": {},        # scenario_key -> moment count (coachable, no playbook)
+        "no_say_moves": 0,          # say arm only: moments on playbooks with zero SAY moves
         "events_written": 0, "aborted_read_only": False,
     }
 
@@ -371,6 +410,12 @@ def run_layer_d_batch(
                     report["coverage_gaps"][m.scenario_key] = (
                         report["coverage_gaps"].get(m.scenario_key, 0) + 1)
                     continue
+                if classes is not None and not say_specs_by_key.get(m.scenario_key):
+                    # Say run, playbook has zero SAY-routed moves: this moment is
+                    # pairwise's territory entirely -- nothing to grade OR record
+                    # under the say identity.
+                    report["no_say_moves"] += 1
+                    continue
                 base = {
                     "rater_population": "csm", "rater_id": csm_id,
                     "call_id": stem, "source_ref": m.source_ref,
@@ -403,8 +448,10 @@ def run_layer_d_batch(
                     exemplar_for = make_exemplar_picker(
                         storage.get_pairs_for_scenario_multilabel(conn, scen_key),
                         embedder.embed_query_matrix)
-                verdicts = grade_moment_set(chat, pb, pb_moments, tuning_d,
-                                            exemplar_for=exemplar_for)
+                kwargs = {"exemplar_for": exemplar_for}
+                if classes is not None:
+                    kwargs["say_specs"] = say_specs_by_key.get(scen_key)
+                verdicts = grade_moment_set(chat, pb, pb_moments, tuning_d, **kwargs)
                 for m in pb_moments:
                     events.append({
                         **{k: v for k, v in m.items() if k != "moment_id"},
@@ -494,13 +541,25 @@ def run_naren_benchmark(
     single connection drop into every subsequent scenario's spend being wasted.
     """
     tuning_d = get_tuning().layer_d
-    layer = checkpoint_layer(tuning_d) + "_naren"
-    out = {"scenarios": 0, "graded": 0, "failed": [], "aborted_read_only": False}
+    classes = fp = None
+    if tuning_d.grader_arm == "say":
+        from layer_d import move_classes
+        classes = move_classes.load_move_classes()
+        fp = move_classes.classes_fingerprint(classes)
+    layer = checkpoint_layer(tuning_d, classes_fp=fp or "") + "_naren"
+    out = {"scenarios": 0, "graded": 0, "skipped_no_say_moves": 0,
+           "failed": [], "aborted_read_only": False}
 
     for pb in live_playbooks_flat(conn):
         scen_key = pb["scenario_key"]
         if only is not None and scen_key not in only:
             continue
+        say_specs = None
+        if classes is not None:
+            say_specs = move_classes.say_moves(pb, classes)
+            if not say_specs:
+                out["skipped_no_say_moves"] += 1
+                continue
         item = f"{scen_key}:pb{pb['playbook_id']}"
         if checkpoint.is_done(run_id, item, layer):
             continue
@@ -516,7 +575,28 @@ def run_naren_benchmark(
         pairs = storage.get_pairs_for_scenario_multilabel(conn, scen_key)
         # Deterministic sample: primary-label pairs first, then pair_id order --
         # reproducible across runs without a seed.
-        pairs = sorted(pairs, key=lambda p: (not p["is_primary"], p["pair_id"]))[:sample]
+        if classes is not None:
+            # Say arm samples WHOLE CALLS (docs/findings/layer-d-say-arm.md §2):
+            # the arm's unit is the call, so a call-level denominator built from
+            # calls sampled pair-by-pair would systematically hand Naren fewer
+            # moments per call than the CSM side gets. Calls are ordered by their
+            # best pair under the same (primary-first, pair_id) rule, and taken
+            # whole until the pair budget is covered.
+            by_call: dict[str, list[dict]] = {}
+            for p in pairs:
+                by_call.setdefault(p["call_filename"], []).append(p)
+            call_order = sorted(
+                by_call,
+                key=lambda c: min((not p["is_primary"], p["pair_id"])
+                                  for p in by_call[c]))
+            picked: list[dict] = []
+            for c in call_order:
+                if len(picked) >= sample:
+                    break
+                picked.extend(sorted(by_call[c], key=lambda p: p["pair_id"]))
+            pairs = picked
+        else:
+            pairs = sorted(pairs, key=lambda p: (not p["is_primary"], p["pair_id"]))[:sample]
         moments = [
             {"moment_id": f"{p['call_filename']}:p{p['pair_id']}",
              "trigger_text": p["trigger_text"], "response_text": p["response_text"],
@@ -534,8 +614,10 @@ def run_naren_benchmark(
                 anchor = {"trigger_text": pb.get("situation_signature", ""),
                           "response_text": first_ev.get("quote", "")}
                 exemplar_for = lambda m, _a=anchor: _a  # noqa: E731
-            verdicts = grade_moment_set(chat, pb, moments, tuning_d,
-                                        exemplar_for=exemplar_for)
+            kwargs = {"exemplar_for": exemplar_for}
+            if classes is not None:
+                kwargs["say_specs"] = say_specs
+            verdicts = grade_moment_set(chat, pb, moments, tuning_d, **kwargs)
             for m in moments:
                 storage.upsert_move_event(conn, {
                     "rater_population": "naren", "rater_id": aggregate.NAREN,
@@ -605,24 +687,122 @@ def build_reports(conn, csm_names: dict[str, str]) -> str:
         return "\n\n".join(blocks)
 
     naren_rows = storage.get_move_rates(conn, "naren", arm).get(aggregate.NAREN, [])
+    naren_rates = to_rates(naren_rows)
     ranked, dead = aggregate.rank_gaps(
-        csm_rates, to_rates(naren_rows),
+        csm_rates, naren_rates,
         prior_strength=tuning_d.shrinkage_prior_strength,
         min_attempts=tuning_d.min_attempts_to_rank,
         dead_floor=tuning_d.dead_check_naren_floor,
     )
+    naren_by_cell = {(r.playbook_id, r.move_id): r for r in naren_rates}
     for rater_id, gaps in sorted(ranked.items()):
         evidence = storage.get_hit_quotes(conn, rater_id, arm)
-        blocks.append(aggregate.format_priorities(
-            csm_names.get(rater_id, rater_id), gaps, move_meta, evidence,
-            _REPORT_TOP_N))
+        if arm == "say":
+            csm_by_cell = {(r.playbook_id, r.move_id): r
+                           for r in csm_rates.get(rater_id, [])}
+            blocks.append(aggregate.format_say_priorities(
+                csm_names.get(rater_id, rater_id), gaps, move_meta,
+                csm_by_cell, naren_by_cell, evidence,
+                densities=storage.get_say_densities(conn)))
+        else:
+            blocks.append(aggregate.format_priorities(
+                csm_names.get(rater_id, rater_id), gaps, move_meta, evidence,
+                _REPORT_TOP_N))
     if dead:
+        unit = "calls" if arm == "say" else "attempts"
         lines = ["", "DEAD-CHECK FLAGS (the benchmark itself fails these; review the",
                  "check, do not coach the gap):"]
         for d in dead:
             meta = move_meta.get((d.playbook_id, d.move_id), {})
             lines.append(f"  [{meta.get('scenario_key', d.playbook_id)}] {d.move_id} "
-                         f"naren {d.naren_rate:.0%} over {d.naren_attempts} attempts")
+                         f"naren {d.naren_rate:.0%} over {d.naren_attempts} {unit}")
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
 
+
+def build_combined_reports(conn, csm_names: dict[str, str]) -> str:
+    """The production report once BOTH arms have data: pairwise verdicts rank the
+    DO/MIXED-routed moves (run 137706da74c6's events -- the benchmark exemplar is
+    inside every verdict), say verdicts rank the SAY-routed moves against the
+    measured Naren call-level benchmark. The two gap semantics are different
+    numbers (1 - match_or_beat vs naren_rate - csm_rate) so they are REPORTED as
+    separate sections, never merged into one ranking. Pure read."""
+    from layer_d import move_classes
+    classes = move_classes.load_move_classes()
+    tuning_d = get_tuning().layer_d
+
+    def to_rates(rows: list[dict]) -> list[aggregate.MoveRate]:
+        return [aggregate.MoveRate(r["playbook_id"], r["move_id"], r["attempts"],
+                                   r["hits"], r["partials"]) for r in rows]
+
+    move_meta: dict[tuple[int, str], dict] = {}
+    route_by_cell: dict[tuple[int, str], str] = {}
+    for pb in live_playbooks_flat(conn):
+        for m in pb["key_moves"]:
+            first_quote = (m.get("evidence") or [{}])[0].get("quote", "")
+            cell = (pb["playbook_id"], m["move_id"])
+            move_meta[cell] = {
+                "scenario_key": pb["scenario_key"], "name": m.get("name", ""),
+                "criterion": m.get("criterion", ""), "naren_quote": first_quote,
+            }
+            entry = classes.get(f"{pb['scenario_key']}:{m['move_id']}")
+            route_by_cell[cell] = entry["route"] if entry else "pairwise"
+
+    blocks: list[str] = []
+
+    # --- SAY section (rate-vs-benchmark) -------------------------------------
+    say_csm = {rid: to_rates(rows)
+               for rid, rows in storage.get_move_rates(conn, "csm", "say").items()}
+    say_naren = to_rates(
+        storage.get_move_rates(conn, "naren", "say").get(aggregate.NAREN, []))
+    ranked_say, dead = aggregate.rank_gaps(
+        say_csm, say_naren,
+        prior_strength=tuning_d.shrinkage_prior_strength,
+        min_attempts=tuning_d.min_attempts_to_rank,
+        dead_floor=tuning_d.dead_check_naren_floor,
+    )
+    naren_by_cell = {(r.playbook_id, r.move_id): r for r in say_naren}
+    densities = storage.get_say_densities(conn)
+    for rater_id, gaps in sorted(ranked_say.items()):
+        csm_by_cell = {(r.playbook_id, r.move_id): r
+                       for r in say_csm.get(rater_id, [])}
+        evidence = storage.get_hit_quotes(conn, rater_id, "say")
+        blocks.append(aggregate.format_say_priorities(
+            csm_names.get(rater_id, rater_id), gaps, move_meta,
+            csm_by_cell, naren_by_cell, evidence, densities=densities))
+
+    # --- PAIRWISE section (DO/MIXED-routed cells only) -----------------------
+    pw_csm = {
+        rid: [r for r in to_rates(rows)
+              if route_by_cell.get((r.playbook_id, r.move_id), "pairwise") == "pairwise"]
+        for rid, rows in storage.get_move_rates(conn, "csm", "pairwise").items()
+    }
+    ranked_pw, blurry = aggregate.rank_pairwise(
+        pw_csm,
+        prior_strength=tuning_d.shrinkage_prior_strength,
+        min_attempts=tuning_d.min_attempts_to_rank,
+    )
+    for rater_id, gaps in sorted(ranked_pw.items()):
+        blocks.append(aggregate.format_pairwise_priorities(
+            csm_names.get(rater_id, rater_id) + " (do-type moves, vs exemplar)",
+            gaps, move_meta))
+
+    notes: list[str] = []
+    if dead:
+        notes += ["", "DEAD-CHECK FLAGS, say arm (the benchmark itself rarely says",
+                  "these; review the move, do not coach the gap):"]
+        for d in dead:
+            meta = move_meta.get((d.playbook_id, d.move_id), {})
+            notes.append(f"  [{meta.get('scenario_key', d.playbook_id)}] {d.move_id} "
+                         f"naren {d.naren_rate:.0%} over {d.naren_attempts} calls")
+    if blurry:
+        notes += ["", "BLURRY-AXIS FLAGS, pairwise arm (do-type cells the judge",
+                  "cannot separate; rewrite candidates, not coachable gaps):"]
+        for b in blurry:
+            meta = move_meta.get((b["playbook_id"], b["move_id"]), {})
+            notes.append(f"  [{meta.get('scenario_key', b['playbook_id'])}] "
+                         f"{b['move_id']} tie share {b['tie_share']:.0%} "
+                         f"over {b['attempts']} attempts")
+    if notes:
+        blocks.append("\n".join(notes))
+    return "\n\n".join(blocks)

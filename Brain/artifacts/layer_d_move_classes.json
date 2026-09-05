@@ -1,0 +1,1221 @@
+{
+  "created": "2026-08-28",
+  "protocol": "two independent blind readers over ld_moveclass_packet.txt (opaque ids, seeded shuffle, criteria only); disagreement routes to pairwise; criteria pinned by sha256",
+  "reads": [
+    "ld_moveclass_read1.txt",
+    "ld_moveclass_read2.txt"
+  ],
+  "reader_agreement": "102/121",
+  "moves": {
+    "advanced_targeting_and_differentiation:M2": {
+      "route": "pairwise",
+      "class": "MIXED",
+      "readers": [
+        "MIXED",
+        "MIXED"
+      ],
+      "playbook_id": 161,
+      "criterion_sha256": "f0d252d6a3e9e2b0ed3058a1890d3629dcdaa903ea4fb27d42221fda6a0a32a4"
+    },
+    "technical_integration_and_timeline_scoping:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 182,
+      "criterion_sha256": "b296396e81c9a024ffd112e648325e42aed516bf78ff10265193d851b106fc37"
+    },
+    "chatbot_and_messaging_implementation:M2": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "MIXED",
+        "SAY"
+      ],
+      "playbook_id": 165,
+      "criterion_sha256": "07dd64da6968de188250b2a4beca4b78eb6f33bb8439ed6b6ca69cb0608ae922"
+    },
+    "geographic_targeting_and_location_mapping:M3": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "SAY",
+        "MIXED"
+      ],
+      "playbook_id": 186,
+      "criterion_sha256": "9702d6173a1841a66199f045aa8ac78530bc923192248321a3a7f45d22ce2df4"
+    },
+    "landing_page_and_conversion_setup:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 432,
+      "criterion_sha256": "92831adedb986c61ebaf5db5600b69334463231f88a405d3cb61796fc4376490"
+    },
+    "testing_and_implementation_timeline:M1": {
+      "route": "pairwise",
+      "class": "MIXED",
+      "readers": [
+        "MIXED",
+        "MIXED"
+      ],
+      "playbook_id": 183,
+      "criterion_sha256": "2e06f6498654151214c4c478dbeed473cd24ece47a81cc42e1cde9fc8c939ab6"
+    },
+    "vendor_transition_and_partnership_evaluation:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 184,
+      "criterion_sha256": "84b4f5f87e0b00b9ba878dc0c48f925131e39f66f79961eb8a36e6ab020fdd35"
+    },
+    "pricing_and_fee_structures:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 175,
+      "criterion_sha256": "5606c79bb0684f8929cf1833f5864ccb838e51bbf59a4a52f0a1457e356ef8a4"
+    },
+    "technical_integration_and_timeline_scoping:M2": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "DO",
+        "SAY"
+      ],
+      "playbook_id": 182,
+      "criterion_sha256": "407e0a874655f2d65b2eb02d72071084bfbbfd4620e7305c1504e0154d29918f"
+    },
+    "reliance_on_major_social_and_professional_networks:M1": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "DO",
+        "SAY"
+      ],
+      "playbook_id": 179,
+      "criterion_sha256": "eee0d4e4665791a335395785858fa7f0c1427368237526364129555508c522b4"
+    },
+    "ats_integration_and_api_mapping:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 430,
+      "criterion_sha256": "1eed9da2645153f3390bdc635ea6fcf8dffb3eece6cf846921187cedbc0a279b"
+    },
+    "craigslist_and_classifieds_strategy:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 166,
+      "criterion_sha256": "172ea41d3746073ce2adb6bcfb3e95ed72ad6e377b4b2b74a59ca28cbc008b78"
+    },
+    "non_technical_stakeholder_translation:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 188,
+      "criterion_sha256": "ef966fe1db7a6439b65c979af708741a8052759abfe9a9ecbc0b8c0c524b13c4"
+    },
+    "campaign_level_performance_tracking:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 164,
+      "criterion_sha256": "b0df32dbb665e8150b4a8bc7686d5544c92eb4f2281862b320bf9fbfe4baf311"
+    },
+    "gig_economy_driver_supply_acquisition:M4": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "DO",
+        "SAY"
+      ],
+      "playbook_id": 169,
+      "criterion_sha256": "513dbf4f1b6452167c89907e1313d44b2e8961d1c4d1e9604b1fee924845062a"
+    },
+    "regional_talent_acquisition_and_brand_strategy:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 178,
+      "criterion_sha256": "90f66cfb0b5cfd14761d57b66c6e884eed1f7cb569525bea12d5064a9ac1fe37"
+    },
+    "multi_language_copy_and_translation:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 187,
+      "criterion_sha256": "efde911738f57b9eff27c1b3a2f5664a2f053eb9761c9382071ad9aa73b267e6"
+    },
+    "pricing_and_fee_structures:M4": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 175,
+      "criterion_sha256": "7c045b88476aed1abd548fb7e519898176056d9903541248332006a3ca37264d"
+    },
+    "reliance_on_major_social_and_professional_networks:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 179,
+      "criterion_sha256": "d25d334306e493c969a50f072775d5b5817959e3ab5555068325f67673e8144e"
+    },
+    "ats_integration_and_api_mapping:M4": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 430,
+      "criterion_sha256": "2d34e1b5e33b5ad13cb7d1e83fce6ac269fa6a94f4df5f74116116f388df8440"
+    },
+    "downstream_activation_and_cost_metrics:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 431,
+      "criterion_sha256": "cab37a932368938ba8dc09668b6444d4fa6bda62acff28a8831419ec09f7ea7d"
+    },
+    "creative_and_media_plan_review:M4": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "MIXED",
+        "SAY"
+      ],
+      "playbook_id": 167,
+      "criterion_sha256": "9c840d81e96063170cad2f84d4bcc3b7e930dd1509f6aac5bd55001b96487cce"
+    },
+    "hiring_forecasts_and_volume_scoping:M4": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "MIXED",
+        "SAY"
+      ],
+      "playbook_id": 170,
+      "criterion_sha256": "693a73c9da0ea9852b11d12b8d0b77723f52aaffe8a84da26dbdd3daeb16bf32"
+    },
+    "job_role_taxonomy_and_scoping:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 172,
+      "criterion_sha256": "cea23b78f33d40901a86f76ac0b2cb8603843993fbf3d019783859f1f9f61ef5"
+    },
+    "publisher_management_and_exclusions:M4": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 177,
+      "criterion_sha256": "e002ced34170b4f7080ece4960594e7e9c01d8fcd744b6aa724c9e2bcbda67a8"
+    },
+    "advanced_targeting_and_differentiation:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 161,
+      "criterion_sha256": "443ff345e020c2ce64392b2fb53d93467305a8e520b671c98762eb93e57b63e1"
+    },
+    "application_volume_and_prioritization:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 429,
+      "criterion_sha256": "6e596b8e0b57c403cedd23d6a8f8916bdd4a36560cb3ec815b2fe4d315a0d22f"
+    },
+    "programmatic_advertising_scope_and_capability:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 176,
+      "criterion_sha256": "6b70e7f28b75288042d4595bb14c6304da24e48518fffde9020e8ce376350854"
+    },
+    "market_insights_and_competitive_intelligence:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 173,
+      "criterion_sha256": "4ed1609854fa38f36c9f0b3a2caf070db68e633899f2f4fab656811b7ad5e098"
+    },
+    "hiring_forecasts_and_volume_scoping:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 170,
+      "criterion_sha256": "06779bb17fe75f5a1ea3fd2e36d0a3c3a6f9340b757757a37b1ac6838f5b646a"
+    },
+    "dashboard_access_and_reporting:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 168,
+      "criterion_sha256": "1296a32eb07a279751af4f6d5b1fd2300fefb103e015815095829f887a7d6d69"
+    },
+    "hiring_forecasts_and_volume_scoping:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 170,
+      "criterion_sha256": "3082f26227cb2b106f039e4f414eb046d60e3bd6df8ceebb66204db431b7862a"
+    },
+    "xml_feed_setup_and_ingestion:M1": {
+      "route": "pairwise",
+      "class": "MIXED",
+      "readers": [
+        "MIXED",
+        "MIXED"
+      ],
+      "playbook_id": 185,
+      "criterion_sha256": "0ae0f41769817fc5b4db18d3d841230dd0510ed46cf5e04a146cfdbb22073981"
+    },
+    "technical_integration_and_timeline_scoping:M3": {
+      "route": "pairwise",
+      "class": "DO",
+      "readers": [
+        "DO",
+        "DO"
+      ],
+      "playbook_id": 182,
+      "criterion_sha256": "a0e2529b7215a98d7928321b5bd111bc403abec9aaed7f7a22d00ec644b2a522"
+    },
+    "regional_talent_acquisition_and_brand_strategy:M4": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 178,
+      "criterion_sha256": "5d8b50cdabea4a112dfd805d04f9d9178da5141dbf8e48f57ad262dd298703b1"
+    },
+    "vendor_transition_and_partnership_evaluation:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 184,
+      "criterion_sha256": "f14dfda45c1cc88f3ec1ef83dbda871b029780f903034ed7dc2bb714f51b601f"
+    },
+    "xml_feed_setup_and_ingestion:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 185,
+      "criterion_sha256": "732140fbea66499885925af5d48e2c2c994596957b20022989673bae0a3a69aa"
+    },
+    "slack_communication_and_channel_setup:M3": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "DO",
+        "SAY"
+      ],
+      "playbook_id": 180,
+      "criterion_sha256": "2aa9132add1f5d709eb05c38c3ef23eb315ec61d37226fad9ff6429bd4965fca"
+    },
+    "niche_talent_scarcity_and_budget_reallocation:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 433,
+      "criterion_sha256": "8773bd258d2efa45b1ca6130469cb6b3a755f014b53302407c24e2fa12d98ad7"
+    },
+    "publisher_management_and_exclusions:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 177,
+      "criterion_sha256": "8dd0d520059fdd4dc3253db5ede58edfaaf4c3be70132937defb7097f8533962"
+    },
+    "market_insights_and_competitive_intelligence:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 173,
+      "criterion_sha256": "4db1ee92aeb6566034e44c0e4273bfd390d4c0d1c45e42228e7ba8b5c922badc"
+    },
+    "budget_allocation_and_testing:M1": {
+      "route": "pairwise",
+      "class": "MIXED",
+      "readers": [
+        "MIXED",
+        "MIXED"
+      ],
+      "playbook_id": 163,
+      "criterion_sha256": "defd2662eb187b1e444e0e6d1315dd74954a5cb008a7b635fb5f486f69d903f5"
+    },
+    "budget_allocation_and_testing:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 163,
+      "criterion_sha256": "0862fe5436e1a4f9186bd04603a4955384961ec981ad043e758ddf25bf638019"
+    },
+    "ats_integration_and_api_mapping:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 430,
+      "criterion_sha256": "e49165af331e29840928a0f48239fcc3174f27f02528d437f6a0e10f87be70f8"
+    },
+    "ats_integration_and_api_mapping:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 430,
+      "criterion_sha256": "685f659e55f59ccfe3d282a4273251b7f23d9f2175ae50e528a70164195a3d94"
+    },
+    "job_board_budget_and_direct_agreements:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 171,
+      "criterion_sha256": "b34a0c9745091f1ca2608bb07aff102f489122152d418ec1da6075e03593a95f"
+    },
+    "job_role_taxonomy_and_scoping:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 172,
+      "criterion_sha256": "69e15afc06f106f5ff4d758a7ac315e23ecbc0649ba0b80ce244a0ca8c263e19"
+    },
+    "campaign_level_performance_tracking:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 164,
+      "criterion_sha256": "671f80faa4733addd55a4b06cd895cf268bb9c2b9ad6e6d10672111962d68992"
+    },
+    "chatbot_and_messaging_implementation:M3": {
+      "route": "pairwise",
+      "class": "MIXED",
+      "readers": [
+        "MIXED",
+        "MIXED"
+      ],
+      "playbook_id": 165,
+      "criterion_sha256": "0d2cee1dfe4b3a1c19e99e34c44ed575a6745bf514e06a13d73a99b4d73e4583"
+    },
+    "pixel_placement_and_tracking:M3": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "DO",
+        "MIXED"
+      ],
+      "playbook_id": 174,
+      "criterion_sha256": "5d7022ea6c6b701bdf85c01d22acbb4830d24f17a24b112bcb2c652267cd4248"
+    },
+    "multi_language_copy_and_translation:M3": {
+      "route": "pairwise",
+      "class": "DO",
+      "readers": [
+        "DO",
+        "DO"
+      ],
+      "playbook_id": 187,
+      "criterion_sha256": "c861fdaff342e77156b222dad81380681de676daa9d26195f0f2312e94c9367f"
+    },
+    "hiring_forecasts_and_volume_scoping:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 170,
+      "criterion_sha256": "1022d4e8a5161812c8a54c0f1c35b1fba0f11d087000add305423d27d520f4bc"
+    },
+    "publisher_management_and_exclusions:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 177,
+      "criterion_sha256": "6bc61b5c2c005c93a9f2d5080216bc314ffa0122c389db840e639dae498fc9bc"
+    },
+    "niche_talent_scarcity_and_budget_reallocation:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 433,
+      "criterion_sha256": "167fd116fe84bcdf4559d082fa0c93025a15c54368071c1763a9a57b12ab4e9a"
+    },
+    "market_insights_and_competitive_intelligence:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 173,
+      "criterion_sha256": "b407a49f7e912556badbe10580c04fa929a54822d6f6d5513db9d881dc6ba01f"
+    },
+    "specialty_and_niche_job_boards_integration:M4": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 181,
+      "criterion_sha256": "ca11869135ab8e0967bca95772b57b0bb22ff4235483f08752612397abf562ee"
+    },
+    "gig_economy_driver_supply_acquisition:M1": {
+      "route": "pairwise",
+      "class": "MIXED",
+      "readers": [
+        "MIXED",
+        "MIXED"
+      ],
+      "playbook_id": 169,
+      "criterion_sha256": "498ce8afc0c01bc21c50c96786567e96902ebf8886da95d27c1f25fad55977e1"
+    },
+    "pixel_placement_and_tracking:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 174,
+      "criterion_sha256": "34b5b585ec4651958814d07deeca7df10bfb0a1bd157278da3d958fa69ee12a7"
+    },
+    "geographic_targeting_and_location_mapping:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 186,
+      "criterion_sha256": "de4c871ce4539e8bac5ab4ececee9301b280ddb0c3c1e000f94d265591b03e03"
+    },
+    "job_role_taxonomy_and_scoping:M4": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 172,
+      "criterion_sha256": "795b4b0112daef5f8efe22030f8bc5d1de99e8074db9af0d501fc86dc5d66c79"
+    },
+    "craigslist_and_classifieds_strategy:M5": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 166,
+      "criterion_sha256": "43d05f0a2555b728634a4744d94e8aba46d94bbeeb83ca68c10df5d3640b8187"
+    },
+    "regional_talent_acquisition_and_brand_strategy:M1": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "DO",
+        "MIXED"
+      ],
+      "playbook_id": 178,
+      "criterion_sha256": "5b0aec289f4e1cbfdbde5454424409d84c7940d13f993728fcd2bd9b5e11ce99"
+    },
+    "vendor_transition_and_partnership_evaluation:M4": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 184,
+      "criterion_sha256": "343d9ccd872600413733e0ca7ee372011eaf4e62841a962c1ac91c28d8eb9649"
+    },
+    "pixel_placement_and_tracking:M2": {
+      "route": "pairwise",
+      "class": "MIXED",
+      "readers": [
+        "MIXED",
+        "MIXED"
+      ],
+      "playbook_id": 174,
+      "criterion_sha256": "bfa83328a8d7494244f23281f8f97636e245b712dab6aaf3f2e8451b7ae43c0e"
+    },
+    "budget_allocation_and_testing:M2": {
+      "route": "pairwise",
+      "class": "DO",
+      "readers": [
+        "DO",
+        "DO"
+      ],
+      "playbook_id": 163,
+      "criterion_sha256": "beb212a93f21de2e1714361b22490e1a678226e9d49c691c089c9f37a91518eb"
+    },
+    "downstream_activation_and_cost_metrics:M4": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 431,
+      "criterion_sha256": "1fef6c182e910ab7cf6f6900d7bdaa982fead61d6beadb7d1d43b8c7ed0be50c"
+    },
+    "xml_feed_setup_and_ingestion:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 185,
+      "criterion_sha256": "51728975b5bddbb55955650e7316d5b3a715f93ef5e3d370b5a4557313b7c9be"
+    },
+    "job_board_budget_and_direct_agreements:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 171,
+      "criterion_sha256": "e7300f72a847b604e7329bb0be16f11de6cde34f91a0dd46594aecb87b14f17a"
+    },
+    "creative_and_media_plan_review:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 167,
+      "criterion_sha256": "0fff11e6eea884b5b5e5f6806b3c5ade260c6bf2712bb1e6b4db811c5ba222dc"
+    },
+    "attribution_and_funnel_tracking:M4": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "SAY",
+        "MIXED"
+      ],
+      "playbook_id": 162,
+      "criterion_sha256": "cbcf8a7f4c1d812f0b25dfc7d799563e97656d307a9a0b3e7619a00aa68ff834"
+    },
+    "application_volume_and_prioritization:M4": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "MIXED",
+        "DO"
+      ],
+      "playbook_id": 429,
+      "criterion_sha256": "e89fb755ff33b239b8e3e3a343606e4f5630d8b45f8f49c1188ad6fb25e4b9e5"
+    },
+    "pricing_and_fee_structures:M2": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "MIXED",
+        "SAY"
+      ],
+      "playbook_id": 175,
+      "criterion_sha256": "3ed4ec2bad4be4853fa459e0daa70cb723bbba7162d246bf7c77a8c0e46eba68"
+    },
+    "application_volume_and_prioritization:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 429,
+      "criterion_sha256": "2dc1b6a695b914d65126b807b043c210bc4ca86e4529879bf90ae300e8901a6c"
+    },
+    "chatbot_and_messaging_implementation:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 165,
+      "criterion_sha256": "798384f45e5fd84d54659502e86828991cbebf21c33c33424fd507d33ae125a9"
+    },
+    "testing_and_implementation_timeline:M4": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "MIXED",
+        "SAY"
+      ],
+      "playbook_id": 183,
+      "criterion_sha256": "79a3013a13ea53612154aeb40b9131f3965e1a364a432e806aaaa5b946770489"
+    },
+    "reliance_on_major_social_and_professional_networks:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 179,
+      "criterion_sha256": "fe730b185ce4c60294becb446c56799212fff22e2dc5e2d779b74479c16519da"
+    },
+    "technical_integration_and_timeline_scoping:M4": {
+      "route": "pairwise",
+      "class": "MIXED",
+      "readers": [
+        "MIXED",
+        "MIXED"
+      ],
+      "playbook_id": 182,
+      "criterion_sha256": "2286d27f2bb2fc0dd199169b517bf146b2c11dbc740ce7d2fb10c2c976975633"
+    },
+    "downstream_activation_and_cost_metrics:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 431,
+      "criterion_sha256": "257e5a39d7cea98b8241537cdf3b179a892cc78bee7d8a9b9dbd0746035c87ee"
+    },
+    "downstream_activation_and_cost_metrics:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 431,
+      "criterion_sha256": "d9adc45dfa9a53094f7ab74c4cb020f66293835ec8d7fa7e3d835a743e67ed11"
+    },
+    "landing_page_and_conversion_setup:M1": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "MIXED",
+        "SAY"
+      ],
+      "playbook_id": 432,
+      "criterion_sha256": "60d3658278f672693df1ce3bf3ce53b2d0ec48fc990ef34d2c95e77accfe8530"
+    },
+    "testing_and_implementation_timeline:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 183,
+      "criterion_sha256": "bdd9075a163502e33410186a067068841d80495a06e14d000b8a1880b5183cd1"
+    },
+    "advanced_targeting_and_differentiation:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 161,
+      "criterion_sha256": "aa72538821b3283f96a53c1df0d3c87a383d8cf15cbbc29d127362d977e9479a"
+    },
+    "attribution_and_funnel_tracking:M2": {
+      "route": "pairwise",
+      "class": "DO",
+      "readers": [
+        "DO",
+        "DO"
+      ],
+      "playbook_id": 162,
+      "criterion_sha256": "4fee269743a9d3d4548d264fb76202e0fff83e96d527589944ae341604f2e7ef"
+    },
+    "campaign_level_performance_tracking:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 164,
+      "criterion_sha256": "4422347f9d3a4f368529df74727a0994a3f1773117bea97afcccb0ed7fa04ef3"
+    },
+    "programmatic_advertising_scope_and_capability:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 176,
+      "criterion_sha256": "47af608b86089e4cfc13b994468c8521f46ed5509ecb996da8a279f0743c4adb"
+    },
+    "dashboard_access_and_reporting:M4": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 168,
+      "criterion_sha256": "fd7bbaa25f54dd5f706fe169a93ca4a684fee9cb824e618acefd7c5d6974274c"
+    },
+    "creative_and_media_plan_review:M3": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "DO",
+        "SAY"
+      ],
+      "playbook_id": 167,
+      "criterion_sha256": "2fda47ad1a4f4e93efedd428e76457ab87d6fd636ac8c59cb0e5838d1829deda"
+    },
+    "regional_talent_acquisition_and_brand_strategy:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 178,
+      "criterion_sha256": "665596a210491ac94b911fa7dfbfd0f930a45de33f7289f6010da7c1e3980344"
+    },
+    "creative_and_media_plan_review:M2": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "DO",
+        "MIXED"
+      ],
+      "playbook_id": 167,
+      "criterion_sha256": "50c3ef4dbe5e5071536e1b34a6f7f907b05d8aa17a3bb095f60b7f14d7f9d944"
+    },
+    "specialty_and_niche_job_boards_integration:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 181,
+      "criterion_sha256": "bfd7ee21efb7876aa2b294b85b1f69d21fb866bfe2557150d3ece42498dd30b0"
+    },
+    "job_board_budget_and_direct_agreements:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 171,
+      "criterion_sha256": "74091b9a3d0edd50e073662114cac102c1c542b710a30687152ed21502c158c8"
+    },
+    "pixel_placement_and_tracking:M4": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 174,
+      "criterion_sha256": "123e66601c2eb1e27b8359dc575dceb8a3e488a4d48aa4f69a3825dce8911c0c"
+    },
+    "attribution_and_funnel_tracking:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 162,
+      "criterion_sha256": "279bd7dbca14b76a492dae91afc71a177d24838355996e4b7fdbb4f8a536232e"
+    },
+    "publisher_management_and_exclusions:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 177,
+      "criterion_sha256": "2552500643f0ece1f5657253f81c4c58b888ca668acfeffb9065c01a93c813fd"
+    },
+    "specialty_and_niche_job_boards_integration:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 181,
+      "criterion_sha256": "2d8298863c390fe364e50c40adf688b9fd7f834ad7f3e292ca49fa23e97363d6"
+    },
+    "craigslist_and_classifieds_strategy:M3": {
+      "route": "pairwise",
+      "class": "DO",
+      "readers": [
+        "DO",
+        "DO"
+      ],
+      "playbook_id": 166,
+      "criterion_sha256": "89f205ebae704a44f6bdde0622cbf14cf73498c93c311c2211f3356da77fe68a"
+    },
+    "slack_communication_and_channel_setup:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 180,
+      "criterion_sha256": "7a30344a2b008cd6d84eb2417ec6d11e946da9583a92e7bede1a27fcd4c7ec08"
+    },
+    "attribution_and_funnel_tracking:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 162,
+      "criterion_sha256": "de78318f702841efaa47879f1f8f0369f821c0bfec645f5a3e9595e49e7f3380"
+    },
+    "multi_language_copy_and_translation:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 187,
+      "criterion_sha256": "5d968d66205358f7f9bbd4ab4190bd9660456634d69556e7b884e70b2cab5b54"
+    },
+    "non_technical_stakeholder_translation:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 188,
+      "criterion_sha256": "e3971b39a03d6b8bb3cd40cf2f72030db4bd8046ec725757e26baffe9879acc5"
+    },
+    "attribution_and_funnel_tracking:M5": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 162,
+      "criterion_sha256": "2651d79941cdb26551345248c0639aa330813b3b483b53d8142d86b480eb4963"
+    },
+    "niche_talent_scarcity_and_budget_reallocation:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 433,
+      "criterion_sha256": "ce2b2abe224e16f9c9d1d87716869aa09027b2bc5b4b5e9e1448681cbb15020c"
+    },
+    "gig_economy_driver_supply_acquisition:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 169,
+      "criterion_sha256": "f1a85aeecb94e2f655345283f20bd0882dc67051d7e861d400008434426cd89c"
+    },
+    "gig_economy_driver_supply_acquisition:M5": {
+      "route": "pairwise",
+      "class": "MIXED",
+      "readers": [
+        "MIXED",
+        "MIXED"
+      ],
+      "playbook_id": 169,
+      "criterion_sha256": "1516b2465af23f1879ac4c80e4ad5774dfae3706b24da43be25649ede5cae9e1"
+    },
+    "dashboard_access_and_reporting:M1": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "DO",
+        "MIXED"
+      ],
+      "playbook_id": 168,
+      "criterion_sha256": "231fb57cf168c8ade1600332686250dd7091bdafb7501cec6096ff61b6be0950"
+    },
+    "landing_page_and_conversion_setup:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 432,
+      "criterion_sha256": "ea3db4b8780ed42fde25e4b5df7c28e34fce7cb46fdf151f79a8aa69577c2270"
+    },
+    "testing_and_implementation_timeline:M2": {
+      "route": "pairwise",
+      "class": "DO",
+      "readers": [
+        "DO",
+        "DO"
+      ],
+      "playbook_id": 183,
+      "criterion_sha256": "f5c7f132be3b26f06a3c63f40c2100a923080d0d123892d816bdb7018b396121"
+    },
+    "vendor_transition_and_partnership_evaluation:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 184,
+      "criterion_sha256": "3d484a84556e90faed3f24b908b644dda8eb44df16ee5ee699128a282d35e1b5"
+    },
+    "application_volume_and_prioritization:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 429,
+      "criterion_sha256": "8c79ef2984491871f4f0199290799e47adb4b6aa2a7254e12abd9847665165d8"
+    },
+    "craigslist_and_classifieds_strategy:M4": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 166,
+      "criterion_sha256": "b8eb5b3ad7979577d3ecd568a2be1c88d9622ea768c23aa204d902e96dd170d8"
+    },
+    "specialty_and_niche_job_boards_integration:M3": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 181,
+      "criterion_sha256": "4635470aae18c3a197337242f6357ea314874164ac9c69a4896291a3f585f626"
+    },
+    "pricing_and_fee_structures:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 175,
+      "criterion_sha256": "cc76ee375fff622c074ae90d14a0bacaccd46768137b562edd7cc7160e7a34c6"
+    },
+    "non_technical_stakeholder_translation:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 188,
+      "criterion_sha256": "4eb4ccdb68068398dcb0689df3ae1deab976267afb9f11741281a8d3a745d209"
+    },
+    "slack_communication_and_channel_setup:M1": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 180,
+      "criterion_sha256": "f99fe7b9bfaf8b9c15a52aba14e6ea7cbc484bc23b864c55fdb7cb8df0538c25"
+    },
+    "programmatic_advertising_scope_and_capability:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 176,
+      "criterion_sha256": "a064367d01e721e2af167a6bf2b46e22cd3e36274abffd321ec212ce7045569f"
+    },
+    "job_role_taxonomy_and_scoping:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 172,
+      "criterion_sha256": "68eba100507ea94f7733d614cf3ffebedfa1612618461714e551f24184adeec9"
+    },
+    "dashboard_access_and_reporting:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 168,
+      "criterion_sha256": "2c05fd000fd4440e108a11ad89a9223fa210c11b3da8551230c12057a133c43f"
+    },
+    "craigslist_and_classifieds_strategy:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 166,
+      "criterion_sha256": "a675dc8f9b2bde5700b140befb34f7e13b905a15f83e51ab1b332a7c57448e90"
+    },
+    "geographic_targeting_and_location_mapping:M1": {
+      "route": "pairwise",
+      "class": "DISAGREEMENT",
+      "readers": [
+        "MIXED",
+        "SAY"
+      ],
+      "playbook_id": 186,
+      "criterion_sha256": "72812a278315238e412c709fd5e2cbe0bdb6209c01bb6b203a03f148860ebdd8"
+    },
+    "gig_economy_driver_supply_acquisition:M2": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 169,
+      "criterion_sha256": "4820ce6d8e2ab21c6b854844230b89444d137321da3bb78d7734577aade7f222"
+    },
+    "vendor_transition_and_partnership_evaluation:M5": {
+      "route": "say",
+      "class": "SAY",
+      "readers": [
+        "SAY",
+        "SAY"
+      ],
+      "playbook_id": 184,
+      "criterion_sha256": "c7b7df82b0c42292d9794500c63364194489a57a05219c329a9637ce91710d52"
+    }
+  }
+}

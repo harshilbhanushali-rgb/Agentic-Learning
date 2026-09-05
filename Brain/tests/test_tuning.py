@@ -139,7 +139,7 @@ def test_shipped_tuning_yaml_is_valid():
     )
     # Layer D redesign keys (Brain/layer_d/).
     assert t.layer_d.segmentation_arm in ("today", "e")
-    assert t.layer_d.grader_arm in ("checks", "pairwise")
+    assert t.layer_d.grader_arm in ("checks", "pairwise", "say")
     assert t.layer_d.grader_model
     assert t.layer_d.grader_reasoning_effort in ("none", "low", "medium", "high")
     assert t.layer_d.grader_k_runs >= 1

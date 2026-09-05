@@ -1,0 +1,122 @@
+A001 MIXED explains capability freely; exclusion rules need real overlap analysis, not just words
+A002 SAY separating scope and proposing a timeline are both spoken statements
+A003 SAY giving concrete technical instructions is complete once stated
+A004 MIXED risk warning is SAY; delimiter/radius standard-setting needs real analysis
+A005 SAY detailing capabilities and specifying integration flow are both explanations
+A006 MIXED detailing procedures is SAY; validating timelines against results is analytical work
+A007 SAY offering to manage relationships end-to-end is a complete offer
+A008 SAY explaining a pricing/optimization benefit is a stated fact
+A009 SAY supplying tailored decks and documentation is an information handoff
+A010 SAY guiding the client toward a restructuring approach is advice
+A011 SAY identifying or outlining requirements is descriptive, not execution
+A012 SAY explaining a channel tradeoff is a stated claim
+A013 SAY framing metrics into simple summaries is an explanatory act
+A014 SAY instructing on filtering/breaking down metrics is explanation
+A015 SAY formulating and presenting a spend strategy is a recommendation
+A016 SAY advocating for one-to-one postings with rationale is advice
+A017 SAY explaining how multi-language feeds are processed is explanation
+A018 SAY detailing invoice formatting choices is a stated explanation
+A019 SAY proposing expanded media reach is a recommendation
+A020 SAY identifying ownership and clarifying API push behavior is explanation
+A021 SAY stating the specific metric definition or rule is a fact
+A022 SAY walking through a plan and offering interim reporting is speech
+A023 SAY presenting bottleneck insight or comparative metrics is informational sharing
+A024 SAY guiding normalization of titles/identifiers is advice-giving
+A025 SAY detailing pause/exclusion criteria is a stated explanation
+A026 SAY contrasting and mapping marketing concepts is explanatory framing
+A027 SAY proposing routing of excess volume is a recommendation
+A028 SAY recommending a phased channel rollout is advice
+A029 SAY explaining the labor-market methodology is descriptive
+A030 SAY suggesting pacing or reallocation is a recommendation
+A031 SAY explaining dashboard ingestion mechanics is explanation
+A032 SAY proposing automation rules or campaign balance is a recommendation
+A033 MIXED confirming mapping against boundaries is checking work; clarifying is SAY
+A034 DO coordinating technical deliverables with engineering is real cross-team work
+A035 SAY demonstrating (explaining) a global buying capability is descriptive
+A036 SAY contrasting managed services with strategy is explanatory framing
+A037 SAY recommending phased staging of features is a recommendation
+A038 SAY providing a tracking asset as an alternative is a handoff
+A039 SAY specifying a dollar or percentage figure is a stated value
+A040 SAY offering to liaise with supply teams is a complete offer
+A041 SAY connecting market intelligence to strategy is an explanatory claim
+A042 MIXED proposing a strategy is SAY; pre-configuring paused campaigns is real setup
+A043 SAY framing reallocation around ROI benchmarks is explanation
+A044 SAY stating an alternative tracking mechanism is a stated fact
+A045 SAY stating ingestion behavior and warning of failures is speech
+A046 SAY explaining how contracts/spend integrate into the platform is explanation
+A047 SAY explaining how metadata fields map to rules is explanation
+A048 SAY explaining UTM/parameter conventions is instructional explanation
+A049 MIXED collaboratively building documentation is real work; highlighting friction is SAY
+A050 MIXED supplying guides is SAY; initiating live testing to verify is DO
+A051 DO structuring tracking/IDs/granularity per region is configuration with real gradient
+A052 SAY advising a pilot-first approach is a recommendation
+A053 SAY clarifying pricing-model limits and window differences is explanation
+A054 SAY stating that priority roles get separate routes is a fact
+A055 SAY demonstrating how competitive intelligence works is explanatory
+A056 SAY guiding submission of integration requests is advice
+A057 MIXED detailing CTA changes is SAY; building screening pop-ups is configuration
+A058 SAY recommending a fallback tagging approach is a recommendation
+A059 SAY explaining regional nuances and adjustments is explanation
+A060 SAY advising tiering and niche publishers is a recommendation
+A061 SAY directing focus to mid-funnel indicators is advice
+A062 MIXED confirming availability is fact-check; building knockout criteria is configuration
+A063 SAY educating on optimization curves/ramp-up is explanation
+A064 MIXED clarifying limits is SAY; setting up API feedback loops is real build
+A065 DO building layered pacing caps and ceiling rules is real configuration
+A066 SAY specifying volume/timeline adjustments is a stated recommendation
+A067 SAY outlining technical timing mechanisms is explanation
+A068 SAY educating on billing rules and risks is explanation
+A069 SAY explaining ad mechanics and automation is explanatory
+A070 MIXED defining protocols is SAY; validating tagging/conversion flow is real testing
+A071 DO integrating data and calculating hire rates is analytical execution
+A072 SAY recommending spend baselines or guardrails is advice
+A073 SAY proposing a test-application approach is a recommendation
+A074 SAY clarifying chatbot functional boundaries is explanation
+A075 SAY adjusting dates while reassuring is a stated accommodation
+A076 SAY recommending a diversified media mix is advice
+A077 MIXED outlining workflows is SAY; aligning dates with engineering is coordination
+A078 SAY asking for aggregated benchmarks is a request
+A079 SAY proposing application mechanics or filters is a recommendation
+A080 SAY identifying components and proposing a phase template is descriptive
+A081 SAY offering to complete backend setup pre-launch is a complete offer
+A082 SAY connecting decisions to rationale is an explanatory claim
+A083 DO investigating pixel drop-offs and applying fixes is diagnostic work
+A084 SAY demonstrating (explaining) automated bid/budget rules is descriptive
+A085 SAY setting expectations about global constraints is explanation
+A086 SAY demonstrating dashboard filter/export usage is explanatory
+A087 SAY structuring and presenting a tailored media plan is a proposal
+A088 SAY recommending localized niche channels is advice
+A089 MIXED providing briefs is SAY; setting up shared repositories is real organizing
+A090 SAY explaining feed-structure configuration options is explanation
+A091 SAY proposing dynamic budget/bid reallocation is a recommendation
+A092 SAY committing to offline analysis and delivery is a complete offer
+A093 SAY recommending integration paths is advice
+A094 SAY providing UI navigation steps is instructional explanation
+A095 SAY explaining platform recommendation/procurement handling is explanation
+A096 DO adapting titles for keyword search behavior is tunable optimization work
+A097 SAY defining communication norms/rules is a stated policy
+A098 SAY explaining attribution effects and offering reports is explanation
+A099 SAY advising sign-off sequencing is a recommendation
+A100 SAY offering a structured written resource is a complete offer
+A101 SAY establishing source-of-truth framing and expectations is a stated agreement
+A102 SAY stating a CPA tradeoff with benchmarks is a stated fact
+A103 SAY guiding a benchmarking and metric-shift approach is advice
+A104 MIXED evaluating market data is analytical work; explaining drop-off is SAY
+A105 MIXED provisioning credentials and resolving issues is DO; clarifying rules is SAY
+A106 SAY specifying mechanism and instructing a test is a stated directive
+A107 DO scheduling syncs and securing environment access is coordination/provisioning work
+A108 SAY detailing ticketing channels and SLAs is explanation
+A109 SAY detailing friction and offering alternatives is explanation
+A110 SAY separating fee types for clarity is explanation
+A111 SAY outlining publisher-side constraints is explanation
+A112 SAY distinguishing fee types and markup rules is explanation
+A113 SAY translating technical components into simple steps is explanation
+A114 SAY acknowledging clutter and presenting channel options is a proposal
+A115 SAY confirming partnerships and explaining friction reduction is explanation
+A116 SAY demonstrating grouping/ranking dimensions is explanatory
+A117 SAY explaining customization and offering walkthroughs is explanation
+A118 SAY detailing job-group organization is explanation
+A119 SAY clarifying location-data branching and confirming readiness is explanation
+A120 SAY demonstrating how to restructure fixed-cost channels is explanatory
+A121 SAY introducing evaluation concepts (fraud filtering, benchmarks) is explanation
+TALLY say=99 do=7 mixed=15

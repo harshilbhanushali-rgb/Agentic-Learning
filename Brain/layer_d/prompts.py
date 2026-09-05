@@ -6,7 +6,10 @@ one unit while both generations coexist.
 
 Prompt design rules, each one paid for:
   * BINARY per-move questions (CheckEval: binary atomic checks beat Likert on
-    agreement). No 1-5 scales anywhere.
+    agreement). No 1-5 scales anywhere. The say arm's no/generic/specific is a
+    3-level ANCHORED tier (each level defined by concrete behavior + a benchmark
+    example quote), not a Likert scale -- the OSCE/BARS-grounded exception, see
+    docs/findings/layer-d-say-arm.md §2.
   * A credited move MUST carry a VERBATIM quote from the rep's reply. The quote is
     verified programmatically after parsing (layer_d/verify_quotes.py) -- the
     call-level trial measured 23% fabricated credits without this.
@@ -36,6 +39,36 @@ MOMENTS:
 
 Respond with ONLY a JSON array, one object per moment:
 [{{"moment_id": "<id>", "verdicts": [{{"move_id": "M1", "performed": "full", "quote": "<verbatim from the rep's reply, or empty string when no>"}}, ...]}}, ...]"""
+
+
+# CONTRACT v1 ("say_v1_no_generic_specific") -- MEASURED, do not loosen (2026-08-28):
+# a v2 variant crediting "a concrete element of" a bundled criterion was tried as
+# the one pre-registered revision and FAILED the matched-vs-unrelated gate that v1
+# passes (v2: 71% over 14 decided calls, p=0.09; v1: 100% over 7, p=0.008; quote
+# gate 100% both) -- element-level credit leaks onto topically-adjacent scenarios.
+# Full record: docs/findings/layer-d-say-arm.md §8.
+PROMPT_SAY_BATCH = """You are auditing how a Customer Success rep handled specific moments on client calls, against a playbook distilled from a top performer. Each move below is something the top performer SAYS in this scenario.
+
+SCENARIO: {scenario_key}
+{situation_signature}
+
+THE PLAYBOOK'S KEY MOVES:
+{moves_block}
+
+For each MOMENT below, decide FOR EACH MOVE whether the rep's reply RAISES that move's content, and how specifically. Rules:
+- Judge ONLY the rep's reply text. The client turn is context, not evidence.
+- raised="specific": the reply states the move's content anchored to THIS client's concrete situation -- their names, numbers, tools, campaigns, dates, or an exact next step. REQUIRES a verbatim quote copied EXACTLY from the rep's reply (the words that state it).
+- raised="generic": the reply states the move's content, but in words that could be said to any client. ALSO requires a verbatim quote.
+- raised="no": the reply does not state the move's content. No quote.
+- Specificity means CLIENT-ANCHORED DETAIL, not length or polish. A long generic answer is still "generic".
+- If you cannot quote it exactly, it is "no".
+- Answer every move for every moment.
+
+MOMENTS:
+{moments_block}
+
+Respond with ONLY a JSON array, one object per moment:
+[{{"moment_id": "<id>", "verdicts": [{{"move_id": "M1", "raised": "specific", "quote": "<verbatim from the rep's reply, or empty string when no>"}}, ...]}}, ...]"""
 
 
 PROMPT_PAIRWISE = """You are comparing two Customer Success reps' replies to similar client moments in the same scenario, against a playbook distilled from a top performer.

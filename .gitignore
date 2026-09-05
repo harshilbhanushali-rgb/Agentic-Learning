@@ -49,6 +49,12 @@ Brain/logs/
 # calibration/replay_layer_c_admitted.py both read sink_pool_clusters.json.
 Brain/artifacts/*
 !Brain/artifacts/sink_pool_clusters.json
+# The say arm's SAY/DO routing map is a hash-pinned INPUT, not a derived output:
+# layer_d/move_classes.py refuses to run without it (fail-closed), and the two raw
+# blind reads are its provenance. Re-admitted so a fresh clone can run the arm.
+!Brain/artifacts/layer_d_move_classes.json
+!Brain/artifacts/ld_moveclass_read1.txt
+!Brain/artifacts/ld_moveclass_read2.txt
 
 # --- Local agent tooling scratch state ---
 # Personal CLAUDE.md companion: machine-specific tooling quirks, never team-shared.

@@ -61,6 +61,11 @@ def main() -> None:
     parser.add_argument("--report-only", action="store_true",
                         help="zero spend: rebuild move_performance from stored events "
                              "and print the coaching reports. No grading, no embedding.")
+    parser.add_argument("--report-combined", action="store_true",
+                        help="zero spend: rebuild move_performance and print the "
+                             "COMBINED report -- pairwise verdicts on DO/MIXED-routed "
+                             "moves + say verdicts on SAY-routed moves (needs the "
+                             "routing artifact and say-arm events in the DB).")
     parser.add_argument("--hostaddr", default="",
                         help="Neon DNS workaround: literal IP for the pooler host, "
                              "appended as hostaddr= while keeping host in the URL "
@@ -98,7 +103,7 @@ def main() -> None:
         print(f"[dns] hostaddr={args.hostaddr} (host kept in the URL for SNI/SCRAM)")
     conn = storage.get_connection(url)
     try:
-        if args.report_only:
+        if args.report_only or args.report_combined:
             conn = storage.reconnect_if_closed(conn)
             if storage.clear_read_only(conn):
                 print("ERROR: database is currently read-only; try again once "
@@ -106,7 +111,10 @@ def main() -> None:
                 sys.exit(3)
             storage.refresh_move_performance(conn)
             names = {cid: name for cid, name in mapping.values()}
-            print(pipeline.build_reports(conn, names))
+            if args.report_combined:
+                print(pipeline.build_combined_reports(conn, names))
+            else:
+                print(pipeline.build_reports(conn, names))
             return
 
         if args.naren_only:

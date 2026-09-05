@@ -21,7 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from layer_d.prompts import PROMPT_CHECKS_BATCH, PROMPT_PAIRWISE
+from layer_d.prompts import PROMPT_CHECKS_BATCH, PROMPT_PAIRWISE, PROMPT_SAY_BATCH
 from layer_d.verify_quotes import verify_quote
 
 # One request covers this many moments of the SAME playbook (the criteria block is
@@ -179,6 +179,123 @@ def grade_checks_batch(
         prompt = build_checks_prompt(scenario_key, situation_signature, moves, batch)
         raw = chat(prompt)
         graded.extend(parse_checks_response(raw, batch, moves, min_overlap))
+    return graded
+
+
+# --------------------------------------------------------------------- say arm
+
+def say_moves_block(moves: list[dict]) -> str:
+    """Criteria block for SAY moves: each carries its benchmark example quote as
+    the specificity anchor (BARS-style -- the level is defined by a concrete
+    example, not an adjective). Moves come from move_classes.say_moves."""
+    lines = []
+    for m in moves:
+        lines.append(f"- {m['move_id']} ({m.get('name', '')}): {m.get('criterion', '')}")
+        if m.get("anchor"):
+            lines.append(f'  WHAT "SPECIFIC" LOOKS LIKE (top performer, real call): '
+                         f'"{m["anchor"]}"')
+    return "\n".join(lines)
+
+
+def build_say_prompt(
+    scenario_key: str,
+    situation_signature: str,
+    moves: list[dict],              # SAY-routed specs: {move_id, name, criterion, anchor}
+    moments: list[dict],            # each: {moment_id, trigger_text, response_text}
+) -> str:
+    block = "\n\n".join(
+        f"MOMENT {m['moment_id']}\nCLIENT: {m['trigger_text']}\nREP REPLY: {m['response_text']}"
+        for m in moments
+    )
+    return PROMPT_SAY_BATCH.format(
+        scenario_key=scenario_key,
+        situation_signature=situation_signature,
+        moves_block=say_moves_block(moves),
+        moments_block=block,
+    )
+
+
+def parse_say_response(
+    raw: Any,
+    moments: list[dict],
+    moves: list[dict],
+    min_overlap: float,
+) -> list[GradedMoment]:
+    """Normalize one say response against what was ASKED, not what came back.
+
+    Verdict mapping (docs/findings/layer-d-say-arm.md §2):
+      * raised="specific" + quote verified against THAT moment's reply -> hit
+      * raised="generic"  + quote verified -> partial
+      * specific/generic with a missing/unverifiable quote -> unscored
+        (quote_unverified -- the judge's claim is untrustworthy, and it must not
+        become a miss either: that would punish the rep for the instrument)
+      * raised="no" -> miss (absence needs no quote)
+      * anything else (id missing, malformed) -> unscored
+    Same skeleton as parse_checks_response on purpose: the quote gate and the
+    asked-not-answered normalization are the load-bearing parts.
+    """
+    move_ids = [m["move_id"] for m in moves]
+    by_moment: dict[str, dict[str, dict]] = {}
+    for entry in _as_entry_list(raw):
+        if not isinstance(entry, dict):
+            continue
+        mid = str(entry.get("moment_id", ""))
+        verdicts = entry.get("verdicts")
+        if not isinstance(verdicts, list):
+            continue
+        slot = by_moment.setdefault(mid, {})
+        for v in verdicts:
+            if isinstance(v, dict) and v.get("move_id"):
+                slot[str(v["move_id"])] = v
+
+    graded: list[GradedMoment] = []
+    for moment in moments:
+        mid = str(moment["moment_id"])
+        response_text = moment.get("response_text", "")
+        out = GradedMoment(moment_id=mid)
+        returned = by_moment.get(mid, {})
+        for move_id in move_ids:
+            v = returned.get(move_id)
+            raised = v.get("raised") if v is not None else None
+            if isinstance(raised, str):
+                raised = raised.strip().lower()
+            if raised not in ("specific", "generic", "no"):
+                out.verdicts.append(MoveVerdict(
+                    move_id, "unscored", reason="missing_from_response"))
+                continue
+            if raised == "no":
+                out.verdicts.append(MoveVerdict(move_id, "miss"))
+                continue
+            check = verify_quote(str(v.get("quote") or ""), response_text, min_overlap)
+            if check.verified:
+                out.verdicts.append(MoveVerdict(
+                    move_id, "hit" if raised == "specific" else "partial",
+                    quote=str(v.get("quote", "")).strip(),
+                    quote_score=round(check.score, 4)))
+            else:
+                out.verdicts.append(MoveVerdict(
+                    move_id, "unscored", quote_score=round(check.score, 4),
+                    reason="quote_unverified"))
+        graded.append(out)
+    return graded
+
+
+def grade_say_batch(
+    chat: Callable[[str], Any],
+    scenario_key: str,
+    situation_signature: str,
+    moves: list[dict],
+    moments: list[dict],
+    min_overlap: float,
+) -> list[GradedMoment]:
+    """One request per CHECKS_BATCH_SIZE moments of one playbook's SAY moves. A
+    raised chat error propagates -- the caller must NOT checkpoint the transcript."""
+    graded: list[GradedMoment] = []
+    for i in range(0, len(moments), CHECKS_BATCH_SIZE):
+        batch = moments[i:i + CHECKS_BATCH_SIZE]
+        prompt = build_say_prompt(scenario_key, situation_signature, moves, batch)
+        raw = chat(prompt)
+        graded.extend(parse_say_response(raw, batch, moves, min_overlap))
     return graded
 
 

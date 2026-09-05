@@ -308,6 +308,13 @@ default_transaction_read_only = on` in place when a connection returns to the po
 it explicitly before `.close()` (see any of the four fixed scripts for the wrapped-close pattern)
 or use `storage.get_connection` + `storage.clear_read_only` instead of hand-rolling it.
 
+**Update 2026-08-28: a FIFTH in-repo instance existed** — `calibration/layer_d_grader_ab.py`
+(the C2 harness) set the GUC in two places and closed without resetting; found during the
+say-arm pre-spend audit pass. Fixed by removing the GUC entirely (the script never writes; the
+"safety" bought nothing and the leak was real). If a sixth read-only "safety" connection exists
+somewhere, this is the grep: `default_transaction_read_only = on`.
+
+
 ## Bash heredocs eat backslashes, and backticks get command-substituted (2026-08-27)
 
 Feeding a Python script to `python -` through a **quoted** bash heredoc (`<<'PYEOF'`) does not

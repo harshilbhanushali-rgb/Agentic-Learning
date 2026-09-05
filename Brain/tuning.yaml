@@ -918,6 +918,24 @@ layer_d:
   # decided FAIL (45 of 58 moments tied 0-0 -- the C3-predicted failure: at 3-6%
   # base rates the absolute verdict has no discrimination power). Quote gate 100%.
   # Full record: docs/findings/layer-d-redesign.md.
+  #   say      -- (added 2026-08-28) occurrence verdicts on SAY-routed moves only
+  #               (artifacts/layer_d_move_classes.json, fail-closed), rolled up to
+  #               the CALL at aggregation; the Naren benchmark pass samples whole
+  #               calls. Runs ALONGSIDE the pairwise data, not instead of it: a say
+  #               run grades only SAY moves, and the combined report
+  #               (--report-combined) reads both arms. Contract v1 (strict
+  #               whole-content credit) is MEASURED: G-S1b 100% over 7 decided
+  #               calls p=0.008, quote gate 100%; the element-credit variant
+  #               FAILED (71%, p=0.09) and the specificity tier is DIAGNOSTIC
+  #               ONLY (G-S3 failed both contracts). Gates and full record:
+  #               docs/findings/layer-d-say-arm.md.
+  # 2026-08-28: 'say' was set temporarily for the G-S4 Naren benchmark (910
+  # events written, run_id 695837c37614), then FLIPPED BACK: G-S4 FAILED at the
+  # shipped dead-check floor (3/87 cells non-dead at 0.50; Naren's own call-level
+  # occurrence is median ~0.15 -- the playbook is a repertoire, not a per-call
+  # checklist). The CSM production say run is NOT licensed; a repertoire-coverage
+  # reframe is proposed (findings §9) and awaits the operator. Setting this to
+  # 'say' is what would start that run -- do not do it before that decision.
   grader_arm: pairwise
 
   # Grading model + reasoning effort (operator, 2026-08-23). 'none' = param not sent.

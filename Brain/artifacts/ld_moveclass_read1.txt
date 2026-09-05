@@ -1,0 +1,122 @@
+A001 MIXED Explains capabilities, but exclusion rules require real overlap judgment
+A002 SAY Separating actions and proposing a timeline are simple statements
+A003 MIXED Instructions are stated; environment access is actual provisioning work
+A004 SAY Highlighting risks and stating formatting standards are simple statements
+A005 SAY Detailing capabilities and specifying integration flow are simple statements
+A006 MIXED Details procedures, but validates timelines against real test results
+A007 SAY Offering to manage relationships end-to-end is a simple statement
+A008 SAY Explaining that central buying secures discounts is a statement
+A009 DO Tailoring documentation to a client's stack has quality gradient
+A010 DO Implementing filters and converting packages is real configuration work
+A011 SAY Identifying requirements and outlining workflow rules are simple statements
+A012 SAY Explaining channel volume versus intent tradeoff is a statement
+A013 SAY Framing metrics into simplified summaries is a communication act
+A014 SAY Instructing on filtering and distinguishing traffic types are statements
+A015 DO Formulating a dynamic location spend strategy is analytical work
+A016 SAY Advocating for and explaining a posting structure is a statement
+A017 SAY Explaining how multi-language titles are processed is a statement
+A018 SAY Detailing invoice line-item formatting choices is a simple statement
+A019 SAY Proposing extended media reach and triggers is a statement
+A020 SAY Identifying control ownership and clarifying push mechanics are statements
+A021 SAY Stating the specific data column or rule is a statement
+A022 MIXED Walking through a plan is said; milestones need real structuring
+A023 MIXED Identifying bottlenecks needs diagnosis; providing metrics is just a statement
+A024 SAY Guiding the client to normalize titles is a recommendation
+A025 SAY Detailing pause or exclusion criteria is a simple statement
+A026 SAY Contrasting marketing types and mapping hierarchies are explanations
+A027 SAY Proposing routing of excess volume is a simple statement
+A028 SAY Recommending a channel testing order is a simple statement
+A029 SAY Detailing the labor market data methodology is a statement
+A030 SAY Suggesting pacing or reallocation approaches is a simple statement
+A031 SAY Explaining metric ingestion mechanics is a simple statement
+A032 SAY Proposing automation rules or balancing job types is a statement
+A033 MIXED Confirming field mapping is verification; clarifying parameters is a statement
+A034 DO Coordinating technical deliverables with engineering has real quality variance
+A035 SAY Demonstrating multi-currency buying capability is an explanation
+A036 SAY Contrasting managed services with strategy is a simple statement
+A037 SAY Recommending phased staging of features is a simple statement
+A038 DO Producing a usable hyperlinked tracking asset has quality variance
+A039 SAY Specifying a dollar figure or metric is a statement
+A040 SAY Offering to liaise with supply teams is a statement
+A041 SAY Connecting market intelligence to strategy is an explanation
+A042 MIXED Proposing a strategy is said; pre-configuring campaigns is real setup
+A043 SAY Framing reallocation around ROI benchmarks is a simple statement
+A044 SAY Stating an alternative tracking mechanism is a simple statement
+A045 SAY Stating feed behavior and warning about mismatches is a statement
+A046 SAY Explaining how contracts and spend are incorporated is a statement
+A047 SAY Explaining how metadata fields map to rules is a statement
+A048 SAY Explaining how to use tracking tools is a statement
+A049 MIXED Collaborating on documentation is real work; highlighting flow is said
+A050 DO Initiating live testing to verify conversion events is real work
+A051 DO Structuring tracking and naming per region is configuration work
+A052 SAY Advising a pilot-first approach is a simple statement
+A053 SAY Clarifying pricing model limits and window differences are statements
+A054 SAY Stating that priority roles get separate routes is a statement
+A055 SAY Demonstrating competitive intelligence capability is an explanation
+A056 SAY Guiding on submitting integration requests is a recommendation
+A057 MIXED Detailing adjustments is said; establishing screening pop-ups is setup work
+A058 SAY Recommending a tag deployment alternative is a simple statement
+A059 SAY Explaining regional nuances and adjustments made is a statement
+A060 SAY Advising tiering and recommending niche networks are simple statements
+A061 SAY Directing focus to mid-funnel indicators is a recommendation
+A062 DO Confirming availability and setting knockout criteria is real work
+A063 SAY Educating on optimization curves and ramp periods is a statement
+A064 MIXED Clarifying limits is said; setting up feedback loops is configuration
+A065 DO Establishing tuned pacing controls is real configuration work
+A066 SAY Specifying volume or timeline adjustments is a simple statement
+A067 SAY Outlining technical mechanisms and turnaround times is a statement
+A068 SAY Educating on billing rules and tracking limits is a statement
+A069 SAY Explaining and demonstrating campaign mechanics is an explanation
+A070 SAY Defining testing protocols is stating a plan
+A071 MIXED Requesting data is said; integrating it to calculate rates is work
+A072 MIXED Recommending baselines is said; setting guardrails is configuration work
+A073 SAY Proposing test application submission is a simple statement
+A074 SAY Clarifying chatbot functional boundaries is a simple statement
+A075 MIXED Adjusting launch dates is real negotiation; reassuring is said
+A076 SAY Recommending a diversified media mix is a simple statement
+A077 MIXED Outlining workflows is said; aligning dates and timelines is coordination
+A078 SAY Asking for aggregated benchmarks is a simple statement
+A079 SAY Proposing application mechanics or filtering triggers is a statement
+A080 MIXED Identifying components is said; building a phase template is planning
+A081 SAY Offering to complete backend setup is a simple statement
+A082 SAY Connecting setup decisions to rationale is an explanation
+A083 DO Investigating pixel drop-offs and applying fixes is diagnostic work
+A084 SAY Demonstrating how to set automated bid rules is an explanation
+A085 SAY Setting expectations about global capabilities is a simple statement
+A086 SAY Demonstrating dashboard filter and export options is an explanation
+A087 DO Structuring tailored media plans and SLAs is real planning work
+A088 SAY Recommending niche and regional sourcing is a simple statement
+A089 DO Producing detailed briefs and building repositories is real work
+A090 SAY Explaining how feeds can be split or combined is a statement
+A091 SAY Proposing dynamic budget and bid reallocation is a statement
+A092 SAY Committing to offline analysis and delivery is a statement
+A093 SAY Recommending integration paths is a simple statement
+A094 SAY Providing navigation steps for the platform UI is a statement
+A095 SAY Explaining platform recommendation and procurement handling is a statement
+A096 DO Adapting titles for keyword optimization is skilled content work
+A097 SAY Defining chat versus documentation rules is a simple statement
+A098 SAY Explaining attribution models and offering feedback loops is a statement
+A099 SAY Advising on securing base-language sign-off first is a statement
+A100 SAY Offering a structured written resource is a simple statement
+A101 SAY Establishing source of truth and setting expectations is a statement
+A102 SAY Stating that priority roles raise CPA is a statement
+A103 SAY Guiding the client to shift optimization focus is a recommendation
+A104 MIXED Evaluating compensation data is analysis; explaining drop-off is a statement
+A105 DO Provisioning credentials and resolving invitation issues is real work
+A106 SAY Specifying tracking mechanism and instructing a test is a statement
+A107 DO Scheduling syncs and securing staging access is real coordination
+A108 SAY Detailing ticketing channels and SLAs is a simple statement
+A109 SAY Detailing friction mechanisms and offering options is a statement
+A110 SAY Separating fees and costs for clarity is a statement
+A111 SAY Outlining publisher-side technical constraints is a simple statement
+A112 SAY Distinguishing fee types and explaining markup rules is a statement
+A113 SAY Mapping technical components into understandable steps is an explanation
+A114 SAY Presenting channel options to reduce clutter is a statement
+A115 SAY Confirming partnerships and explaining friction reduction is a statement
+A116 SAY Demonstrating role grouping dimensions is an explanation
+A117 SAY Explaining dashboard customization and offering walkthroughs is a statement
+A118 SAY Detailing campaign organization into job groups is a statement
+A119 MIXED Clarifying branching is said; confirming feed readiness is verification
+A120 SAY Demonstrating channel restructuring approach is an explanation
+A121 SAY Introducing fraud filtering and benchmarking concepts is an explanation
+TALLY say=89 do=15 mixed=17

@@ -262,6 +262,69 @@ def format_pairwise_priorities(
     return "\n".join(lines)
 
 
+def format_say_priorities(
+    csm_name: str,
+    gaps: list[Gap],
+    move_meta: dict[tuple[int, str], dict],
+    csm_by_cell: dict[tuple[int, str], MoveRate],
+    naren_by_cell: dict[tuple[int, str], MoveRate],
+    evidence: dict[tuple[int, str], list[str]],
+    densities: dict[tuple[str, int, str], tuple[int, int]] | None = None,
+) -> str:
+    """Say-arm coaching priorities. Same rank_gaps output as the checks path, but
+    the language matches the arm's semantics: attempts are CALLS, hit means stated
+    SPECIFICALLY, partial means stated generically. Grouped one block per scenario,
+    scenarios worst-first, no top-N cutoff -- same reasoning as the pairwise report.
+
+    `densities` (storage.get_say_densities) is the pre-registered opportunity-
+    asymmetry readout: moments-per-call on both sides of every cell, so a gap
+    built from systematically different moment densities is visible, not hidden."""
+    lines = [f"Coaching priorities (say-type moves) -- {csm_name}", "=" * 60]
+    if not gaps:
+        lines.append("No rankable say-move gaps (at or near benchmark everywhere "
+                     "measured, or attempts below the ranking floor).")
+        return "\n".join(lines)
+    as_dicts = [{"playbook_id": g.playbook_id, "move_id": g.move_id,
+                 "gap": g.size, "_gap": g} for g in gaps]
+    for i, grp in enumerate(group_by_scenario(as_dicts, move_meta), start=1):
+        lines.append(f"\n#{i}  {grp['scenario_key']}  "
+                     f"(worst move: {grp['worst_gap']:+.0%} gap, "
+                     f"{len(grp['moves'])} move(s) measured)")
+        for d in grp["moves"]:
+            g: Gap = d["_gap"]
+            meta = move_meta.get((g.playbook_id, g.move_id), {})
+            c = csm_by_cell.get((g.playbook_id, g.move_id))
+            n = naren_by_cell.get((g.playbook_id, g.move_id))
+            lines.append(f"    {g.move_id}: {meta.get('name', '(unnamed move)')}")
+            if c and n:
+                c_said = c.hits + c.partials
+                n_said = n.hits + n.partials
+                lines.append(
+                    f"        you: said it on {c_said}/{c.attempts} calls "
+                    f"(specific on {c.hits})   benchmark: {n_said}/{n.attempts} "
+                    f"calls (specific on {n.hits})   weighted gap: {g.size:+.0%}")
+                if densities:
+                    cd = densities.get(("csm", g.playbook_id, g.move_id))
+                    nd = densities.get(("naren", g.playbook_id, g.move_id))
+                    if cd and nd and cd[1] and nd[1]:
+                        lines.append(
+                            f"        opportunity: you {cd[0] / cd[1]:.1f} "
+                            f"moments/call, benchmark {nd[0] / nd[1]:.1f} -- a "
+                            f"large imbalance inflates the denser side's rate")
+            else:
+                lines.append(
+                    f"        you: {g.csm_rate_shrunk:.0%} of {g.csm_attempts} calls"
+                    f"   benchmark: {g.naren_rate:.0%} of {g.naren_attempts}"
+                    f"   gap: {g.size:+.0%}")
+            if meta.get("criterion"):
+                lines.append(f"        the move: {meta['criterion']}")
+            if meta.get("naren_quote"):
+                lines.append(f"        benchmark example: \"{meta['naren_quote']}\"")
+            for q in evidence.get((g.playbook_id, g.move_id), [])[:2]:
+                lines.append(f"        your call: \"{q}\"")
+    return "\n".join(lines)
+
+
 def format_priorities(
     csm_name: str,
     gaps: list[Gap],
