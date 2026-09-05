@@ -314,6 +314,22 @@ playbook-rewrite shortlist (P1, not started). `move_events`/`move_performance` k
 refuses without `csm_recordings/client_speakers.txt` (`ops/build_client_roster.py`
 regenerates it from the Avoma rosters).
 
+**THE SAY ARM (2026-08-28) IS BUILT AND GATED BUT NOT IN PRODUCTION — read
+`docs/findings/layer-d-say-arm.md` before touching it.** A third `grader_arm` for the
+87 SAY-routed moves (blind-classified, hash-pinned in
+`artifacts/layer_d_move_classes.json`; DO/MIXED stay on pairwise): occurrence verdicts
+per moment, quote-gated, ROLLED UP TO THE CALL in `refresh_move_performance`
+(say-arm `attempts` counts CALLS). Its discrimination and quote gates PASSED
+(call-level 7-0 p=0.008; 126/126 quotes), but **G-S4 failed: Naren's own call-level
+occurrence is median ~15% (3/87 cells at the 0.50 floor) — the playbook is a
+repertoire, not a per-call checklist — so the CSM production say run is NOT licensed**
+and `grader_arm` stays `pairwise`. The 910 naren/say benchmark events (run
+`695837c37614`) are in `move_events`, keyed by arm. A repertoire-coverage reframe
+awaits an operator decision — see `HANDOFF_LAYER_D_SAY_ARM_2026-08-28.md` §4. The
+specificity tier (hit=specific vs partial=generic) is DIAGNOSTIC ONLY (G-S3 failed),
+and the say prompt's strict v1 contract is measured — do not loosen it (the
+element-credit variant failed its gate; comment in `layer_d/prompts.py`).
+
 **New ops scripts** (all dry-run by default, `--apply` required, Neon DNS handled via
 `--hostaddr`): `ops/ship_union_taxonomy.py` (snapshot → delete children-first → load 259
 scenarios), `ops/ship_layer_b.py` (route → calls → kb_pairs with live DB ids → triggers
