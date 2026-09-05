@@ -38,6 +38,16 @@ def test_n_needed_edge_cases():
         n_needed(0.3, alpha=1.0)
 
 
+def test_n_needed_at_an_exact_boundary_is_strict():
+    """p_hat = 19/20 (a value real data can produce): (1-p)^1 == 0.05 is NOT
+    '< 0.05', so one zero-call does not make a 'never' -- two do. The closed form
+    says 1 (and float error says 1.0000000000000002 -> 2 by luck); the strict
+    definition says 2 on purpose. Pre-spend audit finding, 2026-09-05."""
+    assert n_needed(19 / 20) == 2
+    assert n_needed(0.9) == 2                          # 0.1^1 = 0.1, 0.1^2 = 0.01
+    assert n_needed(0.951) == 1                        # 0.049 < 0.05
+
+
 def test_calls_needed_tracks_alpha():
     m = RepertoireMove(7, "M1", naren_said_calls=3, naren_calls=20)   # p = 0.15
     assert m.calls_needed() == 19

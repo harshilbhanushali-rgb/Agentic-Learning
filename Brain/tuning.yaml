@@ -936,7 +936,10 @@ layer_d:
   # checklist). The CSM production say run is NOT licensed; a repertoire-coverage
   # reframe is proposed (findings §9) and awaits the operator. Setting this to
   # 'say' is what would start that run -- do not do it before that decision.
-  grader_arm: pairwise
+  # 2026-09-05: DECIDED. Set to 'say' for the operator-approved repertoire pass
+  # (docs/findings/layer-d-say-arm.md §11, gates pre-registered). Flip back to
+  # 'pairwise' the moment the run completes -- the fail-safe convention.
+  grader_arm: say
 
   # Grading model + reasoning effort (operator, 2026-08-23). 'none' = param not sent.
   # Both are part of the instrument identity (checkpoint_layer) and recorded per row

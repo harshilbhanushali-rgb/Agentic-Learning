@@ -55,7 +55,19 @@ def n_needed(p_hat: float, alpha: float = ALPHA) -> int:
         return 1
     if p_hat <= 0.0:
         return math.inf  # type: ignore[return-value]
-    return math.ceil(math.log(alpha) / math.log(1.0 - p_hat))
+    n = max(1, math.ceil(math.log(alpha) / math.log(1.0 - p_hat)))
+    # The closed form is the estimate; the strict inequality is the definition.
+    # Float error can land the ratio a hair off an integer (pre-spend audit,
+    # 2026-09-05: p=0.95 gives 1.0000000000000002), and at an EXACT boundary --
+    # p_hat = 19/20 is a value real data can produce -- (1-p)^1 == alpha is not
+    # "< alpha", so the answer there is 2, not the closed form's 1. Walk to the
+    # smallest n that satisfies the rule as stated.
+    q = 1.0 - p_hat
+    while n > 1 and q ** (n - 1) < alpha:
+        n -= 1
+    while q ** n >= alpha:
+        n += 1
+    return n
 
 
 @dataclass(frozen=True)
