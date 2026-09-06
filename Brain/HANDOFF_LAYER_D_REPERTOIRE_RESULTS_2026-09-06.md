@@ -6,7 +6,7 @@ measured; every artifact and log named exists on disk; every number is in
 
 ## 0. THE ONE-PARAGRAPH VERSION
 
-Three sessions of uncommitted work are now nine clean commits on `layer-c-profile-rebuild`.
+Three sessions of uncommitted work are now clean commits on `layer-c-profile-rebuild`.
 The warrant-legibility probe (W0) ran at zero spend and came back **NOT LEGIBLE** under the
 rule frozen before it ran: trigger-text similarity carries a real but weak trace of when
 Naren deploys a move (top decile 28% vs 15% base, p<0.002), nowhere near the 3×/50% a
@@ -16,16 +16,16 @@ transcript data. The repertoire pass was built, blind-audited, pre-registered, a
 **89.6%** (bar 70%); G-R3 is pinned by tests; G-R2 found a five-word backchannel inside the
 report's ONLY `never` cell, which drops it one call below the power threshold. Result:
 **Madhumita verifiably uses 33 of Naren's 61 repertoire moves; zero repertoire gaps are
-claimable today; 27 cells need more calls.** `grader_arm` is back on `pairwise`.
+claimable today; 28 cells need more calls (after the _v4 relabel, §3b).** `grader_arm` is back on `pairwise`; instrument identity is `_v4`.
 
 ## 1. WHAT EXISTS NOW
 
 | thing | where | state |
 | --- | --- | --- |
-| Commits | `git log b49aa13..HEAD` (9 commits) | P0 arc / say arm / docs / W0 prereg / W0 result / repertoire code+prereg / n_needed fix+flip / deferral+census / results+flip-back |
+| Commits | `git log b49aa13..HEAD` (12 commits) | P0 arc / say arm / docs / W0 prereg / W0 result / repertoire code+prereg / n_needed fix+flip / deferral+census / results+flip-back / handoff / guard _v4 + prereg / _v4 relabel applied |
 | Repertoire aggregation | `layer_d/repertoire.py`, `tests/test_layer_d_repertoire.py` (23 tests) | shipped, audited pre-spend (1 MINOR finding fixed: strict boundary in `n_needed`) |
-| Combined report | `ops/run_layer_d.py --report-combined` → `logs/combined_report_20260906.log` | repertoire section leads; say-rate (diagnostic) and pairwise follow |
-| CSM say events | `move_events` grader_arm='say', rater_population='csm', run `137706da74c6` | 1,205 rows / 96 calls; 621 graded |
+| Combined report | `ops/run_layer_d.py --report-combined` → `logs/combined_report_20260906_v4.log` (`_v3` version: `combined_report_20260906.log`) | repertoire section leads; say-rate (diagnostic) and pairwise follow |
+| CSM say events | `move_events` grader_arm='say', rater_population='csm', run `137706da74c6` | 1,205 rows / 96 calls; 601 graded (621 before the _v4 relabel) |
 | Naren say benchmark | run `695837c37614` | 1,001 rows, UNCHANGED (checkpoints copied to skip re-grade) |
 | G-R1 reads | `artifacts/layer_d_oa_say_reader{1,2}.json`, `layer_d_oa_say_model_verdicts.json` | committed as provenance |
 | G-R2 read | `artifacts/layer_d_never_cells_CSM_MADHUMITA.txt`, `_read1.json`, `_key.json` | committed |
@@ -33,7 +33,7 @@ claimable today; 27 cells need more calls.** `grader_arm` is back on `pairwise`.
 | Deferral write-up | `docs/findings/layer-d-deferral-rate.md` | new |
 | Layer C census | findings §12, `logs/layer_c_census_20260905.txt` | done; rule proposal changed (see §3) |
 | Plain-language history | `PROBLEMS_AND_FIXES.md` (new entry at the end) | done |
-| Test suite | `..\.venv\Scripts\pytest tests/` from `Brain/` | 1,665 passing |
+| Test suite | `..\.venv\Scripts\pytest tests/` from `Brain/` | 1,677 passing |
 
 ## 2. GATE RESULTS (all pre-registered in the findings doc BEFORE the numbers existed)
 
