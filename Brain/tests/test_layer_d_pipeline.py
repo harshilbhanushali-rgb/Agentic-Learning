@@ -162,7 +162,7 @@ def test_success_checkpoints_and_writes_the_event(monkeypatch, recordings):
                 for m in moments_}
     report, fs, fc = run(monkeypatch, recordings, moments=[moment()], grade=grade)
     assert report["processed"] == 1 and report["graded"] == 1
-    assert ("callA", "layer_d_e_checks_m1_low_swap_v3") in fc.done
+    assert ("callA", "layer_d_e_checks_m1_low_swap_v4") in fc.done
     [e] = [e for e in fs.events if e["rater_population"] == "csm"]
     assert e["source_ref"] == "turn:0" and e["playbook_id"] == 7
     assert e["verdicts"] == [{"move_id": "M1", "verdict": "hit", "quote": "a reply",
@@ -198,7 +198,7 @@ def test_coachable_scenario_without_playbook_is_a_coverage_gap(monkeypatch, reco
 
 def test_checkpointed_transcript_is_skipped(monkeypatch, recordings):
     fs, fc = FakeStorage(), FakeCheckpoint()
-    fc.done.add(("callA", "layer_d_e_checks_m1_low_swap_v3"))
+    fc.done.add(("callA", "layer_d_e_checks_m1_low_swap_v4"))
     fs.install(monkeypatch)
     fc.install(monkeypatch)
     monkeypatch.setattr(pipeline, "get_tuning", lambda: fake_tuning())
@@ -230,7 +230,7 @@ def test_naren_benchmark_grades_pairs_with_the_same_instrument(monkeypatch, reco
     assert e["source_ref"] == "pair:3"
     # checkpoint item carries the playbook version: a remade playbook (new id)
     # must regrade instead of reusing the superseded document's marker
-    assert ("app_volume:pb7", "layer_d_e_checks_m1_low_swap_v3_naren") in fc.done
+    assert ("app_volume:pb7", "layer_d_e_checks_m1_low_swap_v4_naren") in fc.done
 
 
 def test_pairwise_arm_skips_the_naren_benchmark_pass(monkeypatch, recordings):
@@ -417,7 +417,7 @@ def test_make_exemplar_picker_falls_back_when_every_candidate_is_filler(capsys):
 
 def test_checkpoint_layer_encodes_both_arms():
     t = fake_tuning(segmentation_arm="today", grader_arm="pairwise").layer_d
-    assert pipeline.checkpoint_layer(t) == "layer_d_today_pairwise_m1_low_swap_v3"
+    assert pipeline.checkpoint_layer(t) == "layer_d_today_pairwise_m1_low_swap_v4"
 
 
 def test_conn_is_none_never_touches_reconnect(monkeypatch, recordings):

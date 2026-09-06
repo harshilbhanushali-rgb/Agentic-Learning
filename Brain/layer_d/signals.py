@@ -93,6 +93,49 @@ def csm_response_text(turns: list[EgoTrapTurn], anchor_index: int) -> str:
     return " ".join(t.text for t in window if t.role == EgoTrapRole.CSM).strip()
 
 
+MIN_DISTINCT_CONTENT = 5     # distinct content lemmas: repetition does not count twice
+MIN_CLAUSE_CONTENT = 3       # at least one sentence carrying this many content words
+
+
+def is_substantive_reply(text: str) -> bool:
+    """Is this response window a real reply, or a string of acknowledgements?
+
+    v1 (2026-08-26) reused v1.layer_b._is_substantive, the project-wide ">= 5
+    content words" bar. It has a hole the repertoire pass hit (findings §11b):
+    "Sounds good. Sounds good. Okay." is five content words, so it was graded as
+    her reply and decided the only `never` cell. Measured over all 621 graded
+    CSM replies of run 137706da74c6 (2026-09-06): 6 backchannels of <= 8 words had
+    passed; "has a verb" would not catch them ("Sounds" is a verb); this rule
+    catches all 6 plus 14 more closings/acknowledgement strings, at a cost of ~4
+    thin clarifying questions -- 20/621 = 3.2% reclassified in total.
+
+    The rule, both parts structural:
+      1. >= MIN_DISTINCT_CONTENT distinct content LEMMAS (alphabetic, non-stop),
+         so "Got it. Got it. Makes sense. Makes sense." does not count twice; and
+      2. at least one sentence (split on . ? !) carrying >= MIN_CLAUSE_CONTENT
+         content words -- an actual clause, not a run of two-word acknowledgements.
+    Applies to the CSM response window ONLY. The exemplar-substantive filter for
+    Naren's candidates (pipeline.make_exemplar_picker) still uses the project-wide
+    _is_substantive: changing it would change which exemplar every pairwise
+    verdict was judged against, i.e. a real regrade, not a reclassification.
+    """
+    from v1.layer_b import _nlp  # lazy: spaCy model load
+
+    doc = _nlp(text)
+    content = [t for t in doc if t.is_alpha and not t.is_stop]
+    if len({t.lemma_.lower() for t in content}) < MIN_DISTINCT_CONTENT:
+        return False
+    clause, longest = 0, 0
+    for t in doc:
+        if t.is_alpha and not t.is_stop:
+            clause += 1
+        if t.text in (".", "?", "!"):
+            longest = max(longest, clause)
+            clause = 0
+    longest = max(longest, clause)
+    return longest >= MIN_CLAUSE_CONTENT
+
+
 def detect_moments(
     turns: list[EgoTrapTurn],
     call_id: str,
@@ -106,17 +149,14 @@ def detect_moments(
     arm e, every individual block turn), so admit() never single-embeds in the loop.
 
     THE INTERJECTION GUARD: a "csm" response window whose joined text fails
-    _is_substantive (the same >=5-content-word bar used everywhere else in this
-    project to mean "is this a real utterance or noise") is reclassified as
-    "interjection" -- an interruption artifact or backchannel ("So the last.",
-    "Yeah I hear.") caught by the response window, not a real reply. This is a
+    is_substantive_reply (below) is reclassified as "interjection" -- an
+    interruption artifact or backchannel ("So the last.", "Sounds good. Sounds
+    good. Okay.") caught by the response window, not a real reply. This is a
     STRUCTURAL rule on the response's shape, not a cosine/semantic filter --
     per-item embedding threshold filters have failed 9 times in this project.
     Recorded like a deferral (never graded), but kept out of "other_joveo" so it
     doesn't silently change the already-reported deferral rate.
     """
-    from v1.layer_b import _is_substantive  # lazy: spaCy model load
-
     blocks = segmentation.client_blocks(turns)
     to_prime = [b[-1].text for b in blocks]
     if arm == "e":
@@ -127,7 +167,7 @@ def detect_moments(
     for sig in segmentation.segment_moves(turns, arm, scorer.admit):
         outcome = classify_response_outcome(turns, sig.signal_turn_index)
         response_text = csm_response_text(turns, sig.signal_turn_index)
-        if outcome == "csm" and not _is_substantive(response_text):
+        if outcome == "csm" and not is_substantive_reply(response_text):
             outcome = "interjection"
         moments.append(Moment(
             call_id=call_id,

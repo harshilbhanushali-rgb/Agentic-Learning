@@ -180,9 +180,9 @@ def test_fingerprint_changes_when_a_route_changes(tmp_path):
 
 def test_checkpoint_layer_carries_the_classification_fingerprint():
     t = fake_tuning(grader_arm="say").layer_d
-    assert pipeline.checkpoint_layer(t) == "layer_d_e_say_m1_low_swap_v3"
+    assert pipeline.checkpoint_layer(t) == "layer_d_e_say_m1_low_swap_v4"
     assert (pipeline.checkpoint_layer(t, classes_fp="abcd1234")
-            == "layer_d_e_say_m1_low_swap_clsabcd1234_v3")
+            == "layer_d_e_say_m1_low_swap_clsabcd1234_v4")
 
 
 # ------------------------------------------------------------- grade_moment_set
@@ -268,7 +268,7 @@ def test_say_run_writes_events_under_the_say_identity(monkeypatch, recordings):
     # the checkpoint layer carries the classification fingerprint
     fp = move_classes.classes_fingerprint({
         "app_volume:M1": {"route": "say"}})
-    assert ("callA", f"layer_d_e_say_m1_low_swap_cls{fp}_v3") in fc.done
+    assert ("callA", f"layer_d_e_say_m1_low_swap_cls{fp}_v4") in fc.done
 
 
 def test_say_run_skips_playbooks_with_no_say_moves(monkeypatch, recordings):

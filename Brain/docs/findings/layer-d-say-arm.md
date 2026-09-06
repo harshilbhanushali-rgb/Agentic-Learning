@@ -715,3 +715,57 @@ populations in `move_events`; `--report-combined` prints repertoire + say-rate +
 pairwise sections from stored data at zero spend. The say-rate section still
 prints its dead-check flags for ~84 cells -- that is the G-S4 finding restated
 every time, and the operator may want it demoted to a one-line count.
+
+
+### 11c. The interjection guard, tightened (_v4) -- operator decision 2026-09-06, registered BEFORE the relabel
+
+**Decision.** The operator chose option 2 from §11b: close the word-count hole. Done as
+an instrument change with a checkpoint bump, not a per-cell patch.
+
+**The rule (`layer_d/signals.is_substantive_reply`, applies to the CSM response window
+only).** A reply is substantive iff (1) it has >= 5 DISTINCT content lemmas
+(alphabetic, non-stop; "Sounds good. Sounds good." counts once), AND (2) at least one
+sentence (split on . ? !) carries >= 3 content words -- an actual clause. Measured
+before choosing, over all 621 graded CSM replies of run `137706da74c6`:
+
+| candidate rule | replies reclassified | catches the 6 known backchannels? |
+| --- | --- | --- |
+| v3: >= 5 content words | 0 (the baseline) | no |
+| "has a verb" | 4 | no ("Sounds" is a verb) |
+| >= 5 distinct lemmas AND a clause of >= 4 | 37 | yes, but sweeps real questions |
+| **>= 5 distinct lemmas AND a clause of >= 3 (chosen)** | **20 (3.2%)** | **yes** |
+
+Of the 20: six are the known backchannels, ten more are closings and acknowledgement
+strings ("Got it. Got it. Makes sense. Okay. Yeah. Makes sense. I'll have to ask."),
+and about four are thin clarifying questions ("And then started, does it mean they've
+started at the client's location?") -- the collateral, accepted: a four-content-word
+question carries no gradeable playbook content, and the P0 guard exists precisely
+because fragments were being scored as losses. The exemplar-substantive filter on
+Naren's candidates is NOT changed (that would alter every pairwise judgment's
+reference and require a real regrade).
+
+**Why the regrade is a relabel, and exact.** The _v4 rule is strictly stricter than
+_v3: it only ever turns graded replies into interjections, never the reverse, and an
+interjection is stored ungraded (`response_outcome='interjection'`, `verdicts='[]'`).
+A fresh _v4 run over the same transcripts would therefore produce the _v3 events with
+those 20 moments relabelled -- in BOTH arms, since both graded the same moments -- and
+nothing else. `ops/reclassify_interjections_v4.py` does exactly that: backs up the 40
+affected rows (full row, both arms) to `artifacts/layer_d_v4_reclassified_backup.json`,
+relabels them, copies the _v3 checkpoint rows to their _v4 layer strings (so a future
+batch resumes instead of re-grading ~700 requests), and rebuilds `move_performance`.
+The Naren benchmark is untouched (its pass never used the guard).
+
+**What gets re-checked after the relabel, decided now:**
+1. `--report-combined` regenerated; the repertoire section re-read. The attribution
+   cell must now show 8 calls (it loses the backchannel's call) and sit under
+   INSUFFICIENT. Any NEW `never` cell gets the full G-R2 read (cannot appear in
+   principle -- removing moments only lowers call counts -- but it is checked, not
+   assumed).
+2. G-R1 is unaffected in principle (agreement is measured on graded moments); if any
+   of the 20 relabelled moments was in the 40-moment audit sample, the score is
+   recomputed without it and both numbers are reported.
+3. The pairwise report's top scenarios before/after are diffed; drift beyond the
+   attempt counts the 20 moments account for is a bug, not a finding.
+4. Deferral-rate doc: the interjection bucket becomes 206/1,206 (17.1%); the
+   deferral figure (395) does not move -- that separation is the reason the bucket
+   exists.

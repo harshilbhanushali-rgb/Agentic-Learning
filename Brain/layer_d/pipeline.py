@@ -54,10 +54,14 @@ def checkpoint_layer(tuning_d, classes_fp: str = "") -> str:
     # progress must invalidate the same way a model/effort change would.
     # classes_fp (say arm only): the SAY/DO routing fingerprint. A re-classified
     # move changes which moves get graded at all -- an instrument change, same rule.
+    # _v4 (2026-09-06): the interjection guard tightened (signals.is_substantive_reply:
+    # distinct lemmas + one real clause). Strictly stricter than _v3 -- it only ever
+    # REMOVES graded moments -- so the _v3 events were reclassified in place and the
+    # _v3 checkpoints copied to _v4 (findings §11c) instead of a paid regrade.
     swap = "swap" if tuning_d.pairwise_swap else "noswap"
     cls = f"_cls{classes_fp}" if classes_fp else ""
     return (f"layer_d_{tuning_d.segmentation_arm}_{tuning_d.grader_arm}"
-            f"_{tuning_d.grader_model}_{tuning_d.grader_reasoning_effort}_{swap}{cls}_v3")
+            f"_{tuning_d.grader_model}_{tuning_d.grader_reasoning_effort}_{swap}{cls}_v4")
 
 
 def gateway_chat(model: str | None = None,

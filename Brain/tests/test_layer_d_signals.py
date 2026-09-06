@@ -8,6 +8,7 @@ import pytest
 
 from ego_trap.transcript_parser import EgoTrapRole, EgoTrapTurn
 from layer_d import signals as sig_mod
+from layer_d.signals import is_substantive_reply  # noqa: E402
 from layer_d.signals import Moment, SignalScorer, csm_response_text, detect_moments, unverified_speakers
 
 C, S, J = EgoTrapRole.CLIENT, EgoTrapRole.CSM, EgoTrapRole.OTHER_JOVEO
@@ -114,6 +115,36 @@ def test_fragment_csm_reply_is_classified_as_interjection(monkeypatch):
     [m] = detect_moments(turns, "call1", s, arm="today")
     assert m.response_outcome == "interjection"
     assert m.response_text == "So the last."
+
+
+@pytest.mark.parametrize("backchannel", [
+    "Sounds good. Sounds good. Okay.",                     # decided the only `never` (§11b)
+    "Okay. Sounds good. Sounds good.",
+    "Got it. Sounds good. Sounds good.",
+    "Yep. Sounds good. Cool. I know over time.",
+    "Wait a minute. Hang hang on a second.",
+    "Hi, Jim. Hello. Hey. Hi. Welcome.",
+    "Got it. Got it. Makes sense. Okay. Yeah. Makes sense. I'll have to ask.",
+    "Sounds good. Awesome. Cool. Okay. Thanks, everyone. Have a great weekend. Thank you.",
+])
+def test_real_backchannels_that_passed_v3_are_interjections(backchannel):
+    """The _v4 hole: every one of these was graded as the CSM's reply on the
+    production run (>= 5 content words by count). Repetition must not count twice,
+    and a run of two-word acknowledgements is not a clause."""
+    assert not is_substantive_reply(backchannel)
+
+
+@pytest.mark.parametrize("reply", [
+    "Let me walk you through the pixel firing setup.",
+    "So our application form is just going to be a simple first name, last name, email, phone number, and the resume.",
+    # NB: "You can place this directly on the header. It will still work." has only
+    # four distinct content words and fails BOTH the v3 and v4 rules -- that is the
+    # floor the project-wide bar already set, not something _v4 added.
+    "You can place the universal pixel directly on the header of every page.",
+    "Some publishers are okay to send candidates directly to the apply page, so which is a form.",
+])
+def test_short_real_replies_stay_substantive(reply):
+    assert is_substantive_reply(reply)
 
 
 def test_substantive_csm_reply_stays_csm(monkeypatch):
