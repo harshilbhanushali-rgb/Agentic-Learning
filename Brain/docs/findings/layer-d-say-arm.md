@@ -805,3 +805,56 @@ findings are stable to within the removed attempts. Instrument identity is
 `layer_d_e_{pairwise|say}_gemini-3.6-flash_medium_noswap[_cls…]_v4`; any `_v3` verdict is
 now stale. A future `ops/run_layer_d.py` on the same transcripts skips everything
 under either arm; new transcripts grade under _v4 from the start.
+
+
+## 13. The "rarely" tier -- PRE-REGISTERED 2026-09-07, before the code that applies it existed
+
+**Operator decision (2026-09-07):** try a frequency comparison BETWEEN "uses it" and "never",
+on high-volume scenarios only. Zero grading spend: it reads the say verdicts already in
+`move_events`.
+
+**Why this is not §9(a) again.** §9 rejected rate-gap coaching because at 8-20 calls per
+cell the per-cell standard error (8-13 points) swamps any plausible gap -- confident-looking
+noise. This tier applies only where her call count is large enough that the error bar is a
+fraction of the gap, and it carries Naren's OWN uncertainty (his benchmark cells on the
+eligible scenarios have only 11 calls each -- measured 2026-09-07) through an exact test
+instead of treating his rate as a fixed floor. G-S4's dead-check floor is not used at all.
+
+**Eligibility (per cell, all required):**
+- state would otherwise be `uses it` (>= 1 verified instance; `never`/insufficient are
+  untouched by this tier);
+- her routed calls on the scenario >= 30 (`MIN_CSM_CALLS_RATE`);
+- Naren's benchmark calls on the scenario >= 8 (`MIN_NAREN_CALLS_RATE`, the project's
+  `min_attempts_to_rank`);
+- opportunity parity: her scored moments per call >= 0.5 x Naren's on that cell
+  (`storage.get_say_densities`) -- a side that gets fewer chances per call is not
+  compared on rate.
+Today that is 9 cells: application_volume_and_prioritization (her 53 calls / his 11),
+job_board_budget_and_direct_agreements (34 / 11), programmatic_advertising_scope_and_capability
+(33 / 11). Nothing else qualifies until more calls are ingested.
+
+**The test (frozen).** One-sided Fisher exact test on the 2x2 table
+[[her said-calls, her not-said calls], [his said-calls, his not-said calls]], alternative
+"her rate is lower". A cell is **`uses it, rarely`** iff p < 0.05 AND her call-level rate is
+below half of Naren's (an effect-size guard: a statistically real 35%-vs-45% difference is not
+coaching material). Otherwise it stays `uses it`. Report line: her count and rate, his count
+and rate, the p-value, the moments-per-call on both sides, Naren's verbatim deployments,
+and her verified quotes (so the reader sees what she DID say the times she said it).
+
+**Gates before anything is shown:**
+- **G-R4a (code):** the tier is enforced per cell and pinned by tests -- eligibility
+  thresholds, the effect-size guard, the opportunity guard, and that `never`/insufficient
+  cells are never touched.
+- **G-R4b (spot-read):** every flagged cell's moment population gets the same blind read
+  as the `never` cell (OK / MISROUTED / NOT_HER, >= 80% OK to survive), because a "rarely"
+  built on mis-routed or non-CSM moments is the same artifact as a "never" built on them.
+  The struck moments are removed from her count and the test re-run; a cell that drops
+  below significance after the strike is demoted to `uses it`.
+
+**Expected yield, written down now:** 0 to 3 of the 9 eligible cells. Zero is an
+acceptable result and will be reported as such. If it flags cells, they are the first
+frequency-based coaching lines this system has produced, and they apply to three
+scenarios; this tier does not widen to the other 27 scenarios until they reach 30 calls.
+
+**Not done, deliberately:** no floor, no prompt change, no change to which moments are
+graded, no change to the `never` rule.
