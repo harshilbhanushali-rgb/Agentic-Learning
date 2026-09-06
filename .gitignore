@@ -64,6 +64,10 @@ Brain/artifacts/*
 !Brain/artifacts/layer_d_never_cells_key.json
 !Brain/artifacts/layer_d_never_cells_read1.json
 !Brain/artifacts/layer_d_w0_warrant_probe.json
+# The _v4 relabel (findings §11c): the list of relabelled moments and the full-row backup
+# of their _v3 verdicts -- the only copy of what the old guard graded.
+!Brain/artifacts/layer_d_v4_reclassified.json
+!Brain/artifacts/layer_d_v4_reclassified_backup.json
 
 # --- Local agent tooling scratch state ---
 # Personal CLAUDE.md companion: machine-specific tooling quirks, never team-shared.

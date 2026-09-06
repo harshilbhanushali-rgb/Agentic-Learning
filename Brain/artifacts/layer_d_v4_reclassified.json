@@ -1,0 +1,122 @@
+[
+ {
+  "call_id": "20260514_bonduelle_joveo_hudsonts_sync_1e9af130",
+  "source_ref": "turn:31",
+  "playbook_id": 163,
+  "response_text": "Okay. Yeah. Sounds good. Yep. Okay. So then I see Paul is here. Hello, Paul. How are you? Hello. Doing good. How are you doing?"
+ },
+ {
+  "call_id": "20260529_new_dashboard_walkthrough_a3b9996d",
+  "source_ref": "turn:133",
+  "playbook_id": 164,
+  "response_text": "Sounds good. Awesome. Cool. Okay. Thanks, everyone. Have a great weekend. Thank you."
+ },
+ {
+  "call_id": "20260601_wiser_joveo_weekly_call_for_etihad_8d981179",
+  "source_ref": "turn:96",
+  "playbook_id": 161,
+  "response_text": "Yeah. Got it. Sounds good. Perfect. So we'll have that by your tomorrow."
+ },
+ {
+  "call_id": "20260602_review_proposed_budget_caps_d2fc741e",
+  "source_ref": "turn:109",
+  "playbook_id": 162,
+  "response_text": "Sounds good. Sounds good. Okay."
+ },
+ {
+  "call_id": "20260603_joveo_implementation_check_in_call_00572b83",
+  "source_ref": "turn:12",
+  "playbook_id": 176,
+  "response_text": "Yeah. Yeah. Let me see. It came from Steven."
+ },
+ {
+  "call_id": "20260603_joveo_implementation_check_in_call_00572b83",
+  "source_ref": "turn:56",
+  "playbook_id": 430,
+  "response_text": "Got it. Got it. Makes sense. Okay. Yeah. Sounds good. Yeah. Let us know what what."
+ },
+ {
+  "call_id": "20260609_middleware_api_documentation_82489fb5",
+  "source_ref": "turn:123",
+  "playbook_id": 183,
+  "response_text": "Okay. Sounds good. Sounds good."
+ },
+ {
+  "call_id": "20260609_middleware_api_documentation_82489fb5",
+  "source_ref": "turn:68",
+  "playbook_id": 429,
+  "response_text": "And then started, does it mean they've started at the client's location?"
+ },
+ {
+  "call_id": "20260616_wiser_joveo_weekly_call_for_iqvia_c3aefc1d",
+  "source_ref": "turn:84",
+  "playbook_id": 164,
+  "response_text": "Yep. Sounds good. Cool. I know over time."
+ },
+ {
+  "call_id": "20260630_joveo_global_tech_plan_d0dce59c",
+  "source_ref": "turn:39",
+  "playbook_id": 174,
+  "response_text": "Yeah. Yeah. Sounds good. So what we had discussed was. Sorry."
+ },
+ {
+  "call_id": "20260701_joveo_implementation_check_in_call_eb3c1573",
+  "source_ref": "turn:13",
+  "playbook_id": 183,
+  "response_text": "Yeah. Yeah. Sounds good, and being that that's the case."
+ },
+ {
+  "call_id": "20260702_express_joveo_discovery_sessions_836dd5bd",
+  "source_ref": "turn:146",
+  "playbook_id": 429,
+  "response_text": "Yep. Yeah. Sounds good. So we'll we'll basically remove this one. Right?"
+ },
+ {
+  "call_id": "20260702_rpo_joveo_integration_078e1c8c",
+  "source_ref": "turn:95",
+  "playbook_id": 183,
+  "response_text": "Got it. Sounds good. Sounds good."
+ },
+ {
+  "call_id": "20260706_30_min_with_madhumita_jim_van_spronsen_5dd8a433",
+  "source_ref": "turn:48",
+  "playbook_id": 429,
+  "response_text": "And with Indeed, it's easy applied. That's what you're getting today? The full application? No. In Indeed."
+ },
+ {
+  "call_id": "20260707_tentative_manpower_api_3ab7b5df",
+  "source_ref": "turn:160",
+  "playbook_id": 182,
+  "response_text": "Wait a minute. Hang hang on a second."
+ },
+ {
+  "call_id": "20260708_weekly_check_in_allison_joveo_2e969845",
+  "source_ref": "turn:33",
+  "playbook_id": 168,
+  "response_text": "Got it. Got it. Makes sense. Okay. Yeah. Makes sense. I'll have to ask."
+ },
+ {
+  "call_id": "20260717_headfirst_joveo_weekly_onboarding_sync_9f134329",
+  "source_ref": "turn:56",
+  "playbook_id": 183,
+  "response_text": "Yep. That sounds good. So so I give you a heads up. Let me tag that. Kind of."
+ },
+ {
+  "call_id": "20260717_joveo_appvault_weekly_touchbase_9abefadf",
+  "source_ref": "turn:9",
+  "playbook_id": 164,
+  "response_text": "Yep. Sounds good. Sounds good. Okay. Any anything else, Madhumita, for today?"
+ },
+ {
+  "call_id": "20260722_weekly_check_in_allison_joveo_9a2801c8",
+  "source_ref": "turn:29",
+  "playbook_id": 429,
+  "response_text": "Got it. Got it. Okay. Yeah. I think I did see somewhere that they are redirecting to."
+ },
+ {
+  "call_id": "20260803_headfirst_joveo_weekly_onboarding_sync_f220861d",
+  "source_ref": "turn:14",
+  "playbook_id": 176,
+  "response_text": "Hi, Jim. Hello. Hey. Hi. Welcome."
+ }
+]

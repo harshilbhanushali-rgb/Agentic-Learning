@@ -51,11 +51,12 @@ claimable today; 27 cells need more calls.** `grader_arm` is back on `pairwise`.
    confidence-building artifact, not a coaching one. It becomes coaching only as calls
    accumulate: the attribution cell needs ONE more clean routed call; the median
    insufficient cell needs 13–23 calls on scenarios where she currently has 1–7.
-2. **The interjection guard's word-count hole** (findings §11b). Six of 621 graded moments are
-   ≤8-word backchannels; one decided the only `never`. Fix = require a verb/noun phrase in
-   `_is_substantive` for the response window → `_v4` checkpoint bump → regrade of affected
-   moments (both arms). Cheap in spend (a handful of moments), but it is an instrument
-   change and was deliberately NOT made mid-gate.
+2. ~~The interjection guard's word-count hole~~ **DONE 2026-09-06 (operator decision).**
+   `signals.is_substantive_reply` (≥5 distinct content lemmas AND one clause of ≥3 content
+   words; "has a verb" was measured and does NOT catch "Sounds good") → `_v4`; 20 moments
+   relabelled in both arms at zero spend by `ops/reclassify_interjections_v4.py` (full-row
+   backup, checkpoints copied). Repertoire report now 33 / 0 / 28; G-R1 recomputed 89.2%
+   without the two relabelled sample items; pairwise top cells drift ≤5 points. §11c.
 3. **The say-rate section of the combined report** prints ~84 dead-check flags every time.
    It is the G-S4 finding restated. Demote to a one-line count, or drop.
 4. **Second CSM** — now unblocked (the instrument question is settled). The deferral rate
@@ -67,6 +68,20 @@ claimable today; 27 cells need more calls.** `grader_arm` is back on `pairwise`.
    move" as the fix (removes 3 of 26 bad, 2 of 61 good). The supported rule is "one
    statable thing per move": split conjunctive criteria or route them DO. Not a rewrite of
    live playbooks.
+
+## 3b. DECISION 2 EXECUTED (2026-09-06 morning, at the operator's request)
+
+- Rule chosen by measurement over all 621 graded replies (table in findings §11c): the
+  naive "require a verb" catches 0 of the 6 known backchannels; the chosen rule catches
+  all 6 plus 14 more closings/acknowledgement strings, ~4 thin questions as collateral.
+- Applied as a RELABEL, not a regrade: strictly stricter rule ⇒ a fresh `_v4` run equals
+  the `_v3` events with those 20 moments set ungraded, in both arms. Audit before running
+  found the backup could be clobbered on re-run and the updates were not transactional;
+  both fixed first. `artifacts/layer_d_v4_reclassified_backup.json` holds the old rows.
+- Instrument identity is `_v4` everywhere; `_v3` checkpoints copied so nothing re-grades.
+- Result: repertoire 33 / 0 / 28 (the attribution cell reads "0 of 8 calls, 9 needed");
+  G-R1 89.2% on the 38 untouched sample items; deferral 32.8% unchanged, interjections
+  17.1%.
 
 ## 4. THINGS THAT BIT THIS SESSION (add to your priors)
 

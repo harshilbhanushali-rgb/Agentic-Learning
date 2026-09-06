@@ -769,3 +769,39 @@ The Naren benchmark is untouched (its pass never used the guard).
 4. Deferral-rate doc: the interjection bucket becomes 206/1,206 (17.1%); the
    deferral figure (395) does not move -- that separation is the reason the bucket
    exists.
+
+
+**11c RESULT (2026-09-06, applied as registered).** Pre-spend audit of the guard and the
+relabel script: the "strictly stricter" claim verified TRUE (distinct-lemma count <=
+content-word count, same spaCy pipeline, same stored string); one MAJOR finding fixed
+before running -- a re-run would have overwritten the only backup of the _v3 verdicts,
+and the updates were autocommitted rather than one transaction; both fixed (refuse to
+overwrite; `conn.transaction()`), plus two minor assertions. Suite 1,677 passing.
+
+`ops/reclassify_interjections_v4.py --apply` (log `logs/reclassify_v4_20260906.log`):
+**20 moments, 40 rows relabelled** (both arms), full-row backup in
+`artifacts/layer_d_v4_reclassified_backup.json`, _v3 checkpoints copied to _v4 for all
+four layers (100 / 100 / 33 / 33), `move_performance` rebuilt (416 rows). CSM outcomes
+are now identical in both arms: **601 csm / 206 interjection / 395 other_joveo / 3 none**
+(was 621 / 186 / 395 / 3 -- the deferral figure did not move, by construction).
+
+Post-checks, as registered:
+
+| check | before (_v3) | after (_v4) | reading |
+| --- | --- | --- | --- |
+| repertoire: uses it / never / insufficient | 33 / 1 / 27 | **33 / 0 / 28** | the attribution cell is now "0 of 8 calls (9 needed)" under INSUFFICIENT -- the code now says what the G-R2 read said |
+| new `never` cells | -- | 0 | none, as expected (removing moments only lowers counts) |
+| G-R1 (items 28 and 29 of the sample were relabelled moments; recomputed without them) | 181/202 = 89.6% | **173/194 = 89.2%** | PASS either way; binary 90.2% |
+| pairwise section (DO/MIXED cells): rankable cells | 18 in 9 scenarios | 18 in 9 scenarios | unchanged set |
+| pairwise attempts in rankable cells | 461 | 435 | -26, the relabelled moments' move-attempts |
+| pairwise top cell (attribution) gap | 78% | 75% | drift within the removed attempts; order of the top 5 shifts by one place (testing 65% -> 60% swaps with xml_feed 63%) |
+| say-arm dead-check flags | 84 | 84 | the G-S4 finding, unchanged |
+| deferral rate | 395/1,205 = 32.8% | 395/1,205 = 32.8% | unchanged; interjection bucket 15.4% -> 17.1% |
+
+**What this means.** The report's one gap is gone, and it is gone for the right reason:
+the rule the code enforces now matches what a human read found. Madhumita: **33 of 61
+repertoire moves in use, 28 not yet measurable, zero claimable gaps.** The pairwise
+findings are stable to within the removed attempts. Instrument identity is
+`layer_d_e_{pairwise|say}_gemini-3.6-flash_medium_noswap[_cls…]_v4`; any `_v3` verdict is
+now stale. A future `ops/run_layer_d.py` on the same transcripts skips everything
+under either arm; new transcripts grade under _v4 from the start.

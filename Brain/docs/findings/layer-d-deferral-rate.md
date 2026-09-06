@@ -15,16 +15,18 @@ For each moment it records who replied in the response window:
 
 | response_outcome | meaning | moments | share |
 | --- | --- | --- | --- |
-| `csm` | the CSM replied, substantively | 621 | 51.5% |
+| `csm` | the CSM replied, substantively | 601 | 49.9% |
 | `other_joveo` | a Joveo colleague replied, not the CSM | **395** | **32.8%** |
-| `interjection` | the CSM's "reply" was a fragment or backchannel (P0 guard, 2026-08-26) | 186 | 15.4% |
+| `interjection` | the CSM's "reply" was a fragment or backchannel (guard v1 2026-08-26, tightened to `_v4` 2026-09-06) | 206 | 17.1% |
 | `none` | nobody on the Joveo side replied in the window | 3 | 0.2% |
 | total | 96 calls with >= 1 moment | 1,205 | |
 
 **Across 96 calls, 32.8% of the client moments Layer D found were answered by a Joveo
 colleague rather than the CSM whose call it was.** Among moments that got a
 substantive reply from anyone (`csm` + `other_joveo` + `none`), the colleague answered
-38.8% of the time. Only `csm` moments are graded; the other two thirds of the
+39.5% of the time. (Counts updated 2026-09-06 for the `_v4` interjection guard, which
+moved 20 backchannels from `csm` to `interjection`; the 395 did not move -- see
+`layer-d-say-arm.md` §11c.) Only `csm` moments are graded; the other two thirds of the
 non-CSM rows are recorded, never scored, so this rate is visible in the data but
 invisible in every coaching report -- which is why it needed its own write-up.
 
@@ -75,9 +77,9 @@ so read the ORDER, not the individual percentages.
   pairwise and say verdict is conditional on "the CSM chose to reply". A CSM who
   defers the hard questions and answers the easy ones would look BETTER on the graded
   cells, not worse. The deferral rate is the denominator that makes that visible.
-- **The 15% interjection bucket is separate on purpose.** Before the P0 guard those
-  186 fragments were graded as CSM replies (mostly as losses). Folding them into
-  deferrals would have moved the 33% to 48% and changed its meaning; they are
+- **The 17% interjection bucket is separate on purpose.** Before the P0 guard those
+  fragments were graded as CSM replies (mostly as losses). Folding them into
+  deferrals would have moved the 33% to 50% and changed its meaning; they are
   recorded as their own thing.
 
 ## What it is good for

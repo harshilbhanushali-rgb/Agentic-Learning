@@ -586,3 +586,15 @@ work, and shouldn't be read as closed: this is still one CSM (Madhumita), still 
 playbook moves are blurry/unmeasured, and rates are still relative/shrunk rather than precise
 — none of that was in scope for P0, all of it is P1/P2 (report the deferral finding, targeted
 playbook rewrites on the blurry cells, more CSMs, frontend wiring).
+
+## `_v4` (2026-09-06): the interjection guard tightened -- see `layer-d-say-arm.md` §11c
+
+The `_v3` word-count guard let five-word backchannels ("Sounds good. Sounds good. Okay.")
+through as graded CSM replies -- 20 of 621, one of which decided the repertoire report's
+only gap. `signals.is_substantive_reply` (>= 5 distinct content lemmas AND one sentence
+with >= 3 content words) replaces it on the response window only; the Naren exemplar
+filter is unchanged. Strictly stricter, so the 20 moments were relabelled in place in
+both arms (full-row backup kept) and the `_v3` checkpoints copied to `_v4` instead of a
+~700-request regrade. Pairwise top cells drifted by <= 5 points, within the removed
+attempts; the ranking of the top five shifted by one swap. Instrument identity is now
+`layer_d_e_pairwise_gemini-3.6-flash_medium_noswap_v4`.

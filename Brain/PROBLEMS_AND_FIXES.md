@@ -3491,3 +3491,17 @@ and every one of them turned into a finding rather than a fight about the number
 instrument that "failed" G-S4 is the same instrument that later passed its audit at 90% — it
 was never wrong, it was being asked the wrong question. The question, not the prompt, was the
 lever, for the seventh time in this project.
+
+### Morning after: the five-word hole, closed (2026-09-06)
+
+The operator's first call in the morning was to fix the filter that had let "Sounds good.
+Sounds good. Okay." count as a reply. The obvious fix — "a reply must contain a verb" — was
+measured first and would have caught none of the six offenders ("sounds" is a verb). The
+rule that shipped counts DISTINCT words, so saying "sounds good" twice earns nothing, and
+demands at least one sentence with three real words in it — an actual clause. Run over all
+621 graded replies it moves 20 to the ungraded pile: the six, fourteen more goodbyes and
+"got it, makes sense" strings, and about four thin clarifying questions accepted as the
+cost. Because the new rule can only ever remove replies, never add them, the fix was
+applied by relabelling those 20 moments in the stored data (old rows backed up first) rather
+than paying to re-grade a hundred transcripts. The report now agrees with the human read:
+33 moves in use, none she has provably never used, 28 waiting on more calls.

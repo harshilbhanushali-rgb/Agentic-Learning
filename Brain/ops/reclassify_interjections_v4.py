@@ -17,8 +17,10 @@ What it does, per affected (call_id, source_ref, playbook_id) moment, for BOTH a
      next batch run resumes instead of re-grading;
   3. storage.refresh_move_performance.
 
-Dry-run by default (prints every affected moment). --apply performs the writes in
-one transaction. Idempotent: a second --apply finds nothing to change.
+Dry-run by default (prints every affected moment). --apply backs up, then relabels
+inside ONE transaction, then copies checkpoints, then rebuilds. Re-runnable: a second
+--apply finds nothing to relabel and refuses to overwrite the backup (audit 2026-09-06:
+the backup is the only copy of the _v3 verdicts and must never be clobbered).
 
 Usage (from Brain/, VPN up):
     python ops/reclassify_interjections_v4.py            # list
@@ -117,25 +119,32 @@ def main() -> None:
                     ("move_event_id", "grader_arm", "call_id", "source_ref", "playbook_id",
                      "response_outcome", "response_text", "verdicts"), r)))
     bpath = Path(__file__).resolve().parent.parent / "artifacts" / "layer_d_v4_reclassified_backup.json"
+    if bpath.exists():
+        raise SystemExit(f"{bpath.name} already exists -- refusing to overwrite the only copy "
+                         f"of the _v3 verdicts. Move it aside deliberately if this is a new relabel.")
     bpath.write_text(json.dumps(backup, indent=1, default=str), encoding="utf-8")
     print(f"backed up {len(backup)} rows (both arms) to {bpath.name}")
     assert len(backup) == 2 * len(keys), (len(backup), len(keys))   # one row per arm per moment
 
-    with conn.cursor() as cur:
-        n_rows = 0
-        for c, s, p in keys:
-            cur.execute("""
-                UPDATE move_events SET response_outcome='interjection', verdicts='[]'::jsonb
-                WHERE rater_population='csm' AND run_id=%s AND response_outcome='csm'
-                  AND call_id=%s AND source_ref=%s AND playbook_id=%s
-            """, (RUN_ID, c, s, p))
-            n_rows += cur.rowcount
-    conn.commit()
+    # get_connection is autocommit; the explicit transaction block is what makes the
+    # relabel all-or-nothing (a crash mid-loop otherwise leaves half the moments done).
+    n_rows = 0
+    with conn.transaction():
+        with conn.cursor() as cur:
+            for c, s, p in keys:
+                cur.execute("""
+                    UPDATE move_events SET response_outcome='interjection', verdicts='[]'::jsonb
+                    WHERE rater_population='csm' AND run_id=%s AND response_outcome='csm'
+                      AND call_id=%s AND source_ref=%s AND playbook_id=%s
+                """, (RUN_ID, c, s, p))
+                n_rows += cur.rowcount
+    assert n_rows == 2 * len(keys), (n_rows, len(keys))
     print(f"\nrelabelled {n_rows} move_events rows across both arms")
 
     db = sqlite3.connect(checkpoint._DB)
     for run_id, v3, v4 in LAYER_COPIES:
         rows = db.execute("SELECT item FROM checkpoints WHERE run_id=? AND layer=?", (run_id, v3)).fetchall()
+        assert rows, f"no _v3 checkpoint rows under {run_id} / {v3} -- layer string typo?"
         for (item,) in rows:
             db.execute("INSERT OR IGNORE INTO checkpoints (run_id, item, layer) VALUES (?,?,?)", (run_id, item, v4))
         db.commit()

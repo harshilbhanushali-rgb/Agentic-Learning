@@ -289,7 +289,7 @@ taxonomy), so the rubric-era Layer D remains regressed and retires with `ego_tra
 
 **THE LAYER D REDESIGN IS CALIBRATED, ALL THREE P0 FIXES ARE SHIPPED, AND THE REGRADE IS
 COMPLETE (2026-08-27).** The instrument is
-`layer_d_e_pairwise_gemini-3.6-flash_medium_noswap_v3` (the `_v3` suffix is the
+`layer_d_e_pairwise_gemini-3.6-flash_medium_noswap_v4` (the `_v3` suffix is the
 interjection-guard/exemplar-filter boundary — `_v2` verdicts are stale and were fully
 superseded by the regrade) — every piece a measured verdict: pairwise beat checks at C2
 (77.1% vs 53.9% discrimination; checks is DEAD for arc-level moves — the expert's own
@@ -326,7 +326,10 @@ verdicts are NEVER reported as rate gaps.** They feed `layer_d/repertoire.py`: p
 data`, with the power rule n ≥ ln(.05)/ln(1−p̂) enforced per cell. The production
 say run over Madhumita's 100 transcripts is DONE (run `137706da74c6`, say events
 alongside the pairwise ones; blind audit 89.6%); result: she uses 33 of 61 repertoire
-moves, zero `never` cells survive the power rule today. `ops/run_layer_d.py
+moves, zero `never` cells today (28 insufficient). **Instrument identity is `_v4`
+(2026-09-06): the interjection guard is `signals.is_substantive_reply` (≥5 distinct
+content lemmas AND one clause of ≥3), which relabelled 20 backchannels in both arms
+via `ops/reclassify_interjections_v4.py`; any `_v3` verdict is stale.** `ops/run_layer_d.py
 --report-combined` prints repertoire + say-rate (diagnostic) + pairwise sections at
 zero spend. `tuning.yaml grader_arm` is `pairwise` — setting it to `say` RE-RUNS the
 say grade (checkpointed; new transcripts only). W0 (§10) closed per-moment
