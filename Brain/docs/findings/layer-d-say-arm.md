@@ -596,6 +596,8 @@ but it is far too weak to be a generation rule.
    description is at the wrong grain for occurrence grading.
 
 **What this means for the next playbook generation (a rule the census DOES support):**
+**[WITHDRAWN 2026-09-07 -- see §14.1: bundled criteria are credited MORE often (rho +0.35,
+p=0.001), so splitting would lower rates. Evidence diversity, not splitting, is the lever.]**
 not "more evidence calls", but "one statable thing per move". A move whose criterion is
 a conjunction of things Naren says in different turns should be split into its
 statable parts, each with its own evidence, OR be routed DO/pairwise. The routing
@@ -858,3 +860,123 @@ scenarios; this tier does not widen to the other 27 scenarios until they reach 3
 
 **Not done, deliberately:** no floor, no prompt change, no change to which moments are
 graded, no change to the `never` rule.
+
+
+### 13b. RESULT (2026-09-07): the tier flags one cell; the cell fails its spot-read; zero `rarely` cells ship
+
+**G-R4a (code): PASS.** `layer_d/repertoire.py` implements §13 as written; pre-run audit
+found the effect-size guard was not pinned (tests passed with AND replaced by OR) and the
+thresholds were unpinned at their boundaries -- both fixed with tests before the report was
+read. Suite 1,683 passing (the one Ask Naren socket test is a known load flake, passes alone).
+
+**The run (zero spend), `logs/combined_report_20260907_rarely.log`.** Nine eligible cells
+(three scenarios × three SAY moves, her 53 / 34 / 33 calls, his 11 / 11 / 11). Outcome:
+
+| cell | her said / calls | his said / calls | Fisher p | state |
+| --- | --- | --- | --- | --- |
+| application_volume M1 (application friction) | 5 / 53 (9%) | 4 / 11 (36%) | **0.040** | flagged `uses it, rarely` |
+| job_board_budget M1 | 12 / 34 | ~6 / 11 | n.s. | uses it (tested) |
+| job_board_budget M3 | 14 / 34 | ~4 / 11 | n.s. | uses it (tested) |
+| programmatic M1 | 4 / 33 | ~3 / 11 | n.s. | uses it (tested) |
+| the other five | -- | -- | -- | never / insufficient (not eligible by design) |
+
+**G-R4b (spot-read of the flagged cell): FAIL.** Packet `artifacts/layer_d_never_cells_CSM_MADHUMITA.txt`
+(the `_v3` never-cell packet is preserved as `..._v3_never.txt`), 110 moments on 54 calls,
+one fresh Sonnet reader, persisted as `artifacts/layer_d_rarely_cells_read1.json`:
+**81 OK / 18 MISROUTED / 11 NOT_HER = 73.6% OK, below the 80% bar.** Striking the 29 moments
+leaves 45 calls with the same 5 instances: 11% vs 36%, **Fisher p = 0.063** -- not
+significant. Demoted to `uses it` per the pre-registration, either way. **Zero `rarely`
+cells ship.** The expected yield was written down as 0-3; 0 it is.
+
+**What the failed read actually found -- a scenario-quality fact, not a grader fact.** The
+18 misrouted moments are job-feed refreshes, promote-button workflows, job budget
+distribution, LinkedIn contract questions: things about JOBS, routed to a scenario about
+APPLICATIONS. `application_volume_and_prioritization` is the largest scenario on both sides
+(246 of her moments; 590 of Naren's calls route to it) and it behaves like a catch-all.
+The `_v4` guard let 11 non-replies through here too (meeting-opener chatter, scheduling,
+one-line clarifying questions) -- 10% of this cell versus 1% overall, because a catch-all
+scenario collects the call's small talk. Both methods (§11 and §13) inherit this: her
+"5 of 53 calls" and his "4 of 11" are both measured against a denominator that is a
+quarter noise on this scenario. That is the lead into §14.
+
+**Standing state of the tier.** Code stays (it is correct and pinned); it will fire again
+only when a cell clears both the test and the spot-read. The report prints "rate tested,
+p = …" on eligible `uses it` cells so a reader can tell tested from untested.
+
+## 14. Can Layer C be changed to make either method more powerful? (2026-09-07, zero spend)
+
+Operator question: for the two aggregations -- "ever/never" (§11) and "how often, per
+scenario" (§13) -- is there a Layer C lever, yes or no, and how big? Measured by
+`calibration/layer_c_levers_for_layer_d.py` over the stored say-arm data
+(`logs/layer_c_levers_20260907.log`, `artifacts/layer_c_levers_for_layer_d.json`). Findings
+INDEX checked first: Layer B redesign arms were all null ("Layer B is not the binding
+constraint"), data volume was not the Layer C constraint (G-XP2 null), and criterion wording
+does not predict pairwise blurriness (five nulls). Nothing below re-proposes those.
+
+**14.1 Bundled criteria are credited MORE often, not less -- §12's rule is withdrawn.**
+Spearman rank correlation of Naren's call-level rate against criterion features, 87 SAY moves:
+
+| feature | rho | p |
+| --- | --- | --- |
+| conjunction count (and / or / commas / "such as") | **+0.35** | **0.001** |
+| distinct calls in the move's evidence | **+0.35** | **0.001** |
+| evidence quotes | +0.21 | 0.051 |
+| criterion length (words) | -0.03 | 0.79 |
+| clause count | +0.06 | 0.58 |
+| moves in the playbook (dilution) | -0.17 | 0.12 |
+
+Median Naren rate by conjunction band: few 0.11, mid 0.17, many 0.21. A bundled criterion
+("detail friction mechanisms such as X, Y or Z, and offer A or B") names MORE ways a reply can
+state the move, so it is credited more often, not less. **Splitting moves into "one statable
+thing" (§12's proposal) would LOWER per-move rates, raising n_needed and shrinking
+detectable gaps -- the opposite of the intent. Withdrawn.** The census in §12 stands as a
+census; its rule does not.
+
+**14.2 Evidence diversity is a real but modest Layer C lever.** Moves whose evidence spans
+more distinct calls have higher rates (rho +0.35). A next-generation rule "evidence from >= 3
+distinct calls per move" would have kept 50 of 61 in-repertoire moves and 14 of 26
+out-of-repertoire ones -- it enriches for moves Naren actually deploys, and removes cells that
+can never be decided. It adds no power to any surviving cell. **Verdict: yes, small; for the
+NEXT playbook generation only** (live playbooks are not rewritten; the hash pins re-trigger
+classification by design).
+
+**14.3 The binding constraint on "how often" is Naren's benchmark size, and that is Layer D,
+not Layer C.** His benchmark used 11-28 calls per scenario (median 17). His routed corpus
+holds a median of **212** calls per scenario (590 on application volume, 570 on job-board
+budget, 519 on programmatic). What the rarely test can detect at her n = 53, his rate 0.36:
+
+| his benchmark calls | largest her/his ratio still flagged |
+| --- | --- |
+| 11 (today) | 0.26 |
+| 20 | 0.37 |
+| 30 | 0.47 |
+| 50 | 0.52 |
+
+Doubling to quadrupling his sample on the three high-volume scenarios (~150 more of his
+calls, roughly 100-150 grading requests, same instrument, idempotent upserts) would make the
+tier able to see "half as often" instead of only "a quarter as often". It also tightens p_hat
+for every §11 cell. **Verdict: yes, the strongest lever available -- Layer D spend, not Layer C.**
+Pre-registration would be needed (which scenarios, sample size, and that the tier's rule
+does not move).
+
+**14.4 The binding constraint on "ever/never" is HER call volume.** 19 of 61 in-repertoire
+cells are decidable today; 24 at 1.5× her calls, 27 at 2×, 37 at 3×. No Layer C change alters
+that curve except by raising Naren's rates, which 14.1 says splitting would not do. **Verdict:
+no Layer C lever; the lever is ingesting more of her calls (and a second CSM).**
+
+**14.5 Scenario precision is the one Layer C/B lever both methods share, and it is unproven.**
+The G-R4b read put 16% of application-volume moments in other topics and 10% in non-replies.
+A narrower situation signature (Layer C) or a stricter admit (Layer B) on catch-all scenarios
+would clean both denominators. But Layer B admission knobs were null in five arms and the
+scenario signature was never tested as a routing lever. **Verdict: maybe; the honest next step
+is a blind read of 40 moments on each of the three largest scenarios to measure the
+misrouting share before anything is designed.** Zero spend.
+
+**Answer to the operator, in one table:**
+
+| method | Layer C lever? | what actually moves it |
+| --- | --- | --- |
+| ever / never (§11) | **no** (evidence-diversity rule: small, next generation only) | more of her calls; a second CSM |
+| how often, per scenario (§13) | **no** | a bigger Naren benchmark on the 3 high-volume scenarios (Layer D spend) |
+| both | **maybe** -- catch-all scenarios (application volume) carry ~25% noise | measure misrouting on the 3 largest scenarios first |
+| do NOT do | split bundled moves (§12 rule withdrawn: bundling raises rates), prompt/floor tuning, rewrite live playbooks | -- |

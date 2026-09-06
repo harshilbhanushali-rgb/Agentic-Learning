@@ -331,7 +331,11 @@ moves, zero `never` cells today (28 insufficient). **Instrument identity is `_v4
 content lemmas AND one clause of ≥3), which relabelled 20 backchannels in both arms
 via `ops/reclassify_interjections_v4.py`; any `_v3` verdict is stale.** `ops/run_layer_d.py
 --report-combined` prints repertoire + say-rate (diagnostic) + pairwise sections at
-zero spend. `tuning.yaml grader_arm` is `pairwise` — setting it to `say` RE-RUNS the
+zero spend. A `uses it, rarely` tier (findings §13: Fisher exact on scenarios with ≥30 of
+her calls) is live in the code and currently flags nothing (its one candidate failed the
+spot-read). **Layer C is NOT the lever for either method (§14): bundled criteria are
+credited MORE often, so do not split moves; the levers are a bigger Naren benchmark
+(11 calls/scenario used vs ~212 available) and more of the CSM's calls.** `tuning.yaml grader_arm` is `pairwise` — setting it to `say` RE-RUNS the
 say grade (checkpointed; new transcripts only). W0 (§10) closed per-moment
 "missed-chance" claims: trigger-text similarity carries too little warrant. The
 specificity tier is DIAGNOSTIC ONLY (G-S3 failed); the say prompt's strict v1

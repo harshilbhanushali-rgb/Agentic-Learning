@@ -83,6 +83,29 @@ claimable today; 28 cells need more calls (after the _v4 relabel, §3b).** `grad
   G-R1 89.2% on the 38 untouched sample items; deferral 32.8% unchanged, interjections
   17.1%.
 
+## 3c. THE "RARELY" TIER AND THE LAYER C QUESTION (2026-09-07, operator requests)
+
+- **§13 `uses it, rarely`**: built, pre-registered, audited (effect-size guard pinned after
+  the audit caught an AND/OR hole). Ran at zero spend: 1 of 9 eligible cells flagged
+  (application friction, 5/53 vs 4/11, p=0.040). **G-R4b spot-read FAILED**: 81/110
+  moments OK (74% < 80%); after the strike p=0.063. Zero rarely cells ship. The tier stays
+  in the code and will fire when a cell clears both.
+- **§14 Layer C levers, measured**: (1) bundled criteria are credited MORE often
+  (rho +0.35, p=0.001) -- §12's "one statable thing per move" is WITHDRAWN, do not split
+  moves; (2) evidence diversity predicts rate (rho +0.35) -- a small next-generation rule;
+  (3) Naren's benchmark is 11-28 calls/scenario against a median 212 available -- enlarging
+  it on the 3 high-volume scenarios (~100-150 requests) doubles what "rarely" can detect
+  (ratio 0.26 -> 0.52) and tightens every p_hat; (4) her call volume decides ever/never
+  (19/61 decidable, 27 at 2x); (5) application_volume behaves as a catch-all (16%
+  misrouted, 10% non-replies in the read) -- measure misrouting on the 3 largest
+  scenarios before designing anything.
+- **Answer to the operator**: Layer C is not the lever for either method. The levers are
+  Layer D spend (bigger benchmark) and data (more of her calls, second CSM), plus a
+  possible scenario-precision fix that needs measuring first.
+- Artifacts: `artifacts/layer_d_rarely_cells_read1.json`, `layer_c_levers_for_layer_d.json`;
+  script `calibration/layer_c_levers_for_layer_d.py`; logs `combined_report_20260907_rarely.log`,
+  `layer_c_levers_20260907.log`.
+
 ## 4. THINGS THAT BIT THIS SESSION (add to your priors)
 
 - **A copy-aside without a directory check silently overwrote nine uncommitted files.**

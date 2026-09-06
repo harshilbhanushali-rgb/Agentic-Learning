@@ -3505,3 +3505,26 @@ cost. Because the new rule can only ever remove replies, never add them, the fix
 applied by relabelling those 20 moments in the stored data (old rows backed up first) rather
 than paying to re-grade a hundred transcripts. The report now agrees with the human read:
 33 moves in use, none she has provably never used, 28 waiting on more calls.
+
+### Same morning: "how often" instead of "ever", and whether the playbook itself is the problem (2026-09-07)
+
+The operator asked for a middle tier: not just "has she ever said it" but "does she say it
+much less often than Naren", on the few topics where she has 30 or more calls. It was written
+down first, built, and run for free on the existing verdicts. It flagged exactly one thing:
+on application-volume calls she raises application friction about 1 call in 11 where Naren
+does it 1 in 3. Then every one of the 110 moments behind that number was read by a fresh
+reader, and a quarter of them turned out not to belong — job-feed and promotion questions
+routed into an "applications" bucket, and small talk counted as replies. Strike those and
+the difference is no longer statistically solid. So the tier shipped, flagged nothing, and
+that is the honest result: the biggest topic in the data is a catch-all, and both methods
+inherit its noise.
+
+The second question was whether the playbook (Layer C) could be reshaped to help. Measured,
+not guessed: the moves with the most bundled wording are the ones Naren gets credited for
+MOST often — so the earlier idea of splitting moves into single statements would have made
+things worse, and it is withdrawn. What predicts a usable move is evidence from several
+different calls, a small rule for the next generation. What actually limits the methods is
+sample size on both sides: Naren's benchmark used 11 to 28 of his calls per topic when
+hundreds are available (a spend decision, not a playbook one), and she has enough calls to
+decide only 19 of the 61 moves today. More calls, on both sides, is the lever. The playbook
+is not.
