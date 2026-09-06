@@ -15,6 +15,17 @@ as a finding:
   never              zero instances AND enough calls that zero is significant
   insufficient data  zero instances, too few calls -- NEVER reported as a gap
 
+plus one refinement of `uses it`, pre-registered in findings §13 (2026-09-07):
+
+  uses it, rarely    she uses it, but on HIGH-VOLUME scenarios only (>= 30 of her
+                     routed calls, >= 8 of Naren's, comparable moments-per-call) a
+                     one-sided Fisher exact test says her call-level rate is below
+                     his (p < 0.05) AND her rate is under half of his. This is a
+                     rate comparison, which §9 rejected at 8-20 calls because the
+                     error bars swamped the gap; at 30+ calls, with Naren's own
+                     uncertainty carried by the exact test, it is a different
+                     regime. It never touches `never` or `insufficient data`.
+
 THE POWER RULE. If Naren says a move on a fraction p of his routed calls, the chance
 a rep who deploys it at the same rate shows zero instances in n calls is (1-p)^n.
 "Never" is reported only when n >= n_needed = ceil(ln(alpha) / ln(1-p)), i.e. when
@@ -40,9 +51,17 @@ ALPHA = 0.05
 MIN_REPERTOIRE_CALLS = 2
 
 USES = "uses it"
+RARELY = "uses it, rarely"
 NEVER = "never"
 INSUFFICIENT = "insufficient data"
-STATES = (USES, NEVER, INSUFFICIENT)
+STATES = (USES, RARELY, NEVER, INSUFFICIENT)
+
+# The rarely tier (findings §13), all frozen before the code ran.
+MIN_CSM_CALLS_RATE = 30        # her routed calls on the scenario
+MIN_NAREN_CALLS_RATE = 8       # his benchmark calls (= tuning min_attempts_to_rank)
+RATE_ALPHA = 0.05              # one-sided Fisher exact
+RATE_MAX_RATIO = 0.5           # her rate must be below half of his
+OPPORTUNITY_MIN_RATIO = 0.5    # her moments/call must be >= half of his
 
 
 def n_needed(p_hat: float, alpha: float = ALPHA) -> int:
@@ -110,42 +129,90 @@ class RepertoireCell:
     state: str
     csm_said_calls: int
     csm_calls: int
+    rate_p: float | None = None                   # rarely test p-value, when the cell was eligible
+    opportunity: tuple[float, float] | None = None  # (her moments/call, his moments/call)
 
     @property
     def calls_needed(self) -> int:
         return self.move.calls_needed()
 
+    @property
+    def csm_rate(self) -> float:
+        return self.csm_said_calls / self.csm_calls if self.csm_calls else 0.0
 
-def classify(move: RepertoireMove, csm: MoveRate | None, alpha: float = ALPHA) -> str:
-    """The three-way rule. A missing CSM row means zero routed calls, which is
-    insufficient data, never a gap."""
+
+def rate_test_p(csm_said: int, csm_calls: int, naren_said: int, naren_calls: int) -> float:
+    """One-sided Fisher exact p-value that her call-level rate is LOWER than his.
+    Exact, so Naren's small benchmark n (11 calls on today's eligible scenarios)
+    is carried as uncertainty rather than treated as a fixed floor."""
+    from scipy.stats import fisher_exact  # lazy: scipy is a calibration dependency
+    table = [[csm_said, csm_calls - csm_said], [naren_said, naren_calls - naren_said]]
+    return float(fisher_exact(table, alternative="less").pvalue)
+
+
+def rate_eligible(move: RepertoireMove, csm: MoveRate,
+                  opportunity: tuple[float, float] | None) -> bool:
+    """§13 eligibility: her n, his n, and opportunity parity. Unknown densities
+    (None) are NOT eligible -- the parity check is a precondition, not a nicety."""
+    if csm.attempts < MIN_CSM_CALLS_RATE or move.naren_calls < MIN_NAREN_CALLS_RATE:
+        return False
+    if opportunity is None:
+        return False
+    hers, his = opportunity
+    return his > 0 and hers >= OPPORTUNITY_MIN_RATIO * his
+
+
+def classify(move: RepertoireMove, csm: MoveRate | None, alpha: float = ALPHA,
+             opportunity: tuple[float, float] | None = None) -> tuple[str, float | None]:
+    """The rule. Returns (state, rate_p). A missing CSM row means zero routed
+    calls, which is insufficient data, never a gap. `rate_p` is set only when the
+    rarely test actually ran (eligible `uses it` cells), so a reader can tell
+    "tested and not rare" from "not tested"."""
     said = (csm.hits + csm.partials) if csm else 0
     calls = csm.attempts if csm else 0
     if said >= 1:
-        return USES
+        if csm is not None and rate_eligible(move, csm, opportunity):
+            p = rate_test_p(said, calls, move.naren_said_calls, move.naren_calls)
+            her_rate = said / calls
+            if p < RATE_ALPHA and her_rate < RATE_MAX_RATIO * move.p_hat:
+                return RARELY, p
+            return USES, p
+        return USES, None
     if calls >= move.calls_needed(alpha):
-        return NEVER
-    return INSUFFICIENT
+        return NEVER, None
+    return INSUFFICIENT, None
 
 
 def repertoire_coverage(
     moves: dict[tuple[int, str], RepertoireMove],
     csm_rates_by_rater: dict[str, list[MoveRate]],
     alpha: float = ALPHA,
+    densities: dict[tuple[str, int, str], tuple[int, int]] | None = None,
 ) -> dict[str, list[RepertoireCell]]:
     """Every in-repertoire move classified for every rater that has ANY say-arm
     data. Moves the rater has no row for are included as insufficient (0 calls),
-    so the report's counts always sum to the repertoire size."""
+    so the report's counts always sum to the repertoire size.
+
+    `densities` is storage.get_say_densities' output: (population, playbook,
+    move) -> (scored moments, calls). It feeds the rarely tier's opportunity
+    check; without it no cell is rate-eligible (§13)."""
     out: dict[str, list[RepertoireCell]] = {}
     for rater_id, rates in csm_rates_by_rater.items():
         by_cell = {(r.playbook_id, r.move_id): r for r in rates}
         cells = []
         for cell, move in sorted(moves.items()):
             csm = by_cell.get(cell)
+            opp = None
+            if densities:
+                hers = densities.get(("csm",) + cell)
+                his = densities.get(("naren",) + cell)
+                if hers and his and hers[1] and his[1]:
+                    opp = (hers[0] / hers[1], his[0] / his[1])
+            state, p = classify(move, csm, alpha, opportunity=opp)
             cells.append(RepertoireCell(
-                rater_id, move, classify(move, csm, alpha),
+                rater_id, move, state,
                 (csm.hits + csm.partials) if csm else 0,
-                csm.attempts if csm else 0))
+                csm.attempts if csm else 0, rate_p=p, opportunity=opp))
         out[rater_id] = cells
     return out
 
@@ -178,7 +245,8 @@ def format_repertoire_report(
         f"{MIN_REPERTOIRE_CALLS} of his own calls.  Your routed calls per scenario: "
         f"up to {total_calls}.")
     lines.append(
-        f"  uses it: {counts[USES]}    never (enough calls to say so): {counts[NEVER]}"
+        f"  uses it: {counts[USES]}    uses it, rarely: {counts[RARELY]}    "
+        f"never (enough calls to say so): {counts[NEVER]}"
         f"    insufficient data: {counts[INSUFFICIENT]}")
 
     def meta(c: RepertoireCell) -> dict:
@@ -213,6 +281,30 @@ def format_repertoire_report(
             for q in (m.get("naren_quotes") or [])[:max_quotes]:
                 lines.append(f"        Naren, real call: \"{q}\"")
 
+    # ---- USES IT, RARELY ----------------------------------------------------
+    rarely = [c for c in cells if c.state == RARELY]
+    lines += ["", f"USES IT, BUT RARELY -- on scenarios with >= {MIN_CSM_CALLS_RATE} of your "
+                  f"calls, your call-level rate is below half of Naren's (one-sided Fisher "
+                  f"exact, p < {RATE_ALPHA:.2f}):"]
+    if not rarely:
+        lines.append("  (none)")
+    for c in sorted(rarely, key=lambda c: c.rate_p or 1.0):
+        m = meta(c)
+        lines.append(f"    [{scen(c)}] {c.move.move_id}: {m.get('name', '(unnamed move)')}")
+        lines.append(
+            f"        you: {c.csm_said_calls} of {c.csm_calls} calls ({c.csm_rate:.0%})   "
+            f"Naren: {c.move.naren_said_calls} of {c.move.naren_calls} ({c.move.p_hat:.0%})   "
+            f"p = {c.rate_p:.3f}")
+        if c.opportunity:
+            lines.append(f"        opportunity: you {c.opportunity[0]:.1f} moments/call, "
+                         f"Naren {c.opportunity[1]:.1f}")
+        if m.get("criterion"):
+            lines.append(f"        the move: {m['criterion']}")
+        for q in (m.get("naren_quotes") or [])[:max_quotes]:
+            lines.append(f"        Naren, real call: \"{q}\"")
+        for q in csm_quotes.get((c.move.playbook_id, c.move.move_id), [])[:max_quotes]:
+            lines.append(f"        your call: \"{q}\"")
+
     # ---- USES IT ------------------------------------------------------------
     uses = [c for c in cells if c.state == USES]
     lines += ["", "USES IT -- at least one verified instance in your calls:"]
@@ -220,10 +312,11 @@ def format_repertoire_report(
         lines.append("  (none)")
     for c in sorted(uses, key=lambda c: (scen(c), c.move.move_id)):
         m = meta(c)
+        tested = f"; rate tested, p = {c.rate_p:.2f}" if c.rate_p is not None else ""
         lines.append(
             f"    [{scen(c)}] {c.move.move_id}: {m.get('name', '(unnamed move)')} -- "
             f"you: {c.csm_said_calls} of {c.csm_calls} calls; Naren every "
-            f"~{c.move.every_n_calls}")
+            f"~{c.move.every_n_calls}{tested}")
         for q in csm_quotes.get((c.move.playbook_id, c.move.move_id), [])[:max_quotes]:
             lines.append(f"        your call: \"{q}\"")
 

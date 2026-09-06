@@ -10,9 +10,13 @@ import pytest
 from layer_d import repertoire
 from layer_d.aggregate import MoveRate
 from layer_d.repertoire import (
-    INSUFFICIENT, NEVER, USES, RepertoireMove, classify, format_repertoire_report,
-    n_needed, naren_repertoire, repertoire_coverage,
+    INSUFFICIENT, NEVER, RARELY, USES, RepertoireMove, classify, format_repertoire_report,
+    n_needed, naren_repertoire, rate_test_p, repertoire_coverage,
 )
+
+
+def state(*a, **k):
+    return classify(*a, **k)[0]
 
 
 # ------------------------------------------------------------------ power rule
@@ -61,27 +65,116 @@ MOVE = RepertoireMove(7, "M1", naren_said_calls=3, naren_calls=20)     # needs 1
 
 
 def test_one_verified_instance_is_uses_it_regardless_of_call_count():
-    assert classify(MOVE, MoveRate(7, "M1", attempts=1, hits=0, partials=1)) == USES
-    assert classify(MOVE, MoveRate(7, "M1", attempts=50, hits=1, partials=0)) == USES
+    assert state(MOVE, MoveRate(7, "M1", attempts=1, hits=0, partials=1)) == USES
+    assert state(MOVE, MoveRate(7, "M1", attempts=50, hits=1, partials=0)) == USES
 
 
 def test_zero_instances_over_enough_calls_is_never():
-    assert classify(MOVE, MoveRate(7, "M1", attempts=19, hits=0, partials=0)) == NEVER
-    assert classify(MOVE, MoveRate(7, "M1", attempts=55, hits=0, partials=0)) == NEVER
+    assert state(MOVE, MoveRate(7, "M1", attempts=19, hits=0, partials=0)) == NEVER
+    assert state(MOVE, MoveRate(7, "M1", attempts=55, hits=0, partials=0)) == NEVER
 
 
 def test_zero_instances_over_too_few_calls_is_insufficient_not_never():
     """G-R3: the power rule per cell. 18 calls at p=0.15 leaves a 5.4% chance of a
     zero by luck -- above alpha -- so it must NOT be reported as a gap."""
-    assert classify(MOVE, MoveRate(7, "M1", attempts=18, hits=0, partials=0)) == INSUFFICIENT
-    assert classify(MOVE, MoveRate(7, "M1", attempts=1, hits=0, partials=0)) == INSUFFICIENT
-    assert classify(MOVE, None) == INSUFFICIENT                        # no routed calls at all
+    assert state(MOVE, MoveRate(7, "M1", attempts=18, hits=0, partials=0)) == INSUFFICIENT
+    assert state(MOVE, MoveRate(7, "M1", attempts=1, hits=0, partials=0)) == INSUFFICIENT
+    assert state(MOVE, None) == INSUFFICIENT                        # no routed calls at all
 
 
 def test_a_move_naren_says_often_needs_fewer_calls():
     frequent = RepertoireMove(7, "M2", naren_said_calls=10, naren_calls=20)   # p = 0.5 -> 5
-    assert classify(frequent, MoveRate(7, "M2", attempts=5, hits=0, partials=0)) == NEVER
-    assert classify(frequent, MoveRate(7, "M2", attempts=4, hits=0, partials=0)) == INSUFFICIENT
+    assert state(frequent, MoveRate(7, "M2", attempts=5, hits=0, partials=0)) == NEVER
+    assert state(frequent, MoveRate(7, "M2", attempts=4, hits=0, partials=0)) == INSUFFICIENT
+
+
+# ------------------------------------------------------------ the rarely tier
+
+BIG = RepertoireMove(7, "M1", naren_said_calls=4, naren_calls=11)      # p_hat .36, like today's cells
+PAR = (2.0, 2.0)                                                       # equal moments/call
+
+
+def test_rate_test_is_one_sided_fisher_and_monotone():
+    assert rate_test_p(5, 54, 4, 11) == pytest.approx(0.0376, abs=1e-3)   # 9% vs 36%
+    assert rate_test_p(2, 54, 4, 11) < rate_test_p(5, 54, 4, 11) < rate_test_p(15, 54, 4, 11)
+    assert rate_test_p(20, 54, 4, 11) > 0.5                                # she is ABOVE him
+
+
+def test_rarely_fires_only_with_significance_and_effect_size():
+    s, p = classify(BIG, MoveRate(7, "M1", attempts=54, hits=5, partials=0), opportunity=PAR)
+    assert s == RARELY and p < 0.05 and 5 / 54 < 0.5 * BIG.p_hat
+    # significant-looking but not below half his rate -> stays uses it
+    s, p = classify(BIG, MoveRate(7, "M1", attempts=54, hits=10, partials=0), opportunity=PAR)
+    assert s == USES and p is not None                                     # tested, not rare
+    # she is above him -> uses it
+    s, p = classify(BIG, MoveRate(7, "M1", attempts=54, hits=25, partials=0), opportunity=PAR)
+    assert s == USES and p > 0.5
+
+
+def test_effect_size_guard_is_an_and_not_an_or():
+    """Audit 2026-09-07 (G-R4a): the two clauses must each be able to veto."""
+    frequent = RepertoireMove(7, "M1", naren_said_calls=10, naren_calls=11)   # p_hat .91
+    # significant (p < .05) but her rate 56% is NOT below half of his 91% -> uses it
+    s, p = classify(frequent, MoveRate(7, "M1", attempts=54, hits=30, partials=0), opportunity=PAR)
+    assert s == USES and p < 0.05
+    # far below half his rate but NOT significant (his n is small, hers modest) -> uses it
+    thin = RepertoireMove(7, "M1", naren_said_calls=2, naren_calls=8)          # p_hat .25
+    s, p = classify(thin, MoveRate(7, "M1", attempts=30, hits=2, partials=0), opportunity=PAR)
+    assert s == USES and p is not None and p >= 0.05 and 2 / 30 < 0.5 * thin.p_hat
+
+
+def test_eligibility_boundaries_are_inclusive():
+    exactly = RepertoireMove(7, "M1", naren_said_calls=4, naren_calls=8)          # his n == 8
+    s, p = classify(exactly, MoveRate(7, "M1", attempts=30, hits=1, partials=0), opportunity=(1.0, 2.0))
+    assert p is not None                                                     # 30 calls, 8 calls, parity exactly 0.5 -> tested
+    s, p = classify(exactly, MoveRate(7, "M1", attempts=30, hits=1, partials=0), opportunity=(0.99, 2.0))
+    assert p is None                                                         # just under parity -> not tested
+
+
+def test_rarely_needs_thirty_of_her_calls_and_eight_of_his():
+    s, p = classify(BIG, MoveRate(7, "M1", attempts=29, hits=1, partials=0), opportunity=PAR)
+    assert (s, p) == (USES, None)                                          # not eligible, untested
+    thin_naren = RepertoireMove(7, "M1", naren_said_calls=3, naren_calls=7)
+    s, p = classify(thin_naren, MoveRate(7, "M1", attempts=54, hits=1, partials=0), opportunity=PAR)
+    assert (s, p) == (USES, None)
+
+
+def test_rarely_needs_opportunity_parity_and_known_densities():
+    fewer_chances = (0.9, 2.0)                                             # she gets < half his moments/call
+    s, p = classify(BIG, MoveRate(7, "M1", attempts=54, hits=1, partials=0), opportunity=fewer_chances)
+    assert (s, p) == (USES, None)
+    s, p = classify(BIG, MoveRate(7, "M1", attempts=54, hits=1, partials=0), opportunity=None)
+    assert (s, p) == (USES, None)
+
+
+def test_rarely_never_touches_never_or_insufficient():
+    assert classify(BIG, MoveRate(7, "M1", attempts=54, hits=0, partials=0), opportunity=PAR) == (NEVER, None)
+    assert classify(BIG, MoveRate(7, "M1", attempts=3, hits=0, partials=0), opportunity=PAR) == (INSUFFICIENT, None)
+
+
+def test_coverage_threads_densities_into_the_rarely_test():
+    rep = naren_repertoire([MoveRate(7, "M1", 11, 4, 0)])
+    csm = {"csm1": [MoveRate(7, "M1", attempts=54, hits=5, partials=0)]}
+    dens = {("csm", 7, "M1"): (108, 54), ("naren", 7, "M1"): (22, 11)}
+    [cell] = repertoire_coverage(rep, csm, densities=dens)["csm1"]
+    assert cell.state == RARELY and cell.opportunity == (2.0, 2.0) and cell.rate_p < 0.05
+    [cell] = repertoire_coverage(rep, csm)["csm1"]                          # no densities -> not eligible
+    assert cell.state == USES and cell.rate_p is None
+
+
+def test_report_has_a_rarely_section_between_never_and_uses():
+    rep = naren_repertoire([MoveRate(7, "M1", 11, 4, 0)])
+    csm = {"csm1": [MoveRate(7, "M1", attempts=54, hits=5, partials=0)]}
+    dens = {("csm", 7, "M1"): (108, 54), ("naren", 7, "M1"): (22, 11)}
+    cells = repertoire_coverage(rep, csm, densities=dens)["csm1"]
+    text = format_repertoire_report("M", cells, META, csm_quotes={(7, "M1"): ["we set up UTM tags"]})
+    assert "uses it: 0    uses it, rarely: 1" in text
+    i_never, i_rare, i_uses = text.index("NEVER USED"), text.index("USES IT, BUT RARELY"), text.index("\nUSES IT --")
+    assert i_never < i_rare < i_uses
+    block = text[i_rare:i_uses]
+    assert "you: 5 of 54 calls (9%)   Naren: 4 of 11 (36%)   p = 0.038" in block
+    assert "opportunity: you 2.0 moments/call, Naren 2.0" in block
+    assert 'Naren, real call: "do you have UTM tags?"' in block and 'your call: "we set up UTM tags"' in block
 
 
 # ------------------------------------------------------------------ repertoire
@@ -144,7 +237,7 @@ def test_report_states_every_cell_in_the_right_section():
     text = format_repertoire_report(
         "Madhumita", make_cells(), META,
         csm_quotes={(7, "M2"): ["we need this live by Friday", "second", "third", "fourth"]})
-    assert "uses it: 1    never (enough calls to say so): 1    insufficient data: 1" in text
+    assert "uses it: 1    uses it, rarely: 0    never (enough calls to say so): 1    insufficient data: 1" in text
     never_i, uses_i, insuff_i = (text.index("NEVER USED"), text.index("USES IT"),
                                  text.index("INSUFFICIENT DATA"))
     assert never_i < uses_i < insuff_i

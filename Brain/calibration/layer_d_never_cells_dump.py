@@ -48,7 +48,8 @@ def main() -> None:
 
     naren = to_rates(storage.get_move_rates(conn, "naren", "say").get(aggregate.NAREN, []))
     csm = {rid: to_rates(rows) for rid, rows in storage.get_move_rates(conn, "csm", "say").items()}
-    coverage = repertoire.repertoire_coverage(repertoire.naren_repertoire(naren), csm)
+    coverage = repertoire.repertoire_coverage(
+        repertoire.naren_repertoire(naren), csm, densities=storage.get_say_densities(conn))
     meta = {}
     for pb in live_playbooks_flat(conn):
         for m in pb["key_moves"]:
@@ -59,8 +60,9 @@ def main() -> None:
 
     key = []
     for rater_id, cells in sorted(coverage.items()):
-        never = [c for c in cells if c.state == repertoire.NEVER]
-        parts = [f"G-R2 SPOT-READ PACKET -- rater {rater_id} -- {len(never)} never cell(s)\n"
+        # G-R2 reads never cells; G-R4b (findings §13) reads rarely cells the same way.
+        never = [c for c in cells if c.state in (repertoire.NEVER, repertoire.RARELY)]
+        parts = [f"G-R2/G-R4b SPOT-READ PACKET -- rater {rater_id} -- {len(never)} never/rarely cell(s)\n"
                  f"For EVERY moment below answer OK / MISROUTED / NOT_HER (see script docstring).\n"
                  f"Respond as JSON: [{{\"cell\": 1, \"moments\": [{{\"m\": 1, \"judgement\": \"OK\"}}, ...]}}, ...]\n"]
         for ci, c in enumerate(never, 1):
@@ -77,11 +79,12 @@ def main() -> None:
                 rows = cur.fetchall()
             key.append({"cell": ci, "rater_id": rater_id, "playbook_id": cell[0],
                         "move_id": cell[1], "scenario_key": mt.get("scenario_key"),
+                        "state": c.state, "csm_said_calls": c.csm_said_calls,
                         "csm_calls": c.csm_calls, "calls_needed": c.calls_needed,
                         "n_moments": len(rows)})
-            block = [f"\n{'=' * 78}\nCELL {ci}  [{mt.get('scenario_key')}] {c.move.move_id}: {mt.get('name')}",
+            block = [f"\n{'=' * 78}\nCELL {ci}  [{mt.get('scenario_key')}] {c.move.move_id}: {mt.get('name')}  (state: {c.state})",
                      f"SCENARIO: {mt.get('situation_signature')}",
-                     f"THE MOVE (never credited): {mt.get('criterion')}",
+                     f"THE MOVE: {mt.get('criterion')}",
                      f"her calls on this scenario: {c.csm_calls} (needed {c.calls_needed}); "
                      f"scored moments: {len(rows)}"]
             for mi, (call_id, src, trig, resp, verdicts) in enumerate(rows, 1):

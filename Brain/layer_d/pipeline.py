@@ -749,8 +749,9 @@ def build_combined_reports(conn, csm_names: dict[str, str]) -> str:
     route_by_cell: dict[tuple[int, str], str] = {}
     for pb in live_playbooks_flat(conn):
         for m in pb["key_moves"]:
-            quotes = [q for q in ((ev.get("quote") or "").strip()
-                                  for ev in (m.get("evidence") or [])) if q]
+            quotes = list(dict.fromkeys(                       # de-duplicated, order kept:
+                q for q in ((ev.get("quote") or "").strip()      # some playbooks carry the
+                            for ev in (m.get("evidence") or [])) if q))  # same quote twice
             cell = (pb["playbook_id"], m["move_id"])
             move_meta[cell] = {
                 "scenario_key": pb["scenario_key"], "name": m.get("name", ""),
@@ -770,7 +771,8 @@ def build_combined_reports(conn, csm_names: dict[str, str]) -> str:
 
     # --- REPERTOIRE section (the say-type coaching deliverable) --------------
     rep_moves = repertoire.naren_repertoire(say_naren)
-    coverage = repertoire.repertoire_coverage(rep_moves, say_csm)
+    densities = storage.get_say_densities(conn)
+    coverage = repertoire.repertoire_coverage(rep_moves, say_csm, densities=densities)
     for rater_id, cells in sorted(coverage.items()):
         blocks.append(repertoire.format_repertoire_report(
             csm_names.get(rater_id, rater_id), cells, move_meta,
@@ -784,7 +786,6 @@ def build_combined_reports(conn, csm_names: dict[str, str]) -> str:
         dead_floor=tuning_d.dead_check_naren_floor,
     )
     naren_by_cell = {(r.playbook_id, r.move_id): r for r in say_naren}
-    densities = storage.get_say_densities(conn)
     for rater_id, gaps in sorted(ranked_say.items()):
         csm_by_cell = {(r.playbook_id, r.move_id): r
                        for r in say_csm.get(rater_id, [])}
