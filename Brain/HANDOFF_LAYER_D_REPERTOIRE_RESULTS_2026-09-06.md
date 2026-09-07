@@ -106,6 +106,21 @@ claimable today; 28 cells need more calls (after the _v4 relabel, §3b).** `grad
   script `calibration/layer_c_levers_for_layer_d.py`; logs `combined_report_20260907_rarely.log`,
   `layer_c_levers_20260907.log`.
 
+## 3d. LAYERS A/B/C FOR LAYER D, BOTH METHODS (2026-09-07, operator request)
+
+Full write-up: `docs/findings/layer-abc-levers-for-layer-d.md`. The one-table answer:
+
+| layer | pairwise | repertoire | do |
+| --- | --- | --- | --- |
+| A | precision yes | precision yes | offline re-adjudication of the 307 clusters with 3.6-flash (adjudicator today is flash-lite) + split proposals for the 3 catch-alls; frozen coherence read; replacement is costly, decide separately |
+| B | no | no | leave (sink = filler + un-routable residue; 5 arms null; rescue closed 4x) |
+| C | maybe, next gen (more DO moves) | no | probe a "what he DOES" prompt on 3 scenarios |
+| D | **yes**: 4-way tie decomposition + multi-exemplar regrade of 32 DO cells (~150-200 req) | **yes**: enlarge Naren benchmark on 3 scenarios (~100-150 req) | pre-register both; cheap one first |
+| data | yes | yes | prefer solo-CSM calls (33% deferral), fix 6 rosters, second CSM |
+
+Measured this session: 3,282 client blocks -> 1,205 moments -> 601 graded (18%); pairwise
+DO cells 32, tie share 59.6%, 10 cells with >= 10 decided verdicts, median 3 per cell.
+
 ## 4. THINGS THAT BIT THIS SESSION (add to your priors)
 
 - **A copy-aside without a directory check silently overwrote nine uncommitted files.**
