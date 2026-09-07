@@ -284,7 +284,8 @@ class GatewayClient:
     def chat_json(self, prompt: str, *, model: str = CHAT_MODEL,
                   temperature: float = 0.2, max_tokens: int = 8192,
                   system: str | None = None, no_cache: bool = False,
-                  reasoning_effort: str | None = None) -> tuple[dict, dict]:
+                  reasoning_effort: str | None = None,
+                  schema: dict | None = None) -> tuple[dict, dict]:
         """A JSON-forced completion. Returns (parsed, usage).
 
         Mirrors call_gemma's contract -- forced JSON, parsed with json.loads -- so a
@@ -307,6 +308,23 @@ class GatewayClient:
         (946ms/794ms, genuinely different text each call). ANY harness measuring run-to-run
         variance MUST set it. Left default-False so existing callers are unchanged: for a
         one-shot production pass the cache is a saving, not a hazard.
+
+        `schema` (2026-09-08) upgrades the request from JSON MODE to a SCHEMA-CONSTRAINED
+        response: pass a JSON Schema and the gateway restricts keys and enum values rather
+        than merely guaranteeing parseable JSON. Measured on gemini-3.6-flash, two runs per
+        arm with a negative control (ADR 0007): a schema declaring one property returned
+        exactly that property against a prompt demanding four, while the same prompt without
+        a schema returned all four; an `enum` held against a prompt demanding a value outside
+        it.
+
+        Default None keeps every existing caller's request body BYTE-IDENTICAL, which is not
+        housekeeping -- Ask Naren's answering prompts are frozen against a measured accuracy
+        number (ADR 0001) and a changed request body could move what the model returns. Do
+        not attach a schema to them.
+
+        Enforcement is a property of a gateway DEPLOYMENT and can change underneath us, so a
+        caller passing a schema must still validate what comes back. A silent regression here
+        would otherwise surface as a wrong value rather than an error.
         """
         messages = []
         if system:
@@ -318,7 +336,10 @@ class GatewayClient:
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
-            "response_format": {"type": "json_object"},
+            "response_format": (
+                {"type": "json_schema", "json_schema": schema} if schema
+                else {"type": "json_object"}
+            ),
         }
         if no_cache:
             body["cache"] = {"no-cache": True}

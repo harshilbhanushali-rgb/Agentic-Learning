@@ -34,7 +34,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ask_naren import answering, citations, retrieval, service   # noqa: E402
+from ask_naren import citations, responding, retrieval, service   # noqa: E402
 from config import load_config                        # noqa: E402
 from preprocessing import embedder                    # noqa: E402
 from shared import storage                            # noqa: E402
@@ -191,7 +191,11 @@ def main() -> int:
 
     with GatewayClient() as gateway:
         def answerer(situation: str) -> dict:
-            return answering.answer_situation(
+            # Through responding.respond, not answer_situation directly (issue #14): intake
+            # runs first and decides whether this is answerable as written, needs the
+            # client's actual words, or is out of scope. answer_situation is unchanged and
+            # is what the reply_to_client path calls.
+            return responding.respond(
                 situation, pool, gateway, embed_query=embedder.embed_query_matrix,
                 label_for=label_for, moves_for=moves_for)
 

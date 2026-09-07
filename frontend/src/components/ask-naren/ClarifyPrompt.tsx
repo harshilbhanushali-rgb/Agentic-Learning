@@ -1,8 +1,8 @@
 import type { AskNarenClarify } from '@/types';
 
 /**
- * Ask Naren asking for something back rather than answering (issue #13 defines the shape;
- * issue #14 starts producing it).
+ * Ask Naren asking for something back rather than answering (shape from issue #13,
+ * produced by intake since issue #14).
  *
  * STYLED AS A QUESTION, NOT AS A FAILURE. A clarify is the tool working: it has decided,
  * before searching anything, that what it was given would retrieve badly -- most often a

@@ -190,8 +190,29 @@ export interface AskNarenMatch {
   rank: number;
 }
 
+/** What intake decided about the message, echoed on every response the service composes
+ *  (issue #14).
+ *
+ *  It exists to make a SILENTLY FAILING intake visible. Intake degrades to answering the
+ *  message as written when the model or gateway misbehaves, so a broken intake and a working
+ *  one both return a normal answer — without this there is nothing to tell them apart.
+ *
+ *  Optional because the proxy synthesises an unreachable decline that never reached the
+ *  service, so no intake ran for it. */
+export interface AskNarenIntake {
+  intent: string;
+  /** What actually got embedded — the client's words with the CSM's framing stripped, which
+   *  is frequently not what the CSM typed. Intake is asked for a verbatim span of the
+   *  message, but that is a prompt rule rather than a guarantee: it has been observed
+   *  composing one instead, once flipping "their side" to "our side". Shown here so a bad
+   *  extraction is visible rather than silent. Always derived from the CSM's own message,
+   *  never from Naren's calls. */
+  retrieval_query: string;
+}
+
 export interface AskNarenAnswer {
   outcome: 'answered';
+  intake?: AskNarenIntake;
   answer: string;
   /** The verbatim fragment of Naren's real reply the answer rests on. Verified server-side
    *  by the grounding gate before it is ever sent. */
@@ -212,11 +233,18 @@ export interface AskNarenAnswer {
 export type AskNarenDeclineReason =
   | 'no_close_match'
   | 'grounding_unverified'
+  /** Decided by intake BEFORE anything is searched (issue #14): the question wants a fact
+   *  about Joveo's product, pricing or contracts, which is not what Naren's call
+   *  transcripts contain. Distinct from the two above because rewording cannot help — which
+   *  is exactly why it is a decline and not a clarify. Carries no `match`: nothing was
+   *  searched, so there is no cosine to report. */
+  | 'out_of_scope'
   | 'service_error'
   | 'service_unreachable';
 
 export interface AskNarenDecline {
   outcome: 'declined';
+  intake?: AskNarenIntake;
   reason: AskNarenDeclineReason;
   /** Already written for a CSM to read. Render it as-is; do not compose a message from
    *  `reason` in the frontend, or there are two sources of truth for the same sentence. */
@@ -231,10 +259,12 @@ export interface AskNarenDecline {
  *  structural rather than incidental: the guarantee is that unverified text never reaches a
  *  CSM in any field, and a shape with no such field cannot carry one. Do not add them.
  *
- *  Nothing produces this yet (issue #14 does). It is defined now so the union settles once
- *  and every render site is already exhaustive over it. */
+ *  Produced when intake decides the message names a topic without carrying the client's
+ *  own words — searching on a bare summary reaches a different part of the corpus than
+ *  searching on what was really said (issue #14). */
 export interface AskNarenClarify {
   outcome: 'clarify';
+  intake?: AskNarenIntake;
   /** The question to put to the CSM, written by the service. Rendered as-is, for the same
    *  reason `message` is on a decline. */
   question: string;

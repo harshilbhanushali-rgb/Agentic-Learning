@@ -52,6 +52,7 @@ CLARIFY = "clarify"
 
 NO_CLOSE_MATCH = "no_close_match"
 GROUNDING_UNVERIFIED = "grounding_unverified"
+OUT_OF_SCOPE = "out_of_scope"
 
 _MESSAGES = {
     NO_CLOSE_MATCH: (
@@ -62,6 +63,11 @@ _MESSAGES = {
         "No answer could be grounded in the matched call. The closest exchange was found, "
         "but the drafted answer could not be verified against what Naren actually said, so "
         "Ask Naren is declining rather than showing it."
+    ),
+    OUT_OF_SCOPE: (
+        "Ask Naren answers from what Naren said on real client calls, so it cannot answer "
+        "questions about Joveo's product, pricing or contract terms. Rewording this will "
+        "not help -- the answer is not in his calls to find."
     ),
 }
 
@@ -267,12 +273,38 @@ def clarify(question: str) -> dict:
     the guarantee is that unverified text never reaches a CSM in ANY field, and a shape with
     no such field cannot leak one even by mistake.
 
-    Nothing produces this yet -- issue #14 does. It lives here so the response contract is
-    defined in one place and settles once, rather than being reopened when clarify ships.
+    Produced by `responding.respond` when intake decides the message lacks the client's
+    own words (issue #14). It lives here, beside the other response builders, so the
+    contract is defined in one place.
     """
     if not (question or "").strip():
         raise ValueError("a clarify with no question is a dead end, not a clarify")
     return {"outcome": CLARIFY, "question": question.strip()}
+
+
+#: Reasons a request can be declined BEFORE retrieval runs. Only these may reach
+#: decline_before_retrieval -- see the guard there for why the allowlist exists.
+PRE_RETRIEVAL_REASONS = frozenset({OUT_OF_SCOPE})
+
+
+def decline_before_retrieval(reason: str) -> dict:
+    """A decline decided BEFORE anything was searched -- today only `out_of_scope`.
+
+    Carries NO `match`, deliberately. Every other decline records how close the match it
+    turned down actually was, because decline-rate calibration is deferred to real usage and
+    is only answerable later if each decline says that. This one searched nothing, so there
+    is no match to report and inventing one would put a fabricated cosine into that record.
+
+    THE ALLOWLIST IS THE POINT, not defensive habit. Called with `NO_CLOSE_MATCH` this would
+    happily emit a post-retrieval reason with no match attached -- silently defeating the
+    very invariant the paragraph above defends, in the one direction nothing else would
+    catch. A new pre-retrieval reason must be added to PRE_RETRIEVAL_REASONS deliberately.
+    """
+    if reason not in PRE_RETRIEVAL_REASONS:
+        raise ValueError(
+            f"{reason!r} is decided AFTER retrieval, so it has a match to report. Use "
+            f"_decline, or add it to PRE_RETRIEVAL_REASONS if it genuinely has none.")
+    return {"outcome": DECLINED, "reason": reason, "message": _MESSAGES[reason]}
 
 
 def _answer(payload: dict, match: Match, rank: int, label_for) -> dict:

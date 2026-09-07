@@ -49,15 +49,15 @@ The client circumstance a CSM describes — what is happening with a client, not
 _Avoid_: query, question, prompt, case.
 
 **Intake**:
-**Specified, not built** (issue #14). The step that reads an incoming message before any retrieval and decides what happens to it: which intent it carries, what should be searched for, and whether to clarify instead of answering. Deliberately NOT "the read" — in this project a _read_ is a blind read, the judged evaluation of outputs, and "we measured the intake" must not be ambiguous with it.
+The step that reads an incoming message before any retrieval and decides what happens to it: which intent it carries, what should be searched for, and whether to clarify instead of answering. Deliberately NOT "the read" — in this project a _read_ is a blind read, the judged evaluation of outputs, and "we measured the intake" must not be ambiguous with it.
 _Avoid_: the read, the router, triage, dispatcher.
 
 **Intent**:
-**Specified, not built** (issue #14). What kind of question a CSM is asking — reply to a client, the general play for a scenario, Naren's phrasing, what the tool even covers. A classification with a knowable correct answer, which is what makes intake measurable without a reader or a generation.
+**Built for three intents** (issue #14): answering from a client's words, clarifying, and declining an out-of-scope question. Issues #17-#23 add the rest. What kind of question a CSM is asking — reply to a client, the general play for a scenario, Naren's phrasing, what the tool even covers. A classification with a knowable correct answer, which is what makes intake measurable without a reader or a generation.
 _Avoid_: question type, category, route.
 
 **Answer path**:
-**Partly built** -- `reply_to_client` is the shipped path; the rest are issues #17-#23. The machinery that serves one intent end to end, including which Brain layer it reads. Distinct from an intent because a composite path reads several layers, and distinct from Brain's **routing**, which means assigning a pair or turn to a scenario — something Ask Naren also does, which is why the two must not share a word.
+**Partly built** -- `reply_to_client` ships, and intake also routes to clarify and to an out-of-scope decline (issue #14); the layer paths are issues #17-#23. The machinery that serves one intent end to end, including which Brain layer it reads. Distinct from an intent because a composite path reads several layers, and distinct from Brain's **routing**, which means assigning a pair or turn to a scenario — something Ask Naren also does, which is why the two must not share a word.
 _Avoid_: route, handler, pipeline.
 
 **Grounding source**:
@@ -65,7 +65,7 @@ _Avoid_: route, handler, pipeline.
 _Avoid_: context, the source, evidence, grounding text.
 
 **Clarify**:
-**Shape defined (issue #13), not produced yet** (issue #14). Returning a question to the CSM instead of an answer, decided BEFORE retrieval, in one of two cases: the message lacks the **material** a search needs (a paraphrase where the client's actual words are what retrieval must see), or it is genuinely ambiguous which **intent** it carries. Distinct from a decline, which is decided after retrieval has run — and distinct from an out-of-scope question, which is answered with a decline rather than a question, because asking a CSM to reword something Ask Naren fundamentally cannot answer helps nobody.
+Returning a question to the CSM instead of an answer, decided BEFORE retrieval, in one of two cases: the message lacks the **material** a search needs (a paraphrase where the client's actual words are what retrieval must see), or it is genuinely ambiguous which **intent** it carries. Distinct from a decline, which is decided after retrieval has run — and distinct from an out-of-scope question, which is answered with a decline rather than a question, because asking a CSM to reword something Ask Naren fundamentally cannot answer helps nobody.
 _Avoid_: ask-back, prompt for detail, follow-up question.
 
 **Thread**:
