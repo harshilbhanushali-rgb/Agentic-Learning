@@ -7,9 +7,10 @@ import { useState } from 'react';
 import { SituationForm } from '@/components/ask-naren/SituationForm';
 import { AnswerCard } from '@/components/ask-naren/AnswerCard';
 import { DeclineNotice } from '@/components/ask-naren/DeclineNotice';
+import { ClarifyPrompt } from '@/components/ask-naren/ClarifyPrompt';
 
 /**
- * Ask Naren (issue #3). One input, three outcomes: asking, answered, declined.
+ * Ask Naren (issue #3). One input; the response is answered, declined or clarify (#13).
  *
  * NO `useMode()` CALL, DELIBERATELY. The page must render identically in Veteran and Newbie
  * mode, and not branching is the only implementation of that which cannot drift. Every
@@ -32,12 +33,40 @@ type Phase =
   | { kind: 'answered'; asked: string; result: AskNarenResponse };
 
 const UNREACHABLE: AskNarenDecline = {
-  declined: true,
+  outcome: 'declined',
   reason: 'service_unreachable',
   message:
     'Ask Naren could not be reached just now. Nothing was answered — this is a fault on ' +
     'our side, not a "no close match". Try again in a moment.',
 };
+
+/** The `outcome` values the service can send. Guards `ask` against a body that parsed as
+ *  JSON but is not this contract -- a proxy or a crashed worker returning something else. */
+const OUTCOMES = new Set<AskNarenResponse['outcome']>(['answered', 'declined', 'clarify']);
+
+/**
+ * The one place a response's `outcome` is turned into a component.
+ *
+ * A SWITCH WITH AN EXHAUSTIVENESS CHECK, not a ternary. `never` in the default branch means
+ * adding a fourth outcome to the union is a BUILD failure here rather than a blank area on
+ * the page at runtime -- which is the whole reason the contract discriminates on one key.
+ * `npm run build` is the only gate this frontend has, so it has to be the thing that catches
+ * it.
+ */
+function Outcome({ result }: { result: AskNarenResponse }) {
+  switch (result.outcome) {
+    case 'answered':
+      return <AnswerCard result={result} />;
+    case 'declined':
+      return <DeclineNotice result={result} />;
+    case 'clarify':
+      return <ClarifyPrompt result={result} />;
+    default: {
+      const unhandled: never = result;
+      throw new Error(`unhandled outcome: ${JSON.stringify(unhandled)}`);
+    }
+  }
+}
 
 export default function AskNarenPage() {
   const [draft, setDraft] = useState('');
@@ -57,7 +86,7 @@ export default function AskNarenPage() {
       // A non-OK status still carries the contract: the service's own fault is a 503 with a
       // decline body, and so is the proxy's unreachable response. Status is not the signal.
       const result = (await res.json()) as AskNarenResponse;
-      if (typeof result?.declined !== 'boolean') throw new Error('unrecognised response');
+      if (!OUTCOMES.has(result?.outcome)) throw new Error('unrecognised response');
       setPhase({ kind: 'answered', asked, result });
     } catch {
       // The proxy itself did not answer -- the app is down, not the service. Rendered as a
@@ -106,11 +135,7 @@ export default function AskNarenPage() {
             </div>
           )}
 
-          {phase.kind === 'answered' && (
-            phase.result.declined
-              ? <DeclineNotice result={phase.result} />
-              : <AnswerCard result={phase.result} />
-          )}
+          {phase.kind === 'answered' && <Outcome result={phase.result} />}
         </section>
       )}
     </div>

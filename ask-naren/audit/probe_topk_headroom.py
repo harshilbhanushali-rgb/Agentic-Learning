@@ -133,7 +133,11 @@ def main() -> int:
         rows.append({
             "situation": rec["situation"][:70],
             "held_out_scenario": want,
-            "declined": rec["result"]["declined"],
+            # Tolerates both artifact generations: the contract discriminates on `outcome`
+            # (issue #13), while the frozen artifacts behind the measured ~80% carry the
+            # older `declined` boolean and are never regenerated.
+            "declined": (rec["result"]["outcome"] != "answered"
+                         if "outcome" in rec["result"] else rec["result"]["declined"]),
             "verdict": verdict_by_situation.get(rec["situation"]),
             "top1_primary": str(primaries[order[0]]),
             "first_same_primary_rank": first_rank,

@@ -38,6 +38,18 @@ MAX_ATTEMPTS = 2
 # it would ship an unmeasured change to the only path with a measured quality number.
 DEFAULT_K = 1
 
+# THE RESPONSE CONTRACT DISCRIMINATES ON `outcome`, NOT ON A BOOLEAN. A caller switches on
+# this one key and the three values are exhaustive. There is deliberately no `declined` flag
+# alongside it: two discriminators for one decision is how the answered and declined paths
+# eventually disagree about which one a response is.
+#
+# NOT the `declined` key in the MODEL's JSON. build_prompt asks the model for that one and
+# grounding.check reads it; it is frozen by ADR 0001 and is a different contract that happens
+# to share an English word. Renaming one must never rename the other.
+ANSWERED = "answered"
+DECLINED = "declined"
+CLARIFY = "clarify"
+
 NO_CLOSE_MATCH = "no_close_match"
 GROUNDING_UNVERIFIED = "grounding_unverified"
 
@@ -247,9 +259,25 @@ def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_quer
     return _decline(GROUNDING_UNVERIFIED, candidates[0], 1, label_for)
 
 
+def clarify(question: str) -> dict:
+    """A question back to the CSM instead of an answer, decided BEFORE retrieval -- so
+    nothing has been searched and there is nothing to be grounded in (ask-naren/CONTEXT.md).
+
+    Carries NO answer, quote or citation key, and that is structural rather than tidiness:
+    the guarantee is that unverified text never reaches a CSM in ANY field, and a shape with
+    no such field cannot leak one even by mistake.
+
+    Nothing produces this yet -- issue #14 does. It lives here so the response contract is
+    defined in one place and settles once, rather than being reopened when clarify ships.
+    """
+    if not (question or "").strip():
+        raise ValueError("a clarify with no question is a dead end, not a clarify")
+    return {"outcome": CLARIFY, "question": question.strip()}
+
+
 def _answer(payload: dict, match: Match, rank: int, label_for) -> dict:
     return {
-        "declined": False,
+        "outcome": ANSWERED,
         "answer": payload["answer"].strip(),
         "quote": payload["quote"].strip(),
         "citation": _citation(match.pair, label_for),
@@ -259,7 +287,7 @@ def _answer(payload: dict, match: Match, rank: int, label_for) -> dict:
 
 def _decline(reason: str, match: Match, rank: int, label_for) -> dict:
     return {
-        "declined": True,
+        "outcome": DECLINED,
         "reason": reason,
         "message": _MESSAGES[reason],
         # Recorded even on a decline: the spec defers decline-rate calibration to real

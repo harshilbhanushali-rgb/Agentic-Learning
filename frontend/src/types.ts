@@ -165,7 +165,7 @@ export interface FailureEntry {
  * mirrored exactly. The proxy at app/api/ask-naren returns it unchanged, so these types
  * describe the service's contract and must not drift from it.
  *
- * Discriminated on `declined`, which is what makes the two render paths exhaustive: an
+ * Discriminated on `outcome`, which is what makes the three render paths exhaustive: an
  * answer always carries a citation, a decline never does. The service guarantees this --
  * an answer that fails its grounding gate becomes a decline rather than an answer with a
  * missing citation. */
@@ -191,7 +191,7 @@ export interface AskNarenMatch {
 }
 
 export interface AskNarenAnswer {
-  declined: false;
+  outcome: 'answered';
   answer: string;
   /** The verbatim fragment of Naren's real reply the answer rests on. Verified server-side
    *  by the grounding gate before it is ever sent. */
@@ -216,7 +216,7 @@ export type AskNarenDeclineReason =
   | 'service_unreachable';
 
 export interface AskNarenDecline {
-  declined: true;
+  outcome: 'declined';
   reason: AskNarenDeclineReason;
   /** Already written for a CSM to read. Render it as-is; do not compose a message from
    *  `reason` in the frontend, or there are two sources of truth for the same sentence. */
@@ -224,4 +224,23 @@ export interface AskNarenDecline {
   match?: AskNarenMatch;
 }
 
-export type AskNarenResponse = AskNarenAnswer | AskNarenDecline;
+/** Ask Naren asking for something back instead of answering — decided BEFORE retrieval, so
+ *  nothing was searched and nothing is grounded (see `ask-naren/CONTEXT.md`).
+ *
+ *  NOTE THE ABSENT FIELDS. There is no `answer`, `quote` or `citation` here, and that is
+ *  structural rather than incidental: the guarantee is that unverified text never reaches a
+ *  CSM in any field, and a shape with no such field cannot carry one. Do not add them.
+ *
+ *  Nothing produces this yet (issue #14 does). It is defined now so the union settles once
+ *  and every render site is already exhaustive over it. */
+export interface AskNarenClarify {
+  outcome: 'clarify';
+  /** The question to put to the CSM, written by the service. Rendered as-is, for the same
+   *  reason `message` is on a decline. */
+  question: string;
+}
+
+/** Discriminated on `outcome`, NOT on a boolean. Two discriminators for one decision is how
+ *  the answered and declined render paths eventually disagree about which one a response
+ *  is; one key keeps `npm run build` exhaustive over all three. */
+export type AskNarenResponse = AskNarenAnswer | AskNarenDecline | AskNarenClarify;

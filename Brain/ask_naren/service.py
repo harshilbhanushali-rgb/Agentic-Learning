@@ -90,7 +90,7 @@ def _make_handler(answerer: Callable[[str], dict]) -> type[BaseHTTPRequestHandle
                 # message could name internal hosts, and it is not something a CSM can act
                 # on. The 503 is what tells an operator this was a fault, not a decline.
                 traceback.print_exc(file=sys.stderr)
-                self._send(503, {"declined": True, "reason": SERVICE_ERROR,
+                self._send(503, {"outcome": "declined", "reason": SERVICE_ERROR,
                                  "message": _SERVICE_ERROR_MESSAGE})
 
         def _read_situation(self) -> str:

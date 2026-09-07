@@ -65,7 +65,7 @@ def _ask(*payloads, situation="client says our cost per hire is way too high"):
 
 def test_a_grounded_generation_is_returned_with_its_citation():
     result, _ = _ask(_payload())
-    assert result["declined"] is False
+    assert result["outcome"] == "answered"
     assert result["answer"] == "Pull their last 90 days and reframe on their own baseline."
     assert result["quote"] == GOOD_QUOTE
     assert result["citation"]["call_filename"] == CALL
@@ -90,7 +90,7 @@ def test_an_answer_reports_how_close_the_match_actually_was():
 
 def test_a_model_decline_is_reported_as_no_close_match():
     result, _ = _ask(_payload(declined=True, answer="", quote="", cited_call=""))
-    assert result["declined"] is True
+    assert result["outcome"] == "declined"
     assert result["reason"] == "no_close_match"
     assert result["message"]
 
@@ -98,6 +98,39 @@ def test_a_model_decline_is_reported_as_no_close_match():
 def test_a_decline_carries_no_answer_or_quote_for_a_caller_to_render():
     result, _ = _ask(_payload(declined=True, answer="", quote="", cited_call=""))
     assert "answer" not in result and "quote" not in result
+
+
+def test_no_response_carries_the_old_declined_boolean():
+    """The response contract discriminates on `outcome`, not on a boolean.
+
+    Two discriminators for one decision is how the answered and declined paths eventually
+    disagree about which one a response is, so the boolean is GONE rather than kept
+    alongside. Asserted on both outcomes because a leftover on either is the bug.
+    """
+    answered, _ = _ask(_payload())
+    declined, _ = _ask(_payload(declined=True, answer="", quote="", cited_call=""))
+    assert "declined" not in answered
+    assert "declined" not in declined
+
+
+def test_the_models_declined_key_is_not_the_responses_outcome():
+    """`declined` still exists -- in the MODEL's JSON, which build_prompt asks for and the
+    grounding gate reads. That key is frozen by ADR 0001 and is a different thing from the
+    response's `outcome`. This pins that renaming one did not rename the other."""
+    _, gw = _ask(_payload(declined=True, answer="", quote="", cited_call=""))
+    assert '"declined": boolean' in gw.calls[0]["prompt"]
+
+
+def test_a_clarify_carries_no_field_an_ungrounded_answer_could_ride_in():
+    """Nothing produces a clarify yet (issue #14 does). The SHAPE is defined here because
+    the grounding guarantee is structural: a clarify has no answer, quote or citation field
+    at all, so there is nowhere for unverified text to reach a CSM even by mistake."""
+    result = answering.clarify("What did the client actually say?")
+    assert result["outcome"] == "clarify"
+    assert result["question"] == "What did the client actually say?"
+    assert "answer" not in result
+    assert "quote" not in result
+    assert "citation" not in result
 
 
 def test_a_decline_still_reports_the_retrieval_cosine():
@@ -111,7 +144,7 @@ def test_a_decline_still_reports_the_retrieval_cosine():
 
 def test_an_unverifiable_generation_is_retried_once_and_the_retry_can_succeed():
     result, _ = _ask(_payload(quote="we guarantee a 40% lift by Friday"), _payload())
-    assert result["declined"] is False
+    assert result["outcome"] == "answered"
     assert result["quote"] == GOOD_QUOTE
 
 
@@ -120,7 +153,7 @@ def test_two_unverifiable_generations_decline_rather_than_answer():
     decline proves the service stopped at one retry instead of looping."""
     fabricated = _payload(answer="Promise them a 40% lift.", quote="a 40% lift by Friday")
     result, _ = _ask(fabricated, fabricated)
-    assert result["declined"] is True
+    assert result["outcome"] == "declined"
     assert result["reason"] == "grounding_unverified"
 
 
@@ -135,7 +168,7 @@ def test_an_unverified_answer_is_never_forwarded_in_any_field():
 def test_a_generation_citing_the_wrong_call_is_refused():
     wrong = _payload(cited_call="a_call_never_retrieved.txt")
     result, _ = _ask(wrong, wrong)
-    assert result["declined"] is True
+    assert result["outcome"] == "declined"
     assert result["reason"] == "grounding_unverified"
 
 
@@ -188,7 +221,7 @@ def test_an_answer_grounded_in_the_second_candidate_cites_the_second_candidate()
     passed."""
     result, _ = _ask_k(_payload(answer="Tell them you will confirm today.",
                                 quote=SECOND_QUOTE, cited_call=SECOND_CALL), k=2)
-    assert result["declined"] is False
+    assert result["outcome"] == "answered"
     assert result["citation"]["pair_id"] == 22
     assert result["citation"]["scenario_key"] == "timeline_question"
     assert result["match"]["scenario_key"] == "timeline_question"
@@ -273,7 +306,7 @@ def test_switched_on_but_the_scenario_has_no_live_playbook_degrades_to_pairs_onl
     result = answering.answer_situation(
         "client says our cost per hire is way too high", _pool(), gw,
         embed_query=_embed_query, moves_for=lambda _key: None)
-    assert result["declined"] is False
+    assert result["outcome"] == "answered"
     assert gw.calls[0]["prompt"] == answering.build_prompt(
         "client says our cost per hire is way too high", _pool().pairs[0])
 
@@ -286,6 +319,6 @@ def test_the_grounding_gate_applies_identically_in_the_playbook_variant():
     result = answering.answer_situation(
         "client says our cost per hire is way too high", _pool(), gw,
         embed_query=_embed_query, moves_for=_moves_for)
-    assert result["declined"] is True
+    assert result["outcome"] == "declined"
     assert result["reason"] == "grounding_unverified"
     assert "40% lift" not in repr(result)

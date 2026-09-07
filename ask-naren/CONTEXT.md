@@ -21,7 +21,7 @@ The Ask Naren prompt variant that adds the scenario's Brain Layer C playbook (`k
 _Avoid_: variant B, playbook prompt.
 
 **Grounding gate**:
-The check Ask Naren runs at request time, before a grounded answer reaches the CSM: the model's returned quote must verify as verbatim against the cited `kb_pair`'s response text, and the call it cites must be the one that was actually retrieved. On failure Ask Naren regenerates once and then declines rather than showing an unverified answer. This is what makes the citation guarantee in `docs/adr/0002-citations-are-unredacted.md` a property of every live answer instead of a statistic from an offline eval.
+The check Ask Naren runs at request time, before a grounded answer reaches the CSM: the model's returned quote must verify as verbatim against the answer's **grounding source**, and what it cites must be something it was actually shown. There is ONE gate; what differs between answer paths is the grounding source, never whether an answer has one. **Only the `kb_pair` source is built** -- the gate verifies against a retrieved pair's response text today; issue #17 generalises it. On failure Ask Naren regenerates once and then declines rather than showing an unverified answer. This is what makes the citation guarantee in `docs/adr/0002-citations-are-unredacted.md` a property of every live answer instead of a statistic from an offline eval.
 _Avoid_: quote check, verbatim check, hallucination filter.
 
 **Retrieval floor**:
@@ -39,6 +39,39 @@ _Avoid_: top-K, candidate set, the five, retrieval window.
 **Grounded candidate**:
 The one exchange from a candidate shortlist that an answer actually rests on — the one whose reply the model's quote verifies against. It is frequently not the nearest one, which is why a response's `citation`, `match.cosine` and `match.rank` all describe the grounded candidate rather than rank 1.
 _Avoid_: chosen pair, selected match, the winner.
+
 **Request frame**:
 The wrapper a CSM puts around a client's words when asking Ask Naren for help — "A client said this, can you help with how Naren would reply?" A CSM RELAYS the client's words inside a frame rather than paraphrasing them, which is why the eval's query content was closer to production than assumed and the frame was the missing part. Measured 2026-08-27: adding a frame changes which exchange retrieval reaches for 81% of situations, because boilerplate shared by every query pulls all queries toward each other. See `docs/findings/answer-failure-modes.md`.
 _Avoid_: prompt prefix, wrapper text, preamble.
+
+**Situation**:
+The client circumstance a CSM describes — what is happening with a client, not the message that describes it and not the conversation it arrives in. One thread can carry several messages about a single situation.
+_Avoid_: query, question, prompt, case.
+
+**Intake**:
+**Specified, not built** (issue #14). The step that reads an incoming message before any retrieval and decides what happens to it: which intent it carries, what should be searched for, and whether to clarify instead of answering. Deliberately NOT "the read" — in this project a _read_ is a blind read, the judged evaluation of outputs, and "we measured the intake" must not be ambiguous with it.
+_Avoid_: the read, the router, triage, dispatcher.
+
+**Intent**:
+**Specified, not built** (issue #14). What kind of question a CSM is asking — reply to a client, the general play for a scenario, Naren's phrasing, what the tool even covers. A classification with a knowable correct answer, which is what makes intake measurable without a reader or a generation.
+_Avoid_: question type, category, route.
+
+**Answer path**:
+**Partly built** -- `reply_to_client` is the shipped path; the rest are issues #17-#23. The machinery that serves one intent end to end, including which Brain layer it reads. Distinct from an intent because a composite path reads several layers, and distinct from Brain's **routing**, which means assigning a pair or turn to a scenario — something Ask Naren also does, which is why the two must not share a word.
+_Avoid_: route, handler, pipeline.
+
+**Grounding source**:
+**Named now, variable later** -- every live answer grounds in a `kb_pair`; the playbook source is issue #17. The specific stored text an answer must rest on, and what the grounding gate verifies its quote against. A Layer B answer grounds in the matched `kb_pair`'s response text; a Layer C answer grounds in the playbook's evidence quotes.
+_Avoid_: context, the source, evidence, grounding text.
+
+**Clarify**:
+**Shape defined (issue #13), not produced yet** (issue #14). Returning a question to the CSM instead of an answer, decided BEFORE retrieval, in one of two cases: the message lacks the **material** a search needs (a paraphrase where the client's actual words are what retrieval must see), or it is genuinely ambiguous which **intent** it carries. Distinct from a decline, which is decided after retrieval has run — and distinct from an out-of-scope question, which is answered with a decline rather than a question, because asking a CSM to reword something Ask Naren fundamentally cannot answer helps nobody.
+_Avoid_: ask-back, prompt for detail, follow-up question.
+
+**Thread**:
+**Specified, not built** (issue #15). One continuing conversation between a CSM and Ask Naren. Ask Naren stores none of it — a thread is held by the caller and replayed with each message, in keeping with the service holding no database handle while answering.
+_Avoid_: session, chat, history, conversation.
+
+**Follow-up**:
+**Specified, not built** (issue #16). A message that only carries meaning inside its thread ("and if they push back on price?"). It is the case that retrieves nothing useful on its own words, so it is answered from the thread and the grounding source already cited rather than by searching again.
+_Avoid_: continuation, next turn, reply.

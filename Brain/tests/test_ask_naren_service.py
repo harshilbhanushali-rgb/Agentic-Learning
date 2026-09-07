@@ -8,7 +8,7 @@ import pytest
 
 from ask_naren import service
 
-ANSWER = {"declined": False, "answer": "Reframe on their own baseline.",
+ANSWER = {"outcome": "answered", "answer": "Reframe on their own baseline.",
           "quote": "their own baseline", "citation": {"label": "a_call.txt"},
           "match": {"cosine": 0.71, "scenario_key": "performance_pushback"}}
 
@@ -49,11 +49,11 @@ def test_the_situation_reaches_the_answerer_verbatim(serve_with):
 def test_a_decline_is_a_successful_response_not_an_error(serve_with):
     """A decline is Ask Naren working correctly. Returning it as an HTTP error would make
     every caller treat conservative behaviour as an outage."""
-    decline = {"declined": True, "reason": "no_close_match", "message": "No close match."}
+    decline = {"outcome": "declined", "reason": "no_close_match", "message": "No close match."}
     base = serve_with(lambda situation: decline)
     r = httpx.post(f"{base}/ask", json={"situation": "anything"})
     assert r.status_code == 200
-    assert r.json()["declined"] is True
+    assert r.json()["outcome"] == "declined"
 
 
 def test_a_blank_situation_is_rejected_without_reaching_the_answerer(serve_with):
@@ -87,7 +87,7 @@ def test_an_answerer_failure_reads_as_a_decline_not_a_traceback(serve_with):
     r = httpx.post(f"{base}/ask", json={"situation": "anything"})
     assert r.status_code == 503
     body = r.json()
-    assert body["declined"] is True
+    assert body["outcome"] == "declined"
     assert body["reason"] == "service_error"
     assert body["message"]
     assert "gateway unreachable" not in json.dumps(body)

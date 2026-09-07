@@ -51,7 +51,7 @@ const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8' } as co
  *  able to tell "Naren never faced this" from "the tool is broken" without being shown a
  *  reason code. */
 const UNREACHABLE = {
-  declined: true,
+  outcome: 'declined',
   reason: 'service_unreachable',
   message:
     'Ask Naren could not be reached just now. Nothing was answered — this is a fault on ' +

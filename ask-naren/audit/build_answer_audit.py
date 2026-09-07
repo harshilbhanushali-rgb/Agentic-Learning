@@ -173,6 +173,24 @@ def _sample(pairs: list[dict], rng, n: int) -> list[dict]:
     return picked[:n]
 
 
+def was_declined(result: dict) -> bool:
+    """Whether a recorded result was a decline, across BOTH response shapes.
+
+    The response contract now discriminates on `outcome` (issue #13); artifacts written
+    before that carry a `declined` boolean instead. Both must stay readable and this is not
+    housekeeping: the committed artifacts behind the measured ~80% are FROZEN, regenerating
+    them costs real generation spend, and a regenerated arm is no longer comparable to the
+    recorded number it exists to be compared against. So old artifacts keep the boolean
+    forever and a fresh run writes `outcome`.
+
+    A clarify counts as not-answered here, which is what every caller below wants: it has no
+    answer to audit.
+    """
+    if "outcome" in result:
+        return result["outcome"] != "answered"
+    return bool(result["declined"])
+
+
 def _generate(items, pool, gw, out_path, k):
     records = []
     for n, item in enumerate(items, 1):
@@ -195,7 +213,7 @@ def _generate(items, pool, gw, out_path, k):
         # measurement artifact. Same class of error as the invalid positive control that
         # issue #7 caught: the material shown has to match the rubric it is scored against.
         shown = candidates[0]
-        if not result["declined"]:
+        if not was_declined(result):
             shown = next(m for m in candidates
                          if m.pair["pair_id"] == result["citation"]["pair_id"])
 
@@ -211,7 +229,7 @@ def _generate(items, pool, gw, out_path, k):
                            "scenario_key": m.pair["scenario_key"],
                            "call_filename": m.pair["call_filename"],
                            "cosine": m.cosine} for m in candidates],
-            "grounded_rank": None if result["declined"] else result["match"]["rank"],
+            "grounded_rank": None if was_declined(result) else result["match"]["rank"],
             "retrieved_scenario": shown.pair["scenario_key"],
             "retrieved_trigger": shown.pair["trigger_text"],
             "retrieved_response": shown.pair["response_text"],
@@ -220,7 +238,7 @@ def _generate(items, pool, gw, out_path, k):
             "result": result,
         })
         out_path.write_text(json.dumps(records, indent=2), encoding="utf-8")
-        state = "DECLINED" if result["declined"] else "answered"
+        state = "DECLINED" if was_declined(result) else "answered"
         print(f"  [{n}/{len(items)}] {state} cos={shown.cosine:.3f} "
               f"rank={records[-1]['grounded_rank']} "
               f"same_scenario={records[-1]['same_scenario']}", flush=True)
@@ -305,7 +323,7 @@ def main() -> int:
         with GatewayClient() as gw:
             records = _generate(items, pool, gw, raw_path, args.k)
 
-    answered = [r for r in records if not r["result"]["declined"]]
+    answered = [r for r in records if not was_declined(r["result"])]
     print(f"\n[generated] {len(records)} items, {len(answered)} answered, "
           f"{len(records) - len(answered)} declined", flush=True)
     if not answered:
@@ -333,7 +351,7 @@ def main() -> int:
             except Exception as e:                    # noqa: BLE001
                 print(f"  positive FAILED: {e}", flush=True)
                 continue
-            if res["declined"]:
+            if was_declined(res):
                 print("  positive declined -- skipped (a declined positive is not a "
                       "known-right item)", flush=True)
                 continue

@@ -63,6 +63,21 @@ ARMS = (1, 5)
 SEED = 20260827
 
 
+def _was_declined(result: dict) -> bool:
+    """Whether a recorded result was a decline, across BOTH artifact generations.
+
+    The response contract discriminates on `outcome` (issue #13); artifacts written before
+    that carry a `declined` boolean. The committed artifacts behind the measured ~80% are
+    FROZEN and still carry the boolean -- regenerating them costs real spend and a
+    regenerated arm is no longer comparable to the number it exists to be compared against.
+    So both shapes stay readable, permanently. Same rule as build_answer_audit.was_declined,
+    repeated rather than imported because that module pulls in the embedder.
+    """
+    if "outcome" in result:
+        return result["outcome"] != "answered"
+    return bool(result["declined"])
+
+
 def _arm_file(name: str, k: int) -> Path:
     return ARTIFACTS / (f"{name}.json" if k == 1 else f"{name}_k{k}.json")
 
@@ -89,8 +104,8 @@ def build(args) -> int:
               "are paired; the rest are excluded from the judged comparison.")
 
     judged = [s for s in shared
-              if not raw[1][s]["result"]["declined"]
-              and not raw[5][s]["result"]["declined"]]
+              if not _was_declined(raw[1][s]["result"])
+              and not _was_declined(raw[5][s]["result"])]
     print(f"[paired] {len(judged)} situations answered by BOTH arms -> "
           f"{len(judged) * 2} real items")
 
@@ -160,11 +175,11 @@ def _structural(raw) -> None:
     print("=" * 78)
     for k in ARMS:
         rows = list(raw[k].values())
-        declined = [r for r in rows if r["result"]["declined"]]
+        declined = [r for r in rows if _was_declined(r["result"])]
         reasons: dict[str, int] = {}
         for r in declined:
             reasons[r["result"]["reason"]] = reasons.get(r["result"]["reason"], 0) + 1
-        answered = [r for r in rows if not r["result"]["declined"]]
+        answered = [r for r in rows if not _was_declined(r["result"])]
         same = sum(1 for r in answered if r["same_scenario"])
         print(f"  k={k}: {len(rows)} items, {len(answered)} answered, "
               f"{len(declined)} declined ({len(declined) / max(len(rows), 1):.0%}) "
@@ -289,7 +304,8 @@ def score(args) -> int:
 def build_unpaired(args) -> int:
     raw = {k: _raw_by_situation(k) for k in ARMS}
     shared = sorted(set(raw[1]) & set(raw[5]))
-    dec = lambda r: r["result"]["declined"]
+    def dec(r):
+        return _was_declined(r["result"])
 
     exclusive = []
     for s in shared:

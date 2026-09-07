@@ -105,7 +105,10 @@ def main() -> int:
                       "cited_call": FAR})
     res = answering.answer_situation("do you cover all job boards across the globe",
                                      masked, gw, embed_query=_embed, k=2)
-    check("answered", res["declined"], False)
+    # `outcome`, not a boolean (issue #13). The StubGateway payload above still carries a
+    # `declined` key because that is the MODEL's contract, frozen by ADR 0001 -- a different
+    # thing that happens to share a word.
+    check("answered", res["outcome"], "answered")
     check("cites the grounded call, not rank 1", res["citation"]["call_filename"], FAR)
     check("reports the rank it came from", res["match"]["rank"], 2)
     check("every candidate reached the prompt",
@@ -121,7 +124,7 @@ def main() -> int:
     gw1 = StubGateway({"declined": False, "answer": "Point out it is a curated set.",
                        "quote": "we localized those last quarter", "cited_call": NEAR})
     res1 = answering.answer_situation("x", masked, gw1, embed_query=_embed, k=1)
-    check("answered", res1["declined"], False)
+    check("answered", res1["outcome"], "answered")
     check("rank is 1", res1["match"]["rank"], 1)
     check("used the single-candidate prompt, byte for byte",
           gw1.prompts[0] == answering.build_prompt("x", PAIRS[1]), True)
