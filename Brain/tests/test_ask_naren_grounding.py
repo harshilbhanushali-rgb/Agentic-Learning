@@ -22,18 +22,19 @@ def _model(answer="Pull their last 90 days of spend and reframe on their own bas
 
 
 def test_a_real_quote_from_the_retrieved_call_passes():
-    assert grounding.check(_model(), [MATCHED]).passed
+    assert grounding.check(_model(), grounding.from_pairs([MATCHED])).passed
 
 
 def test_case_and_punctuation_differences_do_not_fail_a_real_quote():
     """A model re-capitalising or dropping a comma has not fabricated anything. Uses
     layer_d.verify_quotes, whose normalization Brain already settled for exactly this."""
     quote = "Show them Cost Per Hire against their own baseline!"
-    assert grounding.check(_model(quote=quote), [MATCHED]).passed
+    assert grounding.check(_model(quote=quote), grounding.from_pairs([MATCHED])).passed
 
 
 def test_a_fabricated_quote_is_refused():
-    result = grounding.check(_model(quote="we guarantee a 40% lift by Friday"), [MATCHED])
+    result = grounding.check(_model(quote="we guarantee a 40% lift by Friday"),
+                             grounding.from_pairs([MATCHED]))
     assert not result.passed
     assert result.reason == "quote_not_verbatim"
 
@@ -42,11 +43,11 @@ def test_a_paraphrase_of_the_response_is_not_a_verbatim_quote():
     """The gate is verbatim containment, not similarity -- a close paraphrase is exactly
     the failure mode that reads as grounded and is not."""
     quote = "showed them their cost-per-hire versus their own historical baseline numbers"
-    assert not grounding.check(_model(quote=quote), [MATCHED]).passed
+    assert not grounding.check(_model(quote=quote), grounding.from_pairs([MATCHED])).passed
 
 
 def test_an_empty_quote_never_passes():
-    result = grounding.check(_model(quote="   "), [MATCHED])
+    result = grounding.check(_model(quote="   "), grounding.from_pairs([MATCHED]))
     assert not result.passed
     assert result.reason == "quote_not_verbatim"
 
@@ -54,19 +55,20 @@ def test_an_empty_quote_never_passes():
 def test_citing_a_call_that_was_not_retrieved_is_refused():
     """Only one exchange is ever put in the prompt, so a different citation means the model
     named a source it was not shown -- the citation would point a CSM at the wrong call."""
-    result = grounding.check(_model(cited_call="some_other_call.txt"), [MATCHED])
+    result = grounding.check(_model(cited_call="some_other_call.txt"),
+                             grounding.from_pairs([MATCHED]))
     assert not result.passed
     assert result.reason == "wrong_call_cited"
 
 
 def test_a_citation_differing_only_in_case_or_spacing_still_passes():
-    assert grounding.check(_model(cited_call=f"  {CALL.upper()} "), [MATCHED]).passed
+    assert grounding.check(_model(cited_call=f"  {CALL.upper()} "), grounding.from_pairs([MATCHED])).passed
 
 
 def test_an_empty_answer_is_refused_even_when_the_quote_verifies():
     """A verified quote with nothing built on it is not an answer; forwarding it would show
     a CSM a citation and no guidance."""
-    result = grounding.check(_model(answer="  "), [MATCHED])
+    result = grounding.check(_model(answer="  "), grounding.from_pairs([MATCHED]))
     assert not result.passed
     assert result.reason == "empty_answer"
 
@@ -74,7 +76,8 @@ def test_an_empty_answer_is_refused_even_when_the_quote_verifies():
 def test_a_missing_key_is_refused_rather_than_treated_as_absent_evidence():
     """A malformed payload must fail closed. `.get` returning None on `quote` is the one
     shape that could otherwise slip through a truthiness check as 'nothing to verify'."""
-    assert not grounding.check({"declined": False, "answer": "x"}, [MATCHED]).passed
+    assert not grounding.check({"declined": False, "answer": "x"},
+                               grounding.from_pairs([MATCHED])).passed
 
 
 # -- the candidate shortlist (issue #8) -------------------------------------------------
@@ -94,9 +97,9 @@ def test_the_gate_resolves_the_candidate_the_answer_actually_rests_on():
     to name that exchange, not whichever one retrieval ranked first, or every top-K
     citation is quietly wrong while the gate still reports pass."""
     result = grounding.check(_model(quote=QUOTE_B, cited_call=CALL_B),
-                             [MATCHED, MATCHED_B])
+                             grounding.from_pairs([MATCHED, MATCHED_B]))
     assert result.passed
-    assert result.pair["call_filename"] == CALL_B
+    assert result.source.payload["call_filename"] == CALL_B
 
 
 def test_citing_one_candidate_while_quoting_another_is_refused():
@@ -104,14 +107,15 @@ def test_citing_one_candidate_while_quoting_another_is_refused():
     quote lifted from candidate B under candidate A's citation is coherent, verbatim, and
     points at the wrong call. Verifying against the WHOLE shortlist instead of against the
     cited candidate would wave this through."""
-    result = grounding.check(_model(quote=QUOTE_B, cited_call=CALL), [MATCHED, MATCHED_B])
+    result = grounding.check(_model(quote=QUOTE_B, cited_call=CALL),
+                             grounding.from_pairs([MATCHED, MATCHED_B]))
     assert not result.passed
     assert result.reason == "quote_not_verbatim"
 
 
 def test_citing_a_call_in_none_of_the_candidates_is_refused():
     result = grounding.check(_model(cited_call="never_retrieved.txt"),
-                             [MATCHED, MATCHED_B])
+                             grounding.from_pairs([MATCHED, MATCHED_B]))
     assert not result.passed
     assert result.reason == "wrong_call_cited"
 
@@ -125,6 +129,72 @@ def test_two_candidates_from_the_same_call_are_separated_by_the_quote_not_by_ran
         "call_filename": CALL}
     result = grounding.check(
         _model(quote="I checked it with finance on Monday", cited_call=CALL),
-        [MATCHED, other_exchange_same_call])
+        grounding.from_pairs([MATCHED, other_exchange_same_call]))
     assert result.passed
-    assert result.pair["response_text"].startswith("That renewal date")
+    assert result.source.payload["response_text"].startswith("That renewal date")
+
+
+# -- a variable grounding source (issue #17) -----------------------------------------------
+#
+# ONE GATE, A DIFFERENT SOURCE. A Layer C answer rests on a playbook's evidence quotes rather
+# than on a retrieved exchange, and it is held to exactly the same bar by exactly the same
+# function -- which is the point of `GroundingSource`. What follows is the Layer B block
+# above, re-run against playbook evidence.
+
+MOVE_QUOTE = (
+    "if there are certain jobs that have a much higher cost per hire goal than what you "
+    "have, we will turn those off. Our system will automatically turn those off."
+)
+MOVE_CALL = "20250313_lululemon_joveo_global_strategy_727bb086"
+EVIDENCE = [{"quote": MOVE_QUOTE, "call": MOVE_CALL, "account": "lululemon.com"}]
+
+
+def test_a_playbook_answer_quoting_its_evidence_verbatim_passes():
+    result = grounding.check(
+        _model(answer="Tell them the guardrails turn those jobs off automatically.",
+               quote="our system will automatically turn those off",
+               cited_call=MOVE_CALL),
+        grounding.from_playbook_evidence(EVIDENCE))
+    assert result.passed
+    assert result.source.payload["account"] == "lululemon.com"
+
+
+def test_a_playbook_answer_quoting_a_plausible_near_miss_fails():
+    """The failure a Layer C answer is MOST likely to produce: the playbook's criterion is
+    written in the model's own words, sitting in the prompt right beside the evidence, and
+    quoting the criterion instead of the evidence reads as grounded and is not."""
+    result = grounding.check(
+        _model(answer="Tell them the system turns those off.",
+               quote="the system automatically disables jobs that exceed the target",
+               cited_call=MOVE_CALL),
+        grounding.from_playbook_evidence(EVIDENCE))
+    assert not result.passed
+    assert result.reason == "quote_not_verbatim"
+
+
+def test_a_playbook_answer_citing_a_call_it_was_not_shown_fails():
+    result = grounding.check(
+        _model(quote="our system will automatically turn those off",
+               cited_call="20240101_someone_else_joveo_call_abc123"),
+        grounding.from_playbook_evidence(EVIDENCE))
+    assert not result.passed
+    assert result.reason == "wrong_call_cited"
+
+
+def test_one_call_supplying_evidence_for_two_moves_is_separated_by_the_quote():
+    """Routine on the Layer C path in a way it is only occasional on Layer B: one call
+    frequently supplies evidence for several moves, so the citation alone cannot say which
+    quote an answer rests on."""
+    second = {"quote": "we flag them rather than auto rejecting them on that time frame",
+              "call": MOVE_CALL, "account": "lululemon.com"}
+    result = grounding.check(
+        _model(quote="we flag them rather than auto rejecting them", cited_call=MOVE_CALL),
+        grounding.from_playbook_evidence(EVIDENCE + [second]))
+    assert result.passed
+    assert result.source.payload["quote"].startswith("we flag them")
+
+
+def test_an_evidence_entry_with_no_quote_is_not_a_source():
+    """A playbook move can carry an empty evidence slot. An empty source would make the
+    gate's containment check trivially true for any quote."""
+    assert grounding.from_playbook_evidence([{"quote": "  ", "call": MOVE_CALL}]) == []

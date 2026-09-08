@@ -28,48 +28,91 @@ from layer_d.verify_quotes import verify_quote
 QUOTE_MIN_OVERLAP = 1.0
 
 @dataclass(frozen=True)
+class GroundingSource:
+    """One thing an answer is allowed to rest on (`ask-naren/CONTEXT.md`, issue #17).
+
+    THERE IS ONE GATE; WHAT VARIES BETWEEN ANSWER PATHS IS THE SOURCE. A Layer B answer
+    grounds in a matched `kb_pair`'s response text. A Layer C answer grounds in a playbook's
+    evidence quotes. Both reduce to the same two questions -- did the model cite something it
+    was actually shown, and does its quote really appear in that thing -- so both go through
+    the same `check` rather than through a second gate that could drift from this one.
+
+    `identifier` is what the model's `cited_call` must name. It is a call filename on both
+    paths today, because a playbook's evidence quotes each record the call they came from --
+    which is why generalising the gate did not need a new field in the model's JSON contract.
+
+    `payload` is whatever the CALLER needs back when this source is the one that verified: a
+    `kb_pair` row on the Layer B path, a playbook move on the Layer C path. The gate never
+    looks inside it.
+    """
+    identifier: str
+    text: str
+    payload: dict
+
+
+def from_pairs(pairs: list[dict]) -> list[GroundingSource]:
+    """The Layer B sources: the retrieved exchanges the prompt showed."""
+    return [GroundingSource(identifier=p["call_filename"], text=p["response_text"],
+                            payload=p) for p in pairs]
+
+
+def from_playbook_evidence(entries: list[dict]) -> list[GroundingSource]:
+    """The Layer C sources: every evidence quote the playbook document carries.
+
+    An entry is a playbook `evidence` item -- `{quote, call, account}` -- flattened out of
+    whichever section it came from. Each quote is its own source rather than the section
+    being one big source, because the gate must be able to say WHICH quote an answer rests
+    on, exactly as it says which exchange on the Layer B path.
+    """
+    return [GroundingSource(identifier=e["call"], text=e["quote"], payload=e)
+            for e in entries if (e.get("quote") or "").strip()]
+
+
+@dataclass(frozen=True)
 class GateResult:
     passed: bool
     reason: str = ""       # "" when passed; a stable machine-readable cause otherwise
-    # On a pass, the ONE candidate the quote verified against. The caller cites this pair,
-    # not the nearest-ranked one -- with a shortlist those are frequently not the same pair,
-    # and citing rank 1 regardless would point a CSM at a call the answer does not come
-    # from while every gate metric still reported a pass.
-    pair: dict | None = None
+    # On a pass, the ONE source the quote verified against. The caller cites this source,
+    # not the nearest-ranked one -- with a shortlist those are frequently not the same, and
+    # citing rank 1 regardless would point a CSM at a call the answer does not come from
+    # while every gate metric still reported a pass.
+    source: GroundingSource | None = None
 
 
 def _norm(text: str | None) -> str:
     return " ".join((text or "").split()).lower()
 
 
-def check(model_json: dict, candidates: list[dict]) -> GateResult:
-    """Does this generated payload rest on one of the exchanges it was actually given?
+def check(model_json: dict, sources: list[GroundingSource]) -> GateResult:
+    """Does this generated payload rest on one of the sources it was actually given?
 
-    `candidates` is the shortlist the prompt showed, nearest first -- a ONE-element list on
-    the shipped rank-1 path, which is why widening this signature does not change that
-    path's behaviour: with one candidate the checks below reduce exactly to the previous
+    `sources` is what the prompt showed, in the order it showed them -- a ONE-element list on
+    the shipped rank-1 Layer B path, which is why widening this signature does not change
+    that path's behaviour: with one source the checks below reduce exactly to the previous
     equality-plus-containment pair, in the same order, with the same reasons.
 
     Fails closed on every malformed shape: a missing key, a blank quote and a blank answer
     are all refusals, never "nothing to check".
 
-    Two candidates CAN share a call_filename -- dedup is keyed on content, so two different
-    exchanges from the same call both survive the pool (tests/test_ask_naren_retrieval.py
-    pins that). So cited_call does not always identify a single exchange, and the tie is
-    broken by which candidate's reply the quote actually verifies against rather than by
-    rank: rank would resolve ambiguity in favour of the pair the model may not have used.
+    Two sources CAN share an identifier. On the Layer B path dedup is keyed on content, so
+    two different exchanges from the same call both survive the pool
+    (tests/test_ask_naren_retrieval.py pins that); on the Layer C path one call routinely
+    supplies evidence for several moves. So `cited_call` does not always identify a single
+    source, and the tie is broken by which source's TEXT the quote actually verifies against
+    rather than by order: order would resolve ambiguity in favour of the source the model may
+    not have used.
     """
     if not _norm(model_json.get("answer")):
         return GateResult(False, "empty_answer")
 
     cited = _norm(model_json.get("cited_call"))
-    named = [c for c in candidates if _norm(c["call_filename"]) == cited]
+    named = [s for s in sources if _norm(s.identifier) == cited]
     if not named:
         return GateResult(False, "wrong_call_cited")
 
     quote = model_json.get("quote") or ""
-    for candidate in named:
-        if verify_quote(quote, candidate["response_text"], QUOTE_MIN_OVERLAP).verified:
-            return GateResult(True, pair=candidate)
+    for source in named:
+        if verify_quote(quote, source.text, QUOTE_MIN_OVERLAP).verified:
+            return GateResult(True, source=source)
 
     return GateResult(False, "quote_not_verbatim")

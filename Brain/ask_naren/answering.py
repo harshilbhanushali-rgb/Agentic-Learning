@@ -283,7 +283,7 @@ def answer_follow_up(message: str, turns, source: dict, gateway, *,
         # list, or it does not verify against this reply. That is the quote-bleed guarantee,
         # and it is a property of what the gate is given rather than of the prompt asking
         # nicely.
-        if grounding.check(payload, [source]).passed:
+        if grounding.check(payload, grounding.from_pairs([source])).passed:
             return {"outcome": ANSWERED,
                     "answer": payload["answer"].strip(),
                     "quote": payload["quote"].strip(),
@@ -366,12 +366,13 @@ def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_quer
         )
         if payload.get("declined"):
             return _decline(NO_CLOSE_MATCH, candidates[0], 1, label_for)
-        gate = grounding.check(payload, pairs)
+        gate = grounding.check(payload, grounding.from_pairs(pairs))
         if gate.passed:
             # Identity, not equality: two candidates can hold equal dicts, and resolving by
             # value would report whichever compared equal first rather than the exchange the
             # gate actually verified the quote against.
-            rank = next(i for i, m in enumerate(candidates, 1) if m.pair is gate.pair)
+            rank = next(i for i, m in enumerate(candidates, 1)
+                        if m.pair is gate.source.payload)
             return _answer(payload, candidates[rank - 1], rank, label_for)
 
     # Deliberately NOT the last payload with a warning attached: an ungrounded answer must
