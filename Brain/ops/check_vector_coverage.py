@@ -53,25 +53,32 @@ def main() -> int:
         config.pinecone_api_key, VECTOR_INDEX_NAME, scenario_keys)
     print(f"[vectors] checking every pair against {VECTOR_INDEX_NAME}...", flush=True)
     t0 = time.time()
-    missing = store.covers([p["pair_id"] for p in pairs])
+    fatal, stale = store.unretrievable(pairs)
     elapsed = time.time() - t0
 
-    present = len(pairs) - len(missing)
-    print(f"[vectors] {present}/{len(pairs)} present  ({elapsed:.1f}s)")
-    if not missing:
-        print("PASS: every coachable kb_pair has a trigger vector.")
-        return 0
+    ok = len(pairs) - len(fatal)
+    print(f"[vectors] {ok}/{len(pairs)} retrievable  ({elapsed:.1f}s)")
+    if stale:
+        print(f"[vectors] {len(stale)} filed under a different scenario_key than Postgres "
+              f"but still searchable:")
+        for pair_id, reason in stale[:5]:
+            print(f"    {pair_id}: {reason}")
+
+    if not fatal:
+        print("PASS: every coachable kb_pair has a trigger vector the search can return.")
+        return 0 if not stale else 0
 
     by_scenario: dict[str, int] = {}
     holder = {str(p["pair_id"]): p["scenario_key"] for p in pairs}
-    for pair_id in missing:
+    for pair_id, _reason in fatal:
         key = holder.get(pair_id, "?")
         by_scenario[key] = by_scenario.get(key, 0) + 1
-    print(f"FAIL: {len(missing)} coachable kb_pairs have NO trigger vector and can never "
-          f"be retrieved.")
+    print(f"FAIL: {len(fatal)} coachable kb_pairs can NEVER be retrieved -- either absent "
+          f"from the index or filed under a scenario_key the search filter excludes.")
     for key, count in sorted(by_scenario.items(), key=lambda kv: -kv[1]):
         print(f"  {count:5d}  {key}")
-    print(f"  example pair_ids: {missing[:10]}")
+    for pair_id, reason in fatal[:5]:
+        print(f"    {pair_id}: {reason}")
     print("Fix: ops/ship_layer_b.py --vectors triggers, then re-run this.")
     return 1
 

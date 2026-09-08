@@ -168,8 +168,22 @@ class RetrievalPool:
         Delegates to topk so there is ONE ranking implementation: two would be a place for
         the shortlist and the shipped rank-1 path to disagree silently about what "closest"
         means, which is the class of bug issue #8 is being run to avoid, not to introduce.
+
+        Raises rather than returning None when the ranking yields nothing the pool
+        authorises. Before ADR 0008 this was unreachable -- an exact search over a non-empty
+        pool always ranked its own rows -- but a store's ranking can now be entirely
+        unauthorised, and `[0]` on an empty list would surface as a bare IndexError. See the
+        message for what it actually means.
         """
-        return self.topk(query_vec, 1)[0]
+        matches = self.topk(query_vec, 1)
+        if not matches:
+            raise ValueError(
+                "the vector store returned no kb_pair this pool authorises. That is not a "
+                "thin neighbourhood -- it means the store and the pool disagree about what "
+                "exists: either the index is missing this pool's vectors, or their "
+                "scenario_key metadata is no longer admitted by the search filter. Run "
+                "ops/check_vector_coverage.py.")
+        return matches[0]
 
     def topk(self, query_vec: np.ndarray, k: int) -> list[Match]:
         """The k closest pairs, nearest first, with real cosines.

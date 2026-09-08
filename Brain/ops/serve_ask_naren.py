@@ -195,18 +195,23 @@ def _assert_store_covers_pool(store, pairs: list[dict]) -> None:
     widen the coverage actually checked. The full check is ops/check_vector_coverage.py, to
     be run after shipping a layer.
     """
-    ids = [p["pair_id"] for p in pairs]
-    sample = random.sample(ids, min(COVERAGE_SAMPLE, len(ids)))
-    missing = store.covers(sample)
-    if missing:
+    sample = random.sample(pairs, min(COVERAGE_SAMPLE, len(pairs)))
+    fatal, stale = store.unretrievable(sample)
+    if stale:
+        print(f"[vectors] WARNING: {len(stale)} of {len(sample)} sampled pairs are filed "
+              f"under a different scenario_key in the index than in Postgres, but remain "
+              f"searchable (e.g. {stale[0][0]}: {stale[0][1]}). Re-ship the trigger vectors "
+              f"to resync.", flush=True)
+    if fatal:
+        detail = "; ".join(f"{pair_id} ({reason})" for pair_id, reason in fatal[:3])
         raise SystemExit(
-            f"ERROR: {len(missing)} of {len(sample)} sampled coachable kb_pairs have no "
-            f"trigger vector in {VECTOR_INDEX_NAME} (e.g. {missing[:5]}). Those pairs could "
-            f"never be retrieved, so this refuses to serve rather than degrade silently. "
-            f"Ship the trigger vectors (ops/ship_layer_b.py --vectors triggers), then "
-            f"verify with ops/check_vector_coverage.py.")
-    print(f"[vectors] coverage guard: {len(sample)}/{len(sample)} sampled pairs present",
-          flush=True)
+            f"ERROR: {len(fatal)} of {len(sample)} sampled coachable kb_pairs CANNOT be "
+            f"retrieved from {VECTOR_INDEX_NAME} -- {detail}. Those exchanges would be "
+            f"invisible to every situation, so this refuses to serve rather than degrade "
+            f"silently. Re-ship the trigger vectors (ops/ship_layer_b.py --vectors "
+            f"triggers), then verify with ops/check_vector_coverage.py.")
+    print(f"[vectors] coverage guard: {len(sample)}/{len(sample)} sampled pairs present "
+          f"and admitted by the scenario filter", flush=True)
 
 
 def _load_key_moves(conn, pairs: list[dict]) -> dict[str, list]:

@@ -324,6 +324,20 @@ def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_quer
 
     query_vec = embed_query([situation])[0]
     candidates = pool.topk(query_vec, k)
+    if not candidates:
+        # Unreachable before ADR 0008: an exact in-memory search over a non-empty pool
+        # always ranked its own rows. A store's ranking can now be entirely unauthorised,
+        # and `pairs[0]` below would then raise a bare IndexError.
+        #
+        # DELIBERATELY NOT A DECLINE. A decline says "nothing close enough", which a CSM
+        # reads as a fact about the corpus; this is a fact about the infrastructure -- the
+        # index is missing this pool's vectors, or their scenario_key metadata is no longer
+        # admitted by the search filter. Dressing it as no_close_match would hide a broken
+        # index behind a normal-looking answer for as long as nobody checked, which is the
+        # silent-failure shape the coverage guard exists to prevent.
+        raise RuntimeError(
+            "retrieval returned no kb_pair the pool authorises -- the vector store and the "
+            "pool disagree about what exists. Run ops/check_vector_coverage.py.")
     pairs = [m.pair for m in candidates]
     # The playbook variant is defined for the SINGLE-candidate path, which is what ADR
     # 0001 measured and what ships. Combining a shortlist with playbook moves is a prompt

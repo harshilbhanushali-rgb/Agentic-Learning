@@ -322,3 +322,21 @@ def test_the_grounding_gate_applies_identically_in_the_playbook_variant():
     assert result["outcome"] == "declined"
     assert result["reason"] == "grounding_unverified"
     assert "40% lift" not in repr(result)
+
+
+def test_an_entirely_unauthorised_ranking_raises_rather_than_declining():
+    """ADR 0008. A decline says "nothing close enough", which a CSM reads as a fact about
+    the corpus. An empty authorised ranking is a fact about the infrastructure -- the index
+    is missing this pool's vectors, or their scenario_key metadata is no longer admitted by
+    the search filter. Returning no_close_match here would hide a broken index behind a
+    normal-looking answer for as long as nobody looked."""
+    class _NothingAuthorised:
+        def search(self, query_vec, top_k):
+            return [("999999", 0.99)]
+
+    pairs = [{"pair_id": 11, "trigger_text": "t", "response_text": RESPONSE,
+              "call_filename": CALL, "scenario_key": "performance_pushback"}]
+    pool = retrieval.RetrievalPool(pairs, store=_NothingAuthorised())
+    with pytest.raises(RuntimeError, match="no kb_pair the pool authorises"):
+        answering.answer_situation("a client situation", pool, StubGateway(_payload()),
+                                   embed_query=_embed_query)

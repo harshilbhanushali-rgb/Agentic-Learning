@@ -280,3 +280,14 @@ def test_a_score_above_one_is_not_reported_as_a_cosine():
     assert vector_store._clamp_cosine(1.00135) == 1.0
     assert vector_store._clamp_cosine(-1.2) == -1.0
     assert vector_store._clamp_cosine(0.8137) == pytest.approx(0.8137)
+
+
+def test_top1_raises_a_diagnosable_error_when_nothing_is_authorised():
+    """Unreachable before ADR 0008 -- an exact search over a non-empty pool always ranked
+    its own rows. A store's ranking can now be entirely unauthorised, and `[0]` on an empty
+    list would surface as a bare IndexError that reads like a coding slip rather than what
+    it is: the store and the pool disagreeing about what exists."""
+    store = _FakeStore([("999999", 0.9)])
+    pool = retrieval.RetrievalPool([_pair(1, "x", "y")], store=store)
+    with pytest.raises(ValueError, match="no kb_pair this pool authorises"):
+        pool.top1(np.array([1.0, 0.0]))

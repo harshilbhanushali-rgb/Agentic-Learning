@@ -141,27 +141,35 @@ def fetch_trigger_ids(api_key: str, index_name: str, record_ids: list[str],
     return found
 
 def present_trigger_pair_ids(api_key: str, index_name: str, pair_ids: list[str],
-                             namespace: str = "triggers") -> set[str]:
-    """Which of these pair_ids the namespace holds, WITHOUT transferring any vectors.
+                             namespace: str = "triggers") -> dict[str, str]:
+    """`pair_id` -> the `scenario_key` the INDEX has for it, for the ids it holds.
 
-    ADDITIVE (ADR 0008). This exists because `fetch` is the wrong shape for a presence
-    question: it returns 3072 floats per record, measured at 46.3s for 200 ids, while this
-    metadata query answers the same question in 0.44s -- a 105x difference on identical
-    results, and 1,000 ids in 1.7s.
+    ADDITIVE (ADR 0008). Returns the scenario_key rather than just presence because the
+    metadata is already in the response, so checking it is free -- and because presence
+    alone is not what makes a pair retrievable. Ask Naren's search restricts on
+    `scenario_key`, and that value was written at vector-ship time while the pool's copy is
+    read live from Postgres. `response_taxonomy_auto_pass.py` and
+    `calibration/graduate_sink_topics.py` both UPDATE `kb_pairs.scenario_key` with no
+    re-upsert, so the two can diverge -- and a pair whose indexed key is no longer in the
+    filter is invisible to retrieval while still being unambiguously PRESENT.
+
+    This exists because `fetch` is the wrong shape for the question: it returns 3072 floats
+    per record, measured at 46.3s for 200 ids, against 0.44s here for the same 200 and 1.7s
+    for 1,000.
 
     The query VECTOR is a dummy and the ranking is irrelevant: the metadata filter selects
     exactly the requested pair_ids, `top_k` covers the whole batch, and the triggers
     namespace holds one record per pair_id -- so every present id comes back regardless of
-    order. Verified exhaustive at 200/200, 500/500 and 1000/1000.
+    order. Verified exhaustive at 200/200, 500/500, 1000/1000 and 6496/6496.
 
     Because it is still an ANN query, a caller must treat a REPORTED ABSENCE as provisional
     and confirm it with `fetch_trigger_ids`, which is exact. A false alarm would otherwise
-    refuse to serve a healthy index.
+    refuse to serve a healthy index. A key that IS returned needs no confirmation.
     """
     idx = _get_index(api_key, index_name)
     dummy = [0.0] * 3072
     dummy[0] = 1.0
-    present: set[str] = set()
+    found: dict[str, str] = {}
     BATCH = 1000
     for i in range(0, len(pair_ids), BATCH):
         batch = pair_ids[i:i + BATCH]
@@ -172,5 +180,5 @@ def present_trigger_pair_ids(api_key: str, index_name: str, pair_ids: list[str],
         for m in matches:
             md = (m.get("metadata") if isinstance(m, dict) else m.metadata) or {}
             if "pair_id" in md:
-                present.add(str(int(md["pair_id"])))
-    return present
+                found[str(int(md["pair_id"]))] = md.get("scenario_key") or ""
+    return found

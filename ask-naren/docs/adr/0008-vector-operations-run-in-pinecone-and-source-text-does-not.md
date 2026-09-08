@@ -131,6 +131,25 @@ This was the honest alternative reading of "put the vectors in a database", and 
 
 **A free operation became a paid one.** ~220 ms per situation against an answer that takes ~12.5 s — about 1.8%, dominated by generation. This is a real trade and it was made deliberately: it buys a ~13× faster cold start, zero resident vectors, and no corpus embedding on any deploy or restart. Do not reverse it on the grounds that the search "used to be free" without also pricing the startup.
 
+**A second staleness mode exists, and a presence-only guard misses it entirely.** Found by a code audit after the first implementation, and it is the more dangerous of the two.
+
+The search filters on `scenario_key`. The pool's copy of that key is read **live from Postgres** at startup; the index's copy was written **at vector-ship time**. Two pipeline scripts move it in Postgres with no re-upsert and no re-embed:
+
+- `response_taxonomy_auto_pass.py` — `UPDATE kb_pairs SET scenario_key = …`
+- `calibration/graduate_sink_topics.py` — the same, its docstring saying "No re-embedding, no re-clustering"
+
+Both **graduate a sink into a coachable scenario**, which is exactly the movement `retrieval.coachable_scenario_keys` already warns happens between runs. After either runs, the rerouted pairs enter the pool under their new coachable key while their index records still carry the old sink key — so the filter excludes them and they become invisible to every situation. The records are unambiguously *present*, so a guard that checks only `pair_id` presence reports **full coverage** while a whole scenario is unretrievable.
+
+Measured on 2026-09-08 across the entire pool: **0 of 6,496 drifted.** So this is latent today, not live. The guard now checks both conditions and separates them:
+
+| Condition | Verdict |
+| --- | --- |
+| No record for the `pair_id` | **fatal** — refuse to serve (confirmed by an exact `fetch` first, so an ANN false alarm cannot down a healthy index) |
+| Indexed `scenario_key` not admitted by the filter | **fatal** — refuse to serve |
+| Indexed `scenario_key` differs but is still admitted | **warn** — still retrievable; the pool decides the scenario an answer reports |
+
+Checking the key costs nothing: the metadata is already in the response the presence check reads.
+
 **Staleness became possible, and is guarded.** The pool is derived from Postgres at every boot, so it was never stale. Retrieval now also depends on Layer B having upserted trigger vectors for every coachable pair. A pipeline run that writes `kb_pairs` to Postgres before upserting their vectors leaves those pairs **permanently unretrievable** — a silent quality regression, which is the worst failure shape available here. So startup samples pool identifiers against the store and refuses to serve on any shortfall, and `ops/check_vector_coverage.py` does the full 6,496 check after a layer ships. Enumerating all identifiers takes ~29 s, which is why the full check is an operations script and not a startup step.
 
 **Concurrency is unblocked but not solved.** ADR 0003 stands: the per-situation query embedding still writes through the thread-bound SQLite cache, so threading remains unsafe. What a 4.5 s cold start buys is that *N separate processes* becomes an ordinary decision — each owns its own connection, so ADR 0003 never arises — without editing `shared/`, which the pipeline also uses.

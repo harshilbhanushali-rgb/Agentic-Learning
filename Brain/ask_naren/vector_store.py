@@ -127,34 +127,68 @@ class PineconeTriggerStore:
             namespace=self._namespace, scenario_keys=self._scenario_keys)
         return [(_bare_id(m_id), _clamp_cosine(score)) for m_id, score in matches]
 
-    def covers(self, pair_ids: Sequence) -> list[str]:
-        """Which of these pair_ids the index does NOT hold -- the startup guard (ADR 0008).
+    def unretrievable(self, pairs: Sequence[dict]) -> tuple[list[tuple[str, str]],
+                                                            list[tuple[str, str]]]:
+        """(fatal, stale) for these pool pairs -- the startup guard (ADR 0008).
 
-        Retrieval now depends on Layer B having upserted a trigger vector for every coachable
-        pair. A pipeline run that writes kb_pairs to Postgres before upserting their vectors
-        leaves those pairs PERMANENTLY UNRETRIEVABLE, which is a silent quality regression --
-        the worst failure shape available here, because nothing errors and a CSM simply never
-        sees those exchanges.
+        Retrieval depends on the index holding a trigger vector for every coachable pair,
+        AND on that vector being admitted by the search's `scenario_key` filter. A pool pair
+        failing either test is PERMANENTLY UNRETRIEVABLE: nothing errors, nothing logs, and a
+        CSM simply never sees those exchanges. That is the worst failure shape available
+        here, which is why it is worth a couple of seconds at every start.
 
-        TWO STAGES, and the split is what makes this affordable at startup. The cheap
-        metadata query transfers no vectors (1,000 ids in 1.7s, against 46.3s for 200 through
-        `fetch`), but it is still an ANN query, so a reported absence is provisional. Only
-        those provisional misses are then confirmed with an exact `fetch` -- which costs
-        nothing in the healthy case, because there are none, and stops a false alarm from
-        refusing to serve a complete index.
+        TWO FAILURE MODES, and an audit found that checking only the first is not enough:
+
+          * `absent`    -- no record for that pair_id. The obvious case: a pipeline run
+                           wrote kb_pairs to Postgres before upserting their vectors.
+          * `key drift` -- the record exists, but the `scenario_key` in its metadata is NOT
+                           one the filter admits, so the search can never return it. The
+                           pool's key is read LIVE from Postgres while the index's was
+                           written at vector-ship time, and `response_taxonomy_auto_pass.py`
+                           and `calibration/graduate_sink_topics.py` both UPDATE
+                           `kb_pairs.scenario_key` with NO re-upsert -- graduating a sink
+                           into a coachable scenario, which is exactly the case
+                           `retrieval.coachable_scenario_keys` warns moves between runs.
+                           A presence-only guard reports full coverage while every pair in
+                           the graduated scenario is invisible. Measured 0 drifted of 6,496
+                           on 2026-09-08, so this is latent today, not live.
+
+        Returns them separately because they are not equally serious. `fatal` cannot be
+        retrieved at all. `stale` is a record whose key differs from Postgres but is still
+        inside the filter, so it IS retrievable -- the pool decides the scenario an answer
+        reports anyway. Worth surfacing, not worth refusing to serve over.
+
+        Absence is confirmed with an exact `fetch` before being called fatal, because the
+        cheap check is an ANN query and a false alarm must not refuse a healthy index. A key
+        that came BACK needs no confirmation -- the metadata is the authority on itself.
         """
         from shared import pinecone_store
-        wanted = [str(p) for p in pair_ids]
-        present = pinecone_store.present_trigger_pair_ids(
-            self._api_key, self._index_name, wanted, namespace=self._namespace)
-        provisional = [p for p in wanted if p not in present]
-        if not provisional:
-            return []
-        confirmed = pinecone_store.fetch_trigger_ids(
-            self._api_key, self._index_name,
-            [f"{_ID_PREFIX}{p}" for p in provisional], namespace=self._namespace)
-        found = {_bare_id(i) for i in confirmed}
-        return [p for p in provisional if p not in found]
+        expected = {str(p["pair_id"]): p["scenario_key"] for p in pairs}
+        indexed = pinecone_store.present_trigger_pair_ids(
+            self._api_key, self._index_name, list(expected), namespace=self._namespace)
+
+        admitted = set(self._scenario_keys)
+        fatal: list[tuple[str, str]] = []
+        stale: list[tuple[str, str]] = []
+        for pair_id, index_key in indexed.items():
+            if index_key == expected[pair_id]:
+                continue
+            if index_key in admitted:
+                stale.append((pair_id, f"index has {index_key!r}, pool has "
+                                       f"{expected[pair_id]!r} -- still searchable"))
+            else:
+                fatal.append((pair_id, f"scenario_key drift: index has {index_key!r}, "
+                                       f"which the filter does not admit; pool has "
+                                       f"{expected[pair_id]!r}"))
+
+        provisional = [p for p in expected if p not in indexed]
+        if provisional:
+            confirmed = pinecone_store.fetch_trigger_ids(
+                self._api_key, self._index_name,
+                [f"{_ID_PREFIX}{p}" for p in provisional], namespace=self._namespace)
+            found = {_bare_id(i) for i in confirmed}
+            fatal.extend((p, "absent from the index") for p in provisional if p not in found)
+        return fatal, stale
 
 
 def _clamp_cosine(score) -> float:
