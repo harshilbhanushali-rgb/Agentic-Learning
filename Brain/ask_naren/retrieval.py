@@ -6,10 +6,16 @@ with the prototype's leave-one-call-out mask REMOVED: that rule exists to stop a
 corpus item retrieving its own call, and a live CSM situation is not a corpus item. The
 dedup the prototype's second audit added stays, and is now the only content-level guard.
 
-The nearest-neighbour search is an in-memory cosine, deliberately not a live Pinecone
-query: `is_coachable` is not in Pinecone's metadata, so the coachable-only restriction
-cannot be expressed there at all. Same reasoning calibration/probe_retrieval_gate.py and
-the prototype both document.
+The nearest-neighbour search runs IN PINECONE (ADR 0008), not here. This docstring used to
+say the opposite, and the reason it gave was wrong: `is_coachable` is indeed absent from
+Pinecone's metadata, but the conclusion that the coachable-only restriction "cannot be
+expressed there at all" does not follow -- coachability is a property of a SCENARIO, and
+`scenario_key` IS in the metadata. Expressing it as `scenario_key $in [the coachable keys]`
+was measured free (218ms filtered against 221ms unfiltered).
+
+What stays here is the part a metadata filter cannot do. Pinecone ranks; this module
+AUTHORISES, post-filtering the ranking through the pool so that content dedup and the
+coachable restriction keep their existing single definitions. See vector_store.py.
 """
 from __future__ import annotations
 
@@ -17,7 +23,12 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ask_naren import vector_store
 from shared import relative_match, storage
+
+# How deep a ranking topk asks a store for, so its post-filter cannot starve the result.
+OVERFETCH_FLOOR = 25
+OVERFETCH_FACTOR = 5
 
 
 @dataclass(frozen=True)
@@ -91,13 +102,33 @@ class RetrievalPool:
     and re-embedding it on every question is latency nobody is buying anything with.
     """
 
-    def __init__(self, pairs: list[dict], vectors: np.ndarray):
-        if len(pairs) != len(vectors):
-            raise ValueError(
-                f"{len(pairs)} pairs but {len(vectors)} vectors -- a pool whose rows and "
-                f"vectors disagree would answer from the wrong kb_pair silently")
+    def __init__(self, pairs: list[dict], vectors: np.ndarray | None = None, *,
+                 store=None):
+        """Either a `vectors` matrix (the in-memory path) or a `store`, never both.
+
+        Both is refused rather than resolved by precedence: which one was live would become a
+        matter of reading order, and that is exactly the ambiguity ops/serve_ask_naren.py's
+        rollback constant exists to make explicit.
+        """
+        if vectors is not None and store is not None:
+            raise ValueError("pass either vectors or store, not both -- two rankings in one "
+                             "pool makes which is live a matter of reading order")
+        if vectors is None and store is None:
+            raise ValueError("a pool needs either a vectors matrix or a store to rank with")
+        if vectors is not None:
+            if len(pairs) != len(vectors):
+                raise ValueError(
+                    f"{len(pairs)} pairs but {len(vectors)} vectors -- a pool whose rows and "
+                    f"vectors disagree would answer from the wrong kb_pair silently")
+            store = vector_store.InMemoryTriggerStore(
+                [p["pair_id"] for p in pairs], vectors)
         self.pairs = pairs
-        self.vectors = _unit_rows(np.asarray(vectors, dtype=np.float32))
+        self._store = store
+        # Kept ONLY for the in-memory path, because three offline audit scripts
+        # (probe_topk_headroom, probe_query_framing, build_answer_audit) reach for
+        # `pool.vectors` to build their own masked rankings. None under the Pinecone store,
+        # where the process holds no vectors at all -- which is the point of ADR 0008.
+        self.vectors = getattr(store, "vectors", None)
         # Built once, alongside the vectors, because a follow-up resolves a carried pair_id
         # on every message and a linear scan of 6.5k rows per question is a cost with no
         # buyer. First wins, matching dedupe_pairs -- two rows with one id would be a
@@ -105,6 +136,14 @@ class RetrievalPool:
         self._by_pair_id = {}
         for pair in pairs:
             self._by_pair_id.setdefault(pair["pair_id"], pair)
+        # A SECOND index, keyed on the identifier as a STRING, for post-filtering a store's
+        # ranking. Pinecone keys its records `trigger_<pair_id>` while Postgres yields an
+        # integer pair_id: without this normalisation every lookup below misses, the pool
+        # authorises nothing, and Ask Naren declines every situation -- a total failure that
+        # reads as a quality problem rather than a type bug. Pinned by test.
+        self._by_pair_id_str = {}
+        for pair in pairs:
+            self._by_pair_id_str.setdefault(str(pair["pair_id"]), pair)
 
     def __len__(self) -> int:
         return len(self.pairs)
@@ -135,16 +174,48 @@ class RetrievalPool:
     def topk(self, query_vec: np.ndarray, k: int) -> list[Match]:
         """The k closest pairs, nearest first, with real cosines.
 
-        Both sides are unit-normalized, so the returned numbers ARE cosines. Normalizing
-        the query cannot change the ranking (a positive scalar does not reorder a sort) but
-        it is what makes the reported figures mean what a caller reads them as.
+        The store ranks; this walks that ranking in order and keeps only what the pool
+        holds. Rank order is never recomputed -- see top1 on why one implementation.
+
+        THE SKIP IS A CORRECTNESS GATE, not a defensive nicety, and it carries both rules a
+        metadata filter cannot express:
+
+          * content dedup -- the corpus holds transcripts ingested twice under two
+            `calls.filename` values (32 byte-identical pairs across 15 scenarios).
+            dedupe_pairs drops the second copy here, but BOTH pair_ids are in Pinecone
+            carrying coachable scenario keys, so the filter admits both and only this skip
+            stops them competing as separate neighbours for one situation.
+          * authorisation -- Pinecone holds whatever the pipeline shipped, measured at 1.92x
+            this pool, including pairs a later run retired.
+
+        Returns fewer than k when the ranking runs out of authorised hits. A caller must not
+        assume len(...) == k: padding a shortlist with an absent or repeated candidate would
+        put a moment in the prompt that retrieval never chose.
         """
         if not self.pairs:
             raise ValueError("retrieval pool is empty -- refusing to answer from nothing")
-        q = _unit_rows(np.asarray([query_vec], dtype=np.float32))[0]
-        sims = self.vectors @ q
-        order = np.argsort(-sims)[:k]
-        return [Match(pair=self.pairs[int(i)], cosine=float(sims[int(i)])) for i in order]
+        matches: list[Match] = []
+        for pair_id, score in self._store.search(query_vec, _overfetch(k)):
+            pair = self._by_pair_id_str.get(str(pair_id))
+            if pair is None:
+                continue
+            matches.append(Match(pair=pair, cosine=float(score)))
+            if len(matches) == k:
+                break
+        return matches
+
+
+def _overfetch(k: int) -> int:
+    """How deep a ranking to ask for, to serve k after the skip in topk.
+
+    Asking for exactly k would let a handful of content duplicates or retired pairs at the
+    top of the ranking make Ask Naren decline a situation it can answer. The floor of 25 is
+    set against the measured shape of the problem rather than guessed: the whole corpus
+    holds 32 duplicate pairs across 6,496, and the shipped candidate selection is 1
+    (ADR 0005), so 25 is deep enough that exhausting it means a genuinely thin neighbourhood
+    rather than a filtering artefact. The filter costs nothing at this depth (218ms).
+    """
+    return max(OVERFETCH_FLOOR, k * OVERFETCH_FACTOR)
 
 
 def _unit_rows(matrix: np.ndarray) -> np.ndarray:

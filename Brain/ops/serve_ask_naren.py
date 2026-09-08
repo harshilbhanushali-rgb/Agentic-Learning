@@ -19,22 +19,31 @@ WHAT THIS PROCESS DOES AND DOES NOT TOUCH:
     Ask Naren cannot write to Brain's pipeline because it is not connected to it. Matches
     CONTEXT-MAP.md's stated Ask Naren -> Brain relationship.
 
-  * The coachable pool is loaded, deduped and embedded ONCE here at startup, not per
-    request. Brain's pipeline runs are manual batches, so the pool only changes when
-    someone re-runs a layer -- restart the service to pick that up.
+  * The coachable pool is loaded and deduped ONCE here at startup, not per request. Brain's
+    pipeline runs are manual batches, so the pool only changes when someone re-runs a layer
+    -- restart the service to pick that up.
 
-  * Nothing is written to tuning.yaml, Pinecone, or any Brain table.
+  * It is NOT embedded. Every vector operation runs in Pinecone (ADR 0008), so startup is a
+    Postgres read plus a coverage check, and this process holds NO VECTORS (79.8 MB -> 0).
+    Startup is dominated by the Postgres read in both paths, so the gain is not wall-clock
+    on a box with a warm local embed cache -- it is that a FRESH host no longer needs 6,496
+    gateway embedding requests before it can serve. See ADR 0008.
+
+  * Nothing is written to tuning.yaml, Pinecone, or any Brain table. The Pinecone index is
+    QUERIED and its record ids are fetched; there is no upsert and no index creation here.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import random
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ask_naren import citations, responding, retrieval, service   # noqa: E402
+from ask_naren import (citations, responding, retrieval, service,  # noqa: E402
+                       vector_store)
 from config import load_config                        # noqa: E402
 from preprocessing import embedder                    # noqa: E402
 from shared import storage                            # noqa: E402
@@ -69,6 +78,30 @@ SIDECAR_DIRS = ("recordings", "csm_recordings", "recordings_pull_keep", "recordi
 # prompts are byte-identical to the prototype ADR 0001 actually measured, so a re-measure
 # compares against the recorded number instead of a drifted prompt.
 PLAYBOOK_AUGMENTED = False
+
+# THE VECTOR STORE, and the rollback switch for ADR 0008. "pinecone" ships; "memory"
+# restores the pre-0008 behaviour exactly -- embed the whole pool at startup and search a
+# numpy matrix in-process.
+#
+# A CODE EDIT rather than an env var or a CLI flag, for the same reason PLAYBOOK_AUGMENTED
+# is one: an env var can be set by accident on a restart, and which store is live decides
+# whether the process needs Pinecone reachable to answer at all. That is not a thing to
+# discover from a shell history.
+VECTOR_STORE = "pinecone"
+
+# The 3072-dim index, and NOT config.pinecone_index_name -- which is `narens-brain`, the
+# 768-dim bge-era index that .env still points at and that main.py/ops/run_ego_trap.py
+# still call init_index on. Ask Naren's pool is gemini-embedding-2 at 3072, so reading the
+# 768 index would be a dimension error at best and a silently truncated match at worst.
+# Same constant, same value, as ops/ship_layer_b.py's INDEX_3072 -- the job that populates
+# it. Pinecone dimension is immutable, so this is a name to keep in step, not a config knob.
+VECTOR_INDEX_NAME = "narens-brain-3072"
+
+# How many pool identifiers the startup guard checks against the store. 1,000 of 6,496 --
+# about 15% of the pool -- costs ~1.7s because the check transfers no vectors. The sample is
+# random per start, so repeated restarts widen the coverage actually checked, and
+# ops/check_vector_coverage.py does the full 6,496 after a layer ships.
+COVERAGE_SAMPLE = 1000
 
 
 def _connect_read_only(database_url: str, hostaddr: str | None):
@@ -124,13 +157,56 @@ def build_pool(hostaddr: str | None):
         raise SystemExit("ERROR: no coachable kb_pairs found -- refusing to serve a tool "
                          "that can only decline.")
     print(f"[pool] {len(pairs)} coachable kb_pairs after content dedup", flush=True)
-    print(f"[pool] embedding {len(pairs)} triggers "
-          f"(warm gateway cache -> mostly free)...", flush=True)
-    vectors = embedder.embed_query_matrix([p["trigger_text"] for p in pairs])
-    pool = retrieval.RetrievalPool(pairs, vectors)
-    print(f"[pool] ready: {len(pool)} pairs across "
-          f"{len({p['scenario_key'] for p in pairs})} coachable scenarios", flush=True)
+    scenario_keys = sorted({p["scenario_key"] for p in pairs})
+    pool = retrieval.RetrievalPool(pairs, store=_build_store(config, pairs, scenario_keys))
+    print(f"[pool] ready: {len(pool)} pairs across {len(scenario_keys)} coachable scenarios",
+          flush=True)
     return pool, moves_by_scenario
+
+
+def _build_store(config, pairs: list[dict], scenario_keys: list[str]):
+    """The store the pool ranks with, per the VECTOR_STORE switch above."""
+    if VECTOR_STORE == "memory":
+        print(f"[vectors] ROLLBACK PATH: embedding {len(pairs)} triggers in-process "
+              f"(warm gateway cache -> mostly free)...", flush=True)
+        vectors = embedder.embed_query_matrix([p["trigger_text"] for p in pairs])
+        return vector_store.InMemoryTriggerStore([p["pair_id"] for p in pairs], vectors)
+    if VECTOR_STORE != "pinecone":
+        raise SystemExit(f"ERROR: unknown VECTOR_STORE {VECTOR_STORE!r} -- "
+                         f"expected 'pinecone' or 'memory'.")
+    store = vector_store.PineconeTriggerStore(
+        config.pinecone_api_key, VECTOR_INDEX_NAME, scenario_keys)
+    print(f"[vectors] {VECTOR_INDEX_NAME}, restricted to {len(scenario_keys)} coachable "
+          f"scenarios -- nothing embedded, no vectors held", flush=True)
+    _assert_store_covers_pool(store, pairs)
+    return store
+
+
+def _assert_store_covers_pool(store, pairs: list[dict]) -> None:
+    """Refuse to serve if the index is missing pool pairs. See ADR 0008.
+
+    The failure this prevents is silent, which is why it is worth a second of startup: a
+    pipeline run that writes kb_pairs to Postgres before upserting their trigger vectors
+    leaves those pairs in the pool and absent from the ranking, so they can NEVER be
+    retrieved. Nothing errors, no log line appears, and a CSM simply never sees those
+    exchanges -- it would surface as an unexplained quality complaint months later.
+
+    Sampled rather than exhaustive, and the sample is random per start so repeated restarts
+    widen the coverage actually checked. The full check is ops/check_vector_coverage.py, to
+    be run after shipping a layer.
+    """
+    ids = [p["pair_id"] for p in pairs]
+    sample = random.sample(ids, min(COVERAGE_SAMPLE, len(ids)))
+    missing = store.covers(sample)
+    if missing:
+        raise SystemExit(
+            f"ERROR: {len(missing)} of {len(sample)} sampled coachable kb_pairs have no "
+            f"trigger vector in {VECTOR_INDEX_NAME} (e.g. {missing[:5]}). Those pairs could "
+            f"never be retrieved, so this refuses to serve rather than degrade silently. "
+            f"Ship the trigger vectors (ops/ship_layer_b.py --vectors triggers), then "
+            f"verify with ops/check_vector_coverage.py.")
+    print(f"[vectors] coverage guard: {len(sample)}/{len(sample)} sampled pairs present",
+          flush=True)
 
 
 def _load_key_moves(conn, pairs: list[dict]) -> dict[str, list]:

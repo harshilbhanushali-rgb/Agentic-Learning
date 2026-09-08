@@ -5,7 +5,7 @@ live embedding."""
 import numpy as np
 import pytest
 
-from ask_naren import retrieval
+from ask_naren import retrieval, vector_store
 
 
 def _pair(pair_id, trigger, response, filename="a.txt", scenario_key="budget_disclosure"):
@@ -15,6 +15,25 @@ def _pair(pair_id, trigger, response, filename="a.txt", scenario_key="budget_dis
 
 def _scn(key, coachable=True, kind="scenario"):
     return {"scenario_key": key, "is_coachable": coachable, "cluster_kind": kind}
+
+
+class _FakeStore:
+    """A ranking handed in whole, so the POST-FILTER can be tested without a network.
+
+    The live store is Pinecone (ADR 0008) and is deliberately not mocked anywhere: a mock
+    would assert only that the SDK is called as imagined, which is the belief most likely
+    to be wrong. What is worth pinning is what the pool does with a ranking it is given --
+    which identifiers it refuses to answer from, and in what order -- and that is exactly
+    what this fake supplies.
+    """
+
+    def __init__(self, ranked):
+        self.ranked = list(ranked)
+        self.asked_for = []
+
+    def search(self, query_vec, top_k):
+        self.asked_for.append(top_k)
+        return self.ranked[:top_k]
 
 
 # -- the coachable restriction ----------------------------------------------------------
@@ -139,3 +158,125 @@ def test_a_pair_id_the_pool_no_longer_holds_resolves_to_nothing():
     pipeline re-run between restarts can retire a pair an open thread still points at."""
     pool = retrieval.RetrievalPool([_pair(1, "x", "y")], np.array([[1.0, 0.0]]))
     assert pool.by_pair_id(999_999) is None
+
+
+# -- the store seam: Pinecone ranks, the pool authorises (ADR 0008) ---------------------
+
+def test_a_ranked_identifier_the_pool_does_not_hold_is_skipped():
+    """The authorisation half of ADR 0008. Pinecone holds whatever the pipeline shipped --
+    measured at 1.92x the coachable pool -- so a ranking WILL contain identifiers the pool
+    deliberately excludes. Skipping is the mechanism that keeps the pool the authority;
+    returning them would answer a CSM from a scenario Ask Naren is not allowed to coach."""
+    pairs = [_pair(1, "budget", "b")]
+    store = _FakeStore([("999999", 0.95), ("1", 0.81)])
+    pool = retrieval.RetrievalPool(pairs, store=store)
+    got = pool.topk(np.array([1.0, 0.0]), 2)
+    assert [m.pair["pair_id"] for m in got] == [1]
+
+
+def test_a_content_duplicate_the_pool_dropped_cannot_be_retrieved_through_the_store():
+    """The dedup half, and the reason the post-filter is a CORRECTNESS gate not a nicety.
+
+    The corpus holds transcripts ingested twice under two filenames -- 32 byte-identical
+    pairs across 15 scenarios. dedupe_pairs drops the second copy, but BOTH pair_ids are in
+    Pinecone carrying coachable scenario keys, so the metadata filter admits both. Only this
+    skip stops two identical exchanges competing as separate neighbours for one situation."""
+    kept = retrieval.dedupe_pairs([_pair(1, "same", "text"), _pair(2, "same", "text", "b.txt")])
+    assert [p["pair_id"] for p in kept] == [1]
+    store = _FakeStore([("2", 0.99), ("1", 0.90)])
+    pool = retrieval.RetrievalPool(kept, store=store)
+    got = pool.topk(np.array([1.0, 0.0]), 5)
+    assert [m.pair["pair_id"] for m in got] == [1]
+
+
+def test_the_rank_order_is_the_stores_and_is_not_recomputed():
+    """Ranking moved OUT of the service (ADR 0008). If the pool re-sorted, there would be
+    two ranking implementations able to disagree silently -- the thing RetrievalPool.top1
+    already delegates to topk to avoid."""
+    pairs = [_pair(1, "a", "a"), _pair(2, "b", "b"), _pair(3, "c", "c")]
+    store = _FakeStore([("3", 0.71), ("1", 0.70), ("2", 0.69)])
+    pool = retrieval.RetrievalPool(pairs, store=store)
+    assert [m.pair["pair_id"] for m in pool.topk(np.array([1.0, 0.0]), 3)] == [3, 1, 2]
+
+
+def test_the_reported_cosine_is_the_stores_score_unchanged():
+    """`match.cosine` is read against ADR 0005's measured bands, so it must keep meaning
+    the same number. The stored vectors are bit-identical to what the service used to embed
+    (cos = 1.000000 on 24/24, ADR 0008), so passing the score through is what preserves it."""
+    pool = retrieval.RetrievalPool([_pair(1, "x", "y")], store=_FakeStore([("1", 0.8137)]))
+    assert pool.top1(np.array([1.0, 0.0])).cosine == pytest.approx(0.8137)
+
+
+def test_a_string_identifier_from_the_store_resolves_against_an_integer_pair_id():
+    """The silent-total-failure case. Pinecone keys records as `trigger_<id>` strings while
+    Postgres yields an integer pair_id; unnormalised, EVERY post-filter lookup misses, the
+    pool authorises nothing and Ask Naren declines every situation -- which looks like a
+    quality problem, not a type bug. Pinned so it cannot ship."""
+    pool = retrieval.RetrievalPool([_pair(7, "x", "y")], store=_FakeStore([("7", 0.5)]))
+    assert pool.top1(np.array([1.0, 0.0])).pair["pair_id"] == 7
+
+
+def test_a_run_of_unauthorised_hits_does_not_starve_the_result():
+    """Why the search over-fetches. Skipping is only safe if the ranking asked for is deeper
+    than k -- otherwise a handful of duplicates or retired pairs at the top of the ranking
+    would make Ask Naren decline a situation it can answer."""
+    junk = [(str(900000 + i), 0.99 - i / 1000) for i in range(24)]
+    store = _FakeStore(junk + [("1", 0.5)])
+    pool = retrieval.RetrievalPool([_pair(1, "x", "y")], store=store)
+    assert [m.pair["pair_id"] for m in pool.topk(np.array([1.0, 0.0]), 1)] == [1]
+
+
+def test_fewer_than_k_authorised_hits_returns_what_was_found():
+    """Same contract the in-memory path already had: a caller must not assume len(...) == k.
+    Padding a shortlist with an absent or repeated candidate would put a moment in the
+    prompt that retrieval never chose."""
+    store = _FakeStore([("1", 0.9), ("999999", 0.8)])
+    pool = retrieval.RetrievalPool([_pair(1, "x", "y")], store=store)
+    assert len(pool.topk(np.array([1.0, 0.0]), 5)) == 1
+
+
+def test_an_empty_pool_with_a_store_still_refuses_to_answer_from_nothing():
+    pool = retrieval.RetrievalPool([], store=_FakeStore([]))
+    with pytest.raises(ValueError):
+        pool.top1(np.array([1.0, 0.0]))
+
+
+def test_a_pool_cannot_be_given_both_a_matrix_and_a_store():
+    """Two sources of ranking is the ambiguity ADR 0008's rollback constant switches
+    between; a pool holding both would make which one is live a matter of reading order."""
+    with pytest.raises(ValueError):
+        retrieval.RetrievalPool([_pair(1, "x", "y")], np.array([[1.0, 0.0]]),
+                                store=_FakeStore([("1", 0.9)]))
+
+
+def test_a_pool_needs_either_a_matrix_or_a_store():
+    with pytest.raises(ValueError):
+        retrieval.RetrievalPool([_pair(1, "x", "y")])
+
+
+# -- the in-memory store, which is what makes rollback one line ------------------------
+
+def test_the_in_memory_store_ranks_by_cosine_and_reports_bare_identifiers():
+    """The rollback path (ADR 0008) and the reason the suite needs no network. It must speak
+    the SAME contract as the Pinecone store -- bare string identifiers, nearest first --
+    or a rollback would swap in a store the pool cannot post-filter."""
+    store = vector_store.InMemoryTriggerStore([1, 2], np.array([[1.0, 0.0], [0.0, 1.0]]))
+    got = store.search(np.array([0.9, 0.1]), 2)
+    assert [pair_id for pair_id, _ in got] == ["1", "2"]
+    assert got[0][1] == pytest.approx(0.9939, abs=1e-3)
+
+
+def test_the_in_memory_store_rejects_a_vector_count_that_disagrees():
+    with pytest.raises(ValueError):
+        vector_store.InMemoryTriggerStore([1], np.array([[1.0, 0.0], [0.0, 1.0]]))
+
+
+def test_a_score_above_one_is_not_reported_as_a_cosine():
+    """Measured, not hypothetical: querying the index with a STORED unit vector returns its
+    own record at up to 1.00135. Nothing above 1 is a cosine, and `Match.cosine` is read
+    against ADR 0005's measured bands, so the store clamps rather than hand a caller a
+    number that cannot exist. The approximation itself is characterised in
+    ask-naren/audit/equivalence_vector_store.py, not hidden here."""
+    assert vector_store._clamp_cosine(1.00135) == 1.0
+    assert vector_store._clamp_cosine(-1.2) == -1.0
+    assert vector_store._clamp_cosine(0.8137) == pytest.approx(0.8137)

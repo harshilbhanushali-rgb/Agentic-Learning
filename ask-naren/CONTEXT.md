@@ -87,3 +87,16 @@ _Avoid_: context id, session key, sticky scenario.
 **Quote bleed**:
 An answer stitching its quote out of an EARLIER turn's grounding source rather than its own. Putting history in a prompt is what creates it: previously quoted Naren text is in the context window, and a quote lifted from there is genuinely verbatim of something he said — just not of the exchange this answer rests on. Prevented structurally rather than by instruction: the follow-up prompt is shown one exchange, and the grounding gate verifies against that same one.
 _Avoid_: cross-contamination, stale quote, leakage.
+
+**Vector store**:
+**Built** (ADR 0008). Where Ask Naren's vector operations run: Brain's Pinecone
+`narens-brain-3072` index, queried per situation. It **ranks**; it does not decide what is
+answerable. The **retrieval pool** — the coachable `kb_pairs` read once from Postgres at
+startup — remains the authority, and a ranked `pair_id` the pool does not hold is skipped.
+That split is load-bearing: the two correctness gates (content dedup, and the coachable-only
+restriction delegated to Brain's one definition of a sink) are not fully expressible in a
+metadata filter. Its search is **approximate** — an ANN index, scoring a stored unit vector
+against itself between 0.999321 and 1.00135 — which is why `match.cosine` is clamped into
+[-1, 1] and why equality with the old in-memory search is a measurement (top-1 47/47) rather
+than a property.
+_Avoid_: the vector DB, the index, embeddings store, retrieval backend.

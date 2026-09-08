@@ -94,3 +94,83 @@ def query_triggers(api_key: str, index_name: str, query_vec: list[float],
     results = idx.query(vector=query_vec, top_k=top_k, namespace="triggers",
                         include_metadata=True, filter=filter_)
     return results.get("matches", [])
+
+def query_trigger_vectors(api_key: str, index_name: str, query_vec: list[float],
+                          top_k: int = 25, namespace: str = "triggers",
+                          scenario_keys: list[str] | None = None) -> list[tuple[str, float]]:
+    """Rank trigger vectors and return (record_id, score) -- ADDITIVE, for Ask Naren (ADR 0008).
+
+    Deliberately NOT a change to `query_triggers` above, which returns whole match objects
+    including metadata and has a pipeline caller (calibration/dry_run_ego_trap.py). This
+    exists because Ask Naren needs three things that one does not offer: an `$in` filter over
+    MANY scenario keys rather than `$eq` on one, a caller-chosen index (the 3072 one), and
+    ids plus scores WITHOUT metadata -- Pinecone truncates the stored `text` to 500 chars, so
+    an answer must never be grounded in it.
+
+    `include_metadata=False` is the load-bearing part of that last point: the field cannot be
+    read from a payload that was never requested.
+    """
+    idx = _get_index(api_key, index_name)
+    filter_ = {"scenario_key": {"$in": list(scenario_keys)}} if scenario_keys else None
+    results = idx.query(vector=query_vec, top_k=top_k, namespace=namespace,
+                        include_metadata=False, include_values=False, filter=filter_)
+    matches = results.get("matches", []) if isinstance(results, dict) else results.matches
+    out = []
+    for m in matches:
+        m_id = m.get("id") if isinstance(m, dict) else m.id
+        score = m.get("score") if isinstance(m, dict) else m.score
+        out.append((str(m_id), float(score)))
+    return out
+
+
+def fetch_trigger_ids(api_key: str, index_name: str, record_ids: list[str],
+                      namespace: str = "triggers") -> set[str]:
+    """Which of `record_ids` the namespace actually holds. ADDITIVE (ADR 0008).
+
+    Vectors are NOT requested: this answers presence, for Ask Naren's startup coverage guard,
+    and pulling 3072 floats per id to answer a yes/no question is the thing that makes
+    extracting the pool cost ~168s. Batched because fetch caps a request's id count.
+    """
+    idx = _get_index(api_key, index_name)
+    found: set[str] = set()
+    BATCH = 250
+    for i in range(0, len(record_ids), BATCH):
+        got = idx.fetch(ids=record_ids[i:i + BATCH], namespace=namespace)
+        vectors = got.get("vectors", {}) if isinstance(got, dict) else got.vectors
+        found.update(str(k) for k in vectors)
+    return found
+
+def present_trigger_pair_ids(api_key: str, index_name: str, pair_ids: list[str],
+                             namespace: str = "triggers") -> set[str]:
+    """Which of these pair_ids the namespace holds, WITHOUT transferring any vectors.
+
+    ADDITIVE (ADR 0008). This exists because `fetch` is the wrong shape for a presence
+    question: it returns 3072 floats per record, measured at 46.3s for 200 ids, while this
+    metadata query answers the same question in 0.44s -- a 105x difference on identical
+    results, and 1,000 ids in 1.7s.
+
+    The query VECTOR is a dummy and the ranking is irrelevant: the metadata filter selects
+    exactly the requested pair_ids, `top_k` covers the whole batch, and the triggers
+    namespace holds one record per pair_id -- so every present id comes back regardless of
+    order. Verified exhaustive at 200/200, 500/500 and 1000/1000.
+
+    Because it is still an ANN query, a caller must treat a REPORTED ABSENCE as provisional
+    and confirm it with `fetch_trigger_ids`, which is exact. A false alarm would otherwise
+    refuse to serve a healthy index.
+    """
+    idx = _get_index(api_key, index_name)
+    dummy = [0.0] * 3072
+    dummy[0] = 1.0
+    present: set[str] = set()
+    BATCH = 1000
+    for i in range(0, len(pair_ids), BATCH):
+        batch = pair_ids[i:i + BATCH]
+        results = idx.query(vector=dummy, top_k=len(batch), namespace=namespace,
+                            include_values=False, include_metadata=True,
+                            filter={"pair_id": {"$in": [int(p) for p in batch]}})
+        matches = results.get("matches", []) if isinstance(results, dict) else results.matches
+        for m in matches:
+            md = (m.get("metadata") if isinstance(m, dict) else m.metadata) or {}
+            if "pair_id" in md:
+                present.add(str(int(md["pair_id"])))
+    return present
