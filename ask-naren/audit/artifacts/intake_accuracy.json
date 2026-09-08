@@ -8,6 +8,7 @@
     "question": "",
     "framing_leaked": [],
     "verbatim_span": true,
+    "meaning_dropped": [],
     "note": "the operator's own phrasing, with the client's words quoted inside it"
   },
   {
@@ -19,6 +20,7 @@
     "question": "",
     "framing_leaked": [],
     "verbatim_span": true,
+    "meaning_dropped": [],
     "note": "relayed words plus a trailing ask"
   },
   {
@@ -30,6 +32,7 @@
     "question": "",
     "framing_leaked": [],
     "verbatim_span": true,
+    "meaning_dropped": [],
     "note": "bare quoted client turn, no framing at all"
   },
   {
@@ -41,6 +44,7 @@
     "question": "",
     "framing_leaked": [],
     "verbatim_span": true,
+    "meaning_dropped": [],
     "note": "reported speech rather than a quote -- still the client's actual content"
   },
   {
@@ -52,6 +56,7 @@
     "question": "",
     "framing_leaked": [],
     "verbatim_span": true,
+    "meaning_dropped": [],
     "note": "hypothetical framing, but the client's position is fully stated"
   },
   {
@@ -63,6 +68,7 @@
     "question": "",
     "framing_leaked": [],
     "verbatim_span": true,
+    "meaning_dropped": [],
     "note": "specific enough to retrieve on: a number, a month and a claim"
   },
   {
@@ -71,9 +77,10 @@
     "got": "clarify",
     "correct": true,
     "retrieval_query": "",
-    "question": "Could you share what the client actually said or wrote about pricing?",
+    "question": "Could you share the exact words or email text from the client about their pricing concerns?",
     "framing_leaked": [],
     "verbatim_span": true,
+    "meaning_dropped": [],
     "note": "the canonical thin message -- a topic label, no content"
   },
   {
@@ -85,6 +92,7 @@
     "question": "Could you share what the client specifically said or wrote?",
     "framing_leaked": [],
     "verbatim_span": true,
+    "meaning_dropped": [],
     "note": "no situation at all, only that one exists"
   },
   {
@@ -93,9 +101,10 @@
     "got": "clarify",
     "correct": true,
     "retrieval_query": "",
-    "question": "Could you paste the actual words or specific message the client sent regarding their performance concerns?",
+    "question": "Could you share the client's exact words or message about their performance concerns?",
     "framing_leaked": [],
     "verbatim_span": true,
+    "meaning_dropped": [],
     "note": "a mood and a topic; retrieval on this reaches everything and nothing"
   },
   {
@@ -107,6 +116,7 @@
     "question": "",
     "framing_leaked": [],
     "verbatim_span": true,
+    "meaning_dropped": [],
     "note": "a pricing fact -- Layer B will happily answer this on-topic and wrong"
   },
   {
@@ -118,6 +128,7 @@
     "question": "",
     "framing_leaked": [],
     "verbatim_span": true,
+    "meaning_dropped": [],
     "note": "a contract fact, same failure shape"
   },
   {
@@ -129,6 +140,127 @@
     "question": "",
     "framing_leaked": [],
     "verbatim_span": true,
+    "meaning_dropped": [],
     "note": "a product fact"
+  },
+  {
+    "message": "client asked me straight up what our list price is for a 12 month deal, how would Naren handle that",
+    "expect": "reply_to_client",
+    "got": "reply_to_client",
+    "correct": true,
+    "retrieval_query": "what our list price is for a 12 month deal",
+    "question": "",
+    "framing_leaked": [],
+    "verbatim_span": true,
+    "meaning_dropped": [],
+    "note": "THE TRAP: a pricing question, but a CLIENT asked it, so it is a client turn Naren has faced -- not an internal fact lookup"
+  },
+  {
+    "message": "she said they had NOT approved the budget increase and were surprised to see it live",
+    "expect": "reply_to_client",
+    "got": "reply_to_client",
+    "correct": true,
+    "retrieval_query": "they had NOT approved the budget increase and were surprised to see it live",
+    "question": "",
+    "framing_leaked": [],
+    "verbatim_span": true,
+    "meaning_dropped": [],
+    "note": "negation must survive the copy -- dropping 'not' inverts the situation"
+  },
+  {
+    "message": "client wants to know whether we capped their city level spend or whether their own team did it",
+    "expect": "reply_to_client",
+    "got": "reply_to_client",
+    "correct": true,
+    "retrieval_query": "whether we capped their city level spend or whether their own team did it",
+    "question": "",
+    "framing_leaked": [],
+    "verbatim_span": true,
+    "meaning_dropped": [],
+    "note": "two subjects in one sentence; a rewrite that collapses them changes the question being asked"
+  },
+  {
+    "message": "cliant said thier cpa is like 3x what we quotd, wht do i tell them",
+    "expect": "reply_to_client",
+    "got": "reply_to_client",
+    "correct": true,
+    "retrieval_query": "thier cpa is like 3x what we quotd",
+    "question": "",
+    "framing_leaked": [],
+    "verbatim_span": true,
+    "meaning_dropped": [],
+    "note": "typos throughout -- the client's content is still fully present"
+  },
+  {
+    "message": "client mentioned CPA again",
+    "expect": "clarify",
+    "got": "clarify",
+    "correct": true,
+    "retrieval_query": "",
+    "question": "Could you share the client's actual words or specific message about CPA?",
+    "framing_leaked": [],
+    "verbatim_span": true,
+    "meaning_dropped": [],
+    "note": "one specific noun and nothing else; not enough to search on"
+  },
+  {
+    "message": "hey",
+    "expect": "clarify",
+    "got": "clarify",
+    "correct": true,
+    "retrieval_query": "",
+    "question": "Could you share what the client actually said or wrote so I can search Naren's call transcripts for a matching situation?",
+    "framing_leaked": [],
+    "verbatim_span": true,
+    "meaning_dropped": [],
+    "note": "no situation at all"
+  },
+  {
+    "message": "client said the last campaign was the best they have run in two years and asked how we would scale it, what do i say",
+    "expect": "reply_to_client",
+    "got": "reply_to_client",
+    "correct": true,
+    "retrieval_query": "the last campaign was the best they have run in two years and asked how we would scale it",
+    "question": "",
+    "framing_leaked": [],
+    "verbatim_span": true,
+    "meaning_dropped": [],
+    "note": "a POSITIVE situation -- every fitted case was a complaint"
+  },
+  {
+    "message": "whats our standard payment terms for a new enterprise logo",
+    "expect": "out_of_scope",
+    "got": "out_of_scope",
+    "correct": true,
+    "retrieval_query": "",
+    "question": "",
+    "framing_leaked": [],
+    "verbatim_span": true,
+    "meaning_dropped": [],
+    "note": "internal fact, no client in the picture"
+  },
+  {
+    "message": "we got on the call and honestly it went everywhere, they talked about hiring targets for a while and then the client said the applications coming through are mostly out of state which is useless for their warehouse roles, and then we moved on to timelines",
+    "expect": "reply_to_client",
+    "got": "reply_to_client",
+    "correct": true,
+    "retrieval_query": "the applications coming through are mostly out of state which is useless for their warehouse roles",
+    "question": "",
+    "framing_leaked": [],
+    "verbatim_span": true,
+    "meaning_dropped": [],
+    "note": "client content BURIED in a rambling message -- the copy has to find it"
+  },
+  {
+    "message": "do we have a case study for a client like this",
+    "expect": "out_of_scope",
+    "got": "out_of_scope",
+    "correct": true,
+    "retrieval_query": "",
+    "question": "",
+    "framing_leaked": [],
+    "verbatim_span": true,
+    "meaning_dropped": [],
+    "note": "asking about our materials, not about a client situation"
   }
 ]

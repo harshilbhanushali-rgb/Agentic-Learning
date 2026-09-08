@@ -32,6 +32,38 @@ are where the real boundary lies:
   - "client is asking why spend went up 40% in March" -- reported speech carrying a specific
     claim. Over-clarifying here is the failure that makes the tool annoying rather than wrong.
 
+## FLASH-LITE WAS MEASURED FOR INTAKE AND REJECTED (2026-09-08)
+
+`gemini-3.5-flash-lite` is cheaper and was A/B'd here against the shipped `gemini-3.6-flash`
+on identical cases, same prompt, same schema:
+
+| set | 3.6-flash | 3.5-flash-lite |
+| --- | --- | --- |
+| fitted (12) | 12/12 | 12/12 -- and BYTE-IDENTICAL extracted spans on all twelve |
+| **held out (10)** | **10/10** | **8/10** |
+
+The two it lost are the boundary cases: "client asked me straight up what our list price is"
+routed to `out_of_scope` (missing that a CLIENT asked it, which is the discriminator 3.6-flash
+only got right after the prompt was rewritten), and "do we have a case study for a client like
+this" routed to `clarify`. The first costs a CSM a real answer -- an answerable client question
+comes back refused.
+
+**The split is the interesting part, and it generalises:**
+
+| | flash-lite, held out |
+| --- | --- |
+| verbatim span copied | 10/10 |
+| negation / subject preserved | 10/10 |
+| framing stripped | 10/10 |
+| **correct route** | **8/10** |
+
+Schema enforcement made lite's OUTPUT completely safe and did nothing for its JUDGEMENT. That
+is a sharper form of ADR 0001's "the model is the lever, not the prompt", in a new context --
+and note the fitted set could not tell the two models apart at all, which is the whole reason
+the held-out set exists.
+
+Do not re-propose flash-lite for intake without new held-out cases and a better result.
+
 WHAT THIS DOES NOT MEASURE. Whether the ANSWER is right. Intake changes which text reaches
 retrieval; whether that produces better answers is issue #9's question and needs the blind
 read. A perfect routing score here is compatible with no change in answer quality at all.
@@ -116,23 +148,90 @@ CASES = [
      "note": "a product fact"},
 ]
 
+# HELD OUT. Written AFTER the prompt was finalised and never used to change it, which is the
+# only reason a score over them means anything (the twelve above are fitted -- see the
+# docstring). Deliberately nastier: negation, subject ambiguity, typos, a client asking about
+# pricing, and a positive situation rather than a complaint.
+#
+# `query_must_contain` is the check that matters most here. A span can be copied and still be
+# wrong if the model copies the WRONG span -- dropping a "not", or keeping "our" where the
+# message said "their". Those are the two ways subject inversion and negation loss get in,
+# and they are invisible to a routing-only score.
+HELD_OUT = [
+    {"message": "client asked me straight up what our list price is for a 12 month deal, "
+                "how would Naren handle that",
+     "expect": "reply_to_client",
+     "note": "THE TRAP: a pricing question, but a CLIENT asked it, so it is a client turn "
+             "Naren has faced -- not an internal fact lookup"},
+    {"message": "she said they had NOT approved the budget increase and were surprised to "
+                "see it live",
+     "expect": "reply_to_client",
+     "query_must_contain": ["not"],
+     "note": "negation must survive the copy -- dropping 'not' inverts the situation"},
+    {"message": "client wants to know whether we capped their city level spend or whether "
+                "their own team did it",
+     "expect": "reply_to_client",
+     "query_must_contain": ["their own team"],
+     "note": "two subjects in one sentence; a rewrite that collapses them changes the "
+             "question being asked"},
+    {"message": "cliant said thier cpa is like 3x what we quotd, wht do i tell them",
+     "expect": "reply_to_client",
+     "query_must_not_contain": ["wht do i tell them"],
+     "note": "typos throughout -- the client's content is still fully present"},
+    {"message": "client mentioned CPA again",
+     "expect": "clarify",
+     "note": "one specific noun and nothing else; not enough to search on"},
+    {"message": "hey",
+     "expect": "clarify",
+     "note": "no situation at all"},
+    {"message": "client said the last campaign was the best they have run in two years and "
+                "asked how we would scale it, what do i say",
+     "expect": "reply_to_client",
+     "query_must_not_contain": ["what do i say"],
+     "note": "a POSITIVE situation -- every fitted case was a complaint"},
+    {"message": "whats our standard payment terms for a new enterprise logo",
+     "expect": "out_of_scope",
+     "note": "internal fact, no client in the picture"},
+    {"message": "we got on the call and honestly it went everywhere, they talked about "
+                "hiring targets for a while and then the client said the applications "
+                "coming through are mostly out of state which is useless for their "
+                "warehouse roles, and then we moved on to timelines",
+     "expect": "reply_to_client",
+     "query_must_contain": ["out of state"],
+     "note": "client content BURIED in a rambling message -- the copy has to find it"},
+    {"message": "do we have a case study for a client like this",
+     "expect": "out_of_scope",
+     "note": "asking about our materials, not about a client situation"},
+]
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--limit", type=int, help="only the first N cases (smoke test)")
     ap.add_argument("--out", default=str(ARTIFACTS / "intake_accuracy.json"))
+    ap.add_argument("--set", dest="which", default="fitted",
+                    choices=("fitted", "heldout", "both"),
+                    help="fitted = the 12 the prompt was tuned on (NOT an accuracy "
+                         "rate); heldout = cases never used to change the prompt")
+    ap.add_argument("--model", default=intake.CHAT_MODEL,
+                    help="override intake's model, to A/B a cheaper one on the same cases")
     args = ap.parse_args()
 
     load_config()
-    cases = CASES[:args.limit] if args.limit else CASES
+    pool = {"fitted": CASES, "heldout": HELD_OUT, "both": CASES + HELD_OUT}[args.which]
+    cases = pool[:args.limit] if args.limit else pool
 
     rows = []
     with GatewayClient() as gw:
         for n, case in enumerate(cases, 1):
-            decision, _ = intake.classify(case["message"], gw)
+            decision, _ = intake.classify(case["message"], gw, model=args.model)
             leaked = [s for s in case.get("query_must_not_contain", [])
                       if s.lower() in decision.retrieval_query.lower()]
+            # Tokens whose LOSS changes the meaning: a dropped "not", or a subject
+            # collapsed away. A span can be copied and still be the wrong span.
+            dropped = [s for s in case.get("query_must_contain", [])
+                       if s.lower() not in decision.retrieval_query.lower()]
             # Is the query a span COPIED from the message, or prose the model composed?
             # A composed query is how subject inversion gets introduced -- "nothing changed
             # on their side" rewritten to "our side" is near-identical in embedding space
@@ -150,6 +249,7 @@ def main() -> int:
                 "question": decision.question,
                 "framing_leaked": leaked,
                 "verbatim_span": verbatim,
+                "meaning_dropped": dropped,
                 "note": case["note"],
             }
             rows.append(row)
@@ -158,11 +258,17 @@ def main() -> int:
                   f"got={decision.intent:<15} {case['message'][:55]!r}", flush=True)
             if leaked:
                 print(f"          FRAMING LEAKED INTO THE QUERY: {leaked}", flush=True)
+            if dropped:
+                print(f"          MEANING-BEARING TEXT DROPPED: {dropped}", flush=True)
+                print(f"          query was {decision.retrieval_query!r}", flush=True)
 
     Path(args.out).write_text(json.dumps(rows, indent=2), encoding="utf-8")
 
     print("\n" + "=" * 78)
-    print("ROUTING ACCURACY -- a classification against hand-written labels")
+    label = {"fitted": "FITTED cases (not an accuracy rate)",
+             "heldout": "HELD-OUT cases",
+             "both": "fitted + held-out"}[args.which]
+    print(f"ROUTING ACCURACY -- {args.model} -- {label}")
     print("=" * 78)
 
     overall = sum(r["correct"] for r in rows)
@@ -198,6 +304,15 @@ def main() -> int:
         for r in composed:
             print(f"    - {r['retrieval_query'][:64]!r}")
             print(f"      from {r['message'][:64]!r}")
+
+    lost = [r for r in rows if r["meaning_dropped"]]
+    print(f"\n  MEANING PRESERVED -- no negation or subject dropped from the query: "
+          f"{len(rows) - len(lost)}/{len(rows)} clean")
+    if lost:
+        print("  A copied span can still be the WRONG span. Each of these lost text")
+        print("  that changes what is being asked:")
+        for r in lost:
+            print(f"    - dropped {r[chr(39)+chr(109)+chr(101)+chr(97)+chr(110)+chr(105)+chr(110)+chr(103)+chr(95)+chr(100)+chr(114)+chr(111)+chr(112)+chr(112)+chr(101)+chr(100)+chr(39)]} from {r[chr(39)+chr(109)+chr(101)+chr(115)+chr(115)+chr(97)+chr(103)+chr(101)+chr(39)][:56]!r}")
 
     leaks = [r for r in rows if r["framing_leaked"]]
     print(f"\n  FRAMING STRIPPED from the retrieval query: "

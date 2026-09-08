@@ -169,8 +169,13 @@ def build_prompt(message: str) -> str:
     ])
 
 
-def classify(message: str, gateway) -> tuple[IntakeDecision, dict]:
+def classify(message: str, gateway, *, model: str = CHAT_MODEL) -> tuple[IntakeDecision, dict]:
     """Decide what happens to `message`. Returns (decision, meta).
+
+    `model` exists so a cheaper model can be A/B'd on the same labelled cases
+    (`ask-naren/audit/measure_intake_accuracy.py --model ...`) rather than swapped in on the
+    assumption that classification is easy. It defaults to the licensed model, so production
+    does not move until a measurement says it should.
 
     NEVER RAISES for a model or gateway problem. Two unusable replies, a malformed reply, or
     a gateway that is down all fall through to answering the message as written -- the
@@ -185,7 +190,7 @@ def classify(message: str, gateway) -> tuple[IntakeDecision, dict]:
         try:
             payload, meta = gateway.chat_json(
                 build_prompt(message),
-                model=CHAT_MODEL,
+                model=model,
                 temperature=TEMPERATURE,
                 max_tokens=MAX_TOKENS,
                 schema=response_schema(),
