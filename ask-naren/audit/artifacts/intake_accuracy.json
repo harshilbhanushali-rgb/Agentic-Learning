@@ -40,7 +40,7 @@
     "expect": "reply_to_client",
     "got": "reply_to_client",
     "correct": true,
-    "retrieval_query": "their LinkedIn rotation is every 10 to 20 days and asked why ours is different",
+    "retrieval_query": "LinkedIn rotation is every 10 to 20 days and asked why ours is different",
     "question": "",
     "framing_leaked": [],
     "verbatim_span": true,
@@ -89,7 +89,7 @@
     "got": "clarify",
     "correct": true,
     "retrieval_query": "",
-    "question": "Could you share the specific words or main points the client raised so I can find the best match from Naren's calls?",
+    "question": "Could you share the specific points or actual words the client said or wrote?",
     "framing_leaked": [],
     "verbatim_span": true,
     "meaning_dropped": [],
@@ -101,7 +101,7 @@
     "got": "clarify",
     "correct": true,
     "retrieval_query": "",
-    "question": "Could you share the specific words or message the client sent regarding their performance frustration?",
+    "question": "Could you share the client's actual words or specific details about why they are frustrated with performance?",
     "framing_leaked": [],
     "verbatim_span": true,
     "meaning_dropped": [],
@@ -160,7 +160,7 @@
     "expect": "reply_to_client",
     "got": "reply_to_client",
     "correct": true,
-    "retrieval_query": "they had NOT approved the budget increase and were surprised to see it live",
+    "retrieval_query": "had NOT approved the budget increase and were surprised to see it live",
     "question": "",
     "framing_leaked": [],
     "verbatim_span": true,
@@ -209,7 +209,7 @@
     "got": "clarify",
     "correct": true,
     "retrieval_query": "",
-    "question": "Could you please share the actual message or quote from the client so I can find the best match in Naren's calls?",
+    "question": "Could you share the actual message or specific details of what the client said or asked?",
     "framing_leaked": [],
     "verbatim_span": true,
     "meaning_dropped": [],
@@ -252,7 +252,7 @@
     "note": "client content BURIED in a rambling message -- the copy has to find it"
   },
   {
-    "message": "do we have a case study for a client like this",
+    "message": "send me the Mercor case study pdf",
     "expect": "out_of_scope",
     "got": "out_of_scope",
     "correct": true,
@@ -261,6 +261,18 @@
     "framing_leaked": [],
     "verbatim_span": true,
     "meaning_dropped": [],
-    "note": "asking about our materials, not about a client situation"
+    "note": "unambiguously asking for our own material; no client situation at all"
+  },
+  {
+    "message": "a client like this one would want a case study, do we have something",
+    "expect": "clarify",
+    "got": "clarify",
+    "correct": true,
+    "retrieval_query": "",
+    "question": "Could you share the specific phrase or context the client used when asking for a case study?",
+    "framing_leaked": [],
+    "verbatim_span": true,
+    "meaning_dropped": [],
+    "note": "gestures at a client situation without describing it -- nothing to search on, and the CSM has to say which situation before anything can be answered"
   }
 ]

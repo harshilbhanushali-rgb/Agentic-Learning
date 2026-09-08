@@ -32,7 +32,37 @@ are where the real boundary lies:
   - "client is asking why spend went up 40% in March" -- reported speech carrying a specific
     claim. Over-clarifying here is the failure that makes the tool annoying rather than wrong.
 
-## MODEL AND REASONING BUDGET: MEASURED 2026-09-08, over the 10 HELD-OUT cases
+## THE INSTRUMENT WAS WRONG BEFORE THE MODELS WERE (read this first)
+
+An early version of the held-out set contained "do we have a case study for a client like
+this", labelled `out_of_scope`. The label was AMBIGUOUS -- by the prompt's own definition it
+is out_of_scope, but "a client like this" gestures at an undescribed client situation, which
+makes clarify equally defensible. Every model tested flipped on that one case and on no other,
+so a 9-vs-10 gap that read as a model difference was ONE BAD LABEL. It was withdrawn and
+split into two unambiguous cases, one per reading.
+
+The cost of not catching it sooner: three successive and contradictory recommendations about
+which model to ship. **A model comparison is only as good as its weakest label**, and a single
+ambiguous case in n=10 is enough to invert the ranking. Check that a case has one defensible
+answer before adding it.
+
+## MODEL AND REASONING BUDGET: MEASURED 2026-09-08
+
+### Final, on the repaired 11-case held-out set, all at reasoning=low
+
+| model | route | quality checks | $/1k queries |
+| --- | --- | --- | --- |
+| **gemini-3.6-flash** | **11/11** | all clean | **0.83** |
+| gemini-2.5-flash-lite | 10/11 | all clean | 0.37 |
+| gemini-3.5-flash-lite | 10/11 | framing leaked on one | 0.37 |
+
+Both cheaper models drop one case, and DIFFERENT ones -- 2.5 misses the clarify, 3.5 misses
+the out_of_scope and leaks framing. `gemini-3.6-flash` stays shipped: the saving is $0.46 per
+thousand questions, which buys a misroute roughly every eleventh question.
+
+### The reasoning-budget finding, which is the bigger win and independent of the model
+
+Measured over the earlier 10 held-out cases:
 
 Prompted by "can we use flash-lite, it's cheaper". Five configs, same prompt, same schema,
 same cases, with token usage captured because once two configs tie on accuracy the decision
@@ -209,9 +239,27 @@ HELD_OUT = [
      "expect": "reply_to_client",
      "query_must_contain": ["out of state"],
      "note": "client content BURIED in a rambling message -- the copy has to find it"},
-    {"message": "do we have a case study for a client like this",
+    # WITHDRAWN 2026-09-08, and the reason matters more than the case.
+    #
+    #   {"message": "do we have a case study for a client like this",
+    #    "expect": "out_of_scope"}
+    #
+    # The label was AMBIGUOUS and it was quietly deciding a model comparison. By the prompt's
+    # own definition it is out_of_scope (the CSM asking about OUR materials), but "a client
+    # like this" refers to a client situation that was never described, which makes clarify
+    # equally defensible -- a human would split on it too. Both gemini-3.6-flash and
+    # gemini-2.5-flash-lite flip on this one case and on no other, so a 9-vs-10 gap that
+    # looked like a model difference was one bad label.
+    #
+    # Rewritten below as two UNAMBIGUOUS cases, one for each reading, which is what the
+    # original was trying to be.
+    {"message": "send me the Mercor case study pdf",
      "expect": "out_of_scope",
-     "note": "asking about our materials, not about a client situation"},
+     "note": "unambiguously asking for our own material; no client situation at all"},
+    {"message": "a client like this one would want a case study, do we have something",
+     "expect": "clarify",
+     "note": "gestures at a client situation without describing it -- nothing to search on, "
+             "and the CSM has to say which situation before anything can be answered"},
 ]
 
 
