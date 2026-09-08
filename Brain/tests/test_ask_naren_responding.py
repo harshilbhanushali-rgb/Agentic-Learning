@@ -6,6 +6,8 @@ elsewhere. Two reasons, both deliberate: a dispatch test must not pay for a gene
 routing accuracy is a separate question measured against labelled messages
 (`ask-naren/audit/measure_intake_accuracy.py`) rather than smuggled into behaviour tests.
 """
+import json
+
 import numpy as np
 import pytest
 
@@ -201,6 +203,138 @@ def test_no_thread_behaves_exactly_as_before_threads_existed():
     assert seen == [()]
     assert result["outcome"] == "answered"
     assert embed.seen == [CLIENT_WORDS]
+
+
+# -- follow-ups: answered from the thread, with no new search (issue #16) ------------------
+
+FOLLOW_UP = "and what if they push back on price?"
+OTHER_RESPONSE = "Let me check with the team and come back to you today."
+
+
+def _answered_turn(pair_id=11, call=CALL, scenario="performance_pushback"):
+    return threads.ThreadTurn(message="client says our cpa is 3x",
+                              reply="Reframe on their own baseline.", outcome="answered",
+                              pair_id=pair_id, call_filename=call, scenario_key=scenario)
+
+
+def test_a_follow_up_is_answered_without_searching_for_anything():
+    """ADR 0006's answer to "and if they push back on price?": there is no new search to
+    dilute, because there is no new search."""
+    result, gw, embed = _respond(_decides("follow_up"), _answer_payload(),
+                                 message=FOLLOW_UP, thread=(_answered_turn(),))
+    assert result["outcome"] == "answered"
+    assert embed.seen == []                 # nothing was embedded
+    assert len(gw.calls) == 1               # one generation, no retrieval
+
+
+def test_a_follow_up_grounds_in_the_source_the_thread_carried():
+    result, _, _ = _respond(_decides("follow_up"), _answer_payload(),
+                            message=FOLLOW_UP, thread=(_answered_turn(),))
+    assert result["citation"]["pair_id"] == 11
+    assert result["citation"]["call_filename"] == CALL
+
+
+def test_a_follow_up_answer_reports_no_match_because_nothing_was_searched():
+    """Same rule as an out-of-scope decline. A cosine here would be invented, and it would
+    be invented into the record decline-rate calibration later reads."""
+    result, _, _ = _respond(_decides("follow_up"), _answer_payload(),
+                            message=FOLLOW_UP, thread=(_answered_turn(),))
+    assert "match" not in result
+
+
+def test_a_quote_from_an_earlier_turns_source_does_not_pass_as_grounding():
+    """QUOTE BLEED, the hazard putting history in a prompt creates. An earlier turn cited a
+    different call; a quote lifted from THAT call must not ground THIS answer, however
+    verbatim it is of something Naren really said."""
+    thread = (_answered_turn(pair_id=22, call="other_call.txt", scenario="timeline_question"),
+              _answered_turn(pair_id=11, call=CALL))
+    bleed = {"declined": False, "answer": "Tell them you will check.",
+             "quote": "come back to you today",     # verbatim -- of the WRONG call
+             "cited_call": "other_call.txt"}
+
+    result, _, _ = _respond(_decides("follow_up"), bleed, bleed,
+                            message=FOLLOW_UP, thread=thread)
+    assert result["outcome"] == "declined"
+    assert result["reason"] == "follow_up_ungrounded"
+    assert "come back to you today" not in json.dumps(result)
+
+
+def test_a_follow_up_the_carried_source_cannot_answer_declines():
+    ungroundable = {"declined": False, "answer": "Offer a discount.",
+                    "quote": "offer them fifteen percent off", "cited_call": CALL}
+    result, _, _ = _respond(_decides("follow_up"), ungroundable, ungroundable,
+                            message=FOLLOW_UP, thread=(_answered_turn(),))
+    assert result["outcome"] == "declined"
+    assert result["reason"] == "follow_up_ungrounded"
+    assert "answer" not in result and "quote" not in result
+
+
+def test_a_follow_up_with_nothing_to_follow_up_on_is_answered_as_a_new_question():
+    """An all-clarify thread carries no grounding source. Declining would tell a CSM nothing
+    was found when nothing was looked for; searching on their words is the honest fallback."""
+    clarified = threads.ThreadTurn(message="client is unhappy", outcome="clarify",
+                                   reply="What did they actually say?")
+    result, _, embed = _respond(_decides("follow_up"), _answer_payload(),
+                                message=FOLLOW_UP, thread=(clarified,))
+    assert result["outcome"] == "answered"
+    assert embed.seen == [FOLLOW_UP]        # it really did search, on the message as written
+
+
+def test_a_follow_up_whose_carried_pair_left_the_pool_is_answered_as_a_new_question():
+    """The pool is loaded once at startup. A pipeline re-run between restarts can retire a
+    pair an open thread still points at."""
+    stale = _answered_turn(pair_id=9999, call="retired_call.txt")
+    result, _, embed = _respond(_decides("follow_up"), _answer_payload(),
+                                message=FOLLOW_UP, thread=(stale,))
+    assert result["outcome"] == "answered"
+    assert embed.seen == [FOLLOW_UP]
+
+
+def test_a_follow_up_echoes_no_retrieval_query_because_it_embedded_nothing():
+    result, _, _ = _respond(_decides("follow_up", retrieval_query="pushing back on price"),
+                            _answer_payload(), message=FOLLOW_UP, thread=(_answered_turn(),))
+    assert result["intake"] == {"intent": "follow_up", "retrieval_query": ""}
+
+
+# -- clarify: asked once, never twice (issue #16) ------------------------------------------
+
+def test_the_same_clarify_is_not_asked_twice_in_a_row():
+    """The CSM is answering the question right now. Asking again is the loop story 14
+    forbids, so the path falls through to a best-effort answer instead."""
+    asked = threads.ThreadTurn(message="client is unhappy about pricing", outcome="clarify",
+                               reply="What did the client actually say?")
+    result, _, embed = _respond(_decides("clarify", question="What did the client actually say?"),
+                                _answer_payload(),
+                                message="he said our rates are 30% above market",
+                                thread=(asked,))
+    assert result["outcome"] == "answered"
+    assert embed.seen == ["he said our rates are 30% above market"]
+
+
+def test_a_question_already_asked_earlier_in_the_thread_is_not_repeated():
+    """The repeat `awaiting_clarify` does not catch: the same question again, several turns
+    later."""
+    thread = (threads.ThreadTurn(message="client is unhappy", outcome="clarify",
+                                 reply="What did the client actually say?"),
+              _answered_turn())
+    result, _, _ = _respond(_decides("clarify", question="what did the client ACTUALLY say?"),
+                            _answer_payload(), message="they are annoyed again",
+                            thread=thread)
+    assert result["outcome"] == "answered"
+
+
+def test_a_genuinely_new_clarify_later_in_a_thread_is_still_allowed():
+    """A CSM may switch to an unrelated situation without starting a new thread (story 19).
+    That situation deserves its own question -- loop prevention must not become never
+    asking."""
+    thread = (threads.ThreadTurn(message="client is unhappy", outcome="clarify",
+                                 reply="What did the client actually say?"),
+              _answered_turn())
+    result, _, _ = _respond(
+        _decides("clarify", question="Which account is this about?"),
+        message="different client now, they are unhappy too", thread=thread)
+    assert result["outcome"] == "clarify"
+    assert result["question"] == "Which account is this about?"
 
 
 # -- the request boundary ----------------------------------------------------------------

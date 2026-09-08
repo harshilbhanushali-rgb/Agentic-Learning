@@ -191,3 +191,76 @@ def trim(turns, budget: int = MAX_THREAD_CHARS) -> tuple[ThreadTurn, ...]:
 
 def _total(turns) -> int:
     return sum(t.chars for t in turns)
+
+
+# -- what a later message inherits from the thread (issue #16) ----------------------------
+#
+# ALL THREE ARE COMPUTED IN CODE, NOT ASKED OF THE MODEL. Intake decides ONE thing about
+# history -- whether this message is a follow-up. Which exchange to ground it on, and
+# whether a clarify has already been asked, are lookups with exactly one right answer, and
+# a model that can invent a `pair_id` is a model that can ground an answer in a row that
+# does not exist.
+
+def carried_source(turns) -> ThreadTurn | None:
+    """The grounding source already cited -- the most recent turn that rested on one.
+
+    This is ADR 0006's corollary in one function: what carries forward is an IDENTIFIER, so
+    a follow-up can be answered from the exchange already cited without embedding a single
+    word of history. The text is looked up from the pool the service already holds.
+
+    None when nothing in the thread grounded in anything -- an all-clarify thread, or a
+    first message. The follow-up path has nothing to answer from in that case and says so.
+    """
+    for turn in reversed(list(turns)):
+        if turn.pair_id is not None:
+            return turn
+    return None
+
+
+def awaiting_clarify(turns) -> bool:
+    """Was the LAST thing Ask Naren did to ask the CSM a question?
+
+    If so, this message is the CSM answering it, and asking them another question is the
+    loop the spec forbids: "I never want to be asked the same thing twice". Enforced here
+    rather than in a prompt, because a prompt rule is a request and this is a guarantee.
+    """
+    turns = list(turns)
+    return bool(turns) and turns[-1].outcome == "clarify"
+
+
+def clarify_already_asked(turns, question: str) -> bool:
+    """Has this exact question already been put to the CSM in this thread?
+
+    Catches the repeat that `awaiting_clarify` does not: the same question asked again five
+    turns later. Matched on normalised text, so a difference in case or spacing is still the
+    same question. A genuinely DIFFERENT clarify later in a thread is allowed -- a CSM may
+    switch to an unrelated situation without starting a new thread, and that one deserves
+    its own question.
+    """
+    asked = _norm(question)
+    return bool(asked) and any(
+        t.outcome == "clarify" and _norm(t.reply) == asked for t in turns)
+
+
+def render(turns) -> str:
+    """The thread as prompt text. ONE renderer, used by intake and by the follow-up answer.
+
+    Two prompts rendering a conversation two ways is two chances for them to disagree about
+    what the CSM was told, which is the thing a follow-up is reasoning against.
+
+    An elided turn says so rather than showing a blank: a model reading an empty message
+    would conclude the CSM said nothing, when in fact the text was dropped to fit.
+    """
+    said = {"answered": "Ask Naren answered", "clarify": "Ask Naren asked back",
+            "declined": "Ask Naren declined"}
+    lines = []
+    for n, turn in enumerate(turns, 1):
+        lines.append(f"  [{n}] CSM: {turn.message or '(dropped to fit)'}")
+        source = f" (grounded in {turn.call_filename})" if turn.call_filename else ""
+        lines.append(f"      {said[turn.outcome]}{source}: "
+                     f"{turn.reply or '(dropped to fit)'}")
+    return "\n".join(lines)
+
+
+def _norm(text: str | None) -> str:
+    return " ".join((text or "").split()).lower()

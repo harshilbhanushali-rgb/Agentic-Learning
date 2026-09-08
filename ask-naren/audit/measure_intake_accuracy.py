@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Issue #14's gate: how often does INTAKE route a message correctly?
 
-    python ask-naren/audit/measure_intake_accuracy.py            # the whole set
-    python ask-naren/audit/measure_intake_accuracy.py --limit 6  # smoke test
+    python ask-naren/audit/measure_intake_accuracy.py                  # the fitted set
+    python ask-naren/audit/measure_intake_accuracy.py --set heldout    # the real number
+    python ask-naren/audit/measure_intake_accuracy.py --set threaded   # issue #16
+    python ask-naren/audit/measure_intake_accuracy.py --limit 6        # smoke test
 
 WHY THIS IS CHEAP, AND WHY THAT MATTERS. Every other quality question in this project needs a
 blind reader, two-sided controls and a warning that absolute rates are artifacts of framing.
@@ -104,6 +106,70 @@ model is the lever, not the prompt", in the one place the schema was expected to
 Do not re-propose flash-lite for intake without new held-out cases and a better result. Do not
 remove `reasoning_effort` on the assumption that absence means cheap.
 
+## THE THREAD-SHAPED SET (`--set threaded`, issue #16)
+
+Every packet in this project before this one was single-message, so intake's three history
+judgements had nothing to be scored against. Each case here is a CONVERSATION plus the next
+message, and the three judgements are: is this a follow-up, is this the answer to a clarify
+already asked, and has this question been put before.
+
+It carries TWO negative cases rather than one, and the second is the one specific to
+threads:
+
+  - messages that must not CLARIFY (as above), and
+  - messages in a thread that must not be read as FOLLOW-UPS. This is the one that matters
+    most here. An intake that treats everything in a conversation as a follow-up scores
+    perfectly on the positive cases while answering every new client situation from
+    whatever call happened to be cited last -- an answer that is grounded, internally
+    coherent, and about the wrong client. Nothing downstream can catch that.
+
+The `verbatim_span` check does double duty on this set: the retrieval query must be a span
+of the CURRENT message, so a query assembled out of the conversation shows up as composed
+rather than copied. That is ADR 0006's rule -- history may supply an identifier, never text
+that gets embedded -- checked from the outside.
+
+### The threaded result, 2026-09-08, gemini-3.6-flash at reasoning=low
+
+| run | overall | must-not-clarify | must-not-follow-up | verbatim | meaning | framing |
+| --- | --- | --- | --- | --- | --- | --- |
+| held out, before any fix | 10/11 | 9/9 | 7/7 | 11/11 | 11/11 | 11/11 |
+| after the prompt fix (**fitted**) | 11/11 | 9/9 | 7/7 | 11/11 | 11/11 | 11/11 |
+
+*** THE 11/11 IS FITTED. QUOTE 10/11. *** The prompt was changed after reading the first
+run, which is exactly what makes the second one a repaired instrument rather than an
+accuracy rate -- the same distinction the twelve fitted cases above carry. n=11.
+
+The single failure and its fix are worth more than either number. "And what if they push
+back on price?" with NO conversation was routed `follow_up`. The prompt listed the intent
+unconditionally and told the model it was "only available when there is a conversation
+above"; the model took it anyway. The fix was to stop OFFERING the option when there is no
+thread (`intake._follow_up_intent`), and the lesson generalises: **a rule saying an option
+does not apply is weaker than the option's absence.** Nothing would have broken in
+production -- `responding._guarded` turns a follow-up with no carried source into an
+ordinary answer -- but the fallback would have been carrying a case that should never have
+reached it.
+
+### The single-message held-out set no longer reproduces its recorded 11/11
+
+Re-run twice as a regression check after the threaded work: **10/11 both times**, failing
+the same case both times -- "a client like this one would want a case study, do we have
+something" (expected `clarify`, got `reply_to_client`).
+
+**It is not the thread work.** With an empty thread `build_prompt` is BYTE-IDENTICAL to the
+version at commit 88b7ed4, verified by loading that revision and comparing the output
+directly rather than by reading the diff. Same model name, same temperature, same schema,
+`no_cache=True`, so it is not a cache echo either.
+
+So one of two things is true and this harness cannot distinguish them: `gemini-3.6-flash`
+is not run-to-run stable on this case at temperature 0, or the model behind that name moved
+under us. **Treat the recorded 11/11 as unreproduced rather than as a target.**
+
+Note which case it is. This is one of the two rewrites of the ambiguous case withdrawn on
+2026-09-08 -- the one written to be unambiguously `clarify`. The model's answer here is not
+a defensible reading (there is no client utterance anywhere in it), so this is a genuine
+miss rather than another bad label. It is left in place deliberately: withdrawing a case
+because it started failing is tuning the instrument to the result.
+
 WHAT THIS DOES NOT MEASURE. Whether the ANSWER is right. Intake changes which text reaches
 retrieval; whether that produces better answers is issue #9's question and needs the blind
 read. A perfect routing score here is compatible with no change in answer quality at all.
@@ -120,7 +186,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_ROOT / "Brain"))
 
-from ask_naren import intake                       # noqa: E402
+from ask_naren import intake, threads              # noqa: E402
 from config import load_config                     # noqa: E402
 from shared.gateway import GatewayClient           # noqa: E402
 
@@ -262,6 +328,118 @@ HELD_OUT = [
              "and the CSM has to say which situation before anything can be answered"},
 ]
 
+# THREAD-SHAPED CASES (issue #16). Every packet in this project before this one was
+# single-message, and intake's three history judgements -- is this a follow-up, is this the
+# answer to a clarify I already asked, have I asked this before -- cannot be scored without
+# a conversation to judge them against.
+#
+# HELD OUT by construction: written before intake's thread rules existed and not edited
+# after reading a result. If they are ever used to rewrite the prompt, say so here and stop
+# quoting the score, exactly as the fitted twelve above do.
+#
+# THE NEGATIVE CASES CARRY THE INSTRUMENT, and there are two kinds here rather than one:
+#
+#   * messages that must NOT be read as follow-ups. An intake that called everything in a
+#     conversation a follow-up would score perfectly on the three positive cases while
+#     answering every new client situation from whatever call happened to be cited last --
+#     a wrong answer that looks completely normal, which is the worst shape of failure this
+#     tool has.
+#   * messages that must STILL clarify. Loop prevention must not become never asking: a CSM
+#     who switches to a thin new situation mid-thread deserves their own question.
+#
+# `thread` is a list of turns in the wire shape (`Brain/ask_naren/threads.py`).
+_ANSWERED = {
+    "message": "client said \"our cost per hire is way higher than what you promised\", "
+               "what do i say",
+    "outcome": "answered",
+    "reply": "Pull the last 90 days and show cost per hire against their own baseline "
+             "rather than against our benchmark.",
+    "pair_id": 4211,
+    "scenario_key": "performance_pushback",
+    "call_filename": "20230503_uber_joveo_weekly_performance_review.txt",
+}
+_ASKED_BACK = {
+    "message": "client is unhappy about pricing",
+    "outcome": "clarify",
+    "reply": "What did the client actually say?",
+}
+
+THREADED = [
+    # -- must be read as follow-ups: no new situation, only the one already answered -------
+    {"thread": [_ANSWERED],
+     "message": "and what if they push back on price?",
+     "expect": "follow_up",
+     "note": "the canonical follow-up -- means nothing on its own words, and there is "
+             "nothing new to search for"},
+    {"thread": [_ANSWERED],
+     "message": "why does he frame it against their own baseline instead of ours?",
+     "expect": "follow_up",
+     "note": "asks about the answer just given, not about a client"},
+    {"thread": [_ANSWERED],
+     "message": "what do i do if that does not land",
+     "expect": "follow_up",
+     "note": "no client utterance, no new situation -- going deeper on the same one"},
+
+    # -- must NOT be read as follow-ups: a new situation in the same conversation ----------
+    {"thread": [_ANSWERED],
+     "message": "different client now -- she said \"we never agreed to cap spend at the "
+                "city level\", how do i handle it",
+     "expect": "reply_to_client",
+     "query_must_contain": ["city level"],
+     "query_must_not_contain": ["how do i handle it"],
+     "note": "THE HAZARD: read as a follow-up this gets answered from the cost-per-hire "
+             "call, which is grounded, coherent and about the wrong thing"},
+    {"thread": [_ANSWERED],
+     "message": "client just told me their ATS integration broke this morning and nothing "
+                "is syncing",
+     "expect": "reply_to_client",
+     "query_must_contain": ["ATS"],
+     "note": "a new client situation with its own content; the conversation is irrelevant "
+             "to what should be searched"},
+
+    # -- the answer to a clarify already asked: run the ORIGINAL question, do not re-ask ---
+    {"thread": [_ASKED_BACK],
+     "message": "he said \"your rates are 30% above what we budgeted for this quarter\"",
+     "expect": "reply_to_client",
+     "query_must_contain": ["30%"],
+     "query_must_not_contain": ["he said"],
+     "note": "the CSM supplying exactly what was asked for -- this must complete the "
+             "earlier question, not be read as a brand new one"},
+    {"thread": [_ASKED_BACK],
+     "message": "she told me the applications coming through are mostly out of state and "
+                "useless for their warehouse roles",
+     "expect": "reply_to_client",
+     "query_must_contain": ["out of state"],
+     "note": "same, in reported speech rather than a quote"},
+
+    # -- the loop: a clarify already asked must not be asked again -------------------------
+    {"thread": [_ASKED_BACK],
+     "message": "i dont have their exact words, they were just annoyed about pricing again",
+     "expect": "reply_to_client",
+     "note": "THE LOOP CASE. The CSM cannot supply what was asked for. Asking again is the "
+             "dead end story 14 forbids, so this must fall through to a best-effort answer"},
+
+    # -- loop prevention must not become never asking --------------------------------------
+    {"thread": [_ANSWERED],
+     "message": "another account is unhappy too, can you help",
+     "expect": "clarify",
+     "note": "a genuinely NEW thin situation mid-thread. It deserves its own question, and "
+             "an intake that has learned never to ask would answer this from nothing"},
+
+    # -- a conversation does not change what is out of scope --------------------------------
+    {"thread": [_ANSWERED],
+     "message": "whats our standard payment terms for a new enterprise logo",
+     "expect": "out_of_scope",
+     "note": "an internal fact is an internal fact whatever came before it"},
+
+    # -- follow-up shaped, but there is nothing to follow up ---------------------------------
+    {"thread": [],
+     "message": "and what if they push back on price?",
+     "expect": "clarify",
+     "note": "the SAME words as the first case with no conversation behind them. A topic "
+             "and no content, so there is nothing to search and nothing to go deeper on"},
+]
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
@@ -269,9 +447,10 @@ def main() -> int:
     ap.add_argument("--limit", type=int, help="only the first N cases (smoke test)")
     ap.add_argument("--out", default=str(ARTIFACTS / "intake_accuracy.json"))
     ap.add_argument("--set", dest="which", default="fitted",
-                    choices=("fitted", "heldout", "both"),
+                    choices=("fitted", "heldout", "threaded", "both"),
                     help="fitted = the 12 the prompt was tuned on (NOT an accuracy "
-                         "rate); heldout = cases never used to change the prompt")
+                         "rate); heldout = cases never used to change the prompt; "
+                         "threaded = the conversation-shaped cases (issue #16)")
     ap.add_argument("--reasoning", default=intake.REASONING_EFFORT,
                     help="reasoning_effort to send; omit for the shipped value, "
                          "'none' to send no reasoning budget")
@@ -280,14 +459,18 @@ def main() -> int:
     args = ap.parse_args()
 
     load_config()
-    pool = {"fitted": CASES, "heldout": HELD_OUT, "both": CASES + HELD_OUT}[args.which]
+    pool = {"fitted": CASES, "heldout": HELD_OUT, "threaded": THREADED,
+            "both": CASES + HELD_OUT}[args.which]
     cases = pool[:args.limit] if args.limit else pool
 
     rows = []
     with GatewayClient() as gw:
         for n, case in enumerate(cases, 1):
+            # Parsed rather than passed raw, so a case that does not match the wire shape
+            # fails here instead of quietly measuring a thread the service would reject.
+            thread = threads.parse(case.get("thread"))
             decision, _ = intake.classify(
-                case["message"], gw, model=args.model,
+                case["message"], gw, thread=thread, model=args.model,
                 reasoning_effort=None if args.reasoning in (None, "none") else args.reasoning)
             leaked = [s for s in case.get("query_must_not_contain", [])
                       if s.lower() in decision.retrieval_query.lower()]
@@ -305,6 +488,7 @@ def main() -> int:
                         or _normalize(decision.retrieval_query) in _normalize(case["message"]))
             row = {
                 "message": case["message"],
+                "thread_turns": len(thread),
                 "expect": case["expect"],
                 "got": decision.intent,
                 "correct": decision.intent == case["expect"],
@@ -330,6 +514,7 @@ def main() -> int:
     print("\n" + "=" * 78)
     label = {"fitted": "FITTED cases (not an accuracy rate)",
              "heldout": "HELD-OUT cases",
+             "threaded": "THREAD-SHAPED cases (issue #16)",
              "both": "fitted + held-out"}[args.which]
     print(f"ROUTING ACCURACY -- {args.model} "
           f"(reasoning={args.reasoning or chr(110)+chr(111)+chr(110)+chr(101)}) -- {label}")
@@ -341,7 +526,7 @@ def main() -> int:
     # Reported per class, never pooled. A pooled rate hides the failure that matters: an
     # intake biased toward clarify looks fine overall while making the tool ask questions
     # instead of answering.
-    for label in ("reply_to_client", "clarify", "out_of_scope"):
+    for label in ("reply_to_client", "clarify", "out_of_scope", "follow_up"):
         group = [r for r in rows if r["expect"] == label]
         if group:
             hit = sum(r["correct"] for r in group)
@@ -356,6 +541,23 @@ def main() -> int:
               "wrong; each of these asked a CSM a question when it could have answered:")
         for r in over_clarified:
             print(f"    - {r['message'][:70]!r}")
+
+    # The second negative case, and the one that only exists once there is a conversation.
+    # An intake that reads everything in a thread as a follow-up scores perfectly on the
+    # positive cases while answering every new client situation from whatever call happened
+    # to be cited last -- grounded, coherent, and about the wrong client.
+    in_thread = [r for r in rows if r["thread_turns"]]
+    if in_thread:
+        not_follow_ups = [r for r in in_thread if r["expect"] != "follow_up"]
+        over_followed = [r for r in not_follow_ups if r["got"] == "follow_up"]
+        print(f"\n  NEGATIVE CASE -- messages in a thread that must NOT be read as "
+              f"follow-ups: {len(not_follow_ups) - len(over_followed)}/"
+              f"{len(not_follow_ups)} held")
+        if over_followed:
+            print("  Each of these would have been answered from the call cited earlier in "
+                  "the conversation, without searching for anything:")
+            for r in over_followed:
+                print(f"    - {r['message'][:70]!r}")
 
     composed = [r for r in rows if not r["verbatim_span"]]
     print(f"\n  VERBATIM -- the query is a span COPIED from the message: "

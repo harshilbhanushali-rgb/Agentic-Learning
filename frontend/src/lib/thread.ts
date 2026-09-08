@@ -135,6 +135,25 @@ function sizeOf(turns: ThreadTurn[]): number {
   return new Blob([JSON.stringify(turns)]).size;
 }
 
+/**
+ * A scenario key as something a CSM can read — `performance_pushback` → "performance
+ * pushback".
+ *
+ * WHY AN ANSWER NAMES ITS SCENARIO AT ALL (issue #16). A thread carries a scenario
+ * identifier forward, and if a CSM moves to a new situation without saying so, an inherited
+ * one makes every later answer quietly about the wrong thing. There is no way to detect
+ * that server-side — the answer is grounded and internally consistent, just about the wrong
+ * client. Printing the scenario is what lets the person who knows catch it (ADR 0006, "a
+ * carried identifier can strand").
+ *
+ * It also matters where nothing was carried: `application_volume_and_prioritization` holds
+ * 11.8% of coachable pairs and 16% of what routes there is about jobs rather than
+ * applications, so a catch-all scenario is worth naming even on a first message.
+ */
+export function scenarioLabel(key: string): string {
+  return key.replace(/_/g, ' ');
+}
+
 /** What is in storage, or an empty thread.
  *
  *  VALIDATED, NOT TRUSTED. The service rejects a malformed thread with a 400 rather than

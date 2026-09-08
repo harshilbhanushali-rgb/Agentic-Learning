@@ -9,7 +9,7 @@ import { SituationForm } from '@/components/ask-naren/SituationForm';
 import { AnswerCard } from '@/components/ask-naren/AnswerCard';
 import { DeclineNotice } from '@/components/ask-naren/DeclineNotice';
 import { ClarifyPrompt } from '@/components/ask-naren/ClarifyPrompt';
-import { load, save, trimThread, turnFrom } from '@/lib/thread';
+import { load, save, scenarioLabel, trimThread, turnFrom } from '@/lib/thread';
 
 /**
  * Ask Naren (issue #3). One input; the response is answered, declined or clarify (#13),
@@ -102,7 +102,10 @@ function PastTurn({ turn }: { turn: ThreadTurn }) {
         <p className="text-[13px] leading-relaxed text-ink-2 whitespace-pre-line">{turn.reply}</p>
         {turn.call_filename && (
           <p className="mt-3 break-all border-t border-line-subtle pt-3 text-[11px] text-ink-placeholder">
-            Source: {turn.call_filename}
+            {/* The scenario is named here for the same reason it is on a live answer: a
+                thread inherits a scenario identifier, and a CSM scrolling back is the only
+                one who can see that three answers ago it stopped being about their client. */}
+            {scenarioLabel(turn.scenario_key)} · {turn.call_filename}
           </p>
         )}
       </div>

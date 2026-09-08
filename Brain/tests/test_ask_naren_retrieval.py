@@ -121,3 +121,21 @@ def test_topk_returns_the_whole_pool_when_k_exceeds_it():
     or absent candidate would put a moment in the prompt that retrieval never chose."""
     pool = retrieval.RetrievalPool([_pair(1, "x", "y")], np.array([[1.0, 0.0]]))
     assert len(pool.topk(np.array([1.0, 0.0]), 5)) == 1
+
+
+# -- resolving a carried identifier (issue #16) -------------------------------------------
+
+def test_a_carried_pair_id_resolves_without_searching_for_it():
+    """How a follow-up grounds under ADR 0006: the thread supplies an IDENTIFIER and the
+    text comes from the pool already in memory. Nothing is embedded and nothing is ranked,
+    which is exactly why carrying an identifier is not the dilution the ADR forbids."""
+    pairs = [_pair(1, "budget", "b"), _pair(2, "timeline", "t")]
+    pool = retrieval.RetrievalPool(pairs, np.array([[1.0, 0.0], [0.0, 1.0]]))
+    assert pool.by_pair_id(2) is pairs[1]
+
+
+def test_a_pair_id_the_pool_no_longer_holds_resolves_to_nothing():
+    """A real case, not a defensive nicety: the pool is loaded once at startup, and a
+    pipeline re-run between restarts can retire a pair an open thread still points at."""
+    pool = retrieval.RetrievalPool([_pair(1, "x", "y")], np.array([[1.0, 0.0]]))
+    assert pool.by_pair_id(999_999) is None

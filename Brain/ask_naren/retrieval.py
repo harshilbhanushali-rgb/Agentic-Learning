@@ -98,9 +98,30 @@ class RetrievalPool:
                 f"vectors disagree would answer from the wrong kb_pair silently")
         self.pairs = pairs
         self.vectors = _unit_rows(np.asarray(vectors, dtype=np.float32))
+        # Built once, alongside the vectors, because a follow-up resolves a carried pair_id
+        # on every message and a linear scan of 6.5k rows per question is a cost with no
+        # buyer. First wins, matching dedupe_pairs -- two rows with one id would be a
+        # corpus bug, and answering from whichever came second is not a better outcome.
+        self._by_pair_id = {}
+        for pair in pairs:
+            self._by_pair_id.setdefault(pair["pair_id"], pair)
 
     def __len__(self) -> int:
         return len(self.pairs)
+
+    def by_pair_id(self, pair_id) -> dict | None:
+        """The exchange a thread carried forward, WITHOUT searching for it (ADR 0006).
+
+        This is what makes multi-turn possible under an ADR that forbids history from
+        reaching the embedded query: the thread supplies an identifier, and the text comes
+        from the pool we already hold. Nothing is embedded and nothing is ranked.
+
+        None when the id is not in the pool -- which is a real case, not a defensive
+        nicety: the pool is loaded once at startup, and a re-run of Brain's pipeline between
+        restarts can retire a pair a CSM's open thread still refers to. The caller answers
+        the message as a new question rather than grounding in nothing.
+        """
+        return self._by_pair_id.get(pair_id)
 
     def top1(self, query_vec: np.ndarray) -> Match:
         """The closest pair to this situation, with a real cosine.

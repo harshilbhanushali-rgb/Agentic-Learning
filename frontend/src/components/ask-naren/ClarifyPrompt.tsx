@@ -25,12 +25,13 @@ export function ClarifyPrompt({ result }: { result: AskNarenClarify }) {
         One thing first
       </div>
       <p className="text-sm leading-relaxed text-ink">{result.question}</p>
-      {/* Deliberately does NOT promise that Ask Naren remembers the earlier message.
-          Clarify starts being emitted in #14 but threads only land in #15, so between them
-          a reply is answered as a fresh situation. Copy that said "pick up where you left
-          off" would be false for that whole window. Revisit once #15 ships. */}
+      {/* True since #16 and not before: a reply is now read against the conversation, so a
+          CSM answers the question rather than retyping the whole situation (story 13). The
+          second half is the promise loop prevention actually makes -- the same question is
+          never put twice, and a reply that still does not carry the client's words gets a
+          best-effort answer instead of being asked again. */}
       <p className="mt-1 text-[11px] text-ink-placeholder">
-        Add that to your situation and ask again.
+        Just reply — Ask Naren picks up where you left off, and will not ask you this again.
       </p>
     </article>
   );

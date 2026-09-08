@@ -41,6 +41,13 @@ const COPY: Record<AskNarenDeclineReason, { heading: string; hint: string }> = {
     heading: 'Outside what Naren’s calls cover',
     hint: 'Rewording will not help here. Try a product owner or the docs for this one — Ask Naren only knows what Naren said on calls.',
   },
+  follow_up_ungrounded: {
+    heading: 'Not in that call',
+    // The one decline whose useful next move is to ASK AGAIN, differently. A follow-up runs
+    // no search at all — it is answered from the call the previous answer came from — so
+    // this says Naren did not cover it THERE, not that nothing close exists anywhere.
+    hint: 'Ask it as a fresh question, in the client’s own words, and Ask Naren will search his calls for a closer moment.',
+  },
   service_error: {
     heading: 'Ask Naren is unavailable',
     hint: 'Nothing you typed caused this, and rewording it will not help. The answer you asked for is not lost — ask again once it is back.',

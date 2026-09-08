@@ -29,6 +29,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
+from ask_naren import threads
+
 # The licensed config, matching the answering path (ADR 0001 measured the MODEL as the lever
 # on this corpus: gemini-3.5-flash-lite follows grounding instructions 11% of the time
 # against 3.6-flash's 77%). Intake is a cheaper decision than answering, but a misrouted
@@ -53,10 +55,11 @@ MAX_ATTEMPTS = 2
 REPLY_TO_CLIENT = "reply_to_client"
 CLARIFY = "clarify"
 OUT_OF_SCOPE = "out_of_scope"
+FOLLOW_UP = "follow_up"
 
 #: Every intent intake may return today. Issues #17-#23 add more; each addition is a change
 #: to the schema sent to the gateway AND to the prompt's discriminators, never one alone.
-INTENTS = (REPLY_TO_CLIENT, CLARIFY, OUT_OF_SCOPE)
+INTENTS = (REPLY_TO_CLIENT, CLARIFY, OUT_OF_SCOPE, FOLLOW_UP)
 
 
 class IntakeDecision(BaseModel):
@@ -71,12 +74,27 @@ class IntakeDecision(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    intent: Literal["reply_to_client", "clarify", "out_of_scope"]
+    intent: Literal["reply_to_client", "clarify", "out_of_scope", "follow_up"]
     #: The CLIENT'S OWN WORDS, which is what gets embedded -- never the CSM's framing around
     #: them. Empty for any intent that does not retrieve.
     retrieval_query: str = ""
     #: What to put to the CSM when clarifying. Empty otherwise.
     question: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _a_follow_up_searched_for_nothing(cls, data):
+        """A follow-up runs NO retrieval, so it cannot carry a retrieval query.
+
+        Cleared rather than rejected: a model that helpfully fills the field is not making
+        an unusable decision, it is making a misleading one. Every response echoes
+        `retrieval_query` so a bad extraction is visible in production
+        (`responding._with_intake`), and on this path echoing a query that was never
+        embedded would report a search that did not happen.
+        """
+        if isinstance(data, dict) and data.get("intent") == FOLLOW_UP:
+            return {**data, "retrieval_query": ""}
+        return data
 
     @field_validator("retrieval_query", "question")
     @classmethod
@@ -109,14 +127,29 @@ def response_schema() -> dict:
             "schema": IntakeDecision.model_json_schema()}
 
 
-def build_prompt(message: str) -> str:
+def build_prompt(message: str, thread=()) -> str:
     """Intake's prompt. NOT frozen -- unlike the answering prompts (ADR 0001), no measured
     number rests on its wording, and routing accuracy is measured against labelled messages
     rather than asserted in a test. Improve it, then re-measure.
 
     The discriminators are spelled out because a classifier fails on near neighbours, not on
     distant ones.
+
+    `thread` is the conversation so far (issue #16). It is shown so intake can do the three
+    things it cannot do without it -- tell a follow-up from a new situation, recognise a
+    message as the answer to its own earlier clarify, and avoid asking a question twice.
+    An empty thread produces the exact prompt that shipped in #14, so a first message in a
+    conversation is classified by the same text the routing accuracy was measured on.
     """
+    history = []
+    if thread:
+        history = [
+            "The conversation so far, oldest first:",
+            "",
+            threads.render(thread),
+            "",
+        ]
+
     return "\n".join([
         'You are the intake step of "Ask Naren", an internal Joveo tool that answers a CSM '
         "by finding what Naren said in the closest real client situation from his call "
@@ -124,6 +157,7 @@ def build_prompt(message: str) -> str:
         "",
         "Decide what should happen to this message from a CSM.",
         "",
+        *history,
         f"CSM's message: {message}",
         "",
         "Choose ONE intent:",
@@ -142,6 +176,7 @@ def build_prompt(message: str) -> str:
         "call transcripts are not a product document. Do NOT clarify these; there is nothing "
         "the CSM could reword that would make them answerable.",
         "",
+        *_follow_up_intent(thread),
         "Rules:",
         f'  - For "{REPLY_TO_CLIENT}", set retrieval_query to a VERBATIM SPAN COPIED from '
         "the message -- the client's own words with the CSM's framing removed (\"a client "
@@ -156,7 +191,13 @@ def build_prompt(message: str) -> str:
         "it rather than composing a new sentence.",
         f'  - For "{CLARIFY}", set question to one short, specific thing to ask the CSM -- '
         "normally asking them to paste what the client actually said or wrote.",
-        f'  - For "{OUT_OF_SCOPE}", leave retrieval_query and question empty.',
+        f'  - For "{OUT_OF_SCOPE}"'
+        + (f' and "{FOLLOW_UP}"' if thread else "")
+        + ", leave retrieval_query and question empty.",
+        *(["  - The retrieval_query must be copied from the CSM's CURRENT message only. "
+           "Never from the conversation above. Text repeated across several questions makes "
+           "them all look alike to the search and reaches the wrong exchange."]
+          if thread else []),
         "",
         "Two distinctions that are easy to get wrong:",
         "",
@@ -171,22 +212,84 @@ def build_prompt(message: str) -> str:
         f'That is "{REPLY_TO_CLIENT}". Reserve "{CLARIFY}" for messages with no specifics '
         "at all.",
         "",
+        *_thread_rules(thread),
         f'When genuinely torn, prefer "{REPLY_TO_CLIENT}". Answering and being slightly off '
         "is more useful to a CSM mid-call than being asked for something they thought they "
         "had already given.",
     ])
 
 
+def _follow_up_intent(thread) -> list[str]:
+    """The follow-up option, offered ONLY when there is a conversation to follow up on.
+
+    MEASURED, not assumed. The first version of this prompt listed the intent always and
+    told the model it was "only available when there is a conversation above" -- and on the
+    thread-shaped set, "and what if they push back on price?" with NO conversation was
+    routed `follow_up` anyway (2026-09-08, 10/11). A rule stating that an option does not
+    apply is weaker than not offering the option, and this is the cheap version of the
+    lesson ADR 0001 paid for: the model is the lever, and what you put in front of it
+    decides more than what you tell it about what you put in front of it.
+
+    It also means a FIRST message is classified by exactly the intent list that shipped in
+    #14, so the routing accuracy on record still describes the text it was measured on.
+
+    Nothing was broken in production by the misroute -- `responding._guarded` turns a
+    follow-up with no carried source into an ordinary answer -- but it would have burned the
+    fallback on a case that should never have reached it.
+    """
+    if not thread:
+        return []
+    return [
+        f'  "{FOLLOW_UP}" -- the message only means anything against the answer just given '
+        "(\"and if they push back on price?\", \"what if that does not land?\", \"why does "
+        "he say it that way?\"). It goes DEEPER on the exchange already answered from and "
+        "describes no new client situation, so there is nothing new to search for.",
+        "",
+    ]
+
+
+def _thread_rules(thread) -> list[str]:
+    """The rules that only exist when there IS a conversation.
+
+    Kept out of the prompt entirely for a first message, so a single-message classification
+    is the exact text #14's routing accuracy was measured on rather than that text plus four
+    paragraphs about a conversation that does not exist.
+    """
+    if not thread:
+        return []
+    return [
+        "Using the conversation above:",
+        "",
+        f'  - A NEW CLIENT SITUATION IS NOT A "{FOLLOW_UP}", even in the same conversation. '
+        "A CSM may move to a completely different client or problem without saying so. If "
+        "the message describes something a client said or did that is not what was already "
+        f'answered, it is "{REPLY_TO_CLIENT}" and gets its own search.',
+        "",
+        "  - If Ask Naren's last turn ASKED THE CSM A QUESTION, this message is their "
+        "answer to it. Treat it as completing the earlier question rather than as a brand "
+        f'new one: route "{REPLY_TO_CLIENT}" and copy the client\'s words out of THIS '
+        "message.",
+        "",
+        f'  - NEVER ask a question that already appears above. If the message still does '
+        "not give you what you asked for, answer it as best you can with what is there "
+        "rather than asking again.",
+        "",
+    ]
+
+
 def classify(message: str, gateway, *, thread=(), model: str = CHAT_MODEL,
              reasoning_effort: str | None = REASONING_EFFORT) -> tuple[IntakeDecision, dict]:
     """Decide what happens to `message`. Returns (decision, meta).
 
-    `thread` is the conversation so far (issue #15). Accepted here and NOT yet read: the
-    four jobs history exists for -- detecting a follow-up, recognising a message as the
-    material for an earlier clarify, not re-asking a clarify, and inheriting a scenario
-    identifier -- are issue #16, and they arrive together with the thread-shaped cases that
-    measure them. Adding history to this prompt before there is anything to measure it with
-    would move a routing number that took a corrected instrument to get right.
+    `thread` is the conversation so far (issues #15, #16). It is shown to the model for the
+    three judgements it cannot make without it: is this a follow-up, is it the answer to a
+    clarify already asked, and has this question been asked before. The FOURTH history job
+    -- which grounding source a follow-up inherits -- is deliberately NOT asked of the model
+    (`threads.carried_source`): it is a lookup with one right answer, and a model that can
+    invent a `pair_id` is a model that can ground an answer in a row that does not exist.
+
+    An EMPTY thread produces byte-identically the prompt that shipped in #14, so a first
+    message is still classified by the text the recorded routing accuracy was measured on.
 
     `model` and `reasoning_effort` exist so a cheaper configuration can be A/B'd on the same
     labelled cases (`ask-naren/audit/measure_intake_accuracy.py --model ... --reasoning ...`)
@@ -208,7 +311,7 @@ def classify(message: str, gateway, *, thread=(), model: str = CHAT_MODEL,
     for _ in range(MAX_ATTEMPTS):
         try:
             payload, meta = gateway.chat_json(
-                build_prompt(message),
+                build_prompt(message, thread),
                 model=model,
                 temperature=TEMPERATURE,
                 max_tokens=MAX_TOKENS,

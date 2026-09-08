@@ -123,3 +123,57 @@ def test_an_impossible_budget_still_returns_a_usable_thread():
 
 def test_trimming_an_empty_thread_is_an_empty_thread():
     assert threads.trim([], budget=10) == ()
+
+
+# -- what a later message inherits (issue #16) ---------------------------------------------
+
+def _clarify(question="What did the client actually say?"):
+    return threads.ThreadTurn(message="client is unhappy", outcome="clarify", reply=question)
+
+
+def test_the_carried_source_is_the_most_recent_one_that_grounded_in_anything():
+    turns = [_grounded(1), _clarify(), _grounded(2), _clarify()]
+    assert threads.carried_source(turns).pair_id == 2
+
+
+def test_a_thread_that_grounded_in_nothing_carries_no_source():
+    """An all-clarify conversation has nothing for a follow-up to be about."""
+    assert threads.carried_source([_clarify(), _clarify("Which account?")]) is None
+    assert threads.carried_source([]) is None
+
+
+def test_a_carried_identifier_survives_the_trim_that_drops_its_prose():
+    """The two rules meeting: what a follow-up inherits is still there after the message it
+    came from has been blanked to fit."""
+    turns = [_grounded(1), *[_turn(n, message="m" * 500, reply="r" * 500)
+                             for n in range(2, 8)]]
+    trimmed = threads.trim(turns, budget=1500)
+    assert not trimmed[0].message                     # its prose went
+    assert threads.carried_source(trimmed).pair_id == 1   # its identifier did not
+
+
+def test_a_clarify_as_the_last_turn_means_the_csm_is_answering_it_now():
+    assert threads.awaiting_clarify([_grounded(1), _clarify()])
+    assert not threads.awaiting_clarify([_clarify(), _grounded(1)])
+    assert not threads.awaiting_clarify([])
+
+
+def test_the_same_question_is_recognised_however_it_was_spaced_or_cased():
+    turns = [_clarify("What did the client actually say?"), _grounded(1)]
+    assert threads.clarify_already_asked(turns, "what did the CLIENT actually say?")
+    assert threads.clarify_already_asked(turns, "What did the client  actually say?")
+
+
+def test_a_different_question_is_not_a_repeat():
+    """Loop prevention must not become never asking: a CSM may switch to an unrelated
+    situation in the same thread, and that one deserves its own question."""
+    turns = [_clarify("What did the client actually say?")]
+    assert not threads.clarify_already_asked(turns, "Which account is this about?")
+
+
+def test_an_elided_turn_says_so_rather_than_reading_as_silence():
+    """A model shown an empty message would conclude the CSM said nothing, when in fact the
+    text was dropped to fit."""
+    rendered = threads.render([_grounded(1).elided()])
+    assert "dropped to fit" in rendered
+    assert "call_1.txt" in rendered      # the identifier is still visible

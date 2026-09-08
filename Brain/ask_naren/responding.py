@@ -56,6 +56,17 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
         # copies of a safety net is two places for them to stop agreeing.
         decision = intake.fallback_decision(message)
 
+    decision = _guarded(decision, message, turns, pool)
+
+    if decision.intent == intake.FOLLOW_UP:
+        # NO RETRIEVAL AND NO EMBEDDING (ADR 0006). `_guarded` has already established that
+        # a carried source exists and is still in the pool, so this cannot be reached with
+        # nothing to ground on.
+        source = pool.by_pair_id(threads.carried_source(turns).pair_id)
+        return _with_intake(
+            answering.answer_follow_up(message, turns, source, gateway,
+                                       label_for=label_for), decision)
+
     if decision.intent == intake.CLARIFY:
         # Returned WITHOUT retrieving or generating. That is what makes a clarify cheap
         # enough to be worth asking, and it is why a clarify has nothing to ground.
@@ -72,6 +83,40 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
             decision.retrieval_query, pool, gateway, embed_query=embed_query, k=k,
             label_for=label_for, moves_for=moves_for),
         decision)
+
+
+def _guarded(decision: intake.IntakeDecision, message: str, turns,
+             pool: RetrievalPool) -> intake.IntakeDecision:
+    """Two rules the thread makes checkable, enforced in CODE rather than in a prompt.
+
+    Both are in intake's prompt as well, and that is not duplication for its own sake: the
+    prompt is how the model usually gets it right, and this is what happens when it does
+    not. A rule a CSM would experience as the tool being broken -- being asked the same
+    question forever, or being told nothing was found when nothing was searched -- is not
+    something to leave to a classifier.
+
+    1. THE SAME CLARIFY IS NEVER ASKED TWICE. If Ask Naren's last turn was a question, this
+       message is the CSM answering it; asking again is the loop. The same question
+       reappearing later in a thread is caught too. Falls through to answering the message
+       as written, which is a best-effort answer rather than a dead end.
+
+    2. A FOLLOW-UP NEEDS SOMETHING TO FOLLOW UP ON. No answered turn in the thread, or a
+       carried `pair_id` the pool no longer holds (the pool is loaded once at startup and a
+       pipeline re-run can retire a pair mid-conversation), and there is nothing to ground
+       in. Answering the message as a fresh question is the honest degradation; declining
+       would tell a CSM nothing was found when nothing was looked for.
+    """
+    if decision.intent == intake.CLARIFY and (
+            threads.awaiting_clarify(turns)
+            or threads.clarify_already_asked(turns, decision.question)):
+        return intake.fallback_decision(message)
+
+    if decision.intent == intake.FOLLOW_UP:
+        carried = threads.carried_source(turns)
+        if carried is None or pool.by_pair_id(carried.pair_id) is None:
+            return intake.fallback_decision(message)
+
+    return decision
 
 
 def _with_intake(response: dict, decision: intake.IntakeDecision) -> dict:

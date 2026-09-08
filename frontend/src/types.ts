@@ -218,7 +218,12 @@ export interface AskNarenAnswer {
    *  by the grounding gate before it is ever sent. */
   quote: string;
   citation: AskNarenCitation;
-  match: AskNarenMatch;
+  /** ABSENT ON A FOLLOW-UP (issue #16). A follow-up is answered from the thread and the
+   *  grounding source already cited, with no retrieval at all, so there is no cosine and no
+   *  rank — the same reason an out-of-scope decline carries no `match`. Reporting one would
+   *  put a fabricated number into the record decline-rate calibration later reads. The
+   *  `citation` still says exactly which exchange the answer rests on. */
+  match?: AskNarenMatch;
 }
 
 /** Where each one comes from, because they must stay distinguishable to whoever is
@@ -239,6 +244,12 @@ export type AskNarenDeclineReason =
    *  is exactly why it is a decline and not a clarify. Carries no `match`: nothing was
    *  searched, so there is no cosine to report. */
   | 'out_of_scope'
+  /** A follow-up (issue #16) whose answer could not be grounded in the exchange the thread
+   *  carried forward. Distinct from `no_close_match` because nothing was searched: the
+   *  follow-up path deliberately runs no retrieval, so this says "Naren did not say that in
+   *  THAT call", not "nothing close exists". Asking it as a fresh question is the useful
+   *  next move, and that is what makes it its own reason. */
+  | 'follow_up_ungrounded'
   | 'service_error'
   | 'service_unreachable';
 

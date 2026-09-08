@@ -77,5 +77,13 @@ Shrinking a thread to fit a cap by blanking a turn's **prose** while keeping its
 _Avoid_: truncation, windowing, cutting history.
 
 **Follow-up**:
-**Specified, not built** (issue #16). A message that only carries meaning inside its thread ("and if they push back on price?"). It is the case that retrieves nothing useful on its own words, so it is answered from the thread and the grounding source already cited rather than by searching again.
+**Built** (issue #16). A message that only carries meaning inside its thread ("and if they push back on price?"). It is the case that retrieves nothing useful on its own words, so it is answered from the thread and the grounding source already cited rather than by searching again. A message that describes a NEW client situation is not a follow-up, even in the same thread — it gets its own search.
 _Avoid_: continuation, next turn, reply.
+
+**Carried identifier**:
+A `pair_id`, a `scenario_key` or a call filename passed forward from an earlier turn in a thread. The thing ADR 0006 permits history to supply, as against text that gets embedded: carrying one involves no embedding, so the dilution the ADR measures does not apply to it. It is what lets a follow-up ground in the exchange already cited without searching, and it is what trimming a thread must never drop. It can **strand** — a CSM who moves to a new situation without saying so inherits a scenario key that makes every later answer quietly about the wrong thing, which is why an answer names its scenario.
+_Avoid_: context id, session key, sticky scenario.
+
+**Quote bleed**:
+An answer stitching its quote out of an EARLIER turn's grounding source rather than its own. Putting history in a prompt is what creates it: previously quoted Naren text is in the context window, and a quote lifted from there is genuinely verbatim of something he said — just not of the exchange this answer rests on. Prevented structurally rather than by instruction: the follow-up prompt is shown one exchange, and the grounding gate verifies against that same one.
+_Avoid_: cross-contamination, stale quote, leakage.

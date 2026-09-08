@@ -12,7 +12,7 @@ improvement look like a regression. What routing accuracy actually is gets measu
 """
 import pytest
 
-from ask_naren import intake
+from ask_naren import intake, threads
 
 
 class StubGateway:
@@ -74,6 +74,52 @@ def test_an_out_of_scope_question_is_not_a_clarify():
         "what is our actual list price for a 12 month contract",
         StubGateway(_reply(intent="out_of_scope", retrieval_query="", question="")))
     assert decision.intent == "out_of_scope"
+
+
+# -- the thread (issues #15, #16) --------------------------------------------------------
+
+def _turn(message="client says our cpa is 3x", reply="Reframe on their own baseline.",
+          outcome="answered", pair_id=11):
+    return threads.ThreadTurn(message=message, reply=reply, outcome=outcome,
+                              pair_id=pair_id, call_filename="a_call.txt",
+                              scenario_key="performance_pushback")
+
+
+def test_a_first_message_is_not_offered_an_intent_it_cannot_have():
+    """MEASURED, not assumed. The first version of this prompt listed `follow_up` always and
+    said it only applied when there was a conversation -- and on the thread-shaped set, "and
+    what if they push back on price?" with no conversation was routed `follow_up` anyway.
+    Not offering the option is the fix; a rule saying an option does not apply is weaker
+    than its absence.
+
+    It also keeps a FIRST message classified by the intent list #14's routing accuracy was
+    measured on."""
+    assert "follow_up" not in intake.build_prompt(SITUATION)
+    assert "follow_up" in intake.build_prompt(SITUATION, (_turn(),))
+
+
+def test_the_conversation_reaches_the_model_when_there_is_one():
+    gw = StubGateway(_reply())
+    intake.classify("and what if they push back on price?", gw, thread=(_turn(),))
+    prompt = gw.calls[0]["prompt"]
+    assert "client says our cpa is 3x" in prompt
+    assert "Reframe on their own baseline." in prompt
+
+
+def test_a_follow_up_is_an_intent_the_model_may_return():
+    decision, _ = intake.classify(
+        "and what if they push back on price?",
+        StubGateway(_reply(intent="follow_up", retrieval_query="")), thread=(_turn(),))
+    assert decision.intent == "follow_up"
+
+
+def test_a_follow_up_carries_no_retrieval_query_even_if_the_model_writes_one():
+    """The follow-up path embeds nothing. Every response echoes `retrieval_query` so a bad
+    extraction is visible in production; a query echoed here would report a search that
+    never happened."""
+    decision = intake.IntakeDecision(intent="follow_up",
+                                     retrieval_query="pushing back on price")
+    assert decision.retrieval_query == ""
 
 
 # -- validation of an untrusted reply ---------------------------------------------------

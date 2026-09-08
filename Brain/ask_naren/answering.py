@@ -12,7 +12,7 @@ module embeds only the incoming situation, generates, and applies the grounding 
 """
 from __future__ import annotations
 
-from ask_naren import citations, grounding
+from ask_naren import citations, grounding, threads
 from ask_naren.retrieval import Match, RetrievalPool
 
 # The licensed config already used for Layer C's playbook backfill and Layer D's pairwise
@@ -53,6 +53,7 @@ CLARIFY = "clarify"
 NO_CLOSE_MATCH = "no_close_match"
 GROUNDING_UNVERIFIED = "grounding_unverified"
 OUT_OF_SCOPE = "out_of_scope"
+FOLLOW_UP_UNGROUNDED = "follow_up_ungrounded"
 
 _MESSAGES = {
     NO_CLOSE_MATCH: (
@@ -68,6 +69,11 @@ _MESSAGES = {
         "Ask Naren answers from what Naren said on real client calls, so it cannot answer "
         "questions about Joveo's product, pricing or contract terms. Rewording this will "
         "not help -- the answer is not in his calls to find."
+    ),
+    FOLLOW_UP_UNGROUNDED: (
+        "That follow-up goes beyond what Naren said in the call the last answer came from. "
+        "Rather than guess, Ask Naren is declining -- describe the situation as a fresh "
+        "question and it will search his calls for a closer moment."
     ),
 }
 
@@ -192,6 +198,100 @@ def build_playbook_prompt(situation: str, matched: dict, moves: list[dict]) -> s
     return "\n".join(lines)
 
 
+def build_follow_up_prompt(message: str, turns, source: dict) -> str:
+    """The follow-up variant (issue #16): the conversation so far, the ONE exchange the
+    previous answer rested on, and a question that only means something against them.
+
+    A NEW VARIANT, NOT AN EDIT. `build_prompt` is byte-identical to what ADR 0001 measured
+    and stays that way; a prompt carrying a conversation is a different prompt and gets its
+    own function, exactly as the playbook and shortlist variants did.
+
+    THE JSON CONTRACT IS THE SAME FOUR KEYS, deliberately. That is what lets `grounding.check`
+    hold this answer to the identical bar without a second gate -- one gate, a different
+    grounding source, which is the rule `ask-naren/CONTEXT.md` states.
+
+    ONLY THE CARRIED SOURCE IS SHOWN. The conversation above contains previous ANSWERS,
+    which are paraphrases of Naren, and if an earlier turn cited a different call its
+    identifier is in there too. Showing one exchange is the first half of stopping a quote
+    being stitched out of the wrong one; the gate verifying against that same one exchange
+    is the half that is actually enforced.
+    """
+    return "\n".join([
+        'You are "Ask Naren", an internal Joveo tool that helps a CSM handle a live client '
+        "situation by grounding the answer in Naren's closest real historical response.",
+        "",
+        "The CSM is FOLLOWING UP on an answer you already gave. This is not a new "
+        "situation, and nothing new has been searched for.",
+        "",
+        "The conversation so far, oldest first:",
+        "",
+        threads.render(turns),
+        "",
+        f"The CSM's follow-up: {message}",
+        "",
+        "The exchange the previous answer rested on, from Naren's own calls -- this is the "
+        "ONLY grounding you have:",
+        f"  Client said: {source['trigger_text']}",
+        f"  Naren replied: {source['response_text']}",
+        f"  (call: {source['call_filename']})",
+        "",
+        "Answer the follow-up using ONLY that exchange. Paraphrase what Naren really said "
+        "rather than inventing a new answer, and do not draw on anything else in the "
+        "conversation as if it were something he said. If the follow-up needs something "
+        "Naren did not say in that exchange, decline instead of answering ungrounded -- "
+        "the CSM can ask it as a fresh question and get a real search.",
+        "",
+        "Respond as JSON with exactly these keys:",
+        '  "declined": boolean,',
+        '  "answer": the coaching answer for the CSM (empty string if declined),',
+        '  "quote": a verbatim substring copied from Naren\'s reply above that the answer '
+        'is based on (empty string if declined),',
+        '  "cited_call": the call identifier given above, copied exactly (empty string if '
+        "declined).",
+    ])
+
+
+def answer_follow_up(message: str, turns, source: dict, gateway, *,
+                     label_for=citations.resolve_label) -> dict:
+    """Answer a follow-up from the thread and the grounding source already cited.
+
+    NO RETRIEVAL AND NO EMBEDDING. That is the point, and it is ADR 0006's answer to "how
+    does a question like 'and if they push back on price?' get answered at all" -- the ADR
+    rejected rewriting such a message into a searchable query, on the grounds that the case
+    is already covered by not searching.
+
+    `source` is a `kb_pairs` row resolved from the thread's carried `pair_id`. The caller
+    resolves it, because the caller holds the pool.
+
+    NO `match` ON THE RESPONSE, for exactly the reason `decline_before_retrieval` carries
+    none: nothing was searched, so there is no cosine and no rank, and reporting one would
+    put a fabricated number into the record decline-rate calibration will later read. The
+    `citation` still says precisely which exchange the answer rests on.
+    """
+    if not (message or "").strip():
+        raise ValueError("message is empty")
+
+    prompt = build_follow_up_prompt(message, turns, source)
+    for _ in range(MAX_ATTEMPTS):
+        payload, _meta = gateway.chat_json(
+            prompt, model=CHAT_MODEL, reasoning_effort=REASONING_EFFORT,
+            temperature=TEMPERATURE, max_tokens=MAX_TOKENS, no_cache=True)
+        if payload.get("declined"):
+            return decline_before_retrieval(FOLLOW_UP_UNGROUNDED)
+        # ONE candidate: the carried source and nothing else. A quote lifted from an
+        # EARLIER turn's grounding source fails here -- it either cites a call not in this
+        # list, or it does not verify against this reply. That is the quote-bleed guarantee,
+        # and it is a property of what the gate is given rather than of the prompt asking
+        # nicely.
+        if grounding.check(payload, [source]).passed:
+            return {"outcome": ANSWERED,
+                    "answer": payload["answer"].strip(),
+                    "quote": payload["quote"].strip(),
+                    "citation": _citation(source, label_for)}
+
+    return decline_before_retrieval(FOLLOW_UP_UNGROUNDED)
+
+
 def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_query,
                      k: int = DEFAULT_K, label_for=citations.resolve_label,
                      moves_for=None) -> dict:
@@ -282,13 +382,18 @@ def clarify(question: str) -> dict:
     return {"outcome": CLARIFY, "question": question.strip()}
 
 
-#: Reasons a request can be declined BEFORE retrieval runs. Only these may reach
-#: decline_before_retrieval -- see the guard there for why the allowlist exists.
-PRE_RETRIEVAL_REASONS = frozenset({OUT_OF_SCOPE})
+#: Reasons a request can be declined on a path where NO RETRIEVAL RAN AT ALL. Only these
+#: may reach decline_before_retrieval -- see the guard there for why the allowlist exists.
+#:
+#: `follow_up_ungrounded` is decided after a generation rather than before one, but it
+#: belongs here for the property the allowlist actually protects: the follow-up path never
+#: searches, so there is no cosine to report and no rank to report it at.
+PRE_RETRIEVAL_REASONS = frozenset({OUT_OF_SCOPE, FOLLOW_UP_UNGROUNDED})
 
 
 def decline_before_retrieval(reason: str) -> dict:
-    """A decline decided BEFORE anything was searched -- today only `out_of_scope`.
+    """A decline on a path that searched nothing -- `out_of_scope`, or a follow-up whose
+    answer could not be grounded in the exchange the thread carried.
 
     Carries NO `match`, deliberately. Every other decline records how close the match it
     turned down actually was, because decline-rate calibration is deferred to real usage and
