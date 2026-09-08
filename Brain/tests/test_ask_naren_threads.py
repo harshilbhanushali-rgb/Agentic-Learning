@@ -202,3 +202,38 @@ def test_a_clarify_after_an_answer_does_not_break_the_carried_source():
     still about the answer before it."""
     turns = [_grounded(1), _clarify()]
     assert threads.carried_source(turns).pair_id == 1
+
+
+def test_a_rendered_turn_is_a_turn_the_service_accepts():
+    """The page writes one into localStorage after any rendered answer, and a thread is
+    REJECTED wholesale when it fails to parse. A missing outcome here would 400 every
+    message a CSM sent after asking "what do you cover" -- and persistently, because the
+    thread survives a reload."""
+    parsed = threads.parse([{"message": "what do you cover", "outcome": "rendered",
+                             "reply": "Showed what Ask Naren covers."}])
+    assert parsed[0].outcome == "rendered"
+
+
+def test_a_rendered_turn_renders_into_a_prompt_rather_than_raising():
+    """`render` looks the outcome up in a table. A missing key is a KeyError inside intake,
+    which is the one step that must never be able to take the tool down."""
+    turn = threads.ThreadTurn(message="what do you cover", outcome="rendered",
+                              reply="Showed what Ask Naren covers.")
+    assert "Ask Naren showed" in threads.render([turn])
+
+
+def test_a_rendered_turn_is_transparent_to_the_carried_source():
+    """It grounded nothing itself, and unlike a Layer C ANSWER it is not the thing a
+    follow-up is about. "What do you cover" is the CSM stepping aside to ask about the tool;
+    "and if they push back?" after it still refers to the answer before it.
+
+    That is the difference from the Layer C case: a Layer C answer is prose the CSM just
+    READ and would naturally go deeper on, so the walk stops there. A rendered turn is a
+    different question entirely, so it is skipped like a clarify."""
+    assert threads.carried_source([_grounded(1), _rendered_turn()]).pair_id == 1
+    assert threads.carried_source([_rendered_turn()]) is None
+
+
+def _rendered_turn():
+    return threads.ThreadTurn(message="what do you cover", outcome="rendered",
+                              reply="Showed what Ask Naren covers.")

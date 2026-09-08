@@ -74,7 +74,7 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
         # coachable scenarios cannot invent a 35th. Nothing here can reach the gate because
         # nothing here generates anything for it to check.
         return _with_intake(
-            _rendered(decision, pool, embed_query=embed_query, label_for=label_for,
+            _rendered(message, decision, pool, embed_query=embed_query, label_for=label_for,
                       scenarios_for=scenarios_for, following_for=following_for),
             decision)
 
@@ -108,8 +108,8 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
         decision)
 
 
-def _rendered(decision: intake.IntakeDecision, pool: RetrievalPool, *, embed_query,
-              label_for, scenarios_for, following_for) -> dict:
+def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool, *,
+              embed_query, label_for, scenarios_for, following_for) -> dict:
     """The five answers built from stored rows (issues #19, #20).
 
     `scenarios_for` returns the COACHABLE Layer A rows, and `following_for` returns the
@@ -147,8 +147,7 @@ def _rendered(decision: intake.IntakeDecision, pool: RetrievalPool, *, embed_que
     if scenarios_for:
         scenario = next((s for s in scenarios_for()
                          if s["scenario_key"] == match.pair["scenario_key"]), None)
-    return rendering.coverage_check(decision.retrieval_query, match, scenario,
-                                    label_for=label_for)
+    return rendering.coverage_check(message, match, scenario, label_for=label_for)
 
 
 def _procedure(message: str, decision: intake.IntakeDecision, pool: RetrievalPool, gateway,

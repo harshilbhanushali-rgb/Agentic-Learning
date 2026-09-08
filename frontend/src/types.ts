@@ -308,7 +308,14 @@ export interface AskNarenExchange {
 
 export type AskNarenRendered =
   | { outcome: 'rendered'; kind: 'discovery'; intake?: AskNarenIntake;
-      topics: { topic: string; scenarios: AskNarenScenarioRef[] }[]; total: number }
+      /** FALSE on the live taxonomy, measured 2026-09-09: every scenario carries
+       *  `primary_topic = 'ungrouped'` and the primary-topic hierarchy is recorded as
+       *  rejected. When false, `topics` is empty and `scenarios` is the flat list — showing
+       *  34 situations under one heading called "ungrouped" would invent a category. */
+      grouped: boolean;
+      topics: { topic: string; scenarios: AskNarenScenarioRef[] }[];
+      scenarios: AskNarenScenarioRef[];
+      total: number }
   | { outcome: 'rendered'; kind: 'frequency'; intake?: AskNarenIntake;
       scenarios: (AskNarenScenarioRef & { support_calls: number; call_coverage: number | null })[];
       total: number;
@@ -325,7 +332,12 @@ export type AskNarenRendered =
       is_last: boolean; citation: AskNarenCitation }
   | { outcome: 'rendered'; kind: 'coverage_check'; intake?: AskNarenIntake;
       asked_about: string;
-      nearest: AskNarenScenarioRef & { support_calls: number };
+      nearest: AskNarenScenarioRef & {
+        support_calls: number;
+        /** 'thin' or 'solid'. A reading aid, NOT a gate — nothing declines on it, and
+         *  ADR 0005 rules out a real threshold here. The raw count sits beside it. */
+        evidence: 'thin' | 'solid';
+      };
       citation: AskNarenCitation; match: AskNarenMatch };
 
 /** Discriminated on `outcome`, NOT on a boolean. Two discriminators for one decision is how

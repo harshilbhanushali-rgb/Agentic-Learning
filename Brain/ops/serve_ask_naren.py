@@ -154,7 +154,7 @@ def build_pool(hostaddr: str | None):
             moves_by_scenario = _load_key_moves(conn, pairs)
         playbooks_by_scenario = _load_playbooks(conn, pairs)
         coachable_scenarios = _load_coachable_scenarios(conn)
-        following_by_pair = _load_call_adjacency(conn)
+        following_by_pair = _load_call_adjacency(conn, pairs)
     finally:
         conn.close()
     if not pairs:
@@ -186,7 +186,7 @@ def _load_coachable_scenarios(conn) -> list[dict]:
     return rows
 
 
-def _load_call_adjacency(conn) -> dict[int, list[dict]]:
+def _load_call_adjacency(conn, pairs: list[dict]) -> dict[int, list[dict]]:
     """`pair_id` -> the exchanges that came AFTER it in the same call (issue #20).
 
     Built once at startup because the service holds no database handle while answering, and
@@ -197,9 +197,19 @@ def _load_call_adjacency(conn) -> dict[int, list[dict]]:
     adjacent one -- "the next thing we happen to cover" wearing the label "what happened
     next". `storage.get_call_pairs` returns everything for exactly this reason.
 
-    Capped at NEXT_EXCHANGES per pair, so this holds a couple of short strings per row
-    rather than the whole corpus a second time.
+    WHAT THIS ACTUALLY HOLDS, because the obvious reading is wrong. `NEXT_EXCHANGES` bounds
+    the LENGTH of each list, not what stays resident: the slices hold REFERENCES, so every
+    row that is anyone's successor is retained -- which is nearly the whole `kb_pairs`
+    corpus, its text included, alongside the pool's own copy of the coachable rows. ADR 0008
+    banked "the process holds NO vectors (79.8 MB -> 0)", so a second corpus arriving quietly
+    through the back door is exactly the thing worth stating rather than glossing. Measured
+    at startup and printed below.
+
+    Keys are restricted to POOL pairs. Only a pool pair can be retrieved, so only a pool
+    pair can ever be the subject of "what happened next" -- an entry for anything else is a
+    lookup nothing will perform.
     """
+    pool_ids = {p["pair_id"] for p in pairs}
     following: dict[int, list[dict]] = {}
     by_call: dict[str, list[dict]] = {}
     for row in storage.get_call_pairs(conn):
@@ -209,11 +219,19 @@ def _load_call_adjacency(conn) -> dict[int, list[dict]]:
         # that changes that ordering, since adjacency read out of order is silently wrong.
         rows.sort(key=lambda r: r["turn_index"])
         for i, row in enumerate(rows):
+            if row["pair_id"] not in pool_ids:
+                continue
             nxt = rows[i + 1:i + 1 + rendering.NEXT_EXCHANGES]
             if nxt:
                 following[row["pair_id"]] = nxt
-    print(f"[adjacency] {len(following)} exchanges have a following turn in the same call, "
-          f"across {len(by_call)} calls", flush=True)
+    # Counted by identity, because the same row is the successor of at most a couple of
+    # others and double-counting it would overstate what is resident.
+    retained = {id(r): r for rows in following.values() for r in rows}
+    held_mb = sum(len(r["trigger_text"] or "") + len(r["response_text"] or "")
+                  for r in retained.values()) / 1_000_000
+    print(f"[adjacency] {len(following)} pool exchanges have a following turn, across "
+          f"{len(by_call)} calls; {len(retained)} rows retained, ~{held_mb:.1f} MB of text",
+          flush=True)
     return following
 
 

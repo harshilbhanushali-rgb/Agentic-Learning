@@ -62,7 +62,7 @@ class ThreadTurn(BaseModel):
     #: What the CSM typed. EMPTY when the turn has been elided by `trim` -- the identifiers
     #: below survive that, the prose does not.
     message: str = ""
-    outcome: Literal["answered", "declined", "clarify"]
+    outcome: Literal["answered", "declined", "clarify", "rendered"]
     #: What Ask Naren said back: the answer, the clarify's question, or the decline's
     #: message. One field rather than three, because `outcome` already says which it is and
     #: three optional fields is three ways for a caller to fill in the wrong one.
@@ -265,7 +265,7 @@ def render(turns) -> str:
     would conclude the CSM said nothing, when in fact the text was dropped to fit.
     """
     said = {"answered": "Ask Naren answered", "clarify": "Ask Naren asked back",
-            "declined": "Ask Naren declined"}
+            "declined": "Ask Naren declined", "rendered": "Ask Naren showed"}
     lines = []
     for n, turn in enumerate(turns, 1):
         lines.append(f"  [{n}] CSM: {turn.message or '(dropped to fit)'}")

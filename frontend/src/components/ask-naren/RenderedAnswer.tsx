@@ -39,6 +39,19 @@ function Exchange({ clientSaid, narenReplied }: { clientSaid: string; narenRepli
   );
 }
 
+function ScenarioLine({ scenario }: { scenario: { scenario_key: string; description: string } }) {
+  return (
+    <li className="flex flex-col gap-0.5">
+      <span className="text-[13px] font-medium text-ink">
+        {scenarioLabel(scenario.scenario_key)}
+      </span>
+      {scenario.description && (
+        <span className="text-[12px] leading-relaxed text-ink-2">{scenario.description}</span>
+      )}
+    </li>
+  );
+}
+
 function Source({ label }: { label: string }) {
   return (
     <footer className="flex flex-wrap items-baseline gap-x-2 border-t border-line-subtle pt-4 text-[11px] text-ink-placeholder">
@@ -59,29 +72,32 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
               {result.total} situations drawn from Naren&rsquo;s real calls.
             </p>
           </header>
-          <div className="flex flex-col gap-5">
-            {result.topics.map(topic => (
-              <div key={topic.topic} className="flex flex-col gap-2">
-                <h3 className="text-[11px] font-bold uppercase tracking-[0.06em] text-ink">
-                  {topic.topic}
-                </h3>
-                <ul className="flex flex-col gap-2 border-l border-line-subtle pl-4">
-                  {topic.scenarios.map(s => (
-                    <li key={s.scenario_key} className="flex flex-col gap-0.5">
-                      <span className="text-[13px] font-medium text-ink">
-                        {scenarioLabel(s.scenario_key)}
-                      </span>
-                      {s.description && (
-                        <span className="text-[12px] leading-relaxed text-ink-2">
-                          {s.description}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+          {/* FLAT WHEN THE GROUPING IS NOT REAL. Every scenario on the live taxonomy
+              carries `primary_topic = 'ungrouped'`, so grouping would put all 34 under one
+              invented heading — which tells a CSM the tool is disorganised rather than that
+              one field was never populated. The grouped branch is correct the day it is. */}
+          {result.grouped ? (
+            <div className="flex flex-col gap-5">
+              {result.topics.map(topic => (
+                <div key={topic.topic} className="flex flex-col gap-2">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.06em] text-ink">
+                    {topic.topic}
+                  </h3>
+                  <ul className="flex flex-col gap-2 border-l border-line-subtle pl-4">
+                    {topic.scenarios.map(s => (
+                      <ScenarioLine key={s.scenario_key} scenario={s} />
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <ul className="flex flex-col gap-2.5">
+              {result.scenarios.map(s => (
+                <ScenarioLine key={s.scenario_key} scenario={s} />
+              ))}
+            </ul>
+          )}
         </article>
       );
 
@@ -159,11 +175,30 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
         <article className={SHELL}>
           <header className="flex flex-col gap-1">
             <span className={EYEBROW}>Coverage</span>
+            {/* PHRASED AS "NEAREST", NEVER AS "YES". Retrieval returns a nearest exchange
+                for any string at all, so "the closest thing we cover is X" reads as
+                confirmation even when the CSM's topic is absent entirely — which is the
+                confusion this intent exists to end. Ask Naren cannot say "we do not cover
+                that" either: ADR 0005 measured cosine as unable to separate right answers
+                from wrong ones, so there is no honest threshold. What it can do is show the
+                nearest situation and how much sits behind it, and let the CSM judge. */}
             <p className="text-[13px] leading-relaxed text-ink">
-              The closest thing Ask Naren covers to{' '}
+              The nearest situation Ask Naren has to{' '}
               <span className="font-medium">&ldquo;{result.asked_about}&rdquo;</span> is{' '}
-              <span className="font-medium">{scenarioLabel(result.nearest.scenario_key)}</span>,
-              drawn from {result.nearest.support_calls} of Naren&rsquo;s calls.
+              <span className="font-medium">{scenarioLabel(result.nearest.scenario_key)}</span>
+              {result.nearest.evidence === 'thin' ? (
+                <>
+                  , and its evidence is <span className="font-medium">thin</span> — just{' '}
+                  {result.nearest.support_calls}{' '}
+                  {result.nearest.support_calls === 1 ? 'call' : 'calls'}.
+                </>
+              ) : (
+                <>, drawn from {result.nearest.support_calls} of Naren&rsquo;s calls.</>
+              )}
+            </p>
+            <p className="text-[12px] leading-relaxed text-ink-2">
+              Judge for yourself whether that is what you meant — it is the closest match,
+              not a confirmation that your situation is covered.
             </p>
           </header>
           {result.nearest.description && (

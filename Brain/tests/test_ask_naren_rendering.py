@@ -40,6 +40,7 @@ def test_discovery_groups_scenarios_by_primary_topic():
     ])
     assert result["outcome"] == "rendered"
     assert result["kind"] == "discovery"
+    assert result["grouped"] is True
     assert [t["topic"] for t in result["topics"]] == ["Budget", "Performance"]
     assert result["total"] == 3
 
@@ -50,16 +51,33 @@ def test_discovery_cannot_emit_a_scenario_the_taxonomy_does_not_have():
     row in."""
     given = {"performance_pushback", "spend_pacing"}
     result = rendering.discovery([_scenario(k) for k in sorted(given)])
-    emitted = {s["scenario_key"] for t in result["topics"] for s in t["scenarios"]}
+    # Read from BOTH shapes, so the assertion holds whether or not the taxonomy happens to
+    # support grouping -- the property is about what can be emitted, not about the layout.
+    emitted = ({s["scenario_key"] for t in result["topics"] for s in t["scenarios"]}
+               | {s["scenario_key"] for s in result["scenarios"]})
     assert emitted == given
 
 
-def test_a_scenario_with_no_primary_topic_is_grouped_rather_than_dropped():
+def test_a_scenario_with_no_primary_topic_is_kept_rather_than_dropped():
     """Dropping it would quietly under-report what the tool covers, which is the one thing
     this intent exists to get right."""
     result = rendering.discovery([_scenario("orphan", topic="")])
     assert result["total"] == 1
-    assert result["topics"][0]["topic"] == "Other"
+    assert [s["scenario_key"] for s in result["scenarios"]] == ["orphan"]
+
+
+def test_a_taxonomy_with_one_topic_renders_flat_rather_than_inventing_a_heading():
+    """MEASURED on the live taxonomy 2026-09-09: all 259 scenarios carry
+    `primary_topic = 'ungrouped'` and `primary_topic_key` is NULL, and the primary-topic
+    hierarchy is recorded as rejected. Grouping would put all 34 coachable situations under
+    one heading called "ungrouped", which tells a CSM the tool is disorganised rather than
+    that one field was never populated for this taxonomy."""
+    result = rendering.discovery([_scenario(k, topic="ungrouped")
+                                  for k in ("a", "b", "c")])
+    assert result["grouped"] is False
+    assert result["topics"] == []
+    assert [s["scenario_key"] for s in result["scenarios"]] == ["a", "b", "c"]
+    assert result["total"] == 3
 
 
 # -- frequency (issue #19) -----------------------------------------------------------------
@@ -156,3 +174,21 @@ def test_coverage_check_survives_a_scenario_the_taxonomy_no_longer_has():
     result = rendering.coverage_check("renewals", _match(), None)
     assert result["nearest"]["description"] == ""
     assert result["nearest"]["support_calls"] == 0
+
+
+def test_coverage_check_flags_thin_evidence_rather_than_implying_coverage():
+    """Retrieval returns a nearest exchange for ANY string, so a confident "the closest
+    thing we cover is X" reads as a yes even when the topic is absent. It cannot say "we do
+    not cover that" either -- ADR 0005 rules out a cosine threshold -- so it reports how
+    much evidence sits behind the nearest thing and lets the CSM judge."""
+    thin = rendering.coverage_check("quantum widgets", _match(), _scenario("x", calls=1))
+    assert thin["nearest"]["evidence"] == "thin"
+    solid = rendering.coverage_check("cost per hire", _match(), _scenario("x", calls=40))
+    assert solid["nearest"]["evidence"] == "solid"
+
+
+def test_coverage_check_quotes_the_csm_not_the_extracted_query():
+    """The page renders `asked_about` back in quote marks. Quoting a model-authored span as
+    though the CSM wrote it is a small lie that gets believed."""
+    result = rendering.coverage_check("do you have anything on renewals?", _match(), None)
+    assert result["asked_about"] == "do you have anything on renewals?"
