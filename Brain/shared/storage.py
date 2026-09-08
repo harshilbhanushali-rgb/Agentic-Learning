@@ -323,7 +323,8 @@ def get_scenarios(conn: psycopg.Connection) -> list[dict]:
     with conn.cursor() as cur:
         cur.execute(
             "SELECT scenario_id, scenario_key, business_description, primary_topic, keyphrases, "
-            "soft_skills, is_coachable, cluster_kind, primary_topic_key, rubric_status "
+            "soft_skills, is_coachable, cluster_kind, primary_topic_key, rubric_status, "
+            "support_calls, call_coverage "
             "FROM scenarios"
         )
         rows = cur.fetchall()
@@ -331,9 +332,46 @@ def get_scenarios(conn: psycopg.Connection) -> list[dict]:
         {"scenario_id": r[0], "scenario_key": r[1], "business_description": r[2],
          "primary_topic": r[3], "keyphrases": r[4], "soft_skills": r[5],
          "is_coachable": r[6], "cluster_kind": r[7], "primary_topic_key": r[8],
-         "rubric_status": r[9]}
+         "rubric_status": r[9],
+         # ADDITIVE, 2026-09-09 (issue #19). The evidence rollup the schema comment calls
+         # "WHY each scenario exists": how many distinct calls the cluster drew from, and
+         # that as a fraction of the corpus. Ask Naren's `frequency` intent ranks on them.
+         # Added to the SELECT only -- no WHERE clause moved, so every existing caller gets
+         # the same rows and simply ignores two new keys. Same shape of change as the
+         # trigger_text addition to get_naren_responses_for_scenario.
+         "support_calls": r[10], "call_coverage": r[11]}
         for r in rows
     ]
+
+
+def get_call_pairs(conn: psycopg.Connection) -> list[dict]:
+    """Every kb_pair with the call it came from and its position in that call.
+
+    ADDED FOR ASK NAREN's `what_happened_next` (issue #20), which answers "how did that
+    conversation actually continue" and therefore needs the turn AFTER the one an answer
+    rested on. Nothing else in this module exposes `turn_index`, and the service holds no
+    database handle while answering -- so adjacency has to be loaded once at startup, like
+    the pool and the playbooks.
+
+    NOT FILTERED TO COACHABLE, deliberately. The next thing said in a call is frequently a
+    logistics or backchannel turn that Layer A sinks, and skipping those would silently
+    present a LATER exchange as the adjacent one -- which is the difference between "here is
+    what happened next" and "here is the next thing we happen to cover". A consumer that
+    wants only coachable rows derives that itself, matching get_scenarios' stated contract.
+
+    Ordered so a caller can group by call and walk forward without re-sorting.
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT p.pair_id, c.filename, p.turn_index, p.trigger_text, p.response_text,
+                   p.scenario_key
+            FROM kb_pairs p JOIN calls c ON p.call_id = c.call_id
+            ORDER BY c.filename, p.turn_index
+        """)
+        rows = cur.fetchall()
+    return [{"pair_id": r[0], "call_filename": r[1], "turn_index": r[2],
+             "trigger_text": r[3], "response_text": r[4], "scenario_key": r[5]}
+            for r in rows]
 
 
 def get_primary_topics(conn: psycopg.Connection) -> list[dict]:

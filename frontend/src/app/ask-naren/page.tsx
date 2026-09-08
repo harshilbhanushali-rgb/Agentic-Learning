@@ -9,6 +9,7 @@ import { SituationForm } from '@/components/ask-naren/SituationForm';
 import { AnswerCard } from '@/components/ask-naren/AnswerCard';
 import { DeclineNotice } from '@/components/ask-naren/DeclineNotice';
 import { ClarifyPrompt } from '@/components/ask-naren/ClarifyPrompt';
+import { RenderedAnswer } from '@/components/ask-naren/RenderedAnswer';
 import { load, save, scenarioLabel, trimThread, turnFrom } from '@/lib/thread';
 
 /**
@@ -46,7 +47,9 @@ const UNREACHABLE: AskNarenDecline = {
 
 /** The `outcome` values the service can send. Guards `ask` against a body that parsed as
  *  JSON but is not this contract -- a proxy or a crashed worker returning something else. */
-const OUTCOMES = new Set<AskNarenResponse['outcome']>(['answered', 'declined', 'clarify']);
+const OUTCOMES = new Set<AskNarenResponse['outcome']>([
+  'answered', 'declined', 'clarify', 'rendered',
+]);
 
 /**
  * The one place a response's `outcome` is turned into a component.
@@ -65,6 +68,8 @@ function Outcome({ result }: { result: AskNarenResponse }) {
       return <DeclineNotice result={result} />;
     case 'clarify':
       return <ClarifyPrompt result={result} />;
+    case 'rendered':
+      return <RenderedAnswer result={result} />;
     default: {
       const unhandled: never = result;
       throw new Error(`unhandled outcome: ${JSON.stringify(unhandled)}`);

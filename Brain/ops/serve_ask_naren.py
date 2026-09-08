@@ -42,8 +42,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ask_naren import (citations, responding, retrieval, service,  # noqa: E402
-                       vector_store)
+from ask_naren import (citations, rendering, responding, retrieval,  # noqa: E402
+                       service, vector_store)
 from config import load_config                        # noqa: E402
 from preprocessing import embedder                    # noqa: E402
 from shared import storage                            # noqa: E402
@@ -153,6 +153,8 @@ def build_pool(hostaddr: str | None):
         if PLAYBOOK_AUGMENTED:
             moves_by_scenario = _load_key_moves(conn, pairs)
         playbooks_by_scenario = _load_playbooks(conn, pairs)
+        coachable_scenarios = _load_coachable_scenarios(conn)
+        following_by_pair = _load_call_adjacency(conn)
     finally:
         conn.close()
     if not pairs:
@@ -163,7 +165,56 @@ def build_pool(hostaddr: str | None):
     pool = retrieval.RetrievalPool(pairs, store=_build_store(config, pairs, scenario_keys))
     print(f"[pool] ready: {len(pool)} pairs across {len(scenario_keys)} coachable scenarios",
           flush=True)
-    return pool, moves_by_scenario, playbooks_by_scenario
+    return (pool, moves_by_scenario, playbooks_by_scenario,
+            coachable_scenarios, following_by_pair)
+
+
+def _load_coachable_scenarios(conn) -> list[dict]:
+    """The Layer A rows `discovery` and `frequency` render (issue #19).
+
+    COACHABLE ONLY, and filtered through `retrieval.coachable_scenario_keys` rather than by
+    reading `is_coachable` here -- that function delegates to `shared.relative_match`, which
+    Brain calls the one definition of "this scenario is a sink". A second definition that
+    agrees today is the latent bug `retrieval.py` warns about, and a list a CSM reads of
+    what the tool covers is a poor place to discover one.
+    """
+    scenarios = storage.get_scenarios(conn)
+    coachable = set(retrieval.coachable_scenario_keys(scenarios))
+    rows = [s for s in scenarios if s["scenario_key"] in coachable]
+    print(f"[layer-a] {len(rows)} coachable scenarios loaded for discovery/frequency",
+          flush=True)
+    return rows
+
+
+def _load_call_adjacency(conn) -> dict[int, list[dict]]:
+    """`pair_id` -> the exchanges that came AFTER it in the same call (issue #20).
+
+    Built once at startup because the service holds no database handle while answering, and
+    "how did that conversation continue" is a question about a row nobody retrieved.
+
+    NOT FILTERED TO COACHABLE. The next thing said is frequently a logistics or backchannel
+    turn Layer A sinks, and skipping those would silently present a LATER exchange as the
+    adjacent one -- "the next thing we happen to cover" wearing the label "what happened
+    next". `storage.get_call_pairs` returns everything for exactly this reason.
+
+    Capped at NEXT_EXCHANGES per pair, so this holds a couple of short strings per row
+    rather than the whole corpus a second time.
+    """
+    following: dict[int, list[dict]] = {}
+    by_call: dict[str, list[dict]] = {}
+    for row in storage.get_call_pairs(conn):
+        by_call.setdefault(row["call_filename"], []).append(row)
+    for rows in by_call.values():
+        # get_call_pairs already orders by (filename, turn_index); this only guards a caller
+        # that changes that ordering, since adjacency read out of order is silently wrong.
+        rows.sort(key=lambda r: r["turn_index"])
+        for i, row in enumerate(rows):
+            nxt = rows[i + 1:i + 1 + rendering.NEXT_EXCHANGES]
+            if nxt:
+                following[row["pair_id"]] = nxt
+    print(f"[adjacency] {len(following)} exchanges have a following turn in the same call, "
+          f"across {len(by_call)} calls", flush=True)
+    return following
 
 
 def _load_playbooks(conn, pairs: list[dict]) -> dict[str, dict]:
@@ -299,7 +350,8 @@ def main() -> int:
                          "Pass '' to disable.")
     args = ap.parse_args()
 
-    pool, moves_by_scenario, playbooks_by_scenario = build_pool(args.hostaddr or None)
+    (pool, moves_by_scenario, playbooks_by_scenario, coachable_scenarios,
+     following_by_pair) = build_pool(args.hostaddr or None)
     label_for = build_label_resolver()
     # None unless the constant above was edited. answer_situation treats None as pairs-only,
     # so the shipped path never touches the playbook code at all.
@@ -317,7 +369,9 @@ def main() -> int:
             return responding.respond(
                 situation, pool, gateway, embed_query=embedder.embed_query_matrix,
                 thread=thread, label_for=label_for, moves_for=moves_for,
-                playbook_for=playbooks_by_scenario.get)
+                playbook_for=playbooks_by_scenario.get,
+                scenarios_for=lambda: coachable_scenarios,
+                following_for=lambda pair_id: following_by_pair.get(pair_id, []))
 
         if args.ask:
             # One message, no thread. `--ask` is a single-shot check of the whole path.

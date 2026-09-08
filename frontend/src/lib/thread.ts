@@ -18,7 +18,7 @@
  * rather than a silently ignored field — which is why `load` below validates what comes out
  * of storage instead of trusting it.
  */
-import type { AskNarenResponse } from '@/types';
+import type { AskNarenRendered, AskNarenResponse } from '@/types';
 
 export interface ThreadTurn {
   /** What the CSM typed. Emptied, never removed, when `trimThread` elides a turn. */
@@ -88,6 +88,22 @@ export function turnFrom(message: string, result: AskNarenResponse): ThreadTurn 
       return { ...base, reply: result.question, scenario_key: '', pair_id: null, call_filename: '' };
     case 'declined':
       return { ...base, reply: result.message, scenario_key: '', pair_id: null, call_filename: '' };
+    case 'rendered':
+      // A rendered answer is a LIST or a verbatim exchange, not prose, so there is no reply
+      // text to replay. The turn records that it happened and what it was about; a CSM
+      // scrolling back sees their question and the kind of thing that came back.
+      //
+      // It carries NO pair_id even where one exists on the live response. A follow-up needs
+      // a source to ground GENERATED prose in, and "show me the exchange" grounded nothing
+      // -- so following up on one is answered as a fresh question, the same as for a Layer C
+      // answer. See `carried_source` in Brain/ask_naren/threads.py.
+      return {
+        ...base,
+        reply: RENDERED_REPLIES[result.kind],
+        scenario_key: '',
+        pair_id: null,
+        call_filename: '',
+      };
     default: {
       const unhandled: never = result;
       throw new Error(`unhandled outcome: ${JSON.stringify(unhandled)}`);
@@ -191,7 +207,18 @@ export function save(turns: ThreadTurn[]): void {
   }
 }
 
-const OUTCOMES: ReadonlySet<string> = new Set(['answered', 'declined', 'clarify']);
+const OUTCOMES: ReadonlySet<string> = new Set(['answered', 'declined', 'clarify', 'rendered']);
+
+/** What a rendered answer looks like when replayed as a past turn. The rendered payload is
+ *  a list or a verbatim exchange rather than prose, so the thread records what KIND of thing
+ *  came back rather than pretending to summarise it. */
+const RENDERED_REPLIES: Record<AskNarenRendered['kind'], string> = {
+  discovery: 'Showed what Ask Naren covers.',
+  frequency: 'Showed which situations come up most.',
+  show_exchange: 'Showed the real exchange.',
+  what_happened_next: 'Showed how that conversation continued.',
+  coverage_check: 'Reported what is covered near that situation.',
+};
 
 /** The same fields the service's pydantic turn requires, checked in the same strictness:
  *  an unrecognised outcome or a wrong-typed identifier means this is not our shape. */

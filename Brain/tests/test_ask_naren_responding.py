@@ -558,3 +558,79 @@ def test_the_gate_is_not_given_evidence_the_prompt_never_showed():
     assert result["citation"]["pair_id"] == 11        # degraded to Layer B, not Layer C
     assert len(gw.calls) == 1
     assert elsewhere not in gw.calls[0]["prompt"]
+
+
+# -- the rendered intents, through the seam (issues #19, #20) ------------------------------
+
+SCENARIOS = [
+    {"scenario_key": "performance_pushback", "primary_topic": "Performance",
+     "business_description": "Client challenges performance against the pitch.",
+     "support_calls": 40, "call_coverage": 0.3},
+    {"scenario_key": "timeline_question", "primary_topic": "Delivery",
+     "business_description": "Client asks when something lands.",
+     "support_calls": 9, "call_coverage": 0.1},
+]
+
+
+def _ask_rendered(intent, query="cost per hire pushback", scenarios_for=lambda: SCENARIOS,
+                  following_for=None):
+    gw = StubGateway()          # NO payloads queued: a generation here is a test failure
+    embed = RecordingEmbedder()
+    result = responding.respond(
+        "what do you cover", _pool(), gw, embed_query=embed,
+        classify=_decides(intent, query if intent not in
+                          ("discovery", "frequency") else ""),
+        scenarios_for=scenarios_for, following_for=following_for)
+    return result, gw, embed
+
+
+def test_a_rendered_intent_never_calls_the_model():
+    """The guarantee these paths rest on is that nothing is generated. StubGateway raises on
+    any call, so a generation slipping in here fails loudly rather than silently costing a
+    token and an invention risk."""
+    for intent in ("discovery", "frequency", "show_exchange", "coverage_check"):
+        result, gw, _ = _ask_rendered(intent)
+        assert result["outcome"] == "rendered", intent
+        assert gw.calls == [], intent
+
+
+def test_a_corpus_question_searches_for_nothing():
+    """`discovery` and `frequency` are about the whole corpus, so there is no situation to
+    embed. Retrieving anyway would spend a gateway call to ignore the result."""
+    for intent in ("discovery", "frequency"):
+        _, _, embed = _ask_rendered(intent)
+        assert embed.seen == [], intent
+
+
+def test_a_situation_question_embeds_the_current_message_only():
+    _, _, embed = _ask_rendered("show_exchange", query="cost per hire pushback")
+    assert embed.seen == ["cost per hire pushback"]
+
+
+def test_show_exchange_returns_the_stored_pair_through_the_seam():
+    result, _, _ = _ask_rendered("show_exchange")
+    assert result["kind"] == "show_exchange"
+    assert result["citation"]["pair_id"] == 11
+
+
+def test_what_happened_next_uses_the_injected_adjacency():
+    following = [{"trigger_text": "and then", "response_text": "we paced it",
+                  "scenario_key": "spend_pacing"}]
+    result, _, _ = _ask_rendered("what_happened_next",
+                                 following_for=lambda pair_id: following)
+    assert result["following"][0]["client_said"] == "and then"
+
+
+def test_a_service_started_without_layer_a_rows_asks_rather_than_showing_nothing():
+    """An empty topic list reads as "nothing is covered", which is false and alarming. A
+    clarify says what actually happened and offers the path that still works."""
+    result, gw, _ = _ask_rendered("discovery", scenarios_for=lambda: [])
+    assert result["outcome"] == "clarify"
+    assert result["question"]
+    assert gw.calls == []
+
+
+def test_every_rendered_response_still_records_what_intake_decided():
+    result, _, _ = _ask_rendered("frequency")
+    assert result["intake"]["intent"] == "frequency"
+    assert result["intake"]["retrieval_query"] == ""

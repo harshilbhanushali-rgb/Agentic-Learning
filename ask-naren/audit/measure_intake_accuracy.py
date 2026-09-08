@@ -5,6 +5,7 @@
     python ask-naren/audit/measure_intake_accuracy.py --set heldout    # the real number
     python ask-naren/audit/measure_intake_accuracy.py --set threaded   # issue #16
     python ask-naren/audit/measure_intake_accuracy.py --set procedure  # issue #17
+    python ask-naren/audit/measure_intake_accuracy.py --set rendered   # issues #19, #20
     python ask-naren/audit/measure_intake_accuracy.py --limit 6        # smoke test
 
 WHY THIS IS CHEAP, AND WHY THAT MATTERS. Every other quality question in this project needs a
@@ -176,6 +177,105 @@ retrieval; whether that produces better answers is issue #9's question and needs
 read. A perfect routing score here is compatible with no change in answer quality at all.
 
 Needs the VPN (one gateway call per message). No Postgres, no embeddings, no writes.
+## THE PROCEDURE SET (`--set procedure`, issue #17), 2026-09-08
+
+`procedure` answers "what is the general play for X" from a scenario's Layer C playbook, and
+adding it CHANGED THE PROMPT FOR EVERY MESSAGE -- the intent and its discriminator sit in the
+unconditional section, because a CSM can ask for a play with or without a conversation. That
+makes it a change to the one step whose accuracy is on record, so it was measured.
+
+| run | overall | must-not-clarify | verbatim | meaning | framing |
+| --- | --- | --- | --- | --- | --- |
+| held out, before any fix | **6/7** | 6/6 | 7/7 | 7/7 | 7/7 |
+| after the prompt fix (**fitted**) | 7/7 | 6/6 | 7/7 | 7/7 | 7/7 |
+
+*** QUOTE 6/7. *** The prompt was changed after reading the first run, which makes the second
+a repaired instrument rather than an accuracy rate -- the same distinction the fitted twelve
+and the threaded set already carry. n=7.
+
+The failure, and why it was worth a prompt change rather than a shrug: **"how do we usually
+handle difficult clients" routed to `procedure`.** A play is looked up BY THE KIND OF
+SITUATION, and "difficult" is a mood -- so there is no scenario to look up. Routed to
+`procedure` it would embed "difficult clients", retrieve whatever is nearest (a catch-all,
+most likely -- `application_volume_and_prioritization` carries 11.8% of coachable pairs), and
+answer confidently with that scenario's play. Grounded, coherent, about nothing the CSM
+asked. The discriminator now says a mood is not a situation.
+
+**The negative half is the discriminator issue #12 names explicitly**: "presence of a
+specific client utterance separates `reply_to_client` from `procedure`". Cases 4 and 5 are
+the same topics as cases 1 and 2 with a client actually speaking, and they must stay on the
+Layer B path -- the one with the measured accuracy number. An intake that routed every
+how-do-we question to `procedure` would score 3/3 on the positive cases while quietly
+diverting real client situations away from it.
+
+
+# RENDERED-INTENT cases (issues #19, #20). The five intents that answer from stored rows
+# with no model call: discovery, frequency, show_exchange, what_happened_next,
+# coverage_check.
+#
+# HELD OUT: written before the discriminators were worded, not edited after a result.
+#
+# THE NEGATIVE HALF IS THE WHOLE POINT AGAIN, and here it cuts two ways. These five sit next
+# to `reply_to_client` and to each other on boundaries a classifier actually fails on:
+#
+#   - about ONE SITUATION vs about the WHOLE CORPUS separates coverage_check from discovery;
+#   - wanting NAREN'S WORDS vs wanting AN ANSWER separates show_exchange from
+#     reply_to_client -- and a client can be quoted in both, which is what makes it hard.
+#
+# An intake that routed every "do you know about X" to `discovery` would return the whole
+# topic list to someone asking about one situation, and an intake that read every quoted
+# client turn as `show_exchange` would show a transcript to someone who asked what to say.
+
+
+## THE RENDERED-INTENT SET (`--set rendered`, issues #19, #20), 2026-09-09
+
+Five intents that answer from stored rows with no model call at all: `discovery`,
+`frequency`, `show_exchange`, `what_happened_next`, `coverage_check`.
+
+**8/8 HELD OUT, and this one needs no asterisk** -- the prompt was not changed after reading
+the result, so unlike the procedure and threaded sets this is an accuracy rate rather than a
+repaired instrument. n=8.
+
+| set | overall | must-not-clarify | verbatim | meaning | framing |
+| --- | --- | --- | --- | --- | --- |
+| rendered, held out | **8/8** | 8/8 | 8/8 | 8/8 | 8/8 |
+
+The two boundaries it exists to hold, both of which a classifier really can fail on:
+
+  - **about ONE SITUATION vs about the WHOLE CORPUS** separates `coverage_check` from
+    `discovery`. "Do you have anything on contract renewals" names a situation; "what kinds
+    of things can i ask you about" names none. Getting this wrong returns the entire topic
+    list to someone asking about one thing.
+  - **wanting HIS WORDS vs wanting AN ANSWER** separates `show_exchange` from
+    `reply_to_client`, and a client is quoted in BOTH cases -- which is what makes it the
+    hard negative rather than a giveaway. Getting it wrong shows a transcript to someone who
+    asked what to say.
+
+### Adding five intents did NOT move the earlier sets
+
+Ten intents now share one prompt, and every message is classified by all of it. So the two
+recorded sets were re-run as a regression check rather than assumed:
+
+| set | before #19/#20 | after |
+| --- | --- | --- |
+| held out (the core `reply_to_client` path) | 10/11 | **10/11** |
+| procedure | 7/7 | **7/7** |
+
+Same rate, and on the held-out set the same single case -- "a client like this one would
+want a case study, do we have something". It now routes `coverage_check` rather than
+`reply_to_client`, which is a nearer miss than before but still a miss: `coverage_check`
+asks whether Ask Naren covers a SITUATION, and this asks whether we have a marketing
+artifact. The case has now defeated three different intent sets and is worth watching, not
+withdrawing -- withdrawing a case because it keeps failing is tuning the instrument to the
+result.
+
+*** A LESSON THAT COST NOTHING ONLY BY LUCK. *** The #17 notes above were appended to this
+file as BARE PROSE outside the module docstring -- a syntax error that sat committed and
+undetected, because `Brain/tests/` does not import anything under `ask-naren/audit/` and
+nothing else compiles it. It surfaced only when the next edit happened to run the script.
+If you add a section here, add it INSIDE this docstring, and if you touch any audit script,
+compile it before committing.
+
 """
 from __future__ import annotations
 
@@ -410,36 +510,45 @@ PROCEDURE = [
 ]
 
 
-## THE PROCEDURE SET (`--set procedure`, issue #17), 2026-09-08
+RENDERED = [
+    # -- corpus-wide: no situation named ---------------------------------------------------
+    {"message": "what kinds of things can i ask you about",
+     "expect": "discovery",
+     "note": "names no situation at all -- the canonical discovery question"},
+    {"message": "which situations come up most often with clients",
+     "expect": "frequency",
+     "note": "asks for a ranking across everything, not about one case"},
 
-`procedure` answers "what is the general play for X" from a scenario's Layer C playbook, and
-adding it CHANGED THE PROMPT FOR EVERY MESSAGE -- the intent and its discriminator sit in the
-unconditional section, because a CSM can ask for a play with or without a conversation. That
-makes it a change to the one step whose accuracy is on record, so it was measured.
+    # -- about one situation ---------------------------------------------------------------
+    {"message": "do you have anything on contract renewals",
+     "expect": "coverage_check",
+     "query_must_contain": ["renewal"],
+     "note": "THE DISCRIMINATOR against discovery: it names a situation, so the answer is "
+             "about that situation rather than the whole topic list"},
+    {"message": "show me what naren actually said when a client pushed back on cost per hire",
+     "expect": "show_exchange",
+     "query_must_contain": ["cost per hire"],
+     "note": "wants his words verbatim, not a paraphrase"},
+    {"message": "how did that conversation carry on after he explained the pacing rules",
+     "expect": "what_happened_next",
+     "query_must_contain": ["pacing"],
+     "note": "asks about the continuation of a call, not about a client situation"},
 
-| run | overall | must-not-clarify | verbatim | meaning | framing |
-| --- | --- | --- | --- | --- | --- |
-| held out, before any fix | **6/7** | 6/6 | 7/7 | 7/7 | 7/7 |
-| after the prompt fix (**fitted**) | 7/7 | 6/6 | 7/7 | 7/7 | 7/7 |
-
-*** QUOTE 6/7. *** The prompt was changed after reading the first run, which makes the second
-a repaired instrument rather than an accuracy rate -- the same distinction the fitted twelve
-and the threaded set already carry. n=7.
-
-The failure, and why it was worth a prompt change rather than a shrug: **"how do we usually
-handle difficult clients" routed to `procedure`.** A play is looked up BY THE KIND OF
-SITUATION, and "difficult" is a mood -- so there is no scenario to look up. Routed to
-`procedure` it would embed "difficult clients", retrieve whatever is nearest (a catch-all,
-most likely -- `application_volume_and_prioritization` carries 11.8% of coachable pairs), and
-answer confidently with that scenario's play. Grounded, coherent, about nothing the CSM
-asked. The discriminator now says a mood is not a situation.
-
-**The negative half is the discriminator issue #12 names explicitly**: "presence of a
-specific client utterance separates `reply_to_client` from `procedure`". Cases 4 and 5 are
-the same topics as cases 1 and 2 with a client actually speaking, and they must stay on the
-Layer B path -- the one with the measured accuracy number. An intake that routed every
-how-do-we question to `procedure` would score 3/3 on the positive cases while quietly
-diverting real client situations away from it.
+    # -- must NOT be read as rendered ------------------------------------------------------
+    {"message": "client said \"our cost per hire is way above what you pitched\", what do i say",
+     "expect": "reply_to_client",
+     "query_must_not_contain": ["what do i say"],
+     "note": "THE HARD NEGATIVE. A client is quoted here AND in the show_exchange case "
+             "above; what separates them is wanting an ANSWER rather than wanting his words"},
+    {"message": "how do we usually handle renewals that stall",
+     "expect": "procedure",
+     "note": "names a situation like coverage_check does, but asks for the PLAY rather than "
+             "for whether we cover it"},
+    {"message": "whats our renewal notice period in the standard MSA",
+     "expect": "out_of_scope",
+     "note": "an internal contract fact, however close the word 'renewal' sits to the "
+             "coverage_check case"},
+]
 
 
 THREADED = [
@@ -525,7 +634,7 @@ def main() -> int:
     ap.add_argument("--limit", type=int, help="only the first N cases (smoke test)")
     ap.add_argument("--out", default=str(ARTIFACTS / "intake_accuracy.json"))
     ap.add_argument("--set", dest="which", default="fitted",
-                    choices=("fitted", "heldout", "threaded", "procedure", "both"),
+                    choices=("fitted", "heldout", "threaded", "procedure", "rendered", "both"),
                     help="fitted = the 12 the prompt was tuned on (NOT an accuracy "
                          "rate); heldout = cases never used to change the prompt; "
                          "threaded = the conversation-shaped cases (issue #16)")
@@ -538,7 +647,8 @@ def main() -> int:
 
     load_config()
     pool = {"fitted": CASES, "heldout": HELD_OUT, "threaded": THREADED,
-            "procedure": PROCEDURE, "both": CASES + HELD_OUT}[args.which]
+            "procedure": PROCEDURE, "rendered": RENDERED,
+            "both": CASES + HELD_OUT}[args.which]
     cases = pool[:args.limit] if args.limit else pool
 
     rows = []
@@ -595,6 +705,7 @@ def main() -> int:
              "heldout": "HELD-OUT cases",
              "threaded": "THREAD-SHAPED cases (issue #16)",
              "procedure": "PROCEDURE cases (issue #17)",
+             "rendered": "RENDERED-INTENT cases (issues #19, #20)",
              "both": "fitted + held-out"}[args.which]
     print(f"ROUTING ACCURACY -- {args.model} "
           f"(reasoning={args.reasoning or chr(110)+chr(111)+chr(110)+chr(101)}) -- {label}")
@@ -606,7 +717,9 @@ def main() -> int:
     # Reported per class, never pooled. A pooled rate hides the failure that matters: an
     # intake biased toward clarify looks fine overall while making the tool ask questions
     # instead of answering.
-    for label in ("reply_to_client", "clarify", "out_of_scope", "follow_up", "procedure"):
+    for label in ("reply_to_client", "clarify", "out_of_scope", "follow_up", "procedure",
+                  "discovery", "frequency", "show_exchange", "what_happened_next",
+                  "coverage_check"):
         group = [r for r in rows if r["expect"] == label]
         if group:
             hit = sum(r["correct"] for r in group)

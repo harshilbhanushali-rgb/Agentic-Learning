@@ -15,14 +15,14 @@ routing accuracy is measured separately against labelled messages.
 """
 from __future__ import annotations
 
-from ask_naren import answering, citations, intake, threads
+from ask_naren import answering, citations, intake, rendering, threads
 from ask_naren.retrieval import RetrievalPool
 
 
 def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(),
             classify=intake.classify, k: int = answering.DEFAULT_K,
             label_for=citations.resolve_label, moves_for=None,
-            playbook_for=None) -> dict:
+            playbook_for=None, scenarios_for=None, following_for=None) -> dict:
     """Answer one message, ask the CSM something, or decline.
 
     `message` is what the CSM typed, framing and all. What reaches RETRIEVAL is intake's
@@ -68,6 +68,16 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
             answering.answer_follow_up(message, turns, source, gateway,
                                        label_for=label_for), decision)
 
+    if decision.intent in intake.RENDERED_INTENTS:
+        # NO MODEL CALL AT ALL (issues #19, #20). These answer from stored rows, so their
+        # grounding guarantee is structural rather than verified -- a rendered list of the
+        # coachable scenarios cannot invent a 35th. Nothing here can reach the gate because
+        # nothing here generates anything for it to check.
+        return _with_intake(
+            _rendered(decision, pool, embed_query=embed_query, label_for=label_for,
+                      scenarios_for=scenarios_for, following_for=following_for),
+            decision)
+
     if decision.intent == intake.PROCEDURE:
         # THE SCENARIO IS FOUND BY RETRIEVING, not by asking the model to name one. A model
         # that can name a scenario can name one that does not exist, and the taxonomy is
@@ -96,6 +106,49 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
             decision.retrieval_query, pool, gateway, embed_query=embed_query, k=k,
             label_for=label_for, moves_for=moves_for),
         decision)
+
+
+def _rendered(decision: intake.IntakeDecision, pool: RetrievalPool, *, embed_query,
+              label_for, scenarios_for, following_for) -> dict:
+    """The five answers built from stored rows (issues #19, #20).
+
+    `scenarios_for` returns the COACHABLE Layer A rows, and `following_for` returns the
+    exchanges after a given pair in the same call. Both are injected functions loaded at
+    startup, the same shape as `label_for` and `playbook_for` -- because the service holds no
+    database handle while answering, so neither can be looked up per request.
+
+    DEGRADES TO A CLARIFY, NOT AN ERROR, when the rows a path needs were never loaded. A
+    service started without Layer A rows cannot answer "what do you cover", and saying so is
+    better than a traceback or an empty list that reads as "nothing is covered".
+    """
+    if decision.intent in intake.CORPUS_INTENTS:
+        scenarios = scenarios_for() if scenarios_for else []
+        if not scenarios:
+            return answering.clarify(
+                "Ask Naren cannot list what it covers just now -- its topic index was not "
+                "loaded. Describe a client situation instead and it will search Naren's "
+                "calls directly.")
+        if decision.intent == intake.DISCOVERY:
+            return rendering.discovery(scenarios)
+        return rendering.frequency(scenarios)
+
+    # The three that are ABOUT a situation and therefore retrieve one. The query is embedded
+    # exactly as on every other retrieving path -- the current message alone (ADR 0006).
+    match = pool.top1(embed_query([decision.retrieval_query])[0])
+
+    if decision.intent == intake.SHOW_EXCHANGE:
+        return rendering.show_exchange(match, label_for=label_for)
+
+    if decision.intent == intake.WHAT_HAPPENED_NEXT:
+        following = following_for(match.pair["pair_id"]) if following_for else []
+        return rendering.what_happened_next(match, following, label_for=label_for)
+
+    scenario = None
+    if scenarios_for:
+        scenario = next((s for s in scenarios_for()
+                         if s["scenario_key"] == match.pair["scenario_key"]), None)
+    return rendering.coverage_check(decision.retrieval_query, match, scenario,
+                                    label_for=label_for)
 
 
 def _procedure(message: str, decision: intake.IntakeDecision, pool: RetrievalPool, gateway,

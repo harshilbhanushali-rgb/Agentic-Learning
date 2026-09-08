@@ -57,10 +57,26 @@ CLARIFY = "clarify"
 OUT_OF_SCOPE = "out_of_scope"
 FOLLOW_UP = "follow_up"
 PROCEDURE = "procedure"
+DISCOVERY = "discovery"
+FREQUENCY = "frequency"
+SHOW_EXCHANGE = "show_exchange"
+WHAT_HAPPENED_NEXT = "what_happened_next"
+COVERAGE_CHECK = "coverage_check"
 
 #: Every intent intake may return today. Issues #17-#23 add more; each addition is a change
 #: to the schema sent to the gateway AND to the prompt's discriminators, never one alone.
-INTENTS = (REPLY_TO_CLIENT, CLARIFY, OUT_OF_SCOPE, FOLLOW_UP, PROCEDURE)
+INTENTS = (REPLY_TO_CLIENT, CLARIFY, OUT_OF_SCOPE, FOLLOW_UP, PROCEDURE,
+           DISCOVERY, FREQUENCY, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT, COVERAGE_CHECK)
+
+#: The intents that answer from STORED ROWS with no model call (issues #19, #20). They are
+#: grouped here because two rules apply to all five and to nothing else: they need no
+#: grounding gate (nothing is generated, so nothing can be invented), and `discovery` and
+#: `frequency` need no retrieval either -- they are about the corpus rather than about a
+#: situation.
+RENDERED_INTENTS = (DISCOVERY, FREQUENCY, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT, COVERAGE_CHECK)
+
+#: Of those, the two that describe the WHOLE corpus and therefore search for nothing.
+CORPUS_INTENTS = (DISCOVERY, FREQUENCY)
 
 
 class IntakeDecision(BaseModel):
@@ -76,7 +92,8 @@ class IntakeDecision(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     intent: Literal["reply_to_client", "clarify", "out_of_scope", "follow_up",
-                    "procedure"]
+                    "procedure", "discovery", "frequency", "show_exchange",
+                    "what_happened_next", "coverage_check"]
     #: The CLIENT'S OWN WORDS, which is what gets embedded -- never the CSM's framing around
     #: them. Empty for any intent that does not retrieve.
     retrieval_query: str = ""
@@ -86,7 +103,8 @@ class IntakeDecision(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _a_follow_up_searched_for_nothing(cls, data):
-        """A follow-up runs NO retrieval, so it cannot carry a retrieval query.
+        """A follow-up and a corpus question run NO retrieval, so neither can carry a
+        retrieval query.
 
         Cleared rather than rejected: a model that helpfully fills the field is not making
         an unusable decision, it is making a misleading one. Every response echoes
@@ -94,7 +112,7 @@ class IntakeDecision(BaseModel):
         (`responding._with_intake`), and on this path echoing a query that was never
         embedded would report a search that did not happen.
         """
-        if isinstance(data, dict) and data.get("intent") == FOLLOW_UP:
+        if isinstance(data, dict) and data.get("intent") in (FOLLOW_UP, *CORPUS_INTENTS):
             return {**data, "retrieval_query": ""}
         return data
 
@@ -113,7 +131,9 @@ class IntakeDecision(BaseModel):
         """
         if self.intent == CLARIFY and not self.question:
             raise ValueError("a clarify with no question is a dead end, not a clarify")
-        if self.intent in (REPLY_TO_CLIENT, PROCEDURE) and not self.retrieval_query:
+        if (self.intent in (REPLY_TO_CLIENT, PROCEDURE, SHOW_EXCHANGE,
+                            WHAT_HAPPENED_NEXT, COVERAGE_CHECK)
+                and not self.retrieval_query):
             raise ValueError(f"{self.intent} with no retrieval_query would embed nothing")
         return self
 
@@ -191,6 +211,27 @@ def build_prompt(message: str, thread=()) -> str:
         f'"difficult clients", "tricky accounts", "when things get tense" name a MOOD, not '
         f'a situation -- those are "{CLARIFY}". Ask which kind of situation they mean.',
         "",
+        f'  "{SHOW_EXCHANGE}" -- the CSM wants to SEE the real exchange rather than a '
+        "summary of it: \"show me what he actually said\", \"can i see the real "
+        "conversation\", \"what were his exact words about renewals\".",
+        "",
+        f'  "{WHAT_HAPPENED_NEXT}" -- the CSM wants to know how that conversation CONTINUED '
+        "after the moment: \"what did the client say back\", \"how did that call go on\", "
+        "\"what came after that\".",
+        "",
+        f'  "{COVERAGE_CHECK}" -- the CSM is asking whether Ask Naren KNOWS ANYTHING about a '
+        "kind of situation, rather than asking it to answer one: \"do you have anything on "
+        "renewals\", \"is there coverage for pricing escalations\", \"would you know about "
+        "this\".",
+        "",
+        f'  "{DISCOVERY}" -- the CSM wants to know what Ask Naren covers OVERALL, with no '
+        "particular situation in mind: \"what can i ask you\", \"what topics do you know "
+        "about\", \"what do you cover\".",
+        "",
+        f'  "{FREQUENCY}" -- the CSM wants to know which situations come up MOST, again '
+        "across everything rather than about one case: \"what comes up most with clients\", "
+        "\"which situations are most common\", \"what should i learn first\".",
+        "",
         f'  "{OUT_OF_SCOPE}" -- THE CSM is asking YOU for an internal fact about Joveo: a '
         "list price, a contract term, which integrations exist, what a policy says. Naren's "
         "call transcripts are not a product document. Do NOT clarify these; there is nothing "
@@ -211,9 +252,12 @@ def build_prompt(message: str, thread=()) -> str:
         "it rather than composing a new sentence.",
         f'  - For "{CLARIFY}", set question to one short, specific thing to ask the CSM -- '
         "normally asking them to paste what the client actually said or wrote.",
-        f'  - For "{OUT_OF_SCOPE}"'
+        f'  - For "{OUT_OF_SCOPE}", "{DISCOVERY}" and "{FREQUENCY}"'
         + (f' and "{FOLLOW_UP}"' if thread else "")
         + ", leave retrieval_query and question empty.",
+        f'  - For "{SHOW_EXCHANGE}", "{WHAT_HAPPENED_NEXT}" and "{COVERAGE_CHECK}", set '
+        "retrieval_query to the SITUATION being asked about, copied from the message with "
+        "the asking-framing removed. It is used to find which exchange they mean.",
         *(["  - The retrieval_query must be copied from the CSM's CURRENT message only. "
            "Never from the conversation above. Text repeated across several questions makes "
            "them all look alike to the search and reaches the wrong exchange."]
@@ -225,6 +269,14 @@ def build_prompt(message: str, thread=()) -> str:
         "to find which kind of situation they mean.",
         "",
         "Two distinctions that are easy to get wrong:",
+        "",
+        f'  - ABOUT ONE SITUATION or ABOUT THE WHOLE CORPUS separates "{COVERAGE_CHECK}" '
+        f'from "{DISCOVERY}". "Do you have anything on renewals" names a situation and is '
+        f'"{COVERAGE_CHECK}"; "what topics do you cover" names none and is "{DISCOVERY}".',
+        "",
+        f'  - WANTING HIS WORDS vs WANTING AN ANSWER separates "{SHOW_EXCHANGE}" from '
+        f'"{REPLY_TO_CLIENT}". Asking to SEE the exchange is "{SHOW_EXCHANGE}"; asking what '
+        f'to say is "{REPLY_TO_CLIENT}", even when a client is quoted in both.',
         "",
         f'  - A SPECIFIC CLIENT UTTERANCE is what separates "{REPLY_TO_CLIENT}" from '
         f'"{PROCEDURE}". "Client said our CPA is 3x, what do i say" quotes a client and is '

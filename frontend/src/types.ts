@@ -284,7 +284,55 @@ export interface AskNarenClarify {
   question: string;
 }
 
+/** An answer built from STORED ROWS, with no model call at all (issues #19, #20).
+ *
+ *  ITS OWN OUTCOME, not `answered`, and the distinction is the guarantee rather than the
+ *  layout. `answered` means a model wrote prose and the grounding gate verified a quote
+ *  against a real source. `rendered` means nothing was generated, so there is nothing to
+ *  verify — a rendered list of the coachable scenarios cannot invent a 35th, and a rendered
+ *  exchange cannot drift from the exchange. Collapsing the two would make "answered" mean
+ *  two different things about trust.
+ *
+ *  `kind` chooses the layout the same way `outcome` chooses the component. Five kinds share
+ *  one outcome because they share one guarantee; five outcomes would make the union longer
+ *  for no behavioural difference. */
+export interface AskNarenScenarioRef {
+  scenario_key: string;
+  description: string;
+}
+
+export interface AskNarenExchange {
+  client_said: string;
+  naren_replied: string;
+}
+
+export type AskNarenRendered =
+  | { outcome: 'rendered'; kind: 'discovery'; intake?: AskNarenIntake;
+      topics: { topic: string; scenarios: AskNarenScenarioRef[] }[]; total: number }
+  | { outcome: 'rendered'; kind: 'frequency'; intake?: AskNarenIntake;
+      scenarios: (AskNarenScenarioRef & { support_calls: number; call_coverage: number | null })[];
+      total: number;
+      /** Says what is being ranked. Rendered as-is — it is the qualifier that stops "most
+       *  common" being read as a fact about clients rather than about this corpus. */
+      basis: string }
+  | { outcome: 'rendered'; kind: 'show_exchange'; intake?: AskNarenIntake;
+      exchange: AskNarenExchange; citation: AskNarenCitation; match: AskNarenMatch }
+  | { outcome: 'rendered'; kind: 'what_happened_next'; intake?: AskNarenIntake;
+      exchange: AskNarenExchange;
+      following: (AskNarenExchange & { scenario_key: string })[];
+      /** True when nothing followed it in the call. An empty list is something a CSM has to
+       *  interpret; this is an answer. */
+      is_last: boolean; citation: AskNarenCitation }
+  | { outcome: 'rendered'; kind: 'coverage_check'; intake?: AskNarenIntake;
+      asked_about: string;
+      nearest: AskNarenScenarioRef & { support_calls: number };
+      citation: AskNarenCitation; match: AskNarenMatch };
+
 /** Discriminated on `outcome`, NOT on a boolean. Two discriminators for one decision is how
  *  the answered and declined render paths eventually disagree about which one a response
  *  is; one key keeps `npm run build` exhaustive over all three. */
-export type AskNarenResponse = AskNarenAnswer | AskNarenDecline | AskNarenClarify;
+export type AskNarenResponse =
+  | AskNarenAnswer
+  | AskNarenDecline
+  | AskNarenClarify
+  | AskNarenRendered;
