@@ -118,4 +118,6 @@ python ops/serve_ask_naren.py                        # serve on 127.0.0.1:8787
 
 Needs the Joveo VPN. Reads Postgres once at startup and closes the connection before serving — it cannot write to Brain's pipeline.
 
+**Vector search runs in Pinecone** (index `narens-brain-3072`), not in the service process — ADR 0008. The startup Postgres read supplies the pool's TEXT, which stays there deliberately: Pinecone's metadata is truncated to 500 characters by the pipeline's upsert, and the grounding gate needs the full response to verify a quote verbatim. Ask Naren issues no writes anywhere — no upsert, no index creation. After any Layer B ship, run `Brain/ops/check_vector_coverage.py`.
+
 Do not re-derive or re-propose a threshold, clustering method, or matching strategy for the Brain pipeline without first checking `Brain/docs/findings/INDEX.md` — most ideas here have already been tried and measured, with the outcome recorded.
