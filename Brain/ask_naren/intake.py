@@ -37,6 +37,14 @@ CHAT_MODEL = "gemini-3.6-flash"
 TEMPERATURE = 0.0
 MAX_TOKENS = 1024
 
+# "low", and this is a REDUCTION, not an addition. Sending nothing does NOT mean "no
+# reasoning": gemini-3.6-flash reasons heavily when left unconstrained -- measured at 6,042
+# reasoning tokens across 10 messages against 342 at "low", cutting total usage 36% (15,847
+# -> 10,185) with identical routing (10/10 both). Intake is a classification with a schema
+# already constraining the shape, so an unbounded reasoning budget was paying for nothing.
+# Full A/B, including flash-lite, in ask-naren/audit/measure_intake_accuracy.py.
+REASONING_EFFORT = "low"
+
 # One retry, matching answering.MAX_ATTEMPTS. A second unusable reply is not a transient
 # blip worth a third call -- it means this message is not one the model can classify, and
 # the fallback below is a working answer rather than a failure.
@@ -169,13 +177,17 @@ def build_prompt(message: str) -> str:
     ])
 
 
-def classify(message: str, gateway, *, model: str = CHAT_MODEL) -> tuple[IntakeDecision, dict]:
+def classify(message: str, gateway, *, model: str = CHAT_MODEL,
+             reasoning_effort: str | None = REASONING_EFFORT) -> tuple[IntakeDecision, dict]:
     """Decide what happens to `message`. Returns (decision, meta).
 
-    `model` exists so a cheaper model can be A/B'd on the same labelled cases
-    (`ask-naren/audit/measure_intake_accuracy.py --model ...`) rather than swapped in on the
-    assumption that classification is easy. It defaults to the licensed model, so production
-    does not move until a measurement says it should.
+    `model` and `reasoning_effort` exist so a cheaper configuration can be A/B'd on the same
+    labelled cases (`ask-naren/audit/measure_intake_accuracy.py --model ... --reasoning ...`)
+    rather than swapped in on the assumption that classification is easy. Both default to the
+    shipped values, so production does not move until a measurement says it should.
+
+    `reasoning_effort=None` sends no reasoning budget at all, which is how intake shipped
+    first and what the flash-lite A/B was originally run at.
 
     NEVER RAISES for a model or gateway problem. Two unusable replies, a malformed reply, or
     a gateway that is down all fall through to answering the message as written -- the
@@ -194,6 +206,7 @@ def classify(message: str, gateway, *, model: str = CHAT_MODEL) -> tuple[IntakeD
                 temperature=TEMPERATURE,
                 max_tokens=MAX_TOKENS,
                 schema=response_schema(),
+                reasoning_effort=reasoning_effort,
                 # Same reason as the answering path: two CSMs asking similar questions must
                 # never be served each other's decision.
                 no_cache=True,

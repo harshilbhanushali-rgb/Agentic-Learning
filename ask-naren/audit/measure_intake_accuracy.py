@@ -32,37 +32,47 @@ are where the real boundary lies:
   - "client is asking why spend went up 40% in March" -- reported speech carrying a specific
     claim. Over-clarifying here is the failure that makes the tool annoying rather than wrong.
 
-## FLASH-LITE WAS MEASURED FOR INTAKE AND REJECTED (2026-09-08)
+## MODEL AND REASONING BUDGET: MEASURED 2026-09-08, over the 10 HELD-OUT cases
 
-`gemini-3.5-flash-lite` is cheaper and was A/B'd here against the shipped `gemini-3.6-flash`
-on identical cases, same prompt, same schema:
+Prompted by "can we use flash-lite, it's cheaper". Five configs, same prompt, same schema,
+same cases, with token usage captured because once two configs tie on accuracy the decision
+is cost:
 
-| set | 3.6-flash | 3.5-flash-lite |
-| --- | --- | --- |
-| fitted (12) | 12/12 | 12/12 -- and BYTE-IDENTICAL extracted spans on all twelve |
-| **held out (10)** | **10/10** | **8/10** |
+| model | reasoning | route | total tokens | of which reasoning |
+| --- | --- | --- | --- | --- |
+| gemini-3.6-flash | none sent | 10/10 | 15,847 | 6,042 |
+| **gemini-3.6-flash** | **low** | **10/10** | **10,185** | **342** |
+| gemini-3.5-flash-lite | none sent | 9/10 | 9,909 | 0 |
+| gemini-3.5-flash-lite | low | 9/10 | 9,902 | 0 |
+| gemini-3.5-flash-lite | medium | 10/10 | 15,674 | 5,813 |
 
-The two it lost are the boundary cases: "client asked me straight up what our list price is"
-routed to `out_of_scope` (missing that a CLIENT asked it, which is the discriminator 3.6-flash
-only got right after the prompt was rewritten), and "do we have a case study for a client like
-this" routed to `clarify`. The first costs a CSM a real answer -- an answerable client question
-comes back refused.
+**SENDING NO `reasoning_effort` IS NOT "NO REASONING".** `gemini-3.6-flash` reasons heavily
+when left unconstrained -- 6,042 reasoning tokens across ten short classifications. Sending
+`"low"` is a REDUCTION: 36% fewer total tokens for identical routing. Intake shipped without
+the parameter and was therefore the most expensive config on this table. Fixed.
 
-**The split is the interesting part, and it generalises:**
+**flash-lite is not the saving it looks like.** It only reaches 10/10 with `medium`, and at
+that point it costs the same tokens as unconstrained 3.6-flash -- so the cheaper per-token
+rate is buying back only what its own reasoning budget spends. Against `3.6-flash` + `low` it
+is within 3% on tokens and a whole model tier worse on judgement.
 
-| | flash-lite, held out |
-| --- | --- |
-| verbatim span copied | 10/10 |
-| negation / subject preserved | 10/10 |
-| framing stripped | 10/10 |
-| **correct route** | **8/10** |
+**flash-lite is also not deterministic here.** It scored 8/10 and then 9/10 on the same ten
+cases at `temperature=0.0`. On n=10 that makes any 8-vs-9-vs-10 comparison partly noise, and
+the run-to-run variance is itself a reason to prefer the stronger model for a step whose whole
+job is a stable decision.
 
-Schema enforcement made lite's OUTPUT completely safe and did nothing for its JUDGEMENT. That
-is a sharper form of ADR 0001's "the model is the lever, not the prompt", in a new context --
-and note the fitted set could not tell the two models apart at all, which is the whole reason
-the held-out set exists.
+Two cases separate the tiers, both boundary cases: "client asked me straight up what our list
+price is" (lite routes it `out_of_scope`, missing that a CLIENT asked -- the same discriminator
+3.6-flash only got right after the prompt was rewritten) and "do we have a case study for a
+client like this" (lite routes it `clarify`).
 
-Do not re-propose flash-lite for intake without new held-out cases and a better result.
+**And the split worth reusing:** lite held out scored 10/10 verbatim-span, 10/10 meaning
+preserved, 10/10 framing stripped, and 9/10 on the route. Schema enforcement makes a weaker
+model's OUTPUT safe and does nothing for its JUDGEMENT -- a sharper form of ADR 0001's "the
+model is the lever, not the prompt", in the one place the schema was expected to close the gap.
+
+Do not re-propose flash-lite for intake without new held-out cases and a better result. Do not
+remove `reasoning_effort` on the assumption that absence means cheap.
 
 WHAT THIS DOES NOT MEASURE. Whether the ANSWER is right. Intake changes which text reaches
 retrieval; whether that produces better answers is issue #9's question and needs the blind
@@ -214,6 +224,9 @@ def main() -> int:
                     choices=("fitted", "heldout", "both"),
                     help="fitted = the 12 the prompt was tuned on (NOT an accuracy "
                          "rate); heldout = cases never used to change the prompt")
+    ap.add_argument("--reasoning", default=intake.REASONING_EFFORT,
+                    help="reasoning_effort to send; omit for the shipped value, "
+                         "'none' to send no reasoning budget")
     ap.add_argument("--model", default=intake.CHAT_MODEL,
                     help="override intake's model, to A/B a cheaper one on the same cases")
     args = ap.parse_args()
@@ -225,7 +238,9 @@ def main() -> int:
     rows = []
     with GatewayClient() as gw:
         for n, case in enumerate(cases, 1):
-            decision, _ = intake.classify(case["message"], gw, model=args.model)
+            decision, _ = intake.classify(
+                case["message"], gw, model=args.model,
+                reasoning_effort=None if args.reasoning in (None, "none") else args.reasoning)
             leaked = [s for s in case.get("query_must_not_contain", [])
                       if s.lower() in decision.retrieval_query.lower()]
             # Tokens whose LOSS changes the meaning: a dropped "not", or a subject
@@ -268,7 +283,8 @@ def main() -> int:
     label = {"fitted": "FITTED cases (not an accuracy rate)",
              "heldout": "HELD-OUT cases",
              "both": "fitted + held-out"}[args.which]
-    print(f"ROUTING ACCURACY -- {args.model} -- {label}")
+    print(f"ROUTING ACCURACY -- {args.model} "
+          f"(reasoning={args.reasoning or chr(110)+chr(111)+chr(110)+chr(101)}) -- {label}")
     print("=" * 78)
 
     overall = sum(r["correct"] for r in rows)
