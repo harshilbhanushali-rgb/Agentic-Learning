@@ -260,6 +260,63 @@ def test_play_confidence_reports_the_records_evidence_count_not_the_documents():
     assert "not whether the play is right" in result["basis"]
 
 
+def test_play_confidence_says_when_n_evidence_is_the_selection_cap_rather_than_a_count():
+    """MEASURED on the live rows, 2026-09-09: 25 of 33 live playbooks carry n_evidence == 50
+    exactly, because `playbook_backfill` sets it to len(selected evidence) with the selection
+    capped at N_EVIDENCE_MAX = 50 -- and never recomputes it after the verbatim snap drops
+    quotes and moves.
+
+    So for three quarters of the corpus it is a constant, and it can invert the truth:
+    programmatic_advertising_scope_and_capability shows 50 and rests on 8 verified quotes,
+    while non_technical_stakeholder_translation shows 16 and rests on 9. Reported bare, the
+    number a CSM reads as 3x better evidenced is the thinner play.
+
+    `Brain/docs/findings/layer-d-say-arm.md` already recorded the median as 50 for both good
+    and bad move groups, so this is a re-derivation of a measured non-signal."""
+    capped = rendering.play_confidence("k", {"playbook": PLAYBOOK, "n_evidence": 50})
+    assert capped["n_evidence_capped"] is True
+    assert rendering.play_confidence("k", RECORD)["n_evidence_capped"] is False
+
+
+def test_play_confidence_leads_with_what_survived_the_snap():
+    """Criterion 5 asks what the play RESTS ON. `moves` and `quotes` are counted from the
+    live document, so they describe what is really there; `n_evidence` describes what was
+    fed to the builder before the snap. The basis line must not present the second as the
+    first."""
+    result = rendering.play_confidence("k", {"playbook": PLAYBOOK, "n_evidence": 50})
+    assert "considered" in result["basis"]
+    assert result["quotes"] == 1 and result["moves"] == 1
+
+
+def test_phrasing_attributes_every_quote_to_the_call_it_came_from():
+    """A verbatim client-call quote shown with no attribution is exactly what ADR 0002 says
+    a citation exists to prevent -- "a verifiable, real citation is what makes the answer
+    trustworthy rather than a bare assertion". ADR 0009 singles this path out as the one
+    that can vouch for its whole answer, so it is the last place to drop the source.
+
+    `label` beside `call` rather than replacing it, matching `answering._citation`: the raw
+    filename stays for an engineer tracing a bad answer."""
+    result = rendering.phrasing("performance_pushback", PLAYBOOK,
+                                label_for=lambda f: "Uber · 3 May 2023")
+    assert result["phrases"][0]["call"] == CALL
+    assert result["phrases"][0]["label"] == "Uber · 3 May 2023"
+
+
+def test_pitfalls_attributes_every_quote_to_the_call_it_came_from():
+    result = rendering.pitfalls("performance_pushback", PLAYBOOK,
+                                label_for=lambda f: "Uber · 3 May 2023")
+    assert result["pitfalls"][0]["evidence"][0]["call"] == CALL
+    assert result["pitfalls"][0]["evidence"][0]["label"] == "Uber · 3 May 2023"
+
+
+def test_an_unresolvable_call_falls_back_to_the_raw_filename_rather_than_showing_nothing():
+    """`resolve_label` returns the raw filename whenever resolution would have to guess, and
+    31.3% of citable calls are opaque UUIDs. An empty label would render a quote with a
+    blank source line, which reads as less trustworthy than the filename it really has."""
+    result = rendering.phrasing("performance_pushback", PLAYBOOK, label_for=lambda f: "")
+    assert result["phrases"][0]["label"] == CALL
+
+
 def test_every_playbook_render_is_still_a_rendered_outcome():
     for result in (rendering.sequence("k", PLAYBOOK), rendering.phrasing("k", PLAYBOOK),
                    rendering.pitfalls("k", PLAYBOOK),

@@ -91,6 +91,20 @@ RENDERED_INTENTS = (DISCOVERY, FREQUENCY, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT, COV
 #: Of those, the two that describe the WHOLE corpus and therefore search for nothing.
 CORPUS_INTENTS = (DISCOVERY, FREQUENCY)
 
+#: Every intent whose `retrieval_query` IS EMBEDDED. ONE definition, with three consumers:
+#: this module's `_usable` validator (which rejects a decision without one), the prompt's
+#: rules block (which is what asks the model to produce one), and `responding._guarded`
+#: (which enforces ADR 0006's rule that the embedded query is a span of THIS message).
+#:
+#: IT IS ONE CONSTANT BECAUSE THE THREE HAD ALREADY DRIFTED. `_usable` listed all eight,
+#: the rules block listed three of them, and the guard listed two -- so a playbook intent
+#: was required to carry a query the prompt never asked for, and could reach the vector with
+#: text intake composed out of the thread. Each was correct when written and none was
+#: updated when #18 added five intents at once; a shared tuple is what makes "add an intent"
+#: a single edit rather than four that must be remembered together.
+RETRIEVING_INTENTS = (REPLY_TO_CLIENT, PROCEDURE, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT,
+                      COVERAGE_CHECK, *PLAYBOOK_INTENTS)
+
 
 class IntakeDecision(BaseModel):
     """A validated intake decision -- the boundary between an untrusted model reply and the
@@ -145,9 +159,7 @@ class IntakeDecision(BaseModel):
         """
         if self.intent == CLARIFY and not self.question:
             raise ValueError("a clarify with no question is a dead end, not a clarify")
-        if (self.intent in (REPLY_TO_CLIENT, PROCEDURE, SHOW_EXCHANGE,
-                            WHAT_HAPPENED_NEXT, COVERAGE_CHECK, *PLAYBOOK_INTENTS)
-                and not self.retrieval_query):
+        if self.intent in RETRIEVING_INTENTS and not self.retrieval_query:
             raise ValueError(f"{self.intent} with no retrieval_query would embed nothing")
         return self
 
@@ -298,6 +310,15 @@ def build_prompt(message: str, thread=()) -> str:
         "about, copied from their message with the asking-framing removed (\"what's the "
         "play when\", \"how do we usually handle\", \"how should i approach\"). It is used "
         "to find which kind of situation they mean.",
+        "",
+        f'  - For "{SEQUENCE}", "{PHRASING}", "{PITFALLS}", "{SCENARIO_CHECK}" and '
+        f'"{PLAY_CONFIDENCE}", do the same: set retrieval_query to the SITUATION the play is '
+        "about, copied from the message. All five ask about a play, and the play is found by "
+        "searching for the situation it belongs to.",
+        "    If the message names no situation at all -- \"what do i do first\", \"what "
+        f'usually goes wrong\" with nothing after it -- choose "{CLARIFY}" and ask which '
+        "kind of situation they mean, rather than composing a situation out of the "
+        "conversation above.",
         "",
         "Two distinctions that are easy to get wrong:",
         "",

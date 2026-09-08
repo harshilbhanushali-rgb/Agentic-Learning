@@ -98,6 +98,30 @@ def test_a_first_message_is_not_offered_an_intent_it_cannot_have():
     assert "follow_up" in intake.build_prompt(SITUATION, (_turn(),))
 
 
+def test_every_intent_that_needs_a_query_is_told_to_produce_one():
+    """The validator REJECTS a retrieving intent with an empty `retrieval_query`, so an
+    intent the prompt never gives a rule for is a rejected decision, one retry, and then the
+    fallback -- a full Layer B generation on the raw framed message, which is exactly the
+    boilerplate dilution intake exists to strip.
+
+    Derived from RETRIEVING_INTENTS rather than a hand-written list, so the module's own
+    stated invariant -- 'a change to the schema AND to the prompt's discriminators, never
+    one alone' -- is checked instead of restated. #17 and #18 each added intents to the
+    schema; #18's five never reached the rules block."""
+    rules = intake.build_prompt(SITUATION).split("Rules:", 1)[1]
+    for intent in intake.RETRIEVING_INTENTS:
+        assert intent in rules, intent
+
+
+def test_the_intents_that_search_for_nothing_are_told_to_leave_it_empty():
+    """The other half of the same invariant: an intent that retrieves nothing must not be
+    asked for a query, or the response echoes a search that never happened."""
+    rules = intake.build_prompt(SITUATION).split("Rules:", 1)[1]
+    for intent in intake.CORPUS_INTENTS:
+        assert intent in rules, intent
+    assert not set(intake.CORPUS_INTENTS) & set(intake.RETRIEVING_INTENTS)
+
+
 def test_the_conversation_reaches_the_model_when_there_is_one():
     gw = StubGateway(_reply())
     intake.classify("and what if they push back on price?", gw, thread=(_turn(),))

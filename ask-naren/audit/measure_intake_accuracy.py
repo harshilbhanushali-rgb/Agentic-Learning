@@ -320,6 +320,34 @@ this one would want a case study, do we have something". It has moved `reply_to_
 `coverage_check` asks whether Ask Naren covers a SITUATION, and this asks whether we have a
 marketing artifact. Worth watching, not withdrawing.
 
+## RE-RUN AFTER #18's REVIEW, 2026-09-09 (`*_post_guard.json`)
+
+#18's review found that the prompt's rules block never told the model to set a
+`retrieval_query` for the five playbook intents, although the decision validator REQUIRED
+one -- so a decision that omitted it failed validation twice and fell through to
+`reply_to_client` on the raw framed message. Fixing it added a rules line naming all five,
+which changes the prompt for EVERY message.
+
+So all four sets were re-run. **Held out, not fitted** -- the change fixed a structural
+defect found by reading the code, not a score, and it was written before any of these ran:
+
+| set | recorded | after the fix |
+| --- | --- | --- |
+| playbook (#18) | 8/8 | **8/8** |
+| rendered (#19, #20) | 8/8 | **8/8** |
+| procedure (#17) | 7/7 | **7/7** |
+| held out (core `reply_to_client`) | 10/11 | **10/11** -- the same case-study case |
+
+Verbatim-span, meaning-preserved and framing-stripped were clean on all 34 cases.
+
+**THE INSTRUMENT IS NARROWER THAN THE GUARD, and that gap is still open.** `verbatim_span`
+below is scored only where `intent == "reply_to_client"`, while `responding._guarded` now
+enforces the span rule on all eight intents in `intake.RETRIEVING_INTENTS`. Every case here
+happens to pass it anyway (34/34 above), so nothing is being hidden today -- but a composed
+query on a `pitfalls` case would be scored clean by this harness and discarded by the
+service. Widening it needs thread-shaped playbook cases, which is where the risk actually
+lives and which this file does not yet have.
+
 """
 from __future__ import annotations
 

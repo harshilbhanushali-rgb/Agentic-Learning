@@ -10,10 +10,18 @@ import { scenarioLabel } from '@/lib/thread';
  * what comes up most, the real exchange, how it continued. Rendering the two identically
  * would suggest a list of topics carries the same kind of authority as a grounded answer.
  *
- * NO QUOTE BLOCK ANYWHERE, because there is nothing to verify: nothing was generated, so
- * nothing can have been invented. The accent border that marks a verified quote on
- * `AnswerCard` is deliberately absent here — it means "this was checked", and reusing it
- * where nothing was checked would erode what it signals.
+ * THE ACCENT BORDER APPEARS ON EXACTLY ONE KIND, `phrasing`. On `AnswerCard` it means "this
+ * quote was checked", and reusing it where nothing was checked would erode what it signals.
+ * A `signature_language` entry is phrase-and-quote one-to-one, so every quote shown there is
+ * covered — which is the one place the border still means what it means everywhere else.
+ * `pitfalls` shows quotes too and deliberately uses the plain border instead: the pitfall
+ * text beside them is our sentence, not Naren's.
+ *
+ * EVERY QUOTE CARRIES ITS SOURCE. These are Naren's verbatim words from a real client call,
+ * and ADR 0002's argument for unredacted citations is that a citation is what makes an
+ * answer trustworthy rather than a bare assertion — which needs the call named. The three
+ * kinds with nothing quotable (`sequence`, `scenario_check`, `play_confidence`) carry no
+ * source because there is no single call behind them.
  *
  * A SWITCH ON `kind` WITH A `never` DEFAULT, for the same reason the outcome switch has one:
  * a sixth rendered kind is a build failure here rather than a blank area on the page.
@@ -52,9 +60,22 @@ function ScenarioLine({ scenario }: { scenario: { scenario_key: string; descript
   );
 }
 
+/** The source line under one verbatim quote (issue #18). Lighter than `Source`, which is a
+ *  card footer — these repeat once per quote, and a full bordered footer between every
+ *  phrase would read as a list of separators rather than of phrases. */
+function QuoteSource({ label }: { label: string }) {
+  return (
+    <cite className="not-italic text-[11px] text-ink-placeholder">
+      <span className="font-semibold uppercase tracking-[0.06em]">Source</span>{' '}
+      <span className="break-all font-medium text-ink-2">{label}</span>
+    </cite>
+  );
+}
+
 /** The header every playbook-derived answer carries: what kind of thing this is, and which
- *  scenario's play it came from. The scenario line is not decoration — these answers have no
- *  citation, so it is the only thing that lets a CSM catch a misroute. */
+ *  scenario's play it came from. The scenario line is not decoration — three of these five
+ *  answers have no citation at all, so it is the only thing that lets a CSM catch a
+ *  misroute. */
 function Play({ kind, scenarioKey }: { kind: string; scenarioKey: string }) {
   return (
     <header className="flex flex-col gap-1">
@@ -274,8 +295,9 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
                 {/* The accent border IS used here, unlike everywhere else in this file: a
                     phrase and the quote it came from are one-to-one, so this really is
                     Naren&rsquo;s own verbatim line rather than a rendering of our summary. */}
-                <blockquote className="border-l-2 border-accent pl-4">
+                <blockquote className="flex flex-col gap-1.5 border-l-2 border-accent pl-4">
                   <p className="text-[12px] italic leading-relaxed text-ink-2">{p.quote}</p>
+                  <QuoteSource label={p.label} />
                 </blockquote>
               </div>
             ))}
@@ -292,8 +314,9 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
               <div key={i} className="flex flex-col gap-1.5">
                 <p className="text-[13px] leading-relaxed text-ink">{p.text}</p>
                 {p.evidence.map((e, j) => (
-                  <blockquote key={j} className="border-l-2 border-line pl-4">
+                  <blockquote key={j} className="flex flex-col gap-1.5 border-l-2 border-line pl-4">
                     <p className="text-[12px] italic leading-relaxed text-ink-2">{e.quote}</p>
+                    <QuoteSource label={e.label} />
                   </blockquote>
                 ))}
               </div>
@@ -321,11 +344,25 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
       return (
         <article className={SHELL}>
           <Play kind="How well evidenced this play is" scenarioKey={result.scenario_key} />
+          {/* MOVES AND QUOTES LEAD, and `n_evidence` deliberately does not. The first two
+              are counted from the live document — what the play rests on today. The third
+              is how many moments were CONSIDERED when it was built, capped by the builder's
+              selection limit: measured 2026-09-09, 25 of 33 live playbooks sit exactly on
+              that cap, and it inverts (a play showing 50 rests on 8 verified quotes; one
+              showing 16 rests on 9). Rendered as the largest number it was the one thing on
+              this card that carried no information. */}
           <div className="flex flex-wrap gap-x-8 gap-y-3">
-            <Stat n={result.n_evidence} label="pieces of evidence" />
             <Stat n={result.moves} label={result.moves === 1 ? 'move' : 'moves'} />
             <Stat n={result.quotes} label={result.quotes === 1 ? 'quote' : 'quotes'} />
           </div>
+          <p className="text-[12px] leading-relaxed text-ink-2">
+            Built from {result.n_evidence_capped ? 'at least ' : ''}
+            <span className="font-medium text-ink">{result.n_evidence}</span> recorded
+            moments
+            {result.n_evidence_capped
+              ? ' — the most the builder looks at, so the real number may be higher.'
+              : '.'}
+          </p>
           <p className="text-[12px] leading-relaxed text-ink-2">{result.basis}</p>
         </article>
       );

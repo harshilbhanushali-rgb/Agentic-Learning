@@ -268,7 +268,8 @@ def sequence(scenario_key: str, playbook: dict) -> dict:
     }
 
 
-def phrasing(scenario_key: str, playbook: dict) -> dict:
+def phrasing(scenario_key: str, playbook: dict,
+             label_for=citations.resolve_label) -> dict:
     """How Naren actually words it (issue #18), from `signature_language`.
 
     THE STRONGEST-GROUNDED PATH IN THE TOOL, and by accident of shape rather than by design:
@@ -279,6 +280,13 @@ def phrasing(scenario_key: str, playbook: dict) -> dict:
 
     Paraphrasing would defeat the question outright: a CSM asking how Naren words something
     wants HIS words, not ours about his.
+
+    SO EVERY QUOTE IS ATTRIBUTED. This is the one rendered path that shows Naren's verbatim
+    words from a real client call, and ADR 0002's whole argument for unredacted citations is
+    that "a verifiable, real citation is what makes the answer trustworthy rather than a bare
+    assertion" -- which a CSM cannot act on if the call is not named. ADR 0009 singles this
+    path out as the one that can vouch for its whole answer; dropping the source here would
+    make the best-grounded answer in the tool look like the worst.
     """
     return {
         "outcome": RENDERED,
@@ -286,18 +294,22 @@ def phrasing(scenario_key: str, playbook: dict) -> dict:
         "scenario_key": scenario_key,
         "phrases": [{"phrase": (e.get("phrase") or "").strip(),
                      "quote": (e.get("quote") or "").strip(),
-                     "call": (e.get("call") or "").strip()}
+                     **_source((e.get("call") or "").strip(), label_for)}
                     for e in (playbook.get("signature_language") or [])
                     if (e.get("quote") or "").strip()],
     }
 
 
-def pitfalls(scenario_key: str, playbook: dict) -> dict:
+def pitfalls(scenario_key: str, playbook: dict,
+             label_for=citations.resolve_label) -> dict:
     """What usually goes wrong (issue #18), from `pitfalls_and_variants`.
 
     Each pitfall is our sentence with Naren's own evidence under it, so a CSM can see both
     the claim and the moment it came from. An entry whose evidence is empty is still shown --
     the pitfall itself is the answer, and dropping it would under-report what is known.
+
+    The evidence quotes are attributed for the same reason `phrasing`'s are: they are
+    Naren's real words from a real call, and a quote a CSM cannot trace is a bare assertion.
     """
     return {
         "outcome": RENDERED,
@@ -305,12 +317,31 @@ def pitfalls(scenario_key: str, playbook: dict) -> dict:
         "scenario_key": scenario_key,
         "pitfalls": [{"text": (item.get("text") or "").strip(),
                       "evidence": [{"quote": (e.get("quote") or "").strip(),
-                                    "call": (e.get("call") or "").strip()}
+                                    **_source((e.get("call") or "").strip(), label_for)}
                                    for e in (item.get("evidence") or [])
                                    if (e.get("quote") or "").strip()]}
                      for item in (playbook.get("pitfalls_and_variants") or [])
                      if (item.get("text") or "").strip()],
     }
+
+
+def _source(call_filename: str, label_for) -> dict:
+    """What a CSM reads, plus the raw filename an engineer traces with.
+
+    TWO KEYS RATHER THAN ONE, matching `answering._citation` and `_citation` below: resolving
+    the label was never a shape change for a caller, and the raw identifier stays available
+    for anyone tracing a bad answer.
+
+    NO `pair_id`, for the same reason `answer_procedure`'s citation carries none -- a
+    playbook evidence quote records the call it came from, not a `kb_pairs` row, and
+    inventing one would point at an exchange the quote does not come from.
+
+    The label falls back to the raw filename, which is what `resolve_label` itself does
+    wherever resolution would have to guess: 31.3% of citable calls are opaque UUIDs, and a
+    blank source line reads as less trustworthy than the filename the call really has.
+    """
+    return {"call": call_filename,
+            "label": label_for(call_filename) or call_filename}
 
 
 def scenario_check(asked: str, scenario_key: str, playbook: dict) -> dict:
@@ -332,29 +363,53 @@ def scenario_check(asked: str, scenario_key: str, playbook: dict) -> dict:
     }
 
 
+#: The evidence-selection cap `calibration/scenario_playbook_trial.py` builds a playbook
+#: under (`N_EVIDENCE_MAX`). Restated here rather than imported, deliberately: `ask_naren`
+#: imports nothing from `calibration`, because the service must not depend on the pipeline
+#: it reads the output of. It is used ONLY to label a number honestly, never to compute one,
+#: so a drift makes a caption slightly wrong rather than an answer wrong.
+EVIDENCE_SELECTION_CAP = 50
+
+
 def play_confidence(scenario_key: str, record: dict) -> dict:
-    """How well evidenced the play is (issue #18), from the record's `n_evidence`.
+    """How well evidenced the play is (issue #18).
 
-    A PROPERTY OF THE RECORD, NOT OF THE DOCUMENT -- `n_evidence` sits beside `playbook`
-    rather than inside it, which is why the service keeps the whole row. It is the number of
-    evidence entries the playbook was built from.
+    IT LEADS WITH WHAT SURVIVED THE SNAP, not with `n_evidence`, and that is the fix for a
+    real defect #18's spec review found. `n_evidence` is a property of the RECORD rather
+    than of the document -- `playbook_backfill` sets it to the number of evidence entries
+    SELECTED AS INPUT, capped at the selection limit, and never recomputes it after the
+    verbatim snap drops quotes and moves.
 
-    `moves` and `quotes` are counted here rather than taken on trust, because they are what
-    a CSM can actually see and a mismatch between them and `n_evidence` is worth being
-    visible rather than smoothed over.
+    MEASURED ON THE LIVE ROWS, 2026-09-09: 25 of 33 live playbooks carry exactly 50, so for
+    three quarters of the corpus the number is a constant that cannot separate a
+    well-evidenced play from a thin one -- which is precisely what this intent exists to do.
+    Worse, it inverts: `programmatic_advertising_scope_and_capability` reports 50 and rests
+    on 8 verified quotes, while `non_technical_stakeholder_translation` reports 16 and rests
+    on 9. `Brain/docs/findings/layer-d-say-arm.md` had already recorded the median at 50 for
+    both good and bad move groups.
+
+    So `moves` and `quotes` are counted from the LIVE DOCUMENT and are what the answer leads
+    on: they describe what is actually there. `n_evidence` is still reported -- it is a real
+    recorded fact about how the play was built -- but flagged with `n_evidence_capped` so
+    "50" is read as "50 or more, and that is the ceiling" rather than as a score.
     """
     playbook = record.get("playbook") or {}
     moves = playbook.get("key_moves") or []
+    n_evidence = record.get("n_evidence") or 0
     return {
         "outcome": RENDERED,
         "kind": PLAY_CONFIDENCE,
         "scenario_key": scenario_key,
-        "n_evidence": record.get("n_evidence") or 0,
         "moves": len(moves),
         "quotes": sum(len(m.get("evidence") or []) for m in moves),
-        "basis": ("How many pieces of evidence from Naren's calls this play was built from. "
-                  "It says how much sits behind the play, not whether the play is right for "
-                  "your client."),
+        "n_evidence": n_evidence,
+        #: True when `n_evidence` sits on the builder's selection cap, which means the real
+        #: number was AT LEAST this and the value carries no information above it.
+        "n_evidence_capped": n_evidence >= EVIDENCE_SELECTION_CAP,
+        "basis": ("The moves and quotes are what this play actually rests on today. The "
+                  "evidence count is how many moments were considered when it was built, "
+                  "before the verbatim check dropped any -- so it says how much was looked "
+                  "at, not whether the play is right for your client."),
     }
 
 

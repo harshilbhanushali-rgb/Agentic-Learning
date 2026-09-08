@@ -330,27 +330,47 @@ export type AskNarenRendered =
       /** True when nothing followed it in the call. An empty list is something a CSM has to
        *  interpret; this is an answer. */
       is_last: boolean; citation: AskNarenCitation }
-  /* The five a scenario's Layer C playbook answers by being rendered (issue #18). None of
-     them carries a citation: what they show is the PLAY, derived from many calls, so there
-     is no single call to point at. `scenario_key` is the only thing that makes a misroute
-     visible, which is why every one of them carries it. */
+  /* The five a scenario's Layer C playbook answers by being rendered (issue #18).
+     `scenario_key` is on every one of them because these answers show the PLAY, derived
+     from many calls — so for three of the five there is no single call to point at, and the
+     scenario is the only thing that makes a misroute visible.
+
+     THE OTHER TWO DO POINT AT A CALL, one per quote. `phrasing` and `pitfalls` show Naren's
+     verbatim words from a real client call, so each quote carries its own source — a
+     verbatim quote a CSM cannot trace is the bare assertion ADR 0002 says a citation
+     exists to prevent. */
   | { outcome: 'rendered'; kind: 'sequence'; intake?: AskNarenIntake;
       scenario_key: string; steps: string[] }
   | { outcome: 'rendered'; kind: 'phrasing'; intake?: AskNarenIntake;
       scenario_key: string;
       /** Phrase and quote are one-to-one here, so unlike a Layer C `answered` response
-       *  (ADR 0009) there is no part of this that a quote does not cover. */
-      phrases: { phrase: string; quote: string; call: string }[] }
+       *  (ADR 0009) there is no part of this that a quote does not cover — which is why
+       *  this is the one rendered kind that keeps the accent border.
+       *
+       *  `label` is what a CSM reads and `call` is the raw filename an engineer traces
+       *  with, the same split as `AskNarenCitation`. `label` falls back to `call`, so it
+       *  is never empty. */
+      phrases: { phrase: string; quote: string; call: string; label: string }[] }
   | { outcome: 'rendered'; kind: 'pitfalls'; intake?: AskNarenIntake;
       scenario_key: string;
-      pitfalls: { text: string; evidence: { quote: string; call: string }[] }[] }
+      pitfalls: { text: string;
+                  evidence: { quote: string; call: string; label: string }[] }[] }
   | { outcome: 'rendered'; kind: 'scenario_check'; intake?: AskNarenIntake;
       asked_about: string; scenario_key: string;
       /** WHEN the play applies. Deliberately not a yes/no — whether it fits a live client
        *  is a judgement Ask Naren has only the CSM's own sentence for. */
       applies_when: string }
   | { outcome: 'rendered'; kind: 'play_confidence'; intake?: AskNarenIntake;
-      scenario_key: string; n_evidence: number; moves: number; quotes: number;
+      scenario_key: string;
+      /** Counted from the LIVE document, so they describe what the play rests on today.
+       *  These lead the card. */
+      moves: number; quotes: number;
+      /** How many moments were CONSIDERED when the play was built — set before the verbatim
+       *  snap dropped any, and capped by the builder's selection limit. Measured 2026-09-09:
+       *  25 of 33 live playbooks sit exactly on that cap, so read bare it is a constant, and
+       *  it can invert (50 → 8 quotes; 16 → 9 quotes). Secondary, and always rendered with
+       *  `n_evidence_capped`. */
+      n_evidence: number; n_evidence_capped: boolean;
       basis: string }
   | { outcome: 'rendered'; kind: 'coverage_check'; intake?: AskNarenIntake;
       asked_about: string;

@@ -432,8 +432,12 @@ def procedure_moves(playbook: dict) -> list[dict]:
     actually shown" half of the guarantee, which nothing downstream would catch.
 
     `signature_language` and `pitfalls_and_variants` are deliberately NOT here. They are
-    issue #18's intents (`phrasing`, `pitfalls`), and each arrives with its own prompt --
-    at which point it renders what its own gate verifies against, the same way this does.
+    issue #18's intents (`phrasing`, `pitfalls`), and neither has a prompt or a gate:
+    #18 RENDERS both rather than generating them, so there is nothing for a request-time gate
+    to check. Their quotes were verified offline instead -- `playbook_snap_trial.py` runs the
+    verbatim snap over `signature_language` and each `pitfalls_and_variants[].evidence`, not
+    only over `key_moves`. Keeping them out of this function is still the right call for the
+    reason above: the prompt and the gate must traverse the same document once.
 
     Order is preserved: `db/schema.sql` records that `key_moves` order is load-bearing.
     """

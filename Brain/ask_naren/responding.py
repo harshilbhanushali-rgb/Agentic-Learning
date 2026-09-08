@@ -145,7 +145,7 @@ def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool
         return rendering.what_happened_next(match, following, label_for=label_for)
 
     if decision.intent in intake.PLAYBOOK_INTENTS:
-        return _from_playbook(message, decision, match, playbook_for)
+        return _from_playbook(message, decision, match, playbook_for, label_for=label_for)
 
     scenario = None
     if scenarios_for:
@@ -200,8 +200,13 @@ def _procedure(message: str, decision: intake.IntakeDecision, pool: RetrievalPoo
 
 
 def _from_playbook(message: str, decision: intake.IntakeDecision, match,
-                   playbook_for) -> dict:
+                   playbook_for, *, label_for=citations.resolve_label) -> dict:
     """The five questions a scenario's Layer C playbook answers by being rendered (#18).
+
+    `label_for` reaches the two of the five that show Naren's verbatim words -- `phrasing`
+    and `pitfalls`. The other three have nothing quotable even in principle (`arc` is a list
+    of move NAMES, `situation_signature` and `n_evidence` are a sentence and a number), so
+    they take no label and carry no source.
 
     THE SCENARIO IS FOUND BY RETRIEVING, exactly as on the `procedure` path and for the same
     reason: a model that can name a scenario can name one that does not exist, and the
@@ -226,9 +231,9 @@ def _from_playbook(message: str, decision: intake.IntakeDecision, match,
     if decision.intent == intake.SEQUENCE:
         return rendering.sequence(scenario_key, playbook)
     if decision.intent == intake.PHRASING:
-        return rendering.phrasing(scenario_key, playbook)
+        return rendering.phrasing(scenario_key, playbook, label_for=label_for)
     if decision.intent == intake.PITFALLS:
-        return rendering.pitfalls(scenario_key, playbook)
+        return rendering.pitfalls(scenario_key, playbook, label_for=label_for)
     if decision.intent == intake.SCENARIO_CHECK:
         return rendering.scenario_check(message, scenario_key, playbook)
     return rendering.play_confidence(scenario_key, record)
@@ -270,6 +275,17 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
        reaching the vector. The prompt says to copy from the current message; this is what
        makes it true. `intake.is_verbatim_span` is the same predicate the offline harness
        scores, so the instrument and the guard cannot drift apart.
+
+       ON EVERY INTENT THAT EMBEDS, which it was not until this was found in #18's review.
+       The rule is about THE VECTOR, not about which intent produced it, but this listed
+       only `reply_to_client` and `procedure` while eight intents embed -- so the six added
+       by #18, #19 and #20 could reach the vector with composed text. The shape that makes
+       it matter is the one ADR 0006 itself names: "and what usually goes wrong?" names no
+       situation, so a model that composes rather than copies lifts one from the history,
+       and that decides WHICH PLAY gets rendered with `scenario_key` the only tell.
+
+       Reading `intake.RETRIEVING_INTENTS` rather than a list written out here is the point
+       -- that drift is what the constant exists to make impossible.
     """
     if decision.intent == intake.CLARIFY and (
             threads.awaiting_clarify(turns)
@@ -283,7 +299,7 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
                 or pool.by_pair_id(carried.pair_id) is None):
             return intake.fallback_decision(message)
 
-    if (decision.intent in (intake.REPLY_TO_CLIENT, intake.PROCEDURE)
+    if (decision.intent in intake.RETRIEVING_INTENTS
             and not intake.is_verbatim_span(decision.retrieval_query, message)):
         return intake.fallback_decision(message)
 

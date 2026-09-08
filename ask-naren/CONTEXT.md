@@ -55,7 +55,9 @@ The step that reads an incoming message before any retrieval and decides what ha
 _Avoid_: the read, the router, triage, dispatcher.
 
 **Intent**:
-**Built for ten intents** -- `reply_to_client`, `clarify`, `out_of_scope` (issue #14), `follow_up` (issue #16), `procedure` (issue #17), and the five RENDERED intents `discovery`, `frequency`, `show_exchange`, `what_happened_next` and `coverage_check` (issues #19, #20): answering from a client's words, clarifying, and declining an out-of-scope question. Issues #17-#23 add the rest. What kind of question a CSM is asking — reply to a client, the general play for a scenario, Naren's phrasing, what the tool even covers. A classification with a knowable correct answer, which is what makes intake measurable without a reader or a generation.
+**Built for fifteen intents** -- `reply_to_client`, `clarify`, `out_of_scope` (issue #14), `follow_up` (issue #16), `procedure` (issue #17), the five RENDERED intents `discovery`, `frequency`, `show_exchange`, `what_happened_next` and `coverage_check` (issues #19, #20), and the five PLAYBOOK intents `sequence`, `phrasing`, `pitfalls`, `scenario_check` and `play_confidence` (issue #18). Issues #21-#23 add the last four.
+
+**Eight of them EMBED a query and the rest do not**, which is the division that matters in code rather than the ticket each came from: `intake.RETRIEVING_INTENTS` is the single list, and the prompt's rules, the decision validator and `responding._guarded`'s ADR 0006 check all read it. They had drifted apart into three disagreeing lists before #18's review. What kind of question a CSM is asking — reply to a client, the general play for a scenario, Naren's phrasing, what the tool even covers. A classification with a knowable correct answer, which is what makes intake measurable without a reader or a generation.
 _Avoid_: question type, category, route.
 
 **Answer path**:

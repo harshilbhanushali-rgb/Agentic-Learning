@@ -584,12 +584,18 @@ SCENARIOS = [
 
 def _ask_rendered(intent, query="cost per hire pushback", scenarios_for=lambda: SCENARIOS,
                   following_for=None):
+    corpus = intent in ("discovery", "frequency")
+    # THE MESSAGE MUST CONTAIN THE QUERY. That is the only shape intake is allowed to
+    # produce (ADR 0006: the embedded query is a span of THIS message), and `_guarded`
+    # enforces it on every intent that embeds. A fixture whose query is absent from its
+    # message is exercising a decision the guard exists to reject, so it would measure the
+    # fallback rather than the path it names.
+    message = "what do you cover" if corpus else f"can you show me {query}"
     gw = StubGateway()          # NO payloads queued: a generation here is a test failure
     embed = RecordingEmbedder()
     result = responding.respond(
-        "what do you cover", _pool(), gw, embed_query=embed,
-        classify=_decides(intent, query if intent not in
-                          ("discovery", "frequency") else ""),
+        message, _pool(), gw, embed_query=embed,
+        classify=_decides(intent, "" if corpus else query),
         scenarios_for=scenarios_for, following_for=following_for)
     return result, gw, embed
 
@@ -649,11 +655,13 @@ def test_every_rendered_response_still_records_what_intake_decided():
 # -- the five playbook intents through the seam (issue #18) --------------------------------
 
 def _ask_playbook(intent, playbook_for=lambda key: PLAYBOOK_RECORD):
+    # The query is a span of the message, for the reason `_ask_rendered` spells out.
     gw = StubGateway()          # a generation here is a test failure
     embed = RecordingEmbedder()
     result = responding.respond(
-        "what order do i do these in", _pool(), gw, embed_query=embed,
-        classify=_decides(intent, "cost per hire pushback"), playbook_for=playbook_for)
+        "what order do i do these in for cost per hire pushback", _pool(), gw,
+        embed_query=embed, classify=_decides(intent, "cost per hire pushback"),
+        playbook_for=playbook_for)
     return result, gw, embed
 
 
@@ -663,6 +671,41 @@ def test_every_playbook_intent_renders_without_generating():
         assert result["outcome"] == "rendered", intent
         assert result["kind"] == intent, intent
         assert gw.calls == [], intent
+
+
+def test_a_composed_query_is_not_embedded_on_any_intent_that_retrieves():
+    """ADR 0006 is about THE VECTOR, not about which intent produced it. Eight intents now
+    embed `retrieval_query`; the guard originally covered two, so six could reach the vector
+    with text intake composed out of the thread.
+
+    The shape that makes it matter: turn 1 answers a question about cost per hire, turn 2 is
+    "and what usually goes wrong?" -- which names no situation, so a model that composes
+    rather than copies will lift one from the history. That decides WHICH PLAY gets
+    rendered, with `scenario_key` the only tell."""
+    from_history = "pull the last 90 days of spend"      # a previous ANSWER, not this message
+    for intent in ("sequence", "phrasing", "pitfalls", "scenario_check", "play_confidence",
+                   "show_exchange", "what_happened_next", "coverage_check"):
+        embed = RecordingEmbedder()
+        responding.respond(
+            "and what usually goes wrong?", _pool(), StubGateway(_answer_payload()),
+            embed_query=embed, classify=_decides(intent, from_history),
+            playbook_for=lambda key: PLAYBOOK_RECORD,
+            scenarios_for=lambda: SCENARIOS,
+            thread=(_prior(reply=from_history),))
+        assert from_history not in embed.seen, intent
+
+
+def test_a_copied_span_still_reaches_the_vector_on_a_playbook_intent():
+    """The guard must not fire on a real extraction, or every threaded playbook question
+    degrades to a Layer B generation on a fragment."""
+    message = "what usually goes wrong with cost per hire pushback"
+    embed = RecordingEmbedder()
+    result = responding.respond(
+        message, _pool(), StubGateway(), embed_query=embed,
+        classify=_decides("pitfalls", "cost per hire pushback"),
+        playbook_for=lambda key: PLAYBOOK_RECORD)
+    assert embed.seen == ["cost per hire pushback"]
+    assert result["kind"] == "pitfalls"
 
 
 def test_a_playbook_intent_names_the_scenario_it_answered_from():
