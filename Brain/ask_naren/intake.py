@@ -328,6 +328,32 @@ def classify(message: str, gateway, *, thread=(), model: str = CHAT_MODEL,
     return fallback_decision(message), meta
 
 
+def is_verbatim_span(query: str, message: str) -> bool:
+    """Is `query` genuinely COPIED out of `message`, rather than composed?
+
+    ADR 0006 IS THE REASON THIS IS A FUNCTION AND NOT A PROMPT LINE. Since #16 intake is
+    shown the thread, and the thread contains previous answers -- so a model that composes
+    instead of copying can now assemble a query out of HISTORY, which is precisely the one
+    thing the ADR forbids reaching the embedded query. The prompt asks for a copied span;
+    asking is not enforcing, and `measure_intake_accuracy.py` has already caught this model
+    composing rather than copying, once with a perspective flip that inverts meaning.
+
+    ONE DEFINITION, shared with that harness, so the offline instrument and the runtime
+    guard cannot come to disagree about what "copied" means.
+
+    Case-, whitespace- and quote-insensitive: lifting a span out of quotation marks or
+    normalising spacing is still copying. Nothing looser -- no stemming, no fuzzy ratio --
+    because the failure being caught is a near-identical rewrite, and a fuzzy bar would
+    admit exactly that.
+    """
+    return _normalize(query) in _normalize(message)
+
+
+def _normalize(text: str) -> str:
+    cleaned = "".join(c for c in (text or "") if c not in "“”\"‘’'")
+    return " ".join(cleaned.split()).lower()
+
+
 def fallback_decision(message: str) -> IntakeDecision:
     """Answer the message as written -- exactly what the tool did before intake existed.
 

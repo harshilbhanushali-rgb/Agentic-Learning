@@ -263,7 +263,7 @@ def answer_follow_up(message: str, turns, source: dict, gateway, *,
     `source` is a `kb_pairs` row resolved from the thread's carried `pair_id`. The caller
     resolves it, because the caller holds the pool.
 
-    NO `match` ON THE RESPONSE, for exactly the reason `decline_before_retrieval` carries
+    NO `match` ON THE RESPONSE, for exactly the reason `decline_without_search` carries
     none: nothing was searched, so there is no cosine and no rank, and reporting one would
     put a fabricated number into the record decline-rate calibration will later read. The
     `citation` still says precisely which exchange the answer rests on.
@@ -277,7 +277,7 @@ def answer_follow_up(message: str, turns, source: dict, gateway, *,
             prompt, model=CHAT_MODEL, reasoning_effort=REASONING_EFFORT,
             temperature=TEMPERATURE, max_tokens=MAX_TOKENS, no_cache=True)
         if payload.get("declined"):
-            return decline_before_retrieval(FOLLOW_UP_UNGROUNDED)
+            return decline_without_search(FOLLOW_UP_UNGROUNDED)
         # ONE candidate: the carried source and nothing else. A quote lifted from an
         # EARLIER turn's grounding source fails here -- it either cites a call not in this
         # list, or it does not verify against this reply. That is the quote-bleed guarantee,
@@ -289,7 +289,7 @@ def answer_follow_up(message: str, turns, source: dict, gateway, *,
                     "quote": payload["quote"].strip(),
                     "citation": _citation(source, label_for)}
 
-    return decline_before_retrieval(FOLLOW_UP_UNGROUNDED)
+    return decline_without_search(FOLLOW_UP_UNGROUNDED)
 
 
 def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_query,
@@ -382,16 +382,17 @@ def clarify(question: str) -> dict:
     return {"outcome": CLARIFY, "question": question.strip()}
 
 
-#: Reasons a request can be declined on a path where NO RETRIEVAL RAN AT ALL. Only these
-#: may reach decline_before_retrieval -- see the guard there for why the allowlist exists.
+#: Reasons a request can be declined on a path where NO SEARCH RAN AT ALL. Only these may
+#: reach `decline_without_search` -- see the guard there for why the allowlist exists.
 #:
-#: `follow_up_ungrounded` is decided after a generation rather than before one, but it
-#: belongs here for the property the allowlist actually protects: the follow-up path never
-#: searches, so there is no cosine to report and no rank to report it at.
-PRE_RETRIEVAL_REASONS = frozenset({OUT_OF_SCOPE, FOLLOW_UP_UNGROUNDED})
+#: NAMED FOR THE PROPERTY, NOT FOR THE TIMING. `out_of_scope` is decided before a
+#: generation and `follow_up_ungrounded` after one, so "pre-retrieval" described only half
+#: of it. What both share, and what the allowlist actually protects, is that nothing was
+#: searched -- so there is no cosine to report and no rank to report it at.
+NO_SEARCH_REASONS = frozenset({OUT_OF_SCOPE, FOLLOW_UP_UNGROUNDED})
 
 
-def decline_before_retrieval(reason: str) -> dict:
+def decline_without_search(reason: str) -> dict:
     """A decline on a path that searched nothing -- `out_of_scope`, or a follow-up whose
     answer could not be grounded in the exchange the thread carried.
 
@@ -401,14 +402,14 @@ def decline_before_retrieval(reason: str) -> dict:
     is no match to report and inventing one would put a fabricated cosine into that record.
 
     THE ALLOWLIST IS THE POINT, not defensive habit. Called with `NO_CLOSE_MATCH` this would
-    happily emit a post-retrieval reason with no match attached -- silently defeating the
-    very invariant the paragraph above defends, in the one direction nothing else would
-    catch. A new pre-retrieval reason must be added to PRE_RETRIEVAL_REASONS deliberately.
+    happily emit a searched-for reason with no match attached -- silently defeating the very
+    invariant the paragraph above defends, in the one direction nothing else would catch. A
+    new no-search reason must be added to NO_SEARCH_REASONS deliberately.
     """
-    if reason not in PRE_RETRIEVAL_REASONS:
+    if reason not in NO_SEARCH_REASONS:
         raise ValueError(
-            f"{reason!r} is decided AFTER retrieval, so it has a match to report. Use "
-            f"_decline, or add it to PRE_RETRIEVAL_REASONS if it genuinely has none.")
+            f"{reason!r} comes from a path that SEARCHED, so it has a match to report. Use "
+            f"_decline, or add it to NO_SEARCH_REASONS if it genuinely has none.")
     return {"outcome": DECLINED, "reason": reason, "message": _MESSAGES[reason]}
 
 

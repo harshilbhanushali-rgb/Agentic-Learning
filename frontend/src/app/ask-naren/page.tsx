@@ -3,7 +3,7 @@
 import type { AskNarenDecline, AskNarenResponse } from '@/types';
 import type { ThreadTurn } from '@/lib/thread';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { SituationForm } from '@/components/ask-naren/SituationForm';
 import { AnswerCard } from '@/components/ask-naren/AnswerCard';
@@ -118,6 +118,12 @@ export default function AskNarenPage() {
   const [turns, setTurns] = useState<ThreadTurn[]>([]);
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
 
+  // Which thread the answer coming back belongs to. A request takes ~12s, and "New thread"
+  // is reachable throughout: without this, the resolving `ask` closes over the turns as
+  // they were at submit time and RESURRECTS the conversation the CSM just cleared, one
+  // answer heavier. Bumping the id is what makes clearing win.
+  const threadId = useRef(0);
+
   // Hydrated in an effect rather than in the initial state, because `localStorage` does not
   // exist during the server render and reading it there would make the first client render
   // disagree with the HTML React just received.
@@ -126,6 +132,7 @@ export default function AskNarenPage() {
   const ask = async () => {
     const asked = draft.trim();
     if (!asked) return;
+    const askedIn = threadId.current;
     setPhase({ kind: 'asking', asked });
     setDraft('');
 
@@ -151,6 +158,11 @@ export default function AskNarenPage() {
       result = UNREACHABLE;
     }
 
+    // The CSM started a fresh thread while this was in flight. They have moved on, so the
+    // answer is dropped rather than appended to a conversation it does not belong to --
+    // and a stale carried identifier is exactly what starting fresh was for.
+    if (askedIn !== threadId.current) return;
+
     // Recorded even when it was an outage. A CSM scrolling back should see that they asked
     // and what happened, and issue #16 needs a decline in the thread to be visible for the
     // same reason a clarify is.
@@ -161,6 +173,7 @@ export default function AskNarenPage() {
   };
 
   const startNewThread = () => {
+    threadId.current += 1;
     setTurns([]);
     save([]);
     setPhase({ kind: 'idle' });

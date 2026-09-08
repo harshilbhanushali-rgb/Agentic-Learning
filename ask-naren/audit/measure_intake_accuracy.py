@@ -193,12 +193,10 @@ from shared.gateway import GatewayClient           # noqa: E402
 ARTIFACTS = Path(__file__).resolve().parent / "artifacts"
 
 
-def _normalize(text: str) -> str:
-    """Case- and whitespace-insensitive, so a copied span still counts as copied when
-    the model normalises spacing or capitalisation. Quote characters are dropped for the
-    same reason: lifting a span out of quotation marks is copying, not rewriting."""
-    cleaned = "".join(c for c in (text or "") if c not in "“”\"‘’'")
-    return " ".join(cleaned.split()).lower()
+# The span predicate lives in `intake` and is shared, not reimplemented here. Since #16 it
+# is also a REQUEST-TIME GUARD (`responding._guarded`): a query the model composed rather
+# than copied is discarded and the message is answered as written. Two definitions of
+# "copied" would let this instrument certify something the service does not enforce.
 
 # Hand-labelled. Each message says what a CSM would plausibly type and what intake must do
 # with it. `note` records WHY the label is what it is, so a disagreement later is a debate
@@ -485,7 +483,8 @@ def main() -> int:
             # (docs/findings/answer-failure-modes.md). Checked only where a query is
             # expected at all.
             verbatim = (decision.intent != "reply_to_client"
-                        or _normalize(decision.retrieval_query) in _normalize(case["message"]))
+                        or intake.is_verbatim_span(decision.retrieval_query,
+                                                   case["message"]))
             row = {
                 "message": case["message"],
                 "thread_turns": len(thread),

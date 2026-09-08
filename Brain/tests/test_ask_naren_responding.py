@@ -323,6 +323,47 @@ def test_a_question_already_asked_earlier_in_the_thread_is_not_repeated():
     assert result["outcome"] == "answered"
 
 
+def test_nothing_is_a_follow_up_to_a_question():
+    """THE WORST SHAPE OF WRONG THIS TOOL HAS. Ask Naren asked a question, the CSM supplied
+    the client's words -- and if that is misread as a follow-up, the carried-source lookup
+    walks back PAST the clarify to an older answered turn, finds a real pair_id, and answers
+    the new words from a call about something else. Grounded, coherent, wrong client.
+
+    There is nothing for a message after a question to be going deeper on, so a follow-up
+    there is wrong by construction rather than by judgement."""
+    thread = (_answered_turn(pair_id=11),
+              threads.ThreadTurn(message="client is unhappy about pricing",
+                                 outcome="clarify",
+                                 reply="What did the client actually say?"))
+    supplied = "he said \"your rates are 30% above what we budgeted\""
+
+    result, _, embed = _respond(_decides("follow_up"), _answer_payload(),
+                                message=supplied, thread=thread)
+    assert result["outcome"] == "answered"
+    assert embed.seen == [supplied]     # the words the CSM just gave were actually searched
+
+
+def test_a_query_the_model_composed_rather_than_copied_is_not_embedded():
+    """ADR 0006, enforced rather than requested. Since intake is shown the thread it can
+    assemble a query out of HISTORY -- the one thing the ADR forbids reaching the vector.
+    The prompt says to copy a span of the current message; this is what makes it true."""
+    from_history = "pull the last 90 days of spend"      # a previous ANSWER, not this message
+    _, _, embed = _respond(_decides("reply_to_client", from_history), _answer_payload(),
+                           message=FRAMED, thread=(_prior(reply=from_history),))
+    assert embed.seen == [FRAMED]
+    assert from_history not in embed.seen
+
+
+def test_a_genuinely_copied_span_is_left_alone_however_it_was_quoted():
+    """The guard must not fire on a real extraction. Lifting a span out of quotation marks,
+    or normalising spacing and case, is still copying -- the same rule the offline harness
+    scores, so the instrument and the guard cannot drift apart."""
+    message = 'Client said "Our Cost Per Hire   is way too high", what do i say'
+    _, _, embed = _respond(_decides("reply_to_client", "our cost per hire is way too high"),
+                           _answer_payload(), message=message)
+    assert embed.seen == ["our cost per hire is way too high"]
+
+
 def test_a_genuinely_new_clarify_later_in_a_thread_is_still_allowed():
     """A CSM may switch to an unrelated situation without starting a new thread (story 19).
     That situation deserves its own question -- loop prevention must not become never
@@ -368,7 +409,7 @@ def test_a_post_retrieval_reason_cannot_be_declined_as_if_nothing_was_searched()
     must report how close the match it turned down was."""
     from ask_naren import answering
     with pytest.raises(ValueError):
-        answering.decline_before_retrieval(answering.NO_CLOSE_MATCH)
+        answering.decline_without_search(answering.NO_CLOSE_MATCH)
 
 
 def test_an_empty_message_is_refused():

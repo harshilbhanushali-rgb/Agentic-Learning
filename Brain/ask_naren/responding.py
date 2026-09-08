@@ -76,7 +76,7 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
         # Deliberately a decline rather than a question back: there is nothing the CSM could
         # reword that would put a product fact into Naren's call transcripts.
         return _with_intake(
-            answering.decline_before_retrieval(answering.OUT_OF_SCOPE), decision)
+            answering.decline_without_search(answering.OUT_OF_SCOPE), decision)
 
     return _with_intake(
         answering.answer_situation(
@@ -87,24 +87,40 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
 
 def _guarded(decision: intake.IntakeDecision, message: str, turns,
              pool: RetrievalPool) -> intake.IntakeDecision:
-    """Two rules the thread makes checkable, enforced in CODE rather than in a prompt.
+    """The rules a thread makes checkable, enforced in CODE rather than in a prompt.
 
-    Both are in intake's prompt as well, and that is not duplication for its own sake: the
-    prompt is how the model usually gets it right, and this is what happens when it does
+    All four are in intake's prompt as well, and that is not duplication for its own sake:
+    the prompt is how the model usually gets it right, and this is what happens when it does
     not. A rule a CSM would experience as the tool being broken -- being asked the same
-    question forever, or being told nothing was found when nothing was searched -- is not
+    question forever, or getting a confident answer about the wrong client -- is not
     something to leave to a classifier.
+
+    Every failure lands on `fallback_decision`: answer the message as written. That is the
+    behaviour the tool had before intake existed, so a guard firing costs the framing strip
+    for one message and never costs an answer.
 
     1. THE SAME CLARIFY IS NEVER ASKED TWICE. If Ask Naren's last turn was a question, this
        message is the CSM answering it; asking again is the loop. The same question
-       reappearing later in a thread is caught too. Falls through to answering the message
-       as written, which is a best-effort answer rather than a dead end.
+       reappearing later in a thread is caught too.
 
     2. A FOLLOW-UP NEEDS SOMETHING TO FOLLOW UP ON. No answered turn in the thread, or a
        carried `pair_id` the pool no longer holds (the pool is loaded once at startup and a
        pipeline re-run can retire a pair mid-conversation), and there is nothing to ground
-       in. Answering the message as a fresh question is the honest degradation; declining
-       would tell a CSM nothing was found when nothing was looked for.
+       in. Declining would tell a CSM nothing was found when nothing was looked for.
+
+    3. NOTHING IS A FOLLOW-UP TO A QUESTION. If Ask Naren's last turn asked the CSM
+       something, there is no answer for this message to be going deeper on -- it is either
+       the material that was asked for or a change of subject, and both need a search. Left
+       unguarded this is the worst shape of wrong this tool has: rule 2 walks back past the
+       clarify to an OLDER answered turn, finds a real `pair_id`, and answers the client's
+       newly supplied words from a call about something else -- grounded, coherent, and
+       about the wrong client.
+
+    4. THE EMBEDDED QUERY IS A SPAN OF THIS MESSAGE (ADR 0006). Since intake is shown the
+       thread it can compose a query out of HISTORY, which is the one thing the ADR forbids
+       reaching the vector. The prompt says to copy from the current message; this is what
+       makes it true. `intake.is_verbatim_span` is the same predicate the offline harness
+       scores, so the instrument and the guard cannot drift apart.
     """
     if decision.intent == intake.CLARIFY and (
             threads.awaiting_clarify(turns)
@@ -113,8 +129,14 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
 
     if decision.intent == intake.FOLLOW_UP:
         carried = threads.carried_source(turns)
-        if carried is None or pool.by_pair_id(carried.pair_id) is None:
+        if (threads.awaiting_clarify(turns)
+                or carried is None
+                or pool.by_pair_id(carried.pair_id) is None):
             return intake.fallback_decision(message)
+
+    if (decision.intent == intake.REPLY_TO_CLIENT
+            and not intake.is_verbatim_span(decision.retrieval_query, message)):
+        return intake.fallback_decision(message)
 
     return decision
 
