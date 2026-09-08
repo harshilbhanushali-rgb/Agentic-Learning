@@ -767,3 +767,65 @@ def test_a_contrast_still_records_what_intake_decided():
     result, _, _ = _ask_contrast(_answer_payload())
     assert result["intake"]["intent"] == "contrast_my_reply"
     assert result["intake"]["retrieval_query"] == "our cost per hire is way too high"
+
+
+# -- which accounts a situation has come up with, through the seam (issue #22) --------------
+
+def _wide_pool():
+    """Three pairs across three calls, two of them the same account."""
+    pairs = [
+        {"pair_id": 1, "trigger_text": "cost per hire is too high",
+         "response_text": RESPONSE,
+         "call_filename": "20230503_uber_joveo_weekly_performance_review_d18cc178.txt",
+         "scenario_key": "performance_pushback"},
+        {"pair_id": 2, "trigger_text": "cost per hire looks wrong",
+         "response_text": RESPONSE,
+         "call_filename": "20230509_uber_joveo_connect_409d34b7.txt",
+         "scenario_key": "performance_pushback"},
+        {"pair_id": 3, "trigger_text": "our cost per hire is way off",
+         "response_text": RESPONSE,
+         "call_filename": "3e4c3393-c3cc-4047-a5bc-57bccbfaee4f.txt",
+         "scenario_key": "performance_pushback"},
+    ]
+    return retrieval.RetrievalPool(
+        pairs, np.array([[1.0, 0.0], [0.99, 0.1], [0.98, 0.2]]))
+
+
+def _ask_where_else(account_for=lambda call: "Uber" if "uber" in call else None):
+    gw = StubGateway()          # a generation here is a test failure
+    embed = RecordingEmbedder()
+    result = responding.respond(
+        "which other clients have raised cost per hire", _wide_pool(), gw,
+        embed_query=embed,
+        classify=_decides("where_else_seen", "cost per hire"),
+        account_for=account_for)
+    return result, gw, embed
+
+
+def test_where_else_seen_reads_a_neighbourhood_rather_than_the_nearest_match():
+    """The one rendered intent that cannot be answered from one exchange: "is this a
+    one-client quirk or a pattern" has no single-exchange form."""
+    result, gw, embed = _ask_where_else()
+    assert result["kind"] == "where_else_seen"
+    assert result["exchanges"] == 3            # all three neighbours were read, not just one
+    assert gw.calls == []                      # and nothing was generated
+    assert embed.seen == ["cost per hire"]     # one embedding, of the current message alone
+
+
+def test_where_else_seen_collapses_one_account_and_refuses_to_name_the_other():
+    result, _, _ = _ask_where_else()
+    assert result["accounts_named"] == 1
+    named = [a for a in result["accounts"] if a["named"]][0]
+    assert named["account"] == "Uber" and named["exchanges"] == 2 and named["calls"] == 2
+    assert result["unnamed_calls"] == 1
+    assert result["accounts_at_most"] == 2     # Uber, plus the one call nothing can name
+
+
+def test_where_else_seen_still_answers_when_no_account_can_be_named_at_all():
+    """Criterion 3 through the seam: with no sidecars every call is unnameable, and the
+    answer is thinner rather than absent or broken."""
+    result, _, _ = _ask_where_else(account_for=lambda call: None)
+    assert result["outcome"] == "rendered"
+    assert result["accounts_named"] == 0
+    assert result["unnamed_calls"] == 3
+    assert all(a["named"] is False for a in result["accounts"])

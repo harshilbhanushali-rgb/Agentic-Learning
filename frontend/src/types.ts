@@ -383,6 +383,47 @@ export type AskNarenRendered =
        *  `n_evidence_capped`. */
       n_evidence: number; n_evidence_capped: boolean;
       basis: string }
+  /** Which accounts a situation has come up with (issue #22), so a CSM can tell a
+   *  one-client quirk from a pattern across the book. The only rendered kind that reads a
+   *  NEIGHBOURHOOD rather than one nearest exchange — its question has no single-exchange
+   *  form. */
+  | { outcome: 'rendered'; kind: 'where_else_seen'; intake?: AskNarenIntake;
+      asked_about: string;
+      /** The nearest exchange's scenario, and how many of the scanned exchanges share it.
+       *
+       *  RENDER BOTH. This answer is an aggregate over ~25 neighbours, and the top-20
+       *  neighbourhood is measured at a mean of only 6.19/20 same-situation — so some of
+       *  the accounts listed are about something else. Without these a CSM cannot tell a
+       *  genuine book-wide pattern from a wide, incoherent neighbourhood, which is the
+       *  entire discrimination this intent provides. It is also the only thing that makes a
+       *  misroute visible here, since the answer names no single call. */
+      scenario_key: string;
+      same_scenario: number;
+      /** Named accounts first, each ranked by what it carries; then the calls whose client
+       *  the recorded data does not state unambiguously, listed by raw filename.
+       *
+       *  `named` is the whole distinction and must drive how the row renders. ~31% of
+       *  citable calls are opaque UUIDs, and 40 of those 323 carry several external
+       *  participant domains — one measured example is a brand and its agency. So an
+       *  unnamed row is a real exchange whose client is genuinely unknown, NOT a guess and
+       *  NOT something to drop: dropping under-reports the spread, guessing prints the
+       *  wrong client. */
+      accounts: { account: string; named: boolean; exchanges: number; calls: number }[];
+      /** How many clients this really is, as a RANGE. Each unnameable call could be a new
+       *  client or one of the named ones. Render both bounds — a single number states one
+       *  end of the range as a fact.
+       *
+       *  RENDER THE RANGE FROM `accounts_at_least`, NOT from `accounts_named`. They differ
+       *  exactly when nothing could be named: `accounts_named` is 0 there, but exchanges
+       *  that exist came from somebody, so "between 0 and 3 accounts" asserts something
+       *  impossible. `accounts_named` stays available as the plain fact of how many the
+       *  data could name. */
+      accounts_named: number;
+      accounts_at_least: number;
+      accounts_at_most: number;
+      unnamed_calls: number;
+      exchanges: number;
+      basis: string }
   | { outcome: 'rendered'; kind: 'coverage_check'; intake?: AskNarenIntake;
       asked_about: string;
       nearest: AskNarenScenarioRef & {

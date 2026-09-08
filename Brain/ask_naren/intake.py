@@ -68,13 +68,14 @@ PITFALLS = "pitfalls"
 SCENARIO_CHECK = "scenario_check"
 PLAY_CONFIDENCE = "play_confidence"
 CONTRAST_MY_REPLY = "contrast_my_reply"
+WHERE_ELSE_SEEN = "where_else_seen"
 
 #: Every intent intake may return today. Issues #17-#23 add more; each addition is a change
 #: to the schema sent to the gateway AND to the prompt's discriminators, never one alone.
 INTENTS = (REPLY_TO_CLIENT, CLARIFY, OUT_OF_SCOPE, FOLLOW_UP, PROCEDURE,
            DISCOVERY, FREQUENCY, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT, COVERAGE_CHECK,
            SEQUENCE, PHRASING, PITFALLS, SCENARIO_CHECK, PLAY_CONFIDENCE,
-           CONTRAST_MY_REPLY)
+           CONTRAST_MY_REPLY, WHERE_ELSE_SEEN)
 
 #: The intents answered from a scenario's LAYER C PLAYBOOK by rendering it (issue #18).
 #: Grouped because one rule covers all five: the playbook already holds the answer, so
@@ -88,7 +89,8 @@ PLAYBOOK_INTENTS = (SEQUENCE, PHRASING, PITFALLS, SCENARIO_CHECK, PLAY_CONFIDENC
 #: `frequency` need no retrieval either -- they are about the corpus rather than about a
 #: situation.
 RENDERED_INTENTS = (DISCOVERY, FREQUENCY, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT, COVERAGE_CHECK,
-                    SEQUENCE, PHRASING, PITFALLS, SCENARIO_CHECK, PLAY_CONFIDENCE)
+                    SEQUENCE, PHRASING, PITFALLS, SCENARIO_CHECK, PLAY_CONFIDENCE,
+                    WHERE_ELSE_SEEN)
 
 #: Of those, the two that describe the WHOLE corpus and therefore search for nothing.
 CORPUS_INTENTS = (DISCOVERY, FREQUENCY)
@@ -98,14 +100,20 @@ CORPUS_INTENTS = (DISCOVERY, FREQUENCY)
 #: rules block (which is what asks the model to produce one), and `responding._guarded`
 #: (which enforces ADR 0006's rule that the embedded query is a span of THIS message).
 #:
-#: IT IS ONE CONSTANT BECAUSE THE THREE HAD ALREADY DRIFTED. `_usable` listed all eight,
-#: the rules block listed three of them, and the guard listed two -- so a playbook intent
-#: was required to carry a query the prompt never asked for, and could reach the vector with
-#: text intake composed out of the thread. Each was correct when written and none was
-#: updated when #18 added five intents at once; a shared tuple is what makes "add an intent"
-#: a single edit rather than four that must be remembered together.
+#: IT IS ONE CONSTANT BECAUSE THE THREE HAD ALREADY DRIFTED. At #18 ten intents embedded a
+#: query: `_usable` listed all ten, the prompt's rules block listed three of them, and the
+#: guard listed two -- so a playbook intent was required to carry a query the prompt never
+#: asked for, and could reach the vector with text intake composed out of the thread. Each
+#: list was correct when written and none was updated when #18 added five intents at once.
+#: A shared tuple is what makes "add an intent" a single edit rather than four that must be
+#: remembered together.
+#:
+#: COUNT IT FROM THE TUPLE, never from prose. The write-up of that very fix said "eight",
+#: which was itself wrong, and `CONTEXT.md` then said "nine" -- two hand-maintained counts of
+#: the thing whose hand-maintenance was the bug. Nothing in the code reads a number.
 RETRIEVING_INTENTS = (REPLY_TO_CLIENT, PROCEDURE, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT,
-                      COVERAGE_CHECK, *PLAYBOOK_INTENTS, CONTRAST_MY_REPLY)
+                      COVERAGE_CHECK, *PLAYBOOK_INTENTS, CONTRAST_MY_REPLY,
+                      WHERE_ELSE_SEEN)
 
 
 class IntakeDecision(BaseModel):
@@ -124,7 +132,7 @@ class IntakeDecision(BaseModel):
                     "procedure", "discovery", "frequency", "show_exchange",
                     "what_happened_next", "coverage_check", "sequence", "phrasing",
                     "pitfalls", "scenario_check", "play_confidence",
-                    "contrast_my_reply"]
+                    "contrast_my_reply", "where_else_seen"]
     #: The CLIENT'S OWN WORDS, which is what gets embedded -- never the CSM's framing around
     #: them. Empty for any intent that does not retrieve.
     retrieval_query: str = ""
@@ -249,6 +257,9 @@ def build_prompt(message: str, thread=()) -> str:
         "search on (\"client is unhappy about pricing\", \"they are frustrated with "
         "performance\"). Searching on a bare summary reaches a different part of the corpus "
         "than searching on what was really said, so ask for the client's actual words.",
+        "    A GREETING OR AN OPENER WITH NO QUESTION IN IT (\"hey\", \"hi\", \"you "
+        "there?\") is also this. It names no situation and asks nothing, so there is "
+        f'nothing to search AND nothing being asked about the tool -- it is not "{DISCOVERY}".',
         "",
         f'  "{PROCEDURE}" -- the CSM wants the GENERAL PLAY for a kind of situation, not a '
         "reply to one thing a client said. They are preparing rather than reacting: \"how "
@@ -279,6 +290,11 @@ def build_prompt(message: str, thread=()) -> str:
         f'  "{FREQUENCY}" -- the CSM wants to know which situations come up MOST, again '
         "across everything rather than about one case: \"what comes up most with clients\", "
         "\"which situations are most common\", \"what should i learn first\".",
+        "",
+        f'  "{WHERE_ELSE_SEEN}" -- the CSM wants to know WHICH OTHER ACCOUNTS a situation '
+        "has come up with, so they can tell a one-client quirk from a pattern: \"which "
+        "other clients have raised this\", \"is this just them or does everyone ask\", "
+        "\"have we seen this anywhere else\", \"how common is this across the book\".",
         "",
         f'  "{SEQUENCE}" -- the CSM wants to know WHAT ORDER to do things in: "what do i '
         "do first\", \"what order should i run these in\", \"where do i start with this\".",
@@ -335,6 +351,11 @@ def build_prompt(message: str, thread=()) -> str:
            "them all look alike to the search and reaches the wrong exchange."]
           if thread else []),
         "",
+        f'  - For "{WHERE_ELSE_SEEN}", set retrieval_query to the SITUATION being asked '
+        "about, copied from the message with the asking-framing removed (\"which other "
+        "clients\", \"have we seen this anywhere else\"). It is used to find the "
+        "neighbouring exchanges whose accounts get listed.",
+        "",
         f'  - For "{PROCEDURE}", set retrieval_query to the SITUATION the CSM is asking '
         "about, copied from their message with the asking-framing removed (\"what's the "
         "play when\", \"how do we usually handle\", \"how should i approach\"). It is used "
@@ -364,6 +385,12 @@ def build_prompt(message: str, thread=()) -> str:
         f'  - WANTING HIS WORDS vs WANTING AN ANSWER separates "{SHOW_EXCHANGE}" from '
         f'"{REPLY_TO_CLIENT}". Asking to SEE the exchange is "{SHOW_EXCHANGE}"; asking what '
         f'to say is "{REPLY_TO_CLIENT}", even when a client is quoted in both.',
+        "",
+        f'  - WHO ELSE vs WHAT IS COVERED separates "{WHERE_ELSE_SEEN}" from '
+        f'"{COVERAGE_CHECK}". "Do you have anything on renewals" asks whether Ask Naren '
+        f'KNOWS the topic and is "{COVERAGE_CHECK}"; "which other clients have raised '
+        f'renewals" asks WHICH ACCOUNTS it came up with and is "{WHERE_ELSE_SEEN}". Asking '
+        f'how OFTEN across the whole corpus with no situation named is "{FREQUENCY}".',
         "",
         f'  - A SPECIFIC CLIENT UTTERANCE is what separates "{REPLY_TO_CLIENT}" from '
         f'"{PROCEDURE}". "Client said our CPA is 3x, what do i say" quotes a client and is '

@@ -139,6 +139,49 @@ def resolve_label(call_filename: str,
     return raw
 
 
+def account_for(call_filename: str,
+                account_index: Mapping[str, str] | None = None) -> str | None:
+    """WHICH CLIENT this call was with, or None where the recorded data does not say (#22).
+
+    A DIFFERENT QUESTION FROM `resolve_label`, which asks what a citation should READ as and
+    therefore always returns something. This asserts an identity -- these exchanges are that
+    client -- so its honest answer is frequently "not recorded", and it says so.
+
+    *** IT READS THE RECORDED PARTICIPANTS AND NEVER THE FILENAME. *** That is the whole
+    difference between the two functions, and it was measured rather than assumed.
+
+    The dated convention is `<calendar title>_joveo_<subject>`. The leading part LOOKS like
+    an account field and is not one -- it is whatever the meeting was called. Measured over
+    the 1,025 calls in `kb_pairs`, 2026-09-09:
+
+      * `20240613_review_joveo_proposal_amn_healthcare` names the account **"Review"**. The
+        client is AMN Healthcare. Also live: "Weekly Tech Huddle", "This January", "Talent".
+      * ONE CLIENT SPLITS MANY WAYS. `uber_corporate`, `uber_emea`, `uber_north_america`,
+        `uber_corp_global`, `uber_corp_latam` are five accounts by filename and one company.
+        `tenet` / `tenet_healthcare` / `tenethealth` is the same client three times.
+
+    Both failures are fatal to issue #22 specifically, whose whole job is to collapse a
+    client's exchanges and whose stated constraint is that **a wrong client name is worse
+    than an opaque one**. `resolve_label` is unaffected and unchanged: an ugly citation
+    LABEL is harmless, because it points at a call rather than claiming a client.
+
+    A sidecar's external email domain is unambiguous in the way a calendar title is not, and
+    `build_account_index` already admits a call only when it carries EXACTLY ONE external
+    domain -- so the brand-versus-agency ambiguity is excluded before this is reached.
+
+    What it costs, measured on the same 1,025 calls: the sidecars cover **847 (82.6%)**. The
+    other 178 name no account and are rendered as their raw filename, which is exactly what
+    the ticket asks for. Where both sources exist they disagree on 234 of 401, and the
+    sidecar is the correct one in every case inspected -- so this is not a trade of coverage
+    for accuracy, it is more accuracy at a little less coverage.
+    """
+    raw = (call_filename or "").strip()
+    if not raw:
+        return None
+    stem = raw[:-4] if raw.lower().endswith(".txt") else raw
+    return (account_index or {}).get(raw) or (account_index or {}).get(stem) or None
+
+
 def build_account_index(directories: Iterable[Path]) -> dict[str, str]:
     """Map `<uuid>.txt` -> account name, from the `<stem>.speakers.json` sidecars.
 

@@ -423,6 +423,108 @@ the instrument to the result is how a set stops measuring anything.
 Same persistent held-out failure, four intent additions running: "a client like this one
 would want a case study, do we have something". Still `coverage_check`.
 
+## THE WHERE-ELSE-SEEN SET (`--set whereelse`, issue #22), 2026-09-09
+
+`where_else_seen`: which accounts a situation has come up with, so a CSM can tell a
+one-client quirk from a pattern across the book.
+
+**7/7 HELD OUT**, and the first version of this set was NOT held out either -- the same
+mistake as `CONTRAST`, made again one ticket later.
+
+Four of the seven are the neighbours, because they are what makes this hard: all of them can
+be asked about the same topic in nearly the same words.
+
+| message | intent | what it really wants |
+| --- | --- | --- |
+| "which clients have pushed back on publisher exclusions before" | `where_else_seen` | WHICH ACCOUNTS |
+| "is publisher exclusions even something you can help me with" | `coverage_check` | whether we KNOW it |
+| "if i had to learn three of these properly, which three earn their keep" | `frequency` | what matters, WHOLE corpus |
+| "id rather read the actual back and forth on publisher exclusions" | `show_exchange` | HIS WORDS |
+
+### The set was rewritten once, and the check that will catch the next one
+
+The first version's negatives were intake's own examples with the topic swapped -- "do you
+have anything on publisher exclusions" against the prompt's "do you have anything on
+renewals", "which situations come up most often with clients" against "which situations are
+most common". It scored 7/7 and could not have scored otherwise.
+
+**`prompt_echoes` now runs on every case, every run, and prints before the score.** It
+reports any five-word run a case shares with the prompt it was classified against, comparing
+against the prompt built with a PLACEHOLDER message -- the first version of the check
+compared against the real prompt, which interpolates the message, so every case echoed itself
+and it reported 71/71.
+
+Calibrated, and the calibration is what makes it worth having:
+
+| set | cases echoing the prompt |
+| --- | --- |
+| `heldout` -- the gold standard | **0/11** |
+| `whereelse` (after the rewrite) | **0/7** |
+| `contrast` (#21, after its rewrite) | 1/9 |
+| `playbook` | 2/8 |
+| `rendered` | 3/8 |
+| `procedure` | 4/7 |
+| `fitted` -- fitted by definition | 3/12 |
+
+`heldout` scoring zero is the evidence that five words is the right bar: it was written to be
+unlike the prompt and the check agrees. The older sets carry real echoes that nobody had
+noticed, all in their `procedure`/`coverage_check`/`frequency` negatives; they are recorded
+rather than rewritten, because rewriting a set is a re-measurement and those numbers are on
+record.
+
+**It is a WARNING, not a failure.** A real CSM does sometimes phrase a question the way the
+prompt does. What must not happen is an echo nobody looked at.
+
+### *** WHERE AN INTENT BLOCK SITS IN THE PROMPT CHANGES ROUTING FOR OTHER INTENTS ***
+
+The most useful thing this ticket found, and it is not about `where_else_seen` at all.
+
+Adding the intent immediately BEFORE the `contrast_my_reply` block dropped the contrast set
+from 8/9 to **6/9, stable over three runs** (`intake_accuracy_contrast_rejected_block_position.json`)
+-- two cases that had routed `contrast_my_reply` started routing `reply_to_client`. Moving
+the SAME TEXT next to `coverage_check`, its actual semantic neighbour, restored 8/9 with no
+wording change at all.
+
+So position is a variable, not presentation. The project already knew the adjacent fact --
+`intake._follow_up_intent` records that OFFERING an option matters more than what you say
+about it -- and this is that lesson one step on: WHERE you offer it matters too.
+
+**Corollary for #23 and anything after it: after adding an intent, re-run every set, and if
+one moves, try MOVING the block before rewriting it.** Rewriting is the expensive fix and
+the one more likely to break a third thing.
+
+### The second regression, which was a real gap rather than a position
+
+At both positions tried, the held-out set dropped 10/11 -> **9/11**: the bare greeting "hey"
+started routing `discovery` instead of `clarify`. Not position -- adding another
+corpus-facing intent simply shifts an empty message's prior toward corpus-ish intents.
+
+It exposed a genuine hole. The `clarify` definition covered "a topic or a mood with nothing
+concrete to search on", and a greeting has neither a topic NOR a mood, so nothing in the
+prompt claimed it. One sentence naming greetings restored 10/11. The 9/11 run is kept as
+`intake_accuracy_heldout_before_greeting_rule.json`.
+
+**That case is FITTED now** -- fixed after reading the result -- and the number to quote for
+it is the **9/11** it scored held out. Every other case on that set is unchanged and still
+held out.
+
+### Seventeen intents share one prompt
+
+| set | before #22 | after |
+| --- | --- | --- |
+| held out (core) | 10/11 | **10/11**, and 9/11 before the greeting rule |
+| contrast (#21) | 8/9 | **8/9** -- same score, and the failing case MOVED |
+| where else seen (#22) | -- | **7/7** |
+| playbook (#18) | 8/8 | **8/8** |
+| rendered (#19, #20) | 8/8 | **8/8** |
+| procedure (#17) | 7/7 | **7/7** |
+
+The contrast set deserves a second look: 8/9 before and after, but a DIFFERENT case fails.
+Across this ticket's runs, cases 1, 2, 3 and 4 have each failed at some point and never more
+than one at a time on a shipped prompt. That says the contrast/reply boundary is genuinely
+fuzzy rather than that one case is uniquely hard -- and that diagnosing it from whichever
+case failed most recently would be reading noise as structure.
+
 """
 from __future__ import annotations
 
@@ -818,6 +920,44 @@ CONTRAST = [
 ]
 
 
+#: Written WITHOUT looking at the prompt's own examples, which is the lesson `CONTRAST`
+#: paid for: a case restating an example measures only that the model repeats what it was
+#: handed. Different vocabulary, and the negatives are the three neighbours this intent is
+#: genuinely confusable with rather than distant ones.
+WHERE_ELSE = [
+    {"message": "have we run into this integration timeline slipping with anyone else",
+     "expect": "where_else_seen",
+     "note": "THE CANONICAL CASE: names a situation and asks WHICH OTHER accounts"},
+    {"message": "is the cost per hire complaint just this one account or does it come up "
+                "everywhere",
+     "expect": "where_else_seen",
+     "note": "the ticket's own framing -- one-client quirk against a pattern across the "
+             "book -- in a CSM's words"},
+    {"message": "which clients have pushed back on publisher exclusions before",
+     "expect": "where_else_seen",
+     "note": "'which clients' rather than 'anyone else'"},
+
+    # -- the four neighbours, which are what make this hard ----------------------------------
+    {"message": "is publisher exclusions even something you can help me with",
+     "expect": "coverage_check",
+     "note": "THE NEAREST NEIGHBOUR. Same topic, but asks whether Ask Naren KNOWS it -- not "
+             "which accounts it happened with"},
+    {"message": "if i had to learn three of these properly, which three earn their keep",
+     "expect": "frequency",
+     "note": "asks what matters most ACROSS THE WHOLE CORPUS and names no situation. The "
+             "other 'how common' intent, and the one a bare 'how common is this' slides to"},
+    {"message": "id rather read the actual back and forth on publisher exclusions than a "
+                "summary",
+     "expect": "show_exchange",
+     "note": "same topic again, wants HIS WORDS rather than a list of accounts"},
+    {"message": "pull me the headcount Naren billed against the Reckitt account in H1",
+     "expect": "out_of_scope",
+     "note": "names an account and asks for a number about it, which is the shape most "
+             "likely to be dragged into where_else_seen. It is an internal account fact and "
+             "nothing in a call transcript answers it"},
+]
+
+
 THREADED = [
     # -- must be read as follow-ups: no new situation, only the one already answered -------
     {"thread": [_ANSWERED],
@@ -895,6 +1035,50 @@ THREADED = [
 ]
 
 
+#: How long a shared run of words has to be before a case counts as restating the prompt.
+#: Five is short enough to catch "do you have anything on" and long enough not to fire on
+#: ordinary English ("what do i say to").
+_ECHO_NGRAM = 5
+
+#: Stands in for the CSM's message when building the prompt to compare against. `build_prompt`
+#: interpolates the message, so without this every case echoes itself and the check reports
+#: 71/71 -- which is what the first run of it did.
+_ECHO_PLACEHOLDER = "zzplaceholderzz"
+
+
+def prompt_echoes(message: str, prompt: str) -> list[str]:
+    """The runs of words this case shares with intake's own prompt.
+
+    WHY THIS EXISTS, and it is the most expensive lesson in this file. A case written FROM
+    the prompt measures only that the model reproduces the examples it was handed. It is not
+    caught by the fitted/held-out rule -- the prompt was never tuned to the case, so by the
+    letter of that rule the score is held out -- and it happened TWICE: #21's first contrast
+    set scored 8/8 that way and hid a real failure, and #22's first set restated the prompt's
+    `coverage_check`, `frequency` and `show_exchange` examples with the topic swapped.
+
+    Both were caught by a reviewer reading the two files side by side. This is that check,
+    automated, so the third time is caught by running the harness.
+
+    A WARNING, NOT A FAILURE. An echo is a reason to look, not proof of a bad case: a real
+    CSM does sometimes phrase a question the way the prompt does, and the whole point of the
+    prompt's examples is that they are plausible. What must not happen is an echo nobody
+    noticed.
+    """
+    words = _words(message)
+    haystack = f" {' '.join(_words(prompt))} "
+    hits = []
+    for i in range(len(words) - _ECHO_NGRAM + 1):
+        gram = " ".join(words[i:i + _ECHO_NGRAM])
+        if f" {gram} " in haystack:
+            hits.append(gram)
+    return hits
+
+
+def _words(text: str) -> list[str]:
+    keep = "".join(c if c.isalnum() or c.isspace() else " " for c in (text or "").lower())
+    return keep.split()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -902,7 +1086,7 @@ def main() -> int:
     ap.add_argument("--out", default=str(ARTIFACTS / "intake_accuracy.json"))
     ap.add_argument("--set", dest="which", default="fitted",
                     choices=("fitted", "heldout", "threaded", "procedure", "rendered",
-                             "playbook", "contrast", "both"),
+                             "playbook", "contrast", "whereelse", "both"),
                     help="fitted = the 12 the prompt was tuned on (NOT an accuracy "
                          "rate); heldout = cases never used to change the prompt; "
                          "threaded = the conversation-shaped cases (issue #16)")
@@ -916,7 +1100,8 @@ def main() -> int:
     load_config()
     pool = {"fitted": CASES, "heldout": HELD_OUT, "threaded": THREADED,
             "procedure": PROCEDURE, "rendered": RENDERED, "playbook": PLAYBOOK_SET,
-            "contrast": CONTRAST, "both": CASES + HELD_OUT}[args.which]
+            "contrast": CONTRAST, "whereelse": WHERE_ELSE,
+            "both": CASES + HELD_OUT}[args.which]
     cases = pool[:args.limit] if args.limit else pool
 
     rows = []
@@ -965,6 +1150,13 @@ def main() -> int:
                 "my_reply_verbatim": reply_verbatim,
                 "question": decision.question,
                 "framing_leaked": leaked,
+                # A PLACEHOLDER MESSAGE, not this one. `build_prompt` interpolates the
+                # message into the prompt, so comparing against the real thing makes every
+                # case echo itself -- which it did, 71/71, on the first run of this check.
+                # The thread is kept, because a thread-shaped case IS classified against a
+                # prompt carrying the conversation and can legitimately echo it.
+                "prompt_echoes": prompt_echoes(
+                    case["message"], intake.build_prompt(_ECHO_PLACEHOLDER, thread)),
                 "verbatim_span": verbatim,
                 "meaning_dropped": dropped,
                 "note": case["note"],
@@ -989,6 +1181,7 @@ def main() -> int:
              "rendered": "RENDERED-INTENT cases (issues #19, #20)",
              "playbook": "PLAYBOOK-INTENT cases (issue #18)",
              "contrast": "CONTRAST cases (issue #21)",
+             "whereelse": "WHERE-ELSE-SEEN cases (issue #22)",
              "both": "fitted + held-out"}[args.which]
     print(f"ROUTING ACCURACY -- {args.model} "
           f"(reasoning={args.reasoning or chr(110)+chr(111)+chr(110)+chr(101)}) -- {label}")
@@ -1035,6 +1228,21 @@ def main() -> int:
                   "the conversation, without searching for anything:")
             for r in over_followed:
                 print(f"    - {r['message'][:70]!r}")
+
+    # THE INSTRUMENT CHECKING ITSELF. Printed before the routing detail because it decides
+    # what the score above is WORTH: a set that restates the prompt cannot fail.
+    echoing = [r for r in rows if r["prompt_echoes"]]
+    if echoing:
+        print(f"\n  *** {len(echoing)}/{len(rows)} CASES RESTATE INTAKE'S OWN PROMPT ***")
+        print("  A case written FROM the prompt measures only that the model reproduces the")
+        print("  example it was handed. The fitted/held-out rule does NOT catch this -- the")
+        print("  prompt was never tuned to the case -- and it has happened twice (#21, #22).")
+        for r in echoing:
+            print(f"    - {r['message'][:64]!r}")
+            print(f"      shares: {r['prompt_echoes'][0]!r}")
+    else:
+        print(f"\n  PROMPT ECHO -- no case restates intake's own examples: "
+              f"{len(rows)}/{len(rows)} clean")
 
     composed = [r for r in rows if not r["verbatim_span"]]
     print(f"\n  VERBATIM -- the query is a span COPIED from the message: "

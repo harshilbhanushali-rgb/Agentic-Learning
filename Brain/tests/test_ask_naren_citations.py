@@ -143,3 +143,74 @@ def test_unreadable_json_is_skipped_rather_than_raising(tmp_path):
     (tmp_path / "eeeeeeee-1111-2222-3333-444444444444.speakers.json").write_text(
         "{not json", encoding="utf-8")
     assert citations.build_account_index([tmp_path]) == {}
+
+
+# -- naming the ACCOUNT alone, for "where else has this come up" (issue #22) --------------
+#
+# `resolve_label` answers "what should this citation read as" and may be ugly, because it
+# points at a call. `account_for` ASSERTS AN IDENTITY -- these exchanges are that client --
+# so it reads only the recorded participants and never the filename.
+#
+# MEASURED, and the reason for the split: the dated convention is
+# `<calendar title>_joveo_<subject>`, and the leading part is whatever the meeting was
+# called. `20240613_review_joveo_proposal_amn_healthcare` would name the account "Review"
+# when the client is AMN Healthcare, and `uber_corporate` / `uber_emea` /
+# `uber_north_america` would be three accounts and one company.
+
+def test_an_account_is_named_from_the_recorded_participants():
+    assert citations.account_for(UUID_FILE, {UUID_FILE: "Reckitt"}) == "Reckitt"
+
+
+def test_two_calls_with_the_same_account_resolve_to_the_same_name():
+    """The point of the function: #22 counts exchanges per account, so two calls that are
+    the same client must collapse to one entry rather than reading as two clients."""
+    a, b = "call-one.txt", "call-two.txt"
+    index = {a: "Uber", b: "Uber"}
+    assert citations.account_for(a, index) == citations.account_for(b, index) == "Uber"
+
+
+def test_a_calendar_title_in_the_filename_is_never_read_as_a_client():
+    """THE FINDING THIS FUNCTION EXISTS AROUND. Every one of these is a real live filename
+    shape, and the filename's leading tokens are a meeting title, not an account field.
+    Reading them would put a wrong client name in an answer whose entire content is client
+    names -- which #22 says is worse than an opaque one."""
+    assert citations.account_for(
+        "20240613_review_joveo_proposal_amn_healthcare_4d213b9c.txt") is None
+    assert citations.account_for(
+        "20240515_weekly_tech_huddle_joveo_demo_100a3db4.txt") is None
+    assert citations.account_for(
+        "20250514_this_january_joveo_ua_dashboard_demo_6c2c535f.txt") is None
+
+
+def test_the_filename_cannot_split_one_client_into_several_accounts():
+    """`uber_corporate`, `uber_emea` and `uber_north_america` are one company. Read from the
+    filename they are three accounts, which turns one client's pattern into a fake spread --
+    the precise thing #22 is asked to measure."""
+    for name in ("20230509_uber_corporate_joveo_connect_409d34b7.txt",
+                 "20230814_uber_emea_joveo_connect_2c1a0c7e.txt",
+                 "20230920_uber_north_america_joveo_connect_3a9a70ea.txt"):
+        assert citations.account_for(name) is None
+    # With participants recorded, all three ARE one client.
+    index = {n: "Uber" for n in (
+        "20230509_uber_corporate_joveo_connect_409d34b7.txt",
+        "20230814_uber_emea_joveo_connect_2c1a0c7e.txt",
+        "20230920_uber_north_america_joveo_connect_3a9a70ea.txt")}
+    assert {citations.account_for(n, index) for n in index} == {"Uber"}
+
+
+def test_an_unresolvable_call_names_no_account_rather_than_guessing_one():
+    """RETURNS None, NOT the filename. #22 must be able to tell "this is Uber" from "we
+    cannot say", because the second becomes a raw filename in the answer and the first
+    becomes a client name. A fallback baked in here would erase that distinction before the
+    caller could act on it."""
+    assert citations.account_for(UUID_FILE, {}) is None
+    assert citations.account_for(UUID_FILE) is None
+    assert citations.account_for("Call1.txt") is None
+    assert citations.account_for("") is None
+
+
+def test_the_citation_LABEL_still_reads_the_filename():
+    """Deliberately unchanged. A citation LABEL points at a call, so an ugly one is harmless
+    and a date plus a meeting subject is genuinely useful. Only the identity claim moved."""
+    assert citations.resolve_label(
+        "20240613_review_joveo_proposal_amn_healthcare_4d213b9c.txt").startswith("Review")

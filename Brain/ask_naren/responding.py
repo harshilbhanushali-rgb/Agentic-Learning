@@ -22,7 +22,8 @@ from ask_naren.retrieval import RetrievalPool
 def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(),
             classify=intake.classify, k: int = answering.DEFAULT_K,
             label_for=citations.resolve_label, moves_for=None,
-            playbook_for=None, scenarios_for=None, following_for=None) -> dict:
+            playbook_for=None, scenarios_for=None, following_for=None,
+            account_for=citations.account_for) -> dict:
     """Answer one message, ask the CSM something, or decline.
 
     `message` is what the CSM typed, framing and all. What reaches RETRIEVAL is intake's
@@ -76,7 +77,7 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
         return _with_intake(
             _rendered(message, decision, pool, embed_query=embed_query, label_for=label_for,
                       scenarios_for=scenarios_for, following_for=following_for,
-                      playbook_for=playbook_for),
+                      playbook_for=playbook_for, account_for=account_for),
             decision)
 
     if decision.intent == intake.PROCEDURE:
@@ -120,7 +121,8 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
 
 
 def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool, *,
-              embed_query, label_for, scenarios_for, following_for, playbook_for) -> dict:
+              embed_query, label_for, scenarios_for, following_for, playbook_for,
+              account_for=citations.account_for) -> dict:
     """The five answers built from stored rows (issues #19, #20).
 
     `scenarios_for` returns the COACHABLE Layer A rows, and `following_for` returns the
@@ -143,9 +145,21 @@ def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool
             return rendering.discovery(scenarios)
         return rendering.frequency(scenarios)
 
-    # The three that are ABOUT a situation and therefore retrieve one. The query is embedded
-    # exactly as on every other retrieving path -- the current message alone (ADR 0006).
-    match = pool.top1(embed_query([decision.retrieval_query])[0])
+    # The query is embedded exactly as on every other retrieving path -- the current message
+    # alone (ADR 0006).
+    query_vec = embed_query([decision.retrieval_query])[0]
+
+    if decision.intent == intake.WHERE_ELSE_SEEN:
+        # THE ONE RENDERED INTENT THAT READS A NEIGHBOURHOOD RATHER THAN A NEAREST MATCH
+        # (issue #22). "Is this a one-client quirk or a pattern" has no single-exchange form,
+        # so the breadth is required by the question rather than chosen -- see
+        # `rendering.NEIGHBOURS_SCANNED` for why that is not the shortlist ADR 0005 rejected.
+        return rendering.where_else_seen(
+            message, pool.topk(query_vec, rendering.NEIGHBOURS_SCANNED),
+            account_for=account_for)
+
+    # The rest are ABOUT one situation and answer from the nearest exchange.
+    match = pool.top1(query_vec)
 
     if decision.intent == intake.SHOW_EXCHANGE:
         return rendering.show_exchange(match, label_for=label_for)

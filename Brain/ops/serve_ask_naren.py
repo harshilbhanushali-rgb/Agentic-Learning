@@ -348,16 +348,30 @@ def _load_key_moves(conn, pairs: list[dict]) -> dict[str, list]:
 
 
 def build_label_resolver():
-    """The filename -> readable-citation function, with the account index baked in."""
+    """The two filename resolvers, sharing ONE account index read once at startup.
+
+    `label_for` answers "what should this citation read as" and always returns something.
+    `account_for` answers "which client was this" and returns None where the recorded data
+    does not say -- issue #22 needs that distinction, because its whole output is a list of
+    client names and a wrong one is worse than an opaque one.
+
+    ONE INDEX, TWO READERS. Building it twice would read the sidecar directories twice for
+    an identical result, and would let the two functions disagree about a call if the
+    directories changed between them.
+    """
     root = Path(__file__).resolve().parent.parent
     index = citations.build_account_index(root / d for d in SIDECAR_DIRS)
     if index:
         print(f"[citations] {len(index)} UUID-named calls resolved to an account from "
               f"recorded participants", flush=True)
     else:
+        # Criterion 3 of issue #22, and the state of any machine without the (gitignored,
+        # machine-local) recordings directories: every UUID call cites its raw filename and
+        # names no account. Thinner, not broken.
         print("[citations] no participant sidecars found -- UUID-named calls will cite "
-              "their raw filename", flush=True)
-    return lambda filename: citations.resolve_label(filename, index)
+              "their raw filename and name no account", flush=True)
+    return (lambda filename: citations.resolve_label(filename, index),
+            lambda filename: citations.account_for(filename, index))
 
 
 def main() -> int:
@@ -373,7 +387,7 @@ def main() -> int:
 
     (pool, moves_by_scenario, playbooks_by_scenario, coachable_scenarios,
      following_by_pair) = build_pool(args.hostaddr or None)
-    label_for = build_label_resolver()
+    label_for, account_for = build_label_resolver()
     # None unless the constant above was edited. answer_situation treats None as pairs-only,
     # so the shipped path never touches the playbook code at all.
     moves_for = moves_by_scenario.get if PLAYBOOK_AUGMENTED else None
@@ -392,7 +406,8 @@ def main() -> int:
                 thread=thread, label_for=label_for, moves_for=moves_for,
                 playbook_for=playbooks_by_scenario.get,
                 scenarios_for=lambda: coachable_scenarios,
-                following_for=lambda pair_id: following_by_pair.get(pair_id, []))
+                following_for=lambda pair_id: following_by_pair.get(pair_id, []),
+                account_for=account_for)
 
         if args.ask:
             # One message, no thread. `--ask` is a single-shot check of the whole path.

@@ -43,6 +43,7 @@ PHRASING = intake.PHRASING
 PITFALLS = intake.PITFALLS
 SCENARIO_CHECK = intake.SCENARIO_CHECK
 PLAY_CONFIDENCE = intake.PLAY_CONFIDENCE
+WHERE_ELSE_SEEN = intake.WHERE_ELSE_SEEN
 
 #: How many scenarios `frequency` ranks. All 34 is a wall of text a CSM will not read; the
 #: point of the intent is "what comes up most", which is the head of the distribution.
@@ -410,6 +411,128 @@ def play_confidence(scenario_key: str, record: dict) -> dict:
                   "evidence count is how many moments were considered when it was built, "
                   "before the verbatim check dropped any -- so it says how much was looked "
                   "at, not whether the play is right for your client."),
+    }
+
+
+# -- which accounts a situation has come up with (issue #22) -------------------------------
+
+#: How many neighbouring exchanges `where_else_seen` scans. NOT a candidate-selection
+#: change and NOT in tension with ADR 0005, which measured a SHORTLIST for ANSWERING and
+#: rejected it: an answer rests on one exchange, so showing the model five was a change to
+#: how one exchange gets picked. This intent's question is "how widely does this come up",
+#: which has no single-exchange form at all -- one neighbour cannot answer it. The breadth
+#: is required by the question rather than chosen as a tuning knob.
+#:
+#: 25 because the answer is a shape, not a census: it has to be wide enough to tell one
+#: client from several and short enough that the tail is not noise. Nothing thresholds on
+#: it and no answer is withheld because of it.
+NEIGHBOURS_SCANNED = 25
+
+
+def where_else_seen(asked: str, matches: list, account_for=citations.account_for) -> dict:
+    """Which accounts a situation has come up with (issue #22).
+
+    The question behind it is "is this a one-client quirk or a pattern across the book",
+    which a CSM cannot answer from a single exchange -- so this is the one intent that reads
+    a neighbourhood rather than a nearest match.
+
+    IT NAMES AN ACCOUNT ONLY WHERE THE RECORDED DATA STATES IT UNAMBIGUOUSLY, which is the
+    ticket's own constraint and the reason `citations.account_for` returns None rather than
+    a filename. 31.3% of citable calls are opaque UUIDs, and of the 323 opaque calls 40
+    carry two to four external participant domains -- one measured example lists both a
+    brand and its agency. Picking the likelier one would print an agency's name where a CSM
+    expects their client's, in an answer whose entire content is client names.
+
+    SO AN UNNAMEABLE CALL IS LISTED AS ITS FILENAME, not dropped and not guessed. Dropping
+    it would UNDER-report the spread -- the opposite error, and a quieter one, since a CSM
+    would read "two accounts" where the evidence says "two accounts and two calls we cannot
+    attribute".
+
+    THE ACCOUNT COUNT IS A RANGE, AND THAT IS THE HONEST SHAPE. Two named accounts plus two
+    unnameable calls is somewhere between two and four distinct clients: each unnamed call
+    might be a third and fourth client, or might be one of the two already listed. Reporting
+    a single number would pick one end of that and state it as a fact about the book.
+
+    Degrades rather than breaks when the participant sidecars are absent (criterion 3):
+    `account_for` then names only what a FILENAME states, every UUID call becomes unnameable,
+    and the answer gets thinner rather than wrong.
+    """
+    if not matches:
+        # THE SAME RULE `RetrievalPool.top1` AND `answering.answer_situation` APPLY, and this
+        # is the one rendered path where it had to be stated rather than inherited: an empty
+        # authorised ranking is a fact about the INDEX, not about the corpus. Rendered as an
+        # answer it would read "0 accounts, across 0 exchanges" -- which a CSM takes as "no
+        # other client has ever raised this", the exact wrong conclusion this intent exists
+        # to prevent, with a broken index hidden behind it for as long as nobody checked.
+        raise RuntimeError(
+            "retrieval returned no kb_pair the pool authorises -- the vector store and the "
+            "pool disagree about what exists. Run ops/check_vector_coverage.py.")
+
+    named: dict[str, dict] = {}
+    unnamed: dict[str, dict] = {}
+    for match in matches:
+        call = match.pair["call_filename"]
+        account = account_for(call)
+        bucket, key = (named, account) if account else (unnamed, call)
+        entry = bucket.setdefault(key, {"account": key, "named": bool(account),
+                                        "exchanges": 0, "_calls": set()})
+        entry["exchanges"] += 1
+        entry["_calls"].add(call)
+
+    def rows(bucket):
+        out = []
+        for entry in bucket.values():
+            calls = entry.pop("_calls")
+            out.append({**entry, "calls": len(calls)})
+        # Most-carried first, then alphabetically so the order is stable across requests --
+        # a list that reshuffles between two identical questions reads as new information.
+        return sorted(out, key=lambda e: (-e["exchanges"], e["account"]))
+
+    named_rows, unnamed_rows = rows(named), rows(unnamed)
+    # THE NEAREST EXCHANGE'S SCENARIO, and how much of the neighbourhood agrees with it.
+    #
+    # #12's story 10 asks every answer to name the scenario it is about, and this path was
+    # the one Layer B answer with no `match` block at all -- so a misroute had nothing to
+    # give it away. It matters MORE here than elsewhere, because the answer is an aggregate
+    # over 25 neighbours rather than one exchange: `ask-naren/audit/artifacts/
+    # topk_headroom.json` measures the top-20 neighbourhood at a mean of only 6.19/20
+    # same-situation (0.39/1 at top 1, 2.00/5, 3.31/10). So some of the accounts listed are
+    # about something else.
+    #
+    # REPORTED, NOT FILTERED. Dropping the off-scenario neighbours would be a relevance rule
+    # nobody has measured, and this project's bar for adding one is a measured failure, not
+    # a plausible story (ADR 0005 applied that bar to a cosine floor and rejected it). What
+    # the CSM needs is to be able to tell a genuine book-wide pattern from a wide,
+    # incoherent neighbourhood -- and two numbers do that without deciding for them.
+    scenario_key = matches[0].pair["scenario_key"]
+    same_scenario = sum(1 for m in matches if m.pair["scenario_key"] == scenario_key)
+    return {
+        "outcome": RENDERED,
+        "kind": WHERE_ELSE_SEEN,
+        "asked_about": asked,
+        "scenario_key": scenario_key,
+        "same_scenario": same_scenario,
+        # NAMED FIRST, whatever they carry. An unnameable call is real evidence but nothing
+        # a CSM can act on, so it belongs below every account that has a name.
+        "accounts": named_rows + unnamed_rows,
+        #: A PLAIN FACT: how many accounts the recorded data could name. Not the floor of
+        #: the range -- see below.
+        "accounts_named": len(named_rows),
+        #: The bottom of the range, and NOT the same number. With no participant sidecars
+        #: every UUID call is unnameable and `accounts_named` is 0 -- but exchanges that
+        #: exist came from SOMEBODY, so "between 0 and 3 accounts" states something
+        #: impossible. One is the honest floor the moment any exchange was found.
+        "accounts_at_least": max(len(named_rows), 1),
+        #: The top: every unnameable CALL could be a client not already listed.
+        "accounts_at_most": len(named_rows) + sum(e["calls"] for e in unnamed_rows),
+        "unnamed_calls": sum(e["calls"] for e in unnamed_rows),
+        "exchanges": sum(e["exchanges"] for e in named_rows + unnamed_rows),
+        "basis": ("The nearest exchanges to what you asked, and which account each came "
+                  "from. Only the recorded call participants name an account, so calls "
+                  "without them are listed by filename rather than guessed -- which is why "
+                  "the number of accounts is a range, not a count. Not every nearby "
+                  "exchange is about the same situation; the count above says how many "
+                  "are."),
     }
 
 

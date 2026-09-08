@@ -324,3 +324,176 @@ def test_every_playbook_render_is_still_a_rendered_outcome():
                    rendering.play_confidence("k", RECORD)):
         assert result["outcome"] == "rendered"
         assert "answer" not in result and "quote" not in result
+
+
+# -- which accounts a situation has come up with (issue #22) --------------------------------
+
+from ask_naren import citations                                        # noqa: E402
+
+UBER_A = "20230503_uber_joveo_weekly_performance_review_d18cc178.txt"
+UBER_B = "20230509_uber_joveo_connect_409d34b7.txt"
+RECKITT = "015a5979-4c9f-44ae-9b9d-f642529a5478.txt"
+OPAQUE = "3e4c3393-c3cc-4047-a5bc-57bccbfaee4f.txt"
+
+#: The RECORDED PARTICIPANTS, which is the only thing that names an account (issue #22).
+#: Both Uber calls resolve through it, exactly as they do live -- the filename cannot name
+#: them, because `uber_corporate` and `uber_emea` are one company and two calendar titles.
+SIDECARS = {RECKITT: "Reckitt", UBER_A: "Uber", UBER_B: "Uber"}
+
+
+def _seen(call, pair_id=1, cosine=0.8):
+    return retrieval.Match(
+        pair={"pair_id": pair_id, "call_filename": call, "trigger_text": TRIGGER,
+              "response_text": RESPONSE, "scenario_key": "performance_pushback"},
+        cosine=cosine)
+
+
+def _accounts(index=SIDECARS):
+    return lambda call: citations.account_for(call, index)
+
+
+def test_exchanges_from_the_same_account_collapse_into_one_entry():
+    """The question is "one client quirk or a pattern across the book", so two calls with
+    the same client must read as one client rather than two."""
+    result = rendering.where_else_seen(
+        "cost per hire pushback",
+        [_seen(UBER_A, 1), _seen(UBER_B, 2), _seen(UBER_A, 3)], account_for=_accounts())
+    named = [a for a in result["accounts"] if a["named"]]
+    assert len(named) == 1
+    assert named[0]["account"] == "Uber"
+    assert named[0]["exchanges"] == 3
+    assert named[0]["calls"] == 2
+
+
+def test_a_call_the_data_cannot_name_is_shown_as_its_filename_not_guessed_or_dropped():
+    """#22's stated constraint: a wrong client name is worse than an opaque one. Dropping it
+    would UNDER-report the spread; guessing would name the wrong client. So it is listed as
+    exactly what it is."""
+    result = rendering.where_else_seen(
+        "x", [_seen(UBER_A, 1), _seen(OPAQUE, 2)], account_for=_accounts())
+    unnamed = [a for a in result["accounts"] if not a["named"]]
+    assert len(unnamed) == 1
+    assert unnamed[0]["account"] == OPAQUE
+
+
+def test_the_account_count_is_a_range_because_the_unnamed_calls_might_be_anyone():
+    """The honest answer to "how many clients". Two named accounts plus two calls nothing
+    can name is between two and four distinct clients -- each unnamed call could be a new
+    client or could be one of the two already listed. A single number picks one end of that
+    and states it as fact."""
+    result = rendering.where_else_seen(
+        "x", [_seen(UBER_A, 1), _seen(RECKITT, 2), _seen(OPAQUE, 3), _seen("Call9.txt", 4)],
+        account_for=_accounts())
+    assert result["accounts_named"] == 2
+    assert result["accounts_at_most"] == 4
+    assert result["unnamed_calls"] == 2
+
+
+def test_absent_sidecars_degrade_to_filenames_rather_than_breaking():
+    """Criterion 3, and the behaviour on any machine without the (gitignored, machine-local)
+    recordings directories.
+
+    IT DEGRADES FURTHER THAN IT USED TO, and that is the correct trade. The participant
+    sidecars are now the ONLY thing that names an account, so with no index NOTHING is named
+    -- where reading the filename would have named some. What reading the filename actually
+    produced was "Review" for a call with AMN Healthcare and five separate Ubers, so the
+    coverage it bought was partly wrong.
+
+    Thinner, not broken: still a `rendered` answer, every call shown as the filename it
+    really is, and `accounts_at_least` keeping the range from claiming zero clients for two
+    real exchanges."""
+    result = rendering.where_else_seen(
+        "x", [_seen(RECKITT, 1), _seen(UBER_A, 2)], account_for=_accounts(index={}))
+    assert result["outcome"] == "rendered"
+    assert result["accounts_named"] == 0
+    assert result["unnamed_calls"] == 2
+    assert result["accounts_at_least"] == 1     # two exchanges came from somebody
+    assert all(a["named"] is False for a in result["accounts"])
+
+
+def test_where_else_seen_generates_nothing_and_carries_no_answer():
+    result = rendering.where_else_seen("x", [_seen(UBER_A)], account_for=_accounts())
+    assert result["outcome"] == "rendered"
+    assert result["kind"] == "where_else_seen"
+    assert "answer" not in result and "quote" not in result
+
+
+def test_accounts_are_ranked_by_what_they_carry_with_named_ones_first():
+    """A CSM scanning this wants the pattern first. An unnameable call is real evidence but
+    nothing they can act on, so it sorts below every account that has a name -- even when it
+    carries more exchanges."""
+    result = rendering.where_else_seen(
+        "x", [_seen(OPAQUE, 1), _seen(OPAQUE, 2), _seen(OPAQUE, 3),
+              _seen(UBER_A, 4), _seen(RECKITT, 5), _seen(RECKITT, 6)],
+        account_for=_accounts())
+    assert [a["account"] for a in result["accounts"]][:2] == ["Reckitt", "Uber"]
+    assert result["accounts"][-1]["named"] is False
+
+
+def test_an_empty_ranking_raises_rather_than_reporting_that_nobody_else_raised_it():
+    """ADR 0008 and the same rule `RetrievalPool.top1` states: an empty authorised ranking
+    is a fact about the INDEX, not about the corpus -- the store and the pool disagree about
+    what exists.
+
+    Every other retrieving path already raises on it. Rendered as an answer this one would
+    say "0 accounts, across 0 exchanges", which a CSM reads as "no other client has ever
+    raised this" -- the exact wrong conclusion this intent exists to prevent, and a broken
+    index hidden behind a normal-looking answer for as long as nobody checked."""
+    import pytest
+    with pytest.raises(RuntimeError, match="no kb_pair the pool authorises"):
+        rendering.where_else_seen("x", [], account_for=_accounts())
+
+
+def test_the_range_floor_is_never_zero_once_an_exchange_was_found():
+    """Criterion 3's shape: with no participant sidecars every UUID call is unnameable, so
+    `accounts_named` is 0 -- but three recorded exchanges cannot have come from zero
+    clients. "Between 0 and 3 accounts" states something impossible; the honest floor is 1.
+
+    `accounts_named` stays a plain fact (how many we could name). `accounts_at_least` is what
+    the range is rendered from."""
+    result = rendering.where_else_seen(
+        "x", [_seen(OPAQUE, 1), _seen(OPAQUE, 2), _seen("Call9.txt", 3)],
+        account_for=_accounts())
+    assert result["accounts_named"] == 0
+    assert result["accounts_at_least"] == 1
+    assert result["accounts_at_most"] == 2      # two distinct calls nothing can name
+
+
+def test_the_floor_is_the_named_count_when_there_is_one():
+    result = rendering.where_else_seen(
+        "x", [_seen(UBER_A, 1), _seen(RECKITT, 2), _seen(OPAQUE, 3)],
+        account_for=_accounts())
+    assert result["accounts_named"] == 2
+    assert result["accounts_at_least"] == 2
+    assert result["accounts_at_most"] == 3
+
+
+def test_where_else_seen_names_its_scenario_and_says_how_coherent_the_neighbourhood_is():
+    """#12's story 10 wants every answer to name the scenario it is about, so a CSM can see
+    a misroute. This path had no `match` block at all, which left it the one Layer B answer
+    a CSM could not check.
+
+    It matters more here than elsewhere, because the answer is an aggregate over 25
+    neighbours and `ask-naren/audit/artifacts/topk_headroom.json` measures the top-20
+    neighbourhood as only 6.19/20 same-situation on average. So some of the accounts listed
+    are about something else, and without this the CSM cannot tell a genuine book-wide
+    pattern from a wide, incoherent neighbourhood -- which is exactly the discrimination
+    this intent exists to provide."""
+    result = rendering.where_else_seen(
+        "x",
+        [_seen(UBER_A, 1), _seen(RECKITT, 2), _seen(OPAQUE, 3)],
+        account_for=_accounts())
+    assert result["scenario_key"] == "performance_pushback"
+    assert result["same_scenario"] == 3
+    assert result["exchanges"] == 3
+
+
+def test_a_neighbourhood_that_drifted_reports_how_far():
+    """The number that makes the drift visible rather than inferable."""
+    drifted = _seen(OPAQUE, 4)
+    drifted.pair["scenario_key"] = "timeline_question"
+    result = rendering.where_else_seen(
+        "x", [_seen(UBER_A, 1), _seen(RECKITT, 2), drifted], account_for=_accounts())
+    assert result["scenario_key"] == "performance_pushback"   # the nearest one
+    assert result["same_scenario"] == 2
+    assert result["exchanges"] == 3

@@ -340,6 +340,81 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
         </article>
       );
 
+    case 'where_else_seen':
+      return (
+        <article className={SHELL}>
+          {/* THE SCENARIO IS NAMED, like every other answer that retrieves (#12 story 10).
+              It matters more here: this answer names no single call, so the situation is
+              the only thing that can give a misroute away. */}
+          <header className="flex flex-col gap-1">
+            <span className={EYEBROW}>Where else this has come up</span>
+            <p className="text-[12px] text-ink-2">
+              You asked about &ldquo;{result.asked_about}&rdquo; &mdash; nearest situation{' '}
+              <span className="font-medium text-ink">
+                {scenarioLabel(result.scenario_key)}
+              </span>
+            </p>
+          </header>
+
+          {/* A RANGE, NOT A COUNT. Each call whose client is not recorded unambiguously
+              could be a new account or one already listed, so stating a single number
+              would assert one end of that as fact.
+
+              The floor is `accounts_at_least`, NOT `accounts_named` — with no participant
+              sidecars nothing can be named and `accounts_named` is 0, but exchanges that
+              exist came from somebody. "Between 0 and 3 accounts" is impossible. */}
+          <p className="text-[13px] leading-relaxed text-ink">
+            {result.accounts_at_least === result.accounts_at_most ? (
+              <>
+                <span className="font-medium">{result.accounts_at_least}</span>{' '}
+                {result.accounts_at_least === 1 ? 'account' : 'accounts'}
+              </>
+            ) : (
+              <>
+                Between <span className="font-medium">{result.accounts_at_least}</span> and{' '}
+                <span className="font-medium">{result.accounts_at_most}</span> accounts
+              </>
+            )}
+            , across {result.exchanges}{' '}
+            {result.exchanges === 1 ? 'exchange' : 'exchanges'}
+            {/* Not every nearby exchange is about the same situation — the top-20
+                neighbourhood measures at ~6/20 same-situation. Saying so is what lets a CSM
+                tell a real book-wide pattern from a wide, incoherent neighbourhood. */}
+            {result.same_scenario < result.exchanges && (
+              <>
+                , of which{' '}
+                <span className="font-medium">{result.same_scenario}</span>{' '}
+                {result.same_scenario === 1 ? 'is' : 'are'} about that same situation
+              </>
+            )}
+            .
+          </p>
+
+          <ul className="flex flex-col gap-2">
+            {result.accounts.map((a, i) => (
+              <li key={i} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                {a.named ? (
+                  <span className="text-[13px] font-medium text-ink">{a.account}</span>
+                ) : (
+                  /* Rendered as the filename it is, muted and monospaced, so it never reads
+                     as a client name. Naming it would be a guess; hiding it would
+                     under-report how widely this comes up. */
+                  <span className="break-all font-mono text-[11px] text-ink-placeholder">
+                    {a.account}
+                  </span>
+                )}
+                <span className="text-[12px] tabular-nums text-ink-2">
+                  {a.exchanges} {a.exchanges === 1 ? 'exchange' : 'exchanges'}
+                  {a.calls > 1 && ` · ${a.calls} calls`}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <p className="text-[12px] leading-relaxed text-ink-2">{result.basis}</p>
+        </article>
+      );
+
     case 'play_confidence':
       return (
         <article className={SHELL}>
