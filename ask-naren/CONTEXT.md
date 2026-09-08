@@ -69,8 +69,12 @@ Returning a question to the CSM instead of an answer, decided BEFORE retrieval, 
 _Avoid_: ask-back, prompt for detail, follow-up question.
 
 **Thread**:
-**Specified, not built** (issue #15). One continuing conversation between a CSM and Ask Naren. Ask Naren stores none of it — a thread is held by the caller and replayed with each message, in keeping with the service holding no database handle while answering.
+**Built** (issue #15). One continuing conversation between a CSM and Ask Naren. Ask Naren stores none of it — a thread is held by the caller and replayed with each message, in keeping with the service holding no database handle while answering. A **turn** in it carries what the CSM typed, what Ask Naren said back, and the identifiers of the exchange the answer rested on — never the exchange's text, which is what keeps ADR 0006's corollary true and keeps Naren's words out of a later prompt's reach.
 _Avoid_: session, chat, history, conversation.
+
+**Trimming a thread**:
+Shrinking a thread to fit a cap by blanking a turn's **prose** while keeping its **carried identifiers**. Not truncation, and specifically not "drop the oldest messages": the message that established the scenario is usually the first one and every later turn inherits its identifier, so dropping it strands the conversation (ADR 0006). Applied twice with two jobs — the page trims to fit the request body, the service trims to bound what a thread contributes to a prompt.
+_Avoid_: truncation, windowing, cutting history.
 
 **Follow-up**:
 **Specified, not built** (issue #16). A message that only carries meaning inside its thread ("and if they push back on price?"). It is the case that retrieves nothing useful on its own words, so it is answered from the thread and the grounding source already cited rather than by searching again.

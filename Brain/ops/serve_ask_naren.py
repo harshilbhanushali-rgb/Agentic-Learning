@@ -190,16 +190,20 @@ def main() -> int:
     moves_for = moves_by_scenario.get if PLAYBOOK_AUGMENTED else None
 
     with GatewayClient() as gateway:
-        def answerer(situation: str) -> dict:
+        def answerer(situation: str, thread=()) -> dict:
             # Through responding.respond, not answer_situation directly (issue #14): intake
             # runs first and decides whether this is answerable as written, needs the
             # client's actual words, or is out of scope. answer_situation is unchanged and
             # is what the reply_to_client path calls.
+            #
+            # `thread` is the conversation the caller replayed (issue #15). Nothing is
+            # stored here between requests, which is the point -- see the module docstring.
             return responding.respond(
                 situation, pool, gateway, embed_query=embedder.embed_query_matrix,
-                label_for=label_for, moves_for=moves_for)
+                thread=thread, label_for=label_for, moves_for=moves_for)
 
         if args.ask:
+            # One message, no thread. `--ask` is a single-shot check of the whole path.
             print(json.dumps(answerer(args.ask), indent=2))
             return 0
         service.serve(answerer, host=args.host, port=args.port)

@@ -177,9 +177,16 @@ def build_prompt(message: str) -> str:
     ])
 
 
-def classify(message: str, gateway, *, model: str = CHAT_MODEL,
+def classify(message: str, gateway, *, thread=(), model: str = CHAT_MODEL,
              reasoning_effort: str | None = REASONING_EFFORT) -> tuple[IntakeDecision, dict]:
     """Decide what happens to `message`. Returns (decision, meta).
+
+    `thread` is the conversation so far (issue #15). Accepted here and NOT yet read: the
+    four jobs history exists for -- detecting a follow-up, recognising a message as the
+    material for an earlier clarify, not re-asking a clarify, and inheriting a scenario
+    identifier -- are issue #16, and they arrive together with the thread-shaped cases that
+    measure them. Adding history to this prompt before there is anything to measure it with
+    would move a routing number that took a corrected instrument to get right.
 
     `model` and `reasoning_effort` exist so a cheaper configuration can be A/B'd on the same
     labelled cases (`ask-naren/audit/measure_intake_accuracy.py --model ... --reasoning ...`)

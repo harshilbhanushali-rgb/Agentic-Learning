@@ -25,6 +25,8 @@ import traceback
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Callable
 
+from ask_naren import threads
+
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8787
 
@@ -39,13 +41,19 @@ _SERVICE_ERROR_MESSAGE = (
 )
 
 
-def build_server(answerer: Callable[[str], dict], *, host: str = DEFAULT_HOST,
+#: The answerer takes the situation AND the thread it arrived in (issue #15). Still ONE
+#: callable -- the layer did not grow a second entry point for a multi-turn request, because
+#: a thread is not a different kind of question, it is context on the same one.
+Answerer = Callable[[str, tuple], dict]
+
+
+def build_server(answerer: Answerer, *, host: str = DEFAULT_HOST,
                  port: int = DEFAULT_PORT) -> HTTPServer:
     """An unstarted server. `port=0` binds an ephemeral port, which is what tests use."""
     return HTTPServer((host, port), _make_handler(answerer))
 
 
-def serve(answerer: Callable[[str], dict], *, host: str = DEFAULT_HOST,
+def serve(answerer: Answerer, *, host: str = DEFAULT_HOST,
           port: int = DEFAULT_PORT) -> None:
     httpd = build_server(answerer, host=host, port=port)
     print(f"[ask-naren] listening on http://{host}:{httpd.server_address[1]}  "
@@ -58,7 +66,7 @@ def serve(answerer: Callable[[str], dict], *, host: str = DEFAULT_HOST,
         httpd.server_close()
 
 
-def _make_handler(answerer: Callable[[str], dict]) -> type[BaseHTTPRequestHandler]:
+def _make_handler(answerer: Answerer) -> type[BaseHTTPRequestHandler]:
 
     class Handler(BaseHTTPRequestHandler):
         # HTTP/1.1 for correct semantics, but every response closes its connection (see
@@ -79,12 +87,12 @@ def _make_handler(answerer: Callable[[str], dict]) -> type[BaseHTTPRequestHandle
                 self._send(404, {"error": "not found"})
                 return
             try:
-                situation = self._read_situation()
+                situation, thread = self._read_request()
             except ValueError as e:
                 self._send(400, {"error": str(e)})
                 return
             try:
-                self._send(200, answerer(situation))
+                self._send(200, answerer(situation, thread))
             except Exception:             # noqa: BLE001 -- a CSM must never see a traceback
                 # Logged in full here, reported as a generic fault to the caller: the
                 # message could name internal hosts, and it is not something a CSM can act
@@ -93,7 +101,17 @@ def _make_handler(answerer: Callable[[str], dict]) -> type[BaseHTTPRequestHandle
                 self._send(503, {"outcome": "declined", "reason": SERVICE_ERROR,
                                  "message": _SERVICE_ERROR_MESSAGE})
 
-        def _read_situation(self) -> str:
+        def _read_request(self) -> tuple[str, tuple]:
+            """The situation, and the thread it arrived in (issue #15).
+
+            `thread` is OPTIONAL and absent means an empty thread -- every caller written
+            before threads existed keeps working unchanged, including `--ask`.
+
+            A thread that is PRESENT and malformed is a 400, not an ignored field. It means
+            our own frontend and this service disagree about the shape, and answering the
+            message anyway would read every follow-up as a brand new question while looking
+            perfectly healthy. See `threads.parse`.
+            """
             length = int(self.headers.get("Content-Length") or 0)
             if length <= 0:
                 raise ValueError("empty request body")
@@ -108,7 +126,7 @@ def _make_handler(answerer: Callable[[str], dict]) -> type[BaseHTTPRequestHandle
             situation = body.get("situation")
             if not isinstance(situation, str) or not situation.strip():
                 raise ValueError("'situation' must be a non-empty string")
-            return situation
+            return situation, threads.parse(body.get("thread"))
 
         def _send(self, status: int, payload: dict) -> None:
             data = json.dumps(payload).encode("utf-8")

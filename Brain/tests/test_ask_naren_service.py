@@ -33,7 +33,7 @@ def serve_with():
 def test_a_situation_gets_the_answerers_response_unchanged(serve_with):
     """The HTTP layer is transport only: whatever the answerer decided is what a caller
     reads, with no reshaping in between for the frontend to have to know about."""
-    base = serve_with(lambda situation: ANSWER)
+    base = serve_with(lambda situation, thread=():ANSWER)
     r = httpx.post(f"{base}/ask", json={"situation": "cost per hire is too high"})
     assert r.status_code == 200
     assert r.json() == ANSWER
@@ -41,16 +41,54 @@ def test_a_situation_gets_the_answerers_response_unchanged(serve_with):
 
 def test_the_situation_reaches_the_answerer_verbatim(serve_with):
     seen = []
-    base = serve_with(lambda situation: (seen.append(situation), ANSWER)[1])
+    base = serve_with(lambda situation, thread=():(seen.append(situation), ANSWER)[1])
     httpx.post(f"{base}/ask", json={"situation": "  client is angry about spend  "})
     assert seen == ["  client is angry about spend  "]
+
+
+# -- the thread a caller replays (issue #15) ---------------------------------------------
+
+def test_a_request_with_no_thread_is_an_empty_thread(serve_with):
+    """Every caller written before threads existed, `--ask` included, sends no `thread` key
+    and must keep working exactly as it did."""
+    seen = []
+    base = serve_with(lambda situation, thread=():(seen.append(thread), ANSWER)[1])
+    httpx.post(f"{base}/ask", json={"situation": "cost per hire is too high"})
+    assert seen == [()]
+
+
+def test_a_thread_reaches_the_answerer_as_validated_turns(serve_with):
+    seen = []
+    base = serve_with(lambda situation, thread=():(seen.append(thread), ANSWER)[1])
+    r = httpx.post(f"{base}/ask", json={
+        "situation": "and if they push back on price?",
+        "thread": [{"message": "client says our cpa is 3x", "outcome": "answered",
+                    "reply": "reframe on their own baseline", "pair_id": 11,
+                    "scenario_key": "performance_pushback", "call_filename": "a.txt"}],
+    })
+    assert r.status_code == 200
+    assert len(seen[0]) == 1
+    assert seen[0][0].pair_id == 11
+    assert seen[0][0].scenario_key == "performance_pushback"
+
+
+def test_a_malformed_thread_is_rejected_rather_than_silently_ignored(serve_with):
+    """Ignoring it would answer every follow-up as a brand new question while the tool
+    looked perfectly healthy -- the same class of silent failure the `intake` echo on every
+    response exists to prevent."""
+    called = []
+    base = serve_with(lambda situation, thread=():called.append(situation) or ANSWER)
+    r = httpx.post(f"{base}/ask", json={"situation": "anything",
+                                        "thread": [{"outcome": "sideways"}]})
+    assert r.status_code == 400
+    assert called == []
 
 
 def test_a_decline_is_a_successful_response_not_an_error(serve_with):
     """A decline is Ask Naren working correctly. Returning it as an HTTP error would make
     every caller treat conservative behaviour as an outage."""
     decline = {"outcome": "declined", "reason": "no_close_match", "message": "No close match."}
-    base = serve_with(lambda situation: decline)
+    base = serve_with(lambda situation, thread=():decline)
     r = httpx.post(f"{base}/ask", json={"situation": "anything"})
     assert r.status_code == 200
     assert r.json()["outcome"] == "declined"
@@ -58,19 +96,19 @@ def test_a_decline_is_a_successful_response_not_an_error(serve_with):
 
 def test_a_blank_situation_is_rejected_without_reaching_the_answerer(serve_with):
     called = []
-    base = serve_with(lambda situation: called.append(situation) or ANSWER)
+    base = serve_with(lambda situation, thread=():called.append(situation) or ANSWER)
     r = httpx.post(f"{base}/ask", json={"situation": "   "})
     assert r.status_code == 400
     assert called == []
 
 
 def test_a_missing_situation_field_is_rejected(serve_with):
-    base = serve_with(lambda situation: ANSWER)
+    base = serve_with(lambda situation, thread=():ANSWER)
     assert httpx.post(f"{base}/ask", json={"question": "wrong key"}).status_code == 400
 
 
 def test_a_malformed_body_is_rejected_rather_than_crashing_the_server(serve_with):
-    base = serve_with(lambda situation: ANSWER)
+    base = serve_with(lambda situation, thread=():ANSWER)
     r = httpx.post(f"{base}/ask", content=b"{not json", headers={"content-type": "application/json"})
     assert r.status_code == 400
     # the server is still answering afterwards
@@ -80,7 +118,7 @@ def test_a_malformed_body_is_rejected_rather_than_crashing_the_server(serve_with
 def test_an_answerer_failure_reads_as_a_decline_not_a_traceback(serve_with):
     """A gateway outage or a dropped VPN must not put a stack trace in front of a CSM. The
     status distinguishes it from a genuine decline for whoever is debugging."""
-    def explode(situation):
+    def explode(situation, thread=()):
         raise RuntimeError("gateway unreachable")
 
     base = serve_with(explode)
@@ -95,7 +133,7 @@ def test_an_answerer_failure_reads_as_a_decline_not_a_traceback(serve_with):
 
 def test_health_reports_readiness_without_spending_a_generation(serve_with):
     called = []
-    base = serve_with(lambda situation: called.append(situation) or ANSWER)
+    base = serve_with(lambda situation, thread=():called.append(situation) or ANSWER)
     r = httpx.get(f"{base}/health")
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
@@ -103,13 +141,13 @@ def test_health_reports_readiness_without_spending_a_generation(serve_with):
 
 
 def test_an_unknown_path_is_a_404(serve_with):
-    base = serve_with(lambda situation: ANSWER)
+    base = serve_with(lambda situation, thread=():ANSWER)
     assert httpx.post(f"{base}/answer", json={"situation": "x"}).status_code == 404
     assert httpx.get(f"{base}/ask").status_code == 404
 
 
 def test_responses_are_json(serve_with):
-    base = serve_with(lambda situation: ANSWER)
+    base = serve_with(lambda situation, thread=():ANSWER)
     r = httpx.post(f"{base}/ask", json={"situation": "x"})
     assert r.headers["content-type"].startswith("application/json")
 
@@ -119,7 +157,7 @@ def test_an_idle_client_connection_does_not_block_the_next_caller(serve_with):
     keep-alive connection left open by one caller must not hold the service hostage: with
     HTTP/1.1 keep-alive on a serial server, the next CSM's question waits on a socket
     nobody is using. Each response closes its connection instead."""
-    base = serve_with(lambda situation: ANSWER)
+    base = serve_with(lambda situation, thread=():ANSWER)
     lingering = httpx.Client()
     assert lingering.post(f"{base}/ask", json={"situation": "first"}).status_code == 200
     try:
@@ -131,14 +169,17 @@ def test_an_idle_client_connection_does_not_block_the_next_caller(serve_with):
 
 def test_a_request_cannot_select_the_playbook_variant(serve_with):
     """Issue #5: the playbook-augmented prompt is selectable by internal configuration
-    ONLY. The HTTP layer reads exactly one field and hands the answerer a plain string, so
-    there is no channel for a request to carry a variant, a flag, or a prompt override --
+    ONLY. The HTTP layer reads exactly two fields -- the situation and the thread -- and
     extra keys are not rejected, they are simply never read. This pins that boundary: the
-    day someone adds `body.get("playbook")` to the handler, this test fails."""
+    day someone adds `body.get("playbook")` to the handler, this test fails.
+
+    The THREAD does not widen that channel either (issue #15). A turn forbids unknown keys,
+    so a caller cannot smuggle a variant, a prompt or a move list through the one field
+    that did grow."""
     seen = []
 
-    def answerer(situation):
-        seen.append(situation)
+    def answerer(situation, thread=()):
+        seen.append((situation, thread))
         return ANSWER
 
     base = serve_with(answerer)
@@ -150,5 +191,13 @@ def test_a_request_cannot_select_the_playbook_variant(serve_with):
         "prompt_variant": "playbook_augmented",
     })
     assert r.status_code == 200
-    # The answerer received the situation and nothing else -- one positional string.
-    assert seen == ["cost per hire is too high"]
+    # The answerer received the situation and an empty thread, and nothing else.
+    assert seen == [("cost per hire is too high", ())]
+
+    # A variant smuggled inside a thread turn is refused at the boundary, not ignored.
+    r = httpx.post(f"{base}/ask", json={
+        "situation": "cost per hire is too high",
+        "thread": [{"message": "x", "outcome": "answered",
+                    "moves": [{"name": "injected", "criterion": "injected"}]}],
+    })
+    assert r.status_code == 400

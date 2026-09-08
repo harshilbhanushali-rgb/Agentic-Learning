@@ -9,7 +9,7 @@ routing accuracy is a separate question measured against labelled messages
 import numpy as np
 import pytest
 
-from ask_naren import intake, responding, retrieval
+from ask_naren import intake, responding, retrieval, threads
 
 RESPONSE = ("Yeah, so what I usually do there is pull the last 90 days of spend and show "
             "them cost per hire against their own baseline, not against our benchmark.")
@@ -61,18 +61,25 @@ def _answer_payload():
             "quote": GOOD_QUOTE, "cited_call": CALL}
 
 
-def _decides(intent, retrieval_query="", question=""):
-    """A stand-in intake that returns a fixed decision without calling a gateway."""
-    def _classify(message, gateway):
+def _decides(intent, retrieval_query="", question="", seen_threads=None):
+    """A stand-in intake that returns a fixed decision without calling a gateway.
+
+    `seen_threads` records what thread intake was handed, which is the only externally
+    observable part of "history reaches intake" (issue #15).
+    """
+    def _classify(message, gateway, *, thread=()):
+        if seen_threads is not None:
+            seen_threads.append(thread)
         return intake.IntakeDecision(intent=intent, retrieval_query=retrieval_query,
                                      question=question), {}
     return _classify
 
 
-def _respond(classify, *payloads, message=FRAMED, embedder=None):
+def _respond(classify, *payloads, message=FRAMED, embedder=None, thread=()):
     gw = StubGateway(*payloads)
     embed = embedder or RecordingEmbedder()
-    result = responding.respond(message, _pool(), gw, embed_query=embed, classify=classify)
+    result = responding.respond(message, _pool(), gw, embed_query=embed, thread=thread,
+                                classify=classify)
     return result, gw, embed
 
 
@@ -129,6 +136,73 @@ def test_an_out_of_scope_decline_reports_no_match_because_nothing_was_searched()
     assert "match" not in result
 
 
+# -- the thread (issue #15) ---------------------------------------------------------------
+
+def _prior(message="client says our cpa is 3x", reply="reframe on their own baseline",
+           outcome="answered", pair_id=11, scenario_key="performance_pushback"):
+    return threads.ThreadTurn(message=message, reply=reply, outcome=outcome,
+                              pair_id=pair_id, scenario_key=scenario_key)
+
+
+def test_history_reaches_intake():
+    """Intake cannot detect a follow-up, resolve its own clarify or avoid re-asking one
+    without the thread. This is the plumbing that makes issue #16 possible."""
+    seen = []
+    _respond(_decides("reply_to_client", CLIENT_WORDS, seen_threads=seen),
+             _answer_payload(), thread=(_prior(),))
+    assert len(seen) == 1
+    assert seen[0][0].pair_id == 11
+
+
+def test_history_never_reaches_the_embedded_query():
+    """ADR 0006, and the single most important property of a thread here. Retrieval embeds
+    the CURRENT message alone: previous turns are text shared by every later query in the
+    thread, and shared text pulls all queries toward each other -- measured at 81% of
+    situations reaching a different exchange, with the cosine range collapsing from 0.124 to
+    0.076 wide."""
+    prior = _prior(message="client says our cpa is 3x",
+                   reply="pull the last 90 days of spend and show cost per hire")
+    _, _, embed = _respond(_decides("reply_to_client", CLIENT_WORDS), _answer_payload(),
+                           thread=(prior,))
+    assert embed.seen == [CLIENT_WORDS]
+    assert not any("90 days" in t for t in embed.seen)
+    assert not any("3x" in t for t in embed.seen)
+
+
+def test_a_long_thread_is_trimmed_before_intake_sees_it():
+    """A conversation that has run all afternoon must not quietly turn one question into a
+    60KB generation."""
+    seen = []
+    long_thread = tuple(_prior(message="m" * 4_000, reply="r" * 4_000, pair_id=n)
+                        for n in range(1, 12))
+    _respond(_decides("reply_to_client", CLIENT_WORDS, seen_threads=seen),
+             _answer_payload(), thread=long_thread)
+    total = sum(len(t.message) + len(t.reply) for t in seen[0])
+    assert total <= threads.MAX_THREAD_CHARS
+
+
+def test_trimming_a_thread_does_not_lose_a_carried_identifier():
+    """The rule ADR 0006 makes load-bearing: the first message usually established the
+    scenario, and every later turn inherits its identifier. Whatever a trim drops, it is
+    never that."""
+    seen = []
+    long_thread = tuple(_prior(message="m" * 4_000, reply="r" * 4_000, pair_id=n,
+                               scenario_key=f"scenario_{n}") for n in range(1, 12))
+    _respond(_decides("reply_to_client", CLIENT_WORDS, seen_threads=seen),
+             _answer_payload(), thread=long_thread)
+    assert [t.pair_id for t in seen[0]] == list(range(1, 12))
+    assert [t.scenario_key for t in seen[0]] == [f"scenario_{n}" for n in range(1, 12)]
+
+
+def test_no_thread_behaves_exactly_as_before_threads_existed():
+    seen = []
+    result, _, embed = _respond(_decides("reply_to_client", CLIENT_WORDS, seen_threads=seen),
+                                _answer_payload())
+    assert seen == [()]
+    assert result["outcome"] == "answered"
+    assert embed.seen == [CLIENT_WORDS]
+
+
 # -- the request boundary ----------------------------------------------------------------
 
 def test_every_response_records_what_intake_decided():
@@ -148,7 +222,7 @@ def test_every_response_records_what_intake_decided():
 
 
 def test_the_fallback_is_visible_in_the_response_when_intake_breaks():
-    def _boom(message, gateway):
+    def _boom(message, gateway, *, thread=()):
         raise RuntimeError("intake exploded")
 
     result, _, _ = _respond(_boom, _answer_payload())
@@ -173,7 +247,7 @@ def test_an_empty_message_is_refused():
 def test_intake_failing_completely_still_answers_the_message_as_written():
     """Intake is an optimisation on a path that already worked. A classify that raises must
     degrade to the pre-intake behaviour rather than fail the request."""
-    def _boom(message, gateway):
+    def _boom(message, gateway, *, thread=()):
         raise RuntimeError("intake exploded")
 
     result, _, embed = _respond(_boom, _answer_payload())
