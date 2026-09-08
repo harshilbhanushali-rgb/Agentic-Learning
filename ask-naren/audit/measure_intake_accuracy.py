@@ -6,6 +6,7 @@
     python ask-naren/audit/measure_intake_accuracy.py --set threaded   # issue #16
     python ask-naren/audit/measure_intake_accuracy.py --set procedure  # issue #17
     python ask-naren/audit/measure_intake_accuracy.py --set rendered   # issues #19, #20
+    python ask-naren/audit/measure_intake_accuracy.py --set playbook   # issue #18
     python ask-naren/audit/measure_intake_accuracy.py --limit 6        # smoke test
 
 WHY THIS IS CHEAP, AND WHY THAT MATTERS. Every other quality question in this project needs a
@@ -275,6 +276,49 @@ undetected, because `Brain/tests/` does not import anything under `ask-naren/aud
 nothing else compiles it. It surfaced only when the next edit happened to run the script.
 If you add a section here, add it INSIDE this docstring, and if you touch any audit script,
 compile it before committing.
+
+
+## THE PLAYBOOK-INTENT SET (`--set playbook`, issue #18), 2026-09-09
+
+The five a scenario's Layer C playbook answers by being rendered: `sequence`, `phrasing`,
+`pitfalls`, `scenario_check`, `play_confidence`.
+
+**8/8 HELD OUT, no asterisk.** The prompt was not changed after reading the result.
+
+#18 makes this measurement an acceptance criterion in its own words -- "intake distinguishes
+procedure from phrasing and from sequence, and those discriminators are MEASURED rather than
+assumed" -- and it is the hardest set in this file, because SIX intents ask about THE SAME
+PLAYBOOK for THE SAME SITUATION. Only the part wanted separates them:
+
+| intent | what the CSM wants |
+| --- | --- |
+| `procedure` | the moves -- what do i do |
+| `sequence` | the order -- what do i do FIRST |
+| `phrasing` | the words -- how does he SAY it |
+| `pitfalls` | the failure modes -- what goes WRONG |
+| `scenario_check` | the preconditions -- does this even APPLY |
+| `play_confidence` | the evidence -- how much is this BUILT ON |
+
+Two negatives keep it honest: the same topic with a client QUOTED must stay on
+`reply_to_client` (the Layer B path, the one with the measured accuracy number), and "how
+many calls did we run for Uber last quarter" looks like `play_confidence` and is an internal
+account fact.
+
+### Fifteen intents share one prompt, and the earlier sets did not move
+
+Re-run rather than assumed, as after every intent addition:
+
+| set | before #18 | after |
+| --- | --- | --- |
+| held out (core `reply_to_client`) | 10/11 | **10/11** |
+| rendered (#19, #20) | 8/8 | **8/8** |
+| procedure (#17) | 7/7 | **7/7** |
+
+The held-out failure is the same case it has been for three intent sets now -- "a client like
+this one would want a case study, do we have something". It has moved `reply_to_client` ->
+`coverage_check` as intents were added, each time to a nearer miss, and it is still a miss:
+`coverage_check` asks whether Ask Naren covers a SITUATION, and this asks whether we have a
+marketing artifact. Worth watching, not withdrawing.
 
 """
 from __future__ import annotations
@@ -551,6 +595,59 @@ RENDERED = [
 ]
 
 
+# PLAYBOOK-INTENT cases (issue #18). The five a scenario's Layer C playbook answers by being
+# rendered: sequence, phrasing, pitfalls, scenario_check, play_confidence.
+#
+# HELD OUT: written before the discriminators were worded, not edited after a result.
+#
+# #18 NAMES THE MEASUREMENT AS A CRITERION -- "intake distinguishes procedure from phrasing
+# and from sequence, and those discriminators are MEASURED rather than assumed" -- and it is
+# the hardest set here, because all six of these intents ask about THE SAME PLAYBOOK for THE
+# SAME SITUATION. What separates them is only which part of it the CSM wants:
+#
+#     procedure       -> the moves            (what do i do)
+#     sequence        -> the order            (what do i do FIRST)
+#     phrasing        -> the words            (how does he SAY it)
+#     pitfalls        -> the failure modes    (what goes WRONG)
+#     scenario_check  -> the preconditions    (does this even APPLY)
+#     play_confidence -> the evidence         (how much is this BUILT ON)
+#
+# The negative cases are the ones that must stay OFF the playbook entirely: a quoted client
+# turn still belongs to reply_to_client, however playbook-shaped the rest of the sentence is.
+PLAYBOOK_SET = [
+    {"message": "what do i do first when a client pushes back on cost per hire",
+     "expect": "sequence",
+     "note": "THE DISCRIMINATOR against procedure: asks for the ORDER, not the moves"},
+    {"message": "how does naren actually word it when he reframes on their own baseline",
+     "expect": "phrasing",
+     "note": "wants his language, not an action"},
+    {"message": "what usually goes wrong when people handle cost per hire complaints",
+     "expect": "pitfalls",
+     "note": "asks for failure modes"},
+    {"message": "does the cost per hire play even apply if the client is comparing us to a competitor",
+     "expect": "scenario_check",
+     "note": "asks whether the play fits, not what it is"},
+    {"message": "how many calls is the cost per hire play actually built on",
+     "expect": "play_confidence",
+     "note": "asks how well evidenced it is"},
+
+    {"message": "how do we usually handle cost per hire pushback",
+     "expect": "procedure",
+     "note": "THE ANCHOR. Same situation as all five above; asks for the MOVES, which is "
+             "the one procedure owns"},
+
+    {"message": "client said \"your cost per hire is nowhere near what you pitched\", what "
+                "do i say",
+     "expect": "reply_to_client",
+     "query_must_not_contain": ["what do i say"],
+     "note": "THE HARD NEGATIVE. Same topic again, but a client is quoted -- so it belongs "
+             "on the Layer B path, the one with the measured accuracy number"},
+    {"message": "how many calls did we run for Uber last quarter",
+     "expect": "out_of_scope",
+     "note": "'how many calls' looks like play_confidence and is an internal account fact"},
+]
+
+
 THREADED = [
     # -- must be read as follow-ups: no new situation, only the one already answered -------
     {"thread": [_ANSWERED],
@@ -634,7 +731,8 @@ def main() -> int:
     ap.add_argument("--limit", type=int, help="only the first N cases (smoke test)")
     ap.add_argument("--out", default=str(ARTIFACTS / "intake_accuracy.json"))
     ap.add_argument("--set", dest="which", default="fitted",
-                    choices=("fitted", "heldout", "threaded", "procedure", "rendered", "both"),
+                    choices=("fitted", "heldout", "threaded", "procedure", "rendered",
+                             "playbook", "both"),
                     help="fitted = the 12 the prompt was tuned on (NOT an accuracy "
                          "rate); heldout = cases never used to change the prompt; "
                          "threaded = the conversation-shaped cases (issue #16)")
@@ -647,7 +745,7 @@ def main() -> int:
 
     load_config()
     pool = {"fitted": CASES, "heldout": HELD_OUT, "threaded": THREADED,
-            "procedure": PROCEDURE, "rendered": RENDERED,
+            "procedure": PROCEDURE, "rendered": RENDERED, "playbook": PLAYBOOK_SET,
             "both": CASES + HELD_OUT}[args.which]
     cases = pool[:args.limit] if args.limit else pool
 
@@ -706,6 +804,7 @@ def main() -> int:
              "threaded": "THREAD-SHAPED cases (issue #16)",
              "procedure": "PROCEDURE cases (issue #17)",
              "rendered": "RENDERED-INTENT cases (issues #19, #20)",
+             "playbook": "PLAYBOOK-INTENT cases (issue #18)",
              "both": "fitted + held-out"}[args.which]
     print(f"ROUTING ACCURACY -- {args.model} "
           f"(reasoning={args.reasoning or chr(110)+chr(111)+chr(110)+chr(101)}) -- {label}")
@@ -719,7 +818,8 @@ def main() -> int:
     # instead of answering.
     for label in ("reply_to_client", "clarify", "out_of_scope", "follow_up", "procedure",
                   "discovery", "frequency", "show_exchange", "what_happened_next",
-                  "coverage_check"):
+                  "coverage_check", "sequence", "phrasing", "pitfalls", "scenario_check",
+                  "play_confidence"):
         group = [r for r in rows if r["expect"] == label]
         if group:
             hit = sum(r["correct"] for r in group)

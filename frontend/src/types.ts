@@ -330,6 +330,28 @@ export type AskNarenRendered =
       /** True when nothing followed it in the call. An empty list is something a CSM has to
        *  interpret; this is an answer. */
       is_last: boolean; citation: AskNarenCitation }
+  /* The five a scenario's Layer C playbook answers by being rendered (issue #18). None of
+     them carries a citation: what they show is the PLAY, derived from many calls, so there
+     is no single call to point at. `scenario_key` is the only thing that makes a misroute
+     visible, which is why every one of them carries it. */
+  | { outcome: 'rendered'; kind: 'sequence'; intake?: AskNarenIntake;
+      scenario_key: string; steps: string[] }
+  | { outcome: 'rendered'; kind: 'phrasing'; intake?: AskNarenIntake;
+      scenario_key: string;
+      /** Phrase and quote are one-to-one here, so unlike a Layer C `answered` response
+       *  (ADR 0009) there is no part of this that a quote does not cover. */
+      phrases: { phrase: string; quote: string; call: string }[] }
+  | { outcome: 'rendered'; kind: 'pitfalls'; intake?: AskNarenIntake;
+      scenario_key: string;
+      pitfalls: { text: string; evidence: { quote: string; call: string }[] }[] }
+  | { outcome: 'rendered'; kind: 'scenario_check'; intake?: AskNarenIntake;
+      asked_about: string; scenario_key: string;
+      /** WHEN the play applies. Deliberately not a yes/no — whether it fits a live client
+       *  is a judgement Ask Naren has only the CSM's own sentence for. */
+      applies_when: string }
+  | { outcome: 'rendered'; kind: 'play_confidence'; intake?: AskNarenIntake;
+      scenario_key: string; n_evidence: number; moves: number; quotes: number;
+      basis: string }
   | { outcome: 'rendered'; kind: 'coverage_check'; intake?: AskNarenIntake;
       asked_about: string;
       nearest: AskNarenScenarioRef & {

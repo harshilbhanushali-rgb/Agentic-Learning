@@ -38,6 +38,11 @@ FREQUENCY = intake.FREQUENCY
 SHOW_EXCHANGE = intake.SHOW_EXCHANGE
 WHAT_HAPPENED_NEXT = intake.WHAT_HAPPENED_NEXT
 COVERAGE_CHECK = intake.COVERAGE_CHECK
+SEQUENCE = intake.SEQUENCE
+PHRASING = intake.PHRASING
+PITFALLS = intake.PITFALLS
+SCENARIO_CHECK = intake.SCENARIO_CHECK
+PLAY_CONFIDENCE = intake.PLAY_CONFIDENCE
 
 #: How many scenarios `frequency` ranks. All 34 is a wall of text a CSM will not read; the
 #: point of the intent is "what comes up most", which is the head of the distribution.
@@ -229,6 +234,128 @@ def _evidence_band(support_calls: int) -> str:
     wants it.
     """
     return "thin" if support_calls < THIN_EVIDENCE_CALLS else "solid"
+
+
+# -- the Layer C playbook, rendered (issue #18) --------------------------------------------
+#
+# ALL FIVE RENDER RATHER THAN GENERATE, and that is a deliberate reading of the ticket
+# rather than a shortcut. #18 asks that each answer be "verified against its grounding
+# source, or declines" -- but the playbook ALREADY IS the answer in each case, and it was
+# itself generated offline and verbatim-snapped (the step that validated the Layer C method:
+# the pilot failed PB0 pre-snap on quote-smoothing and passed 10/10 after). Generating here
+# would paraphrase a verified document and add an invention risk to replace text that is
+# already there. Rendering makes verification UNNECESSARY rather than skipped -- the same
+# argument #12 makes for Layer A, and the one issues #19 and #20 ship on.
+#
+# Three of the five have nothing quotable at all: `arc` is a list of move NAMES, and
+# `situation_signature` and `n_evidence` are a sentence and a number. There is no quote for
+# a gate to check even in principle.
+
+
+def sequence(scenario_key: str, playbook: dict) -> dict:
+    """What order to run the moves in (issue #18), from `arc`.
+
+    `arc` is a list of move names in the order Naren tends to run them -- OUR words, derived
+    from his calls, with no quote attached to any step. `db/schema.sql` records that the
+    order is load-bearing, so nothing here re-sorts it.
+    """
+    return {
+        "outcome": RENDERED,
+        "kind": SEQUENCE,
+        "scenario_key": scenario_key,
+        "steps": [str(step).strip() for step in (playbook.get("arc") or [])
+                  if str(step).strip()],
+    }
+
+
+def phrasing(scenario_key: str, playbook: dict) -> dict:
+    """How Naren actually words it (issue #18), from `signature_language`.
+
+    THE STRONGEST-GROUNDED PATH IN THE TOOL, and by accident of shape rather than by design:
+    a `signature_language` entry is `{phrase, quote, call, account}`, so the phrase and the
+    real quote it came from are one-to-one. Unlike a `procedure` answer -- where one verified
+    quote covers one move of several (ADR 0009) -- everything shown here has its own quote
+    beside it.
+
+    Paraphrasing would defeat the question outright: a CSM asking how Naren words something
+    wants HIS words, not ours about his.
+    """
+    return {
+        "outcome": RENDERED,
+        "kind": PHRASING,
+        "scenario_key": scenario_key,
+        "phrases": [{"phrase": (e.get("phrase") or "").strip(),
+                     "quote": (e.get("quote") or "").strip(),
+                     "call": (e.get("call") or "").strip()}
+                    for e in (playbook.get("signature_language") or [])
+                    if (e.get("quote") or "").strip()],
+    }
+
+
+def pitfalls(scenario_key: str, playbook: dict) -> dict:
+    """What usually goes wrong (issue #18), from `pitfalls_and_variants`.
+
+    Each pitfall is our sentence with Naren's own evidence under it, so a CSM can see both
+    the claim and the moment it came from. An entry whose evidence is empty is still shown --
+    the pitfall itself is the answer, and dropping it would under-report what is known.
+    """
+    return {
+        "outcome": RENDERED,
+        "kind": PITFALLS,
+        "scenario_key": scenario_key,
+        "pitfalls": [{"text": (item.get("text") or "").strip(),
+                      "evidence": [{"quote": (e.get("quote") or "").strip(),
+                                    "call": (e.get("call") or "").strip()}
+                                   for e in (item.get("evidence") or [])
+                                   if (e.get("quote") or "").strip()]}
+                     for item in (playbook.get("pitfalls_and_variants") or [])
+                     if (item.get("text") or "").strip()],
+    }
+
+
+def scenario_check(asked: str, scenario_key: str, playbook: dict) -> dict:
+    """Whether this play applies to what the CSM is seeing (issue #18), from
+    `situation_signature`.
+
+    IT DOES NOT ANSWER YES OR NO, and cannot. Whether a play fits a live client is a
+    judgement about a situation Ask Naren has only the CSM's sentence for; claiming it
+    would be exactly the confident-and-wrong answer a catch-all scenario produces. So it
+    shows WHEN the play applies, in the playbook's own words, and lets the CSM compare --
+    the same shape as `coverage_check`, and for the same reason.
+    """
+    return {
+        "outcome": RENDERED,
+        "kind": SCENARIO_CHECK,
+        "asked_about": asked,
+        "scenario_key": scenario_key,
+        "applies_when": (playbook.get("situation_signature") or "").strip(),
+    }
+
+
+def play_confidence(scenario_key: str, record: dict) -> dict:
+    """How well evidenced the play is (issue #18), from the record's `n_evidence`.
+
+    A PROPERTY OF THE RECORD, NOT OF THE DOCUMENT -- `n_evidence` sits beside `playbook`
+    rather than inside it, which is why the service keeps the whole row. It is the number of
+    evidence entries the playbook was built from.
+
+    `moves` and `quotes` are counted here rather than taken on trust, because they are what
+    a CSM can actually see and a mismatch between them and `n_evidence` is worth being
+    visible rather than smoothed over.
+    """
+    playbook = record.get("playbook") or {}
+    moves = playbook.get("key_moves") or []
+    return {
+        "outcome": RENDERED,
+        "kind": PLAY_CONFIDENCE,
+        "scenario_key": scenario_key,
+        "n_evidence": record.get("n_evidence") or 0,
+        "moves": len(moves),
+        "quotes": sum(len(m.get("evidence") or []) for m in moves),
+        "basis": ("How many pieces of evidence from Naren's calls this play was built from. "
+                  "It says how much sits behind the play, not whether the play is right for "
+                  "your client."),
+    }
 
 
 def _citation(pair: dict, label_for) -> dict:

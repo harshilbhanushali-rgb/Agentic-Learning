@@ -44,7 +44,7 @@
     "expect": "show_exchange",
     "got": "show_exchange",
     "correct": true,
-    "retrieval_query": "cost per hire",
+    "retrieval_query": "client pushed back on cost per hire",
     "question": "",
     "framing_leaked": [],
     "verbatim_span": true,

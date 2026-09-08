@@ -52,6 +52,29 @@ function ScenarioLine({ scenario }: { scenario: { scenario_key: string; descript
   );
 }
 
+/** The header every playbook-derived answer carries: what kind of thing this is, and which
+ *  scenario's play it came from. The scenario line is not decoration — these answers have no
+ *  citation, so it is the only thing that lets a CSM catch a misroute. */
+function Play({ kind, scenarioKey }: { kind: string; scenarioKey: string }) {
+  return (
+    <header className="flex flex-col gap-1">
+      <span className={EYEBROW}>{kind}</span>
+      <p className="text-[12px] text-ink-2">
+        For <span className="font-medium">{scenarioLabel(scenarioKey)}</span>
+      </p>
+    </header>
+  );
+}
+
+function Stat({ n, label }: { n: number; label: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-xl font-bold tabular-nums text-ink">{n}</span>
+      <span className="text-[11px] text-ink-placeholder">{label}</span>
+    </div>
+  );
+}
+
 function Source({ label }: { label: string }) {
   return (
     <footer className="flex flex-wrap items-baseline gap-x-2 border-t border-line-subtle pt-4 text-[11px] text-ink-placeholder">
@@ -214,6 +237,96 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
             real exchange.
           </p>
           <Source label={result.citation.label} />
+        </article>
+      );
+
+    /* -- the Layer C playbook, rendered (issue #18). Each carries a SCENARIO line, because
+          none of them has a citation: they show the play, derived from many calls, so there
+          is no single call to point at — and the scenario is then the only thing that makes
+          a misroute visible. */
+    case 'sequence':
+      return (
+        <article className={SHELL}>
+          <Play kind="The order Naren runs it in" scenarioKey={result.scenario_key} />
+          <ol className="flex flex-col gap-2">
+            {result.steps.map((step, i) => (
+              <li key={i} className="flex items-baseline gap-3">
+                <span className="w-5 shrink-0 text-[11px] tabular-nums text-ink-placeholder">
+                  {i + 1}
+                </span>
+                <span className="text-[13px] leading-relaxed text-ink">{step}</span>
+              </li>
+            ))}
+          </ol>
+        </article>
+      );
+
+    case 'phrasing':
+      return (
+        <article className={SHELL}>
+          <Play kind="How Naren words it" scenarioKey={result.scenario_key} />
+          <div className="flex flex-col gap-5">
+            {result.phrases.map((p, i) => (
+              <div key={i} className="flex flex-col gap-1.5">
+                <span className="text-[13px] font-medium text-ink">
+                  &ldquo;{p.phrase}&rdquo;
+                </span>
+                {/* The accent border IS used here, unlike everywhere else in this file: a
+                    phrase and the quote it came from are one-to-one, so this really is
+                    Naren&rsquo;s own verbatim line rather than a rendering of our summary. */}
+                <blockquote className="border-l-2 border-accent pl-4">
+                  <p className="text-[12px] italic leading-relaxed text-ink-2">{p.quote}</p>
+                </blockquote>
+              </div>
+            ))}
+          </div>
+        </article>
+      );
+
+    case 'pitfalls':
+      return (
+        <article className={SHELL}>
+          <Play kind="What usually goes wrong" scenarioKey={result.scenario_key} />
+          <div className="flex flex-col gap-5">
+            {result.pitfalls.map((p, i) => (
+              <div key={i} className="flex flex-col gap-1.5">
+                <p className="text-[13px] leading-relaxed text-ink">{p.text}</p>
+                {p.evidence.map((e, j) => (
+                  <blockquote key={j} className="border-l-2 border-line pl-4">
+                    <p className="text-[12px] italic leading-relaxed text-ink-2">{e.quote}</p>
+                  </blockquote>
+                ))}
+              </div>
+            ))}
+          </div>
+        </article>
+      );
+
+    case 'scenario_check':
+      return (
+        <article className={SHELL}>
+          <Play kind="When this play applies" scenarioKey={result.scenario_key} />
+          <p className="text-[13px] leading-relaxed text-ink">{result.applies_when}</p>
+          {/* NO VERDICT, deliberately. Whether the play fits a live client is a judgement
+              Ask Naren has only the CSM's own sentence for; claiming it would be exactly
+              the confident-and-wrong answer a catch-all scenario produces. */}
+          <p className="text-[12px] leading-relaxed text-ink-2">
+            You asked about &ldquo;{result.asked_about}&rdquo;. Compare that with the above
+            &mdash; Ask Naren cannot tell from one sentence whether it is the same situation.
+          </p>
+        </article>
+      );
+
+    case 'play_confidence':
+      return (
+        <article className={SHELL}>
+          <Play kind="How well evidenced this play is" scenarioKey={result.scenario_key} />
+          <div className="flex flex-wrap gap-x-8 gap-y-3">
+            <Stat n={result.n_evidence} label="pieces of evidence" />
+            <Stat n={result.moves} label={result.moves === 1 ? 'move' : 'moves'} />
+            <Stat n={result.quotes} label={result.quotes === 1 ? 'quote' : 'quotes'} />
+          </div>
+          <p className="text-[12px] leading-relaxed text-ink-2">{result.basis}</p>
         </article>
       );
 

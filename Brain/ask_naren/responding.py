@@ -75,7 +75,8 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
         # nothing here generates anything for it to check.
         return _with_intake(
             _rendered(message, decision, pool, embed_query=embed_query, label_for=label_for,
-                      scenarios_for=scenarios_for, following_for=following_for),
+                      scenarios_for=scenarios_for, following_for=following_for,
+                      playbook_for=playbook_for),
             decision)
 
     if decision.intent == intake.PROCEDURE:
@@ -109,7 +110,7 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
 
 
 def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool, *,
-              embed_query, label_for, scenarios_for, following_for) -> dict:
+              embed_query, label_for, scenarios_for, following_for, playbook_for) -> dict:
     """The five answers built from stored rows (issues #19, #20).
 
     `scenarios_for` returns the COACHABLE Layer A rows, and `following_for` returns the
@@ -142,6 +143,9 @@ def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool
     if decision.intent == intake.WHAT_HAPPENED_NEXT:
         following = following_for(match.pair["pair_id"]) if following_for else []
         return rendering.what_happened_next(match, following, label_for=label_for)
+
+    if decision.intent in intake.PLAYBOOK_INTENTS:
+        return _from_playbook(message, decision, match, playbook_for)
 
     scenario = None
     if scenarios_for:
@@ -180,7 +184,8 @@ def _procedure(message: str, decision: intake.IntakeDecision, pool: RetrievalPoo
 
     if playbook_for is not None:
         match = pool.top1(embed_once([decision.retrieval_query])[0])
-        playbook = playbook_for(match.pair["scenario_key"])
+        record = playbook_for(match.pair["scenario_key"])
+        playbook = (record or {}).get("playbook")
         if playbook:
             # None means the playbook carries no quotable evidence, which degrades to
             # Layer B below on the same footing as a scenario with no playbook at all.
@@ -192,6 +197,41 @@ def _procedure(message: str, decision: intake.IntakeDecision, pool: RetrievalPoo
     return answering.answer_situation(
         decision.retrieval_query, pool, gateway, embed_query=embed_once, k=k,
         label_for=label_for, moves_for=moves_for)
+
+
+def _from_playbook(message: str, decision: intake.IntakeDecision, match,
+                   playbook_for) -> dict:
+    """The five questions a scenario's Layer C playbook answers by being rendered (#18).
+
+    THE SCENARIO IS FOUND BY RETRIEVING, exactly as on the `procedure` path and for the same
+    reason: a model that can name a scenario can name one that does not exist, and the
+    taxonomy is Brain's to define.
+
+    NO LIVE PLAYBOOK IS A CLARIFY, not a decline and not a Layer B fallback. Unlike
+    `procedure` -- where Layer B still knows what Naren SAID about the situation, so a
+    grounded answer to a slightly different question is worth having -- there is no Layer B
+    substitute for "what order do I do this in" or "how many calls is this built on". The
+    honest move is to say the play is not recorded for this situation and point at the thing
+    that does work.
+    """
+    scenario_key = match.pair["scenario_key"]
+    record = playbook_for(scenario_key) if playbook_for else None
+    playbook = (record or {}).get("playbook")
+    if not playbook:
+        return answering.clarify(
+            f"There is no recorded play for {scenario_key.replace('_', ' ')}, which is the "
+            f"closest situation to what you asked. Describe a specific client situation "
+            f"instead and Ask Naren will answer from the closest real exchange.")
+
+    if decision.intent == intake.SEQUENCE:
+        return rendering.sequence(scenario_key, playbook)
+    if decision.intent == intake.PHRASING:
+        return rendering.phrasing(scenario_key, playbook)
+    if decision.intent == intake.PITFALLS:
+        return rendering.pitfalls(scenario_key, playbook)
+    if decision.intent == intake.SCENARIO_CHECK:
+        return rendering.scenario_check(message, scenario_key, playbook)
+    return rendering.play_confidence(scenario_key, record)
 
 
 def _guarded(decision: intake.IntakeDecision, message: str, turns,

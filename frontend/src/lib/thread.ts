@@ -218,6 +218,11 @@ const RENDERED_REPLIES: Record<AskNarenRendered['kind'], string> = {
   show_exchange: 'Showed the real exchange.',
   what_happened_next: 'Showed how that conversation continued.',
   coverage_check: 'Reported what is covered near that situation.',
+  sequence: 'Showed the order Naren runs it in.',
+  phrasing: 'Showed how Naren words it.',
+  pitfalls: 'Showed what usually goes wrong.',
+  scenario_check: 'Showed when that play applies.',
+  play_confidence: 'Showed how well evidenced that play is.',
 };
 
 /** The same fields the service's pydantic turn requires, checked in the same strictness:

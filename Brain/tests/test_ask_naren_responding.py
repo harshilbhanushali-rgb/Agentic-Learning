@@ -448,13 +448,18 @@ PLAYBOOK = {
 
 PLAY_QUESTION = "how do we usually handle cost per hire pushback"
 
+#: The RECORD, not the document. `n_evidence` sits beside `playbook` rather than inside it,
+#: which is why the service keeps the whole row -- `play_confidence` (issue #18) reports
+#: exactly that number.
+PLAYBOOK_RECORD = {"playbook": PLAYBOOK, "n_evidence": 7, "scenario_key": "performance_pushback"}
+
 
 def _play_payload(quote=PLAY_QUOTE, cited_call=CALL):
     return {"declined": False, "answer": "Reframe on their own baseline first.",
             "quote": quote, "cited_call": cited_call}
 
 
-def _ask_procedure(*payloads, playbook_for=lambda key: PLAYBOOK, query=None):
+def _ask_procedure(*payloads, playbook_for=lambda key: PLAYBOOK_RECORD, query=None):
     gw = StubGateway(*payloads)
     embed = RecordingEmbedder()
     result = responding.respond(
@@ -524,7 +529,9 @@ def test_a_live_playbook_with_no_quotable_evidence_degrades_to_layer_b():
     """Same footing as a scenario with no playbook at all: the play cannot be grounded, but
     the tool still knows what Naren SAID in the closest real exchange. It costs no gateway
     call to discover this -- the Layer C generation is never attempted."""
-    empty = {**PLAYBOOK, "key_moves": [{"name": "x", "criterion": "y", "evidence": []}]}
+    empty = {**PLAYBOOK_RECORD,
+             "playbook": {**PLAYBOOK, "key_moves": [{"name": "x", "criterion": "y",
+                                                     "evidence": []}]}}
     result, gw, _ = _ask_procedure(_answer_payload(), playbook_for=lambda key: empty)
     assert result["outcome"] == "answered"
     assert result["citation"]["pair_id"] == 11        # the Layer B shape
@@ -548,10 +555,13 @@ def test_the_gate_is_not_given_evidence_the_prompt_never_showed():
     must decline WITHOUT generating, even when other sections have quotes."""
     elsewhere = "we always attribute it back to the source"
     playbook = {
-        **PLAYBOOK,
-        "key_moves": [{"name": "x", "criterion": "y", "evidence": []}],
-        "signature_language": [{"phrase": "attribute it back",
-                                "quote": elsewhere, "call": CALL, "account": "uber.com"}],
+        **PLAYBOOK_RECORD,
+        "playbook": {
+            **PLAYBOOK,
+            "key_moves": [{"name": "x", "criterion": "y", "evidence": []}],
+            "signature_language": [{"phrase": "attribute it back", "quote": elsewhere,
+                                    "call": CALL, "account": "uber.com"}],
+        },
     }
     result, gw, _ = _ask_procedure(_answer_payload(), playbook_for=lambda key: playbook)
     assert result["outcome"] == "answered"
@@ -634,3 +644,38 @@ def test_every_rendered_response_still_records_what_intake_decided():
     result, _, _ = _ask_rendered("frequency")
     assert result["intake"]["intent"] == "frequency"
     assert result["intake"]["retrieval_query"] == ""
+
+
+# -- the five playbook intents through the seam (issue #18) --------------------------------
+
+def _ask_playbook(intent, playbook_for=lambda key: PLAYBOOK_RECORD):
+    gw = StubGateway()          # a generation here is a test failure
+    embed = RecordingEmbedder()
+    result = responding.respond(
+        "what order do i do these in", _pool(), gw, embed_query=embed,
+        classify=_decides(intent, "cost per hire pushback"), playbook_for=playbook_for)
+    return result, gw, embed
+
+
+def test_every_playbook_intent_renders_without_generating():
+    for intent in ("sequence", "phrasing", "pitfalls", "scenario_check", "play_confidence"):
+        result, gw, _ = _ask_playbook(intent)
+        assert result["outcome"] == "rendered", intent
+        assert result["kind"] == intent, intent
+        assert gw.calls == [], intent
+
+
+def test_a_playbook_intent_names_the_scenario_it_answered_from():
+    """A catch-all can absorb the question, and these answers have no citation to give it
+    away -- the scenario key is the only thing that makes a misroute visible."""
+    result, _, _ = _ask_playbook("sequence")
+    assert result["scenario_key"] == "performance_pushback"
+
+
+def test_a_scenario_with_no_live_playbook_asks_rather_than_declining_or_faking_one():
+    """Unlike `procedure`, there is no Layer B substitute for "what order do i do this in".
+    Saying so and pointing at what does work beats both a decline and a fabricated play."""
+    result, gw, _ = _ask_playbook("sequence", playbook_for=lambda key: None)
+    assert result["outcome"] == "clarify"
+    assert "performance pushback" in result["question"]
+    assert gw.calls == []

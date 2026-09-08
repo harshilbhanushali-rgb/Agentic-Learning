@@ -192,3 +192,78 @@ def test_coverage_check_quotes_the_csm_not_the_extracted_query():
     though the CSM wrote it is a small lie that gets believed."""
     result = rendering.coverage_check("do you have anything on renewals?", _match(), None)
     assert result["asked_about"] == "do you have anything on renewals?"
+
+
+# -- the Layer C playbook, rendered (issue #18) ---------------------------------------------
+
+PLAYBOOK = {
+    "situation_signature": "The client challenges cost per hire against what was pitched.",
+    "arc": ["Reframe on their own baseline", "Agree a realistic target"],
+    "key_moves": [
+        {"name": "Reframe on their own baseline", "criterion": "Compare against history.",
+         "evidence": [{"quote": "against their own baseline", "call": CALL}]},
+    ],
+    "signature_language": [
+        {"phrase": "their own baseline", "quote": "show them cost per hire against their "
+         "own baseline", "call": CALL, "account": "uber.com"},
+        {"phrase": "", "quote": "  ", "call": CALL, "account": "uber.com"},
+    ],
+    "pitfalls_and_variants": [
+        {"text": "Quoting the market benchmark instead of their own history.",
+         "evidence": [{"quote": "not against our benchmark", "call": CALL}]},
+    ],
+}
+RECORD = {"playbook": PLAYBOOK, "n_evidence": 7}
+
+
+def test_sequence_renders_the_arc_in_order():
+    """`db/schema.sql` records that the order is load-bearing, so nothing re-sorts it."""
+    result = rendering.sequence("performance_pushback", PLAYBOOK)
+    assert result["kind"] == "sequence"
+    assert result["steps"] == ["Reframe on their own baseline", "Agree a realistic target"]
+
+
+def test_phrasing_pairs_every_phrase_with_the_quote_it_came_from():
+    """The strongest-grounded path in the tool, by accident of shape: a signature_language
+    entry is phrase-and-quote one-to-one, so unlike a `procedure` answer (ADR 0009) there is
+    no part of this that a quote does not cover."""
+    result = rendering.phrasing("performance_pushback", PLAYBOOK)
+    assert len(result["phrases"]) == 1          # the quote-less entry is not a phrase
+    assert result["phrases"][0]["phrase"] == "their own baseline"
+    assert "own baseline" in result["phrases"][0]["quote"]
+
+
+def test_pitfalls_shows_the_claim_and_the_moment_it_came_from():
+    result = rendering.pitfalls("performance_pushback", PLAYBOOK)
+    assert result["pitfalls"][0]["text"].startswith("Quoting the market benchmark")
+    assert result["pitfalls"][0]["evidence"][0]["quote"] == "not against our benchmark"
+
+
+def test_scenario_check_does_not_answer_yes_or_no():
+    """Whether a play fits a live client is a judgement about a situation Ask Naren has only
+    the CSM's sentence for. Claiming it would be the confident-and-wrong answer a catch-all
+    scenario produces, so it shows WHEN the play applies and lets the CSM compare."""
+    result = rendering.scenario_check("client keeps comparing us to Indeed",
+                                      "performance_pushback", PLAYBOOK)
+    assert result["applies_when"].startswith("The client challenges cost per hire")
+    assert result["asked_about"] == "client keeps comparing us to Indeed"
+    assert "applies" not in result.get("answer", "")     # there is no verdict field at all
+
+
+def test_play_confidence_reports_the_records_evidence_count_not_the_documents():
+    """`n_evidence` sits BESIDE the document rather than inside it, which is why the service
+    keeps the whole row. Reading it off the document would report zero for every play."""
+    result = rendering.play_confidence("performance_pushback", RECORD)
+    assert result["n_evidence"] == 7
+    assert result["moves"] == 1
+    assert result["quotes"] == 1
+    assert "not whether the play is right" in result["basis"]
+
+
+def test_every_playbook_render_is_still_a_rendered_outcome():
+    for result in (rendering.sequence("k", PLAYBOOK), rendering.phrasing("k", PLAYBOOK),
+                   rendering.pitfalls("k", PLAYBOOK),
+                   rendering.scenario_check("x", "k", PLAYBOOK),
+                   rendering.play_confidence("k", RECORD)):
+        assert result["outcome"] == "rendered"
+        assert "answer" not in result and "quote" not in result

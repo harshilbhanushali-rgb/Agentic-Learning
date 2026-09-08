@@ -256,9 +256,12 @@ def _load_playbooks(conn, pairs: list[dict]) -> dict[str, dict]:
     missing = []
     for key in sorted({p["scenario_key"] for p in pairs}):
         row = storage.get_playbook_for_scenario(conn, key)
-        document = (row or {}).get("playbook")
-        if document:
-            playbooks[key] = document
+        if (row or {}).get("playbook"):
+            # THE WHOLE ROW, not just row["playbook"]. `n_evidence` is a sibling of the
+            # document rather than a field inside it, and `play_confidence` (issue #18) is
+            # exactly the question "how much evidence does this play rest on" -- storing only
+            # the document silently drops the one number that intent exists to report.
+            playbooks[key] = row
         else:
             missing.append(key)
     print(f"[playbook] {len(playbooks)} scenarios have a live playbook, {len(missing)} do "

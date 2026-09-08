@@ -62,18 +62,31 @@ FREQUENCY = "frequency"
 SHOW_EXCHANGE = "show_exchange"
 WHAT_HAPPENED_NEXT = "what_happened_next"
 COVERAGE_CHECK = "coverage_check"
+SEQUENCE = "sequence"
+PHRASING = "phrasing"
+PITFALLS = "pitfalls"
+SCENARIO_CHECK = "scenario_check"
+PLAY_CONFIDENCE = "play_confidence"
 
 #: Every intent intake may return today. Issues #17-#23 add more; each addition is a change
 #: to the schema sent to the gateway AND to the prompt's discriminators, never one alone.
 INTENTS = (REPLY_TO_CLIENT, CLARIFY, OUT_OF_SCOPE, FOLLOW_UP, PROCEDURE,
-           DISCOVERY, FREQUENCY, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT, COVERAGE_CHECK)
+           DISCOVERY, FREQUENCY, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT, COVERAGE_CHECK,
+           SEQUENCE, PHRASING, PITFALLS, SCENARIO_CHECK, PLAY_CONFIDENCE)
+
+#: The intents answered from a scenario's LAYER C PLAYBOOK by rendering it (issue #18).
+#: Grouped because one rule covers all five: the playbook already holds the answer, so
+#: generating one would paraphrase a document that was itself generated offline and
+#: verbatim-snapped -- adding an invention risk to replace text that is already there.
+PLAYBOOK_INTENTS = (SEQUENCE, PHRASING, PITFALLS, SCENARIO_CHECK, PLAY_CONFIDENCE)
 
 #: The intents that answer from STORED ROWS with no model call (issues #19, #20). They are
 #: grouped here because two rules apply to all five and to nothing else: they need no
 #: grounding gate (nothing is generated, so nothing can be invented), and `discovery` and
 #: `frequency` need no retrieval either -- they are about the corpus rather than about a
 #: situation.
-RENDERED_INTENTS = (DISCOVERY, FREQUENCY, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT, COVERAGE_CHECK)
+RENDERED_INTENTS = (DISCOVERY, FREQUENCY, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT, COVERAGE_CHECK,
+                    SEQUENCE, PHRASING, PITFALLS, SCENARIO_CHECK, PLAY_CONFIDENCE)
 
 #: Of those, the two that describe the WHOLE corpus and therefore search for nothing.
 CORPUS_INTENTS = (DISCOVERY, FREQUENCY)
@@ -93,7 +106,8 @@ class IntakeDecision(BaseModel):
 
     intent: Literal["reply_to_client", "clarify", "out_of_scope", "follow_up",
                     "procedure", "discovery", "frequency", "show_exchange",
-                    "what_happened_next", "coverage_check"]
+                    "what_happened_next", "coverage_check", "sequence", "phrasing",
+                    "pitfalls", "scenario_check", "play_confidence"]
     #: The CLIENT'S OWN WORDS, which is what gets embedded -- never the CSM's framing around
     #: them. Empty for any intent that does not retrieve.
     retrieval_query: str = ""
@@ -132,7 +146,7 @@ class IntakeDecision(BaseModel):
         if self.intent == CLARIFY and not self.question:
             raise ValueError("a clarify with no question is a dead end, not a clarify")
         if (self.intent in (REPLY_TO_CLIENT, PROCEDURE, SHOW_EXCHANGE,
-                            WHAT_HAPPENED_NEXT, COVERAGE_CHECK)
+                            WHAT_HAPPENED_NEXT, COVERAGE_CHECK, *PLAYBOOK_INTENTS)
                 and not self.retrieval_query):
             raise ValueError(f"{self.intent} with no retrieval_query would embed nothing")
         return self
@@ -231,6 +245,23 @@ def build_prompt(message: str, thread=()) -> str:
         f'  "{FREQUENCY}" -- the CSM wants to know which situations come up MOST, again '
         "across everything rather than about one case: \"what comes up most with clients\", "
         "\"which situations are most common\", \"what should i learn first\".",
+        "",
+        f'  "{SEQUENCE}" -- the CSM wants to know WHAT ORDER to do things in: "what do i '
+        "do first\", \"what order should i run these in\", \"where do i start with this\".",
+        "",
+        f'  "{PHRASING}" -- the CSM wants THE WORDING NAREN HIMSELF USES: "how does he '
+        "say it\", \"how does naren word that\", \"what language does he use for pushback\".",
+        "",
+        f'  "{PITFALLS}" -- the CSM wants to know WHAT GOES WRONG: "what usually goes wrong '
+        "here\", \"what mistakes do people make\", \"what should i avoid\".",
+        "",
+        f'  "{SCENARIO_CHECK}" -- the CSM wants to know whether a play APPLIES to what they '
+        "are seeing: \"does this play apply here\", \"is this that kind of situation\", "
+        "\"am i in the right playbook\".",
+        "",
+        f'  "{PLAY_CONFIDENCE}" -- the CSM wants to know HOW WELL EVIDENCED a play is: "how '
+        "solid is this\", \"how many calls is this based on\", \"how much should i trust "
+        "this\".",
         "",
         f'  "{OUT_OF_SCOPE}" -- THE CSM is asking YOU for an internal fact about Joveo: a '
         "list price, a contract term, which integrations exist, what a policy says. Naren's "
