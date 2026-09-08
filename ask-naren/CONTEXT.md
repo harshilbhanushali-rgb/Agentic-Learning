@@ -9,7 +9,9 @@ The on-demand, text-based internal tool where a CSM describes a situation and re
 _Avoid_: coaching bot, Naren chatbot, the chatbot.
 
 **Grounded answer**:
-An Ask Naren answer that cites the specific past call (`kb_pair`, from Brain's Layer B) it paraphrases. Ask Naren never returns an answer without one — if no close match exists, it declines rather than answering ungrounded.
+An Ask Naren answer that cites the specific past call it rests on. Ask Naren never returns an answer without one — if nothing close enough exists, it declines rather than answering ungrounded.
+
+**IT MEANS SOMETHING WEAKER ON A LAYER C ANSWER, and the difference is recorded in `docs/adr/0009-a-layer-c-answer-is-verified-at-build-time-and-at-request-time.md`.** A Layer B answer paraphrases ONE exchange and its verified quote covers essentially the whole answer. A Layer C answer summarises N playbook moves and its verified quote covers ONE of them — the rest were verified offline, at build time, by the verbatim snap that validated the Layer C method. "This answer rests on something Naren really said" holds on both paths; "every claim was verified against a transcript in this request" holds only on Layer B.
 _Avoid_: cited answer, sourced answer.
 
 **Pairs-only prompt**:
