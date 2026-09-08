@@ -251,6 +251,138 @@ def build_follow_up_prompt(message: str, turns, source: dict) -> str:
     ])
 
 
+def build_contrast_prompt(client_words: str, my_reply: str, matched: dict) -> str:
+    """The `contrast_my_reply` prompt (issue #21): the client's words, what the CSM already
+    replied, and what Naren really said to the same thing.
+
+    A NEW VARIANT. `build_prompt` and `build_playbook_prompt` are frozen against ADR 0001 and
+    are not touched -- the ticket says so explicitly.
+
+    That freeze is now actually CHECKED, which it was not:
+    `test_the_frozen_prompts_are_byte_identical_to_the_ones_adr_0001_measured` compares both
+    against the prototype ADR 0001 measured, byte for byte. `sanity_check_harness.py` only
+    ever asserted that `answer_situation` USES `build_prompt`, which stays true however the
+    text changes -- so the freeze was an assertion in three docstrings and nowhere else, and
+    a reword would have passed the whole suite while invalidating the recorded number.
+
+    THE SAME FOUR-KEY JSON CONTRACT as every other generating path, deliberately. One
+    contract is what lets ONE grounding gate serve all of them (ADR 0009 rejected a second
+    shape for exactly this reason), so a contrast is verified by the same `grounding.check`
+    against the same `from_pairs` source, with no new gate and no new rule.
+
+    IT MAY NOT SAY THE CSM WAS RIGHT OR WRONG, and that is the ticket's fourth criterion
+    rather than a stylistic choice. Judging a reply against a standard is Layer D's grader:
+    it needs a rubric, a pairwise comparison and a measured instrument, none of which exist
+    on this path. What Ask Naren honestly has is ONE real moment where Naren faced the same
+    thing -- which is evidence a CSM can weigh, not a verdict.
+
+    The difference matters because a verdict would be believed. A single retrieved exchange
+    is one data point from one call; "Naren did X here" supports "you did not do X", and
+    supports nothing at all about whether X was the better move for THIS client.
+    """
+    return "\n".join([
+        'You are "Ask Naren", an internal Joveo tool. A CSM has ALREADY replied to a client '
+        "and wants to see how Naren handled the closest real moment from his own calls.",
+        "",
+        f"What the client said: {client_words}",
+        "",
+        f"What the CSM replied: {my_reply}",
+        "",
+        "The closest matching real exchange from Naren's own calls:",
+        f"  Client said: {matched['trigger_text']}",
+        f"  Naren replied: {matched['response_text']}",
+        f"  (call: {matched['call_filename']})",
+        "",
+        "Using ONLY the grounding above, describe how Naren's real reply differs from what "
+        "the CSM wrote -- what he does that they did not, and what he leaves out that they "
+        "put in. Be concrete and short.",
+        "",
+        "DO NOT SAY THE CSM WAS RIGHT OR WRONG, and do not score, grade or rank their "
+        "reply. You are looking at one real moment from one call, which is enough to say "
+        "what Naren did and not enough to say what the CSM should have done. Do not write "
+        "\"you should have\", \"a better reply would be\", or \"correct\"/\"incorrect\". "
+        "Describe the difference and let the CSM judge it.",
+        "",
+        "If the retrieved exchange is not actually a close match to what this client said, "
+        "decline instead of contrasting against something unrelated.",
+        "",
+        "Respond as JSON with exactly these keys:",
+        '  "declined": boolean,',
+        '  "answer": the contrast for the CSM (empty string if declined),',
+        '  "quote": a verbatim substring copied from Naren\'s reply above that the contrast '
+        'is based on (empty string if declined),',
+        '  "cited_call": the call identifier given above, copied exactly (empty string if '
+        "declined).",
+    ])
+
+
+def answer_contrast(client_words: str, my_reply: str, pool: RetrievalPool, gateway, *,
+                    embed_query, label_for=citations.resolve_label) -> dict:
+    """Set the CSM's own reply against Naren's closest real one (issue #21).
+
+    WHAT GETS EMBEDDED IS THE CLIENT'S WORDS, NOT THE CSM'S REPLY. The question being
+    answered is "what did Naren say when a client said this", so the client's turn is the
+    query -- exactly as on the `reply_to_client` path, and for the same measured reason
+    (`docs/findings/answer-failure-modes.md`). Embedding the CSM's reply would search the
+    responder's side of the corpus for a trigger, which is a different conversation.
+
+    THE SAME GATE, THE SAME SOURCE. A contrast is a model paraphrasing Naren's real reply,
+    so it is grounded identically to a Layer B answer: `grounding.from_pairs`, one verified
+    quote covering essentially the whole answer. Unlike a Layer C answer (ADR 0009) there is
+    no build-time verification to lean on and none is needed.
+
+    `my_reply` COMES BACK ON THE RESPONSE because the answer is a comparison, and a contrast
+    rendered without the thing being contrasted is half an answer. It is the CSM's own text
+    echoed back, never anything drawn from Naren's calls, so it cannot carry ungrounded
+    content into a response -- the same property that makes `retrieval_query` safe to echo.
+
+    NO `k`, AND THAT IS DELIBERATE RATHER THAN AN OMISSION. `build_contrast_prompt` is
+    defined for ONE exchange; a shortlist form of it is a prompt nobody has evaluated, which
+    is the same reason `answer_situation` refuses to combine a shortlist with playbook moves
+    rather than inventing a third variant at request time. Accepting `k` while prompting
+    with `pairs[0]` would be worse than either: the gate would hold sources the model was
+    never shown, and since two pairs can share a `call_filename` (`grounding.check` says so
+    explicitly) a quote could verify against a candidate that was not in the prompt -- citing
+    a call the answer does not come from, with every gate metric still reporting a pass.
+    Retrieving one is what the prompt can honestly use.
+    """
+    if not (client_words or "").strip():
+        raise ValueError("client_words is empty")
+    if not (my_reply or "").strip():
+        # The intake validator already refuses this, so arriving here means a caller
+        # bypassed it. A contrast with nothing to contrast would quietly answer a different
+        # question -- louder is better than helpful.
+        raise ValueError("a contrast with no reply to contrast has nothing to compare")
+
+    candidates = pool.topk(embed_query([client_words])[0], 1)
+    if not candidates:
+        # Same RuntimeError, same reason as answer_situation: an entirely unauthorised
+        # ranking is a fact about the INDEX, not about the corpus, and dressing it as a
+        # decline would hide a broken index behind a normal-looking answer (ADR 0008).
+        raise RuntimeError(
+            "retrieval returned no kb_pair the pool authorises -- the vector store and the "
+            "pool disagree about what exists. Run ops/check_vector_coverage.py.")
+    # ONE candidate, and the gate is given exactly it -- the source list IS what the prompt
+    # showed, which is half of what the gate means (`ask-naren/CONTEXT.md`).
+    pairs = [candidates[0].pair]
+
+    prompt = build_contrast_prompt(client_words, my_reply, pairs[0])
+    for _ in range(MAX_ATTEMPTS):
+        payload, _meta = gateway.chat_json(
+            prompt, model=CHAT_MODEL, reasoning_effort=REASONING_EFFORT,
+            temperature=TEMPERATURE, max_tokens=MAX_TOKENS, no_cache=True)
+        if payload.get("declined"):
+            return _decline(NO_CLOSE_MATCH, candidates[0], 1, label_for)
+        gate = grounding.check(payload, grounding.from_pairs(pairs))
+        if gate.passed:
+            rank = next(i for i, m in enumerate(candidates, 1)
+                        if m.pair is gate.source.payload)
+            return {**_answer(payload, candidates[rank - 1], rank, label_for),
+                    "my_reply": my_reply.strip()}
+
+    return _decline(GROUNDING_UNVERIFIED, candidates[0], 1, label_for)
+
+
 def answer_follow_up(message: str, turns, source: dict, gateway, *,
                      label_for=citations.resolve_label) -> dict:
     """Answer a follow-up from the thread and the grounding source already cited.

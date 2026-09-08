@@ -16,10 +16,30 @@ import { scenarioLabel } from '@/lib/thread';
  * be given answers that are grounded, coherent and about the wrong situation. Nothing
  * server-side can catch that -- the answer looks correct from the inside. Naming the
  * scenario is what puts it in front of the one person who knows.
+ *
+ * A CONTRAST (issue #21) IS THE SAME CARD WITH THE CSM'S OWN REPLY SHOWN FIRST. It is an
+ * `answered` response with the same guarantee -- a model wrote it and the gate verified a
+ * quote -- so it is not a different outcome and not a different component. What differs is
+ * that the answer is a comparison, and a comparison needs both sides on the page.
+ *
+ * NOTHING HERE SAYS THE CSM WAS RIGHT OR WRONG, and the absence is the design. Judging a
+ * reply against a standard needs Layer D's grader; what this has is one real moment where
+ * Naren faced the same thing. So the CSM's reply is presented as a neutral quotation with
+ * no tick, no cross and no score -- a verdict rendered here would be believed on the
+ * strength of one retrieved exchange.
  */
 export function AnswerCard({ result }: { result: AskNarenAnswer }) {
   return (
     <article className="flex flex-col gap-5 rounded-md border border-line bg-surface p-6">
+      {result.my_reply && (
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-placeholder">
+            What you replied
+          </span>
+          <p className="text-[13px] leading-relaxed text-ink-2">{result.my_reply}</p>
+        </div>
+      )}
+
       <p className="text-[15px] leading-relaxed text-ink whitespace-pre-line">{result.answer}</p>
 
       <blockquote className="border-l-2 border-accent pl-4">

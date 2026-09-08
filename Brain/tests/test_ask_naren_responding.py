@@ -63,7 +63,7 @@ def _answer_payload():
             "quote": GOOD_QUOTE, "cited_call": CALL}
 
 
-def _decides(intent, retrieval_query="", question="", seen_threads=None):
+def _decides(intent, retrieval_query="", question="", seen_threads=None, my_reply=""):
     """A stand-in intake that returns a fixed decision without calling a gateway.
 
     `seen_threads` records what thread intake was handed, which is the only externally
@@ -73,7 +73,7 @@ def _decides(intent, retrieval_query="", question="", seen_threads=None):
         if seen_threads is not None:
             seen_threads.append(thread)
         return intake.IntakeDecision(intent=intent, retrieval_query=retrieval_query,
-                                     question=question), {}
+                                     question=question, my_reply=my_reply), {}
     return _classify
 
 
@@ -722,3 +722,48 @@ def test_a_scenario_with_no_live_playbook_asks_rather_than_declining_or_faking_o
     assert result["outcome"] == "clarify"
     assert "performance pushback" in result["question"]
     assert gw.calls == []
+
+
+# -- contrasting the CSM's own reply through the seam (issue #21) --------------------------
+
+CONTRAST_MESSAGE = ('client said "our cost per hire is way too high" and i told them we '
+                    "would review the campaign settings this week -- how does that compare")
+CSM_REPLY = "we would review the campaign settings this week"
+
+
+def _ask_contrast(*payloads, message=CONTRAST_MESSAGE, my_reply=CSM_REPLY,
+                  query="our cost per hire is way too high"):
+    gw = StubGateway(*payloads)
+    embed = RecordingEmbedder()
+    result = responding.respond(
+        message, _pool(), gw, embed_query=embed,
+        classify=_decides("contrast_my_reply", query, my_reply=my_reply))
+    return result, gw, embed
+
+
+def test_a_contrast_searches_on_the_clients_words_not_on_the_csms_reply():
+    """The question is "what did Naren say when a client said this", so the CLIENT'S turn is
+    the query. Embedding the CSM's reply would search the responder's side of the corpus for
+    a trigger, which is a different conversation entirely."""
+    result, _, embed = _ask_contrast(_answer_payload())
+    assert embed.seen == ["our cost per hire is way too high"]
+    assert CSM_REPLY not in embed.seen
+    assert result["outcome"] == "answered"
+    assert result["my_reply"] == CSM_REPLY
+
+
+def test_a_reply_the_model_composed_rather_than_copied_is_not_put_in_the_csms_mouth():
+    """`my_reply` is never embedded, so ADR 0006 does not reach it -- but it is rendered
+    back as the thing Naren is contrasted against. A composed one shows a CSM a comparison
+    against a reply they never wrote, on a page whose whole subject is what they wrote."""
+    result, _, _ = _ask_contrast(_answer_payload(),
+                                 my_reply="i promised them a 40% improvement by Friday")
+    # Fell back to answering the message as written, so nothing is attributed to the CSM.
+    assert "my_reply" not in result
+    assert result["intake"]["intent"] == "reply_to_client"
+
+
+def test_a_contrast_still_records_what_intake_decided():
+    result, _, _ = _ask_contrast(_answer_payload())
+    assert result["intake"]["intent"] == "contrast_my_reply"
+    assert result["intake"]["retrieval_query"] == "our cost per hire is way too high"

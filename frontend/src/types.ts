@@ -227,6 +227,17 @@ export interface AskNarenAnswer {
    *  put a fabricated number into the record decline-rate calibration later reads. The
    *  `citation` still says exactly which exchange the answer rests on. */
   match?: AskNarenMatch;
+  /** PRESENT ONLY ON A CONTRAST (issue #21): the CSM's own reply, which `answer` is a
+   *  comparison against. Rendering the comparison without it would be half an answer.
+   *
+   *  It is the CSM's own text echoed back — a verbatim span of their message, enforced
+   *  server-side — never anything drawn from Naren's calls, so it cannot carry ungrounded
+   *  content. That property, not its provenance, is what makes it safe to render.
+   *
+   *  Its presence is what switches the card into contrast layout, rather than a second
+   *  discriminator beside `outcome`: nothing about the guarantee differs here, so a fifth
+   *  outcome would say something untrue about trust. */
+  my_reply?: string;
 }
 
 /** Where each one comes from, because they must stay distinguishable to whoever is

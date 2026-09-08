@@ -340,13 +340,88 @@ defect found by reading the code, not a score, and it was written before any of 
 
 Verbatim-span, meaning-preserved and framing-stripped were clean on all 34 cases.
 
-**THE INSTRUMENT IS NARROWER THAN THE GUARD, and that gap is still open.** `verbatim_span`
-below is scored only where `intent == "reply_to_client"`, while `responding._guarded` now
-enforces the span rule on all eight intents in `intake.RETRIEVING_INTENTS`. Every case here
-happens to pass it anyway (34/34 above), so nothing is being hidden today -- but a composed
-query on a `pitfalls` case would be scored clean by this harness and discarded by the
-service. Widening it needs thread-shaped playbook cases, which is where the risk actually
-lives and which this file does not yet have.
+**THE INSTRUMENT WAS NARROWER THAN THE GUARD.** `verbatim_span` was scored only where
+`intent == "reply_to_client"`, while `responding._guarded` enforces the span rule on every
+intent in `intake.RETRIEVING_INTENTS`. Closed with #21: it is now scored on the same list
+the service enforces, so the instrument, the guard, the validator and the prompt's rules all
+read one tuple. Every case passed it under the old narrow check and under the new wide one,
+so nothing was being hidden -- but that was luck rather than design.
+
+**Still owed**: thread-shaped playbook cases. A composed query is a thread phenomenon -- "and
+what usually goes wrong?" names no situation, so that is where a model has to compose to
+answer at all -- and every case in the playbook and contrast sets is single-message. The
+widened check therefore covers the right intents on the wrong shape of case.
+
+## THE CONTRAST SET (`--set contrast`, issue #21), 2026-09-09
+
+`contrast_my_reply`: the CSM has ALREADY replied to a client and wants their reply set
+against Naren's closest real one.
+
+**8/9 HELD OUT. Quote that number.** Stable across three runs on the shipped prompt.
+
+### The first version of this set scored 8/8 and measured nothing
+
+Worth recording because the mistake is subtle and this file exists to catch exactly it. The
+first four positives were near-restatements of `intake.build_prompt`'s OWN illustrative
+examples -- "i told them we'd review the settings this week, is that how naren would have
+handled it" is in the prompt almost verbatim. The prompt was never tuned to the cases, and
+file mtimes prove the ordering, so by the letter of the rule the score was held out.
+
+It was still fitted, by the other route: **the cases were written from the prompt.** A set
+built that way can only confirm that a model reproduces the examples it was given, which is
+not a question anybody needed answered. It scored 8/8 and hid a real failure.
+
+Rewritten to the bar `HELD_OUT` sets: different verbs, typos, colloquial speech, content
+buried mid-message, nothing reusing a phrasing that appears in the prompt. The rewrite found
+the miss immediately.
+
+### What it measures
+
+TWO SPANS out of one message -- the client's words, which get embedded, and the CSM's own
+reply, which never does. So this set scores something no earlier set could: **the CSM's
+reply is a copied span, 3/3 clean**, reported over the cases that produce one rather than
+over all nine, because a 9/9 covering six silent rows reads as evidence when it is silence.
+
+The discriminator is HAS THE CSM ALREADY REPLIED, and the MINIMAL PAIR is the whole test:
+case 5 is case 1 with the reply removed and nothing else changed, and must stay
+`reply_to_client` -- the Layer B path with the measured accuracy number. It holds.
+
+### The one failure, and a fix that was measured and REJECTED
+
+Case 3 routes `reply_to_client` instead of `contrast_my_reply`:
+
+    on the call the client goes "we're not seeing any of this in our ATS". i answered that
+    the feed runs nightly so theres a lag. is that the sort of thing hed say
+
+The CSM has replied ("i answered that...") and asks whether it is what Naren would say. It
+is unambiguously a contrast, and it is a fair case. The likely mechanism: a QUOTED client
+turn plus a trailing "is that the sort of thing hed say" reads as asking what to say.
+
+The obvious fix was tried and made things WORSE. Adding an explicit reply-marker list ("i
+said", "i told them", "i replied", "i answered"...) plus "a quoted client turn does not
+decide this" scored **7/9, stable across three runs** -- case 3 still failed AND case 4
+started failing. Reverted. The artifact is kept as
+`intake_accuracy_contrast_rejected_marker_rule.json` rather than deleted, because a measured
+negative result is the cheapest thing to re-derive by accident.
+
+Three runs each side, because `gemini-3.6-flash` is not run-to-run stable and a single pair
+of runs could not tell an 8-vs-7 apart from noise. It is not noise: 8/9, 8/9, 8/9 against
+7/9, 7/9, 7/9.
+
+Not withdrawn, on the same principle as the persistent held-out case-study failure: tuning
+the instrument to the result is how a set stops measuring anything.
+
+### Sixteen intents share one prompt, and the earlier sets did not move
+
+| set | before #21 | after |
+| --- | --- | --- |
+| held out (core `reply_to_client`) | 10/11 | **10/11** |
+| playbook (#18) | 8/8 | **8/8** |
+| rendered (#19, #20) | 8/8 | **8/8** |
+| procedure (#17) | 7/7 | **7/7** |
+
+Same persistent held-out failure, four intent additions running: "a client like this one
+would want a case study, do we have something". Still `coverage_check`.
 
 """
 from __future__ import annotations
@@ -676,6 +751,73 @@ PLAYBOOK_SET = [
 ]
 
 
+#: NOT WRITTEN FROM THE PROMPT. The first draft of this set restated intake's own
+#: illustrative examples back at it -- "i told them we'd review the settings this week, is
+#: that how naren would have handled it" appears almost verbatim in `intake.build_prompt`.
+#: It scored 8/8, and that 8/8 measured nothing: the prompt was never tuned TO the cases, but
+#: the cases were written FROM the prompt, which produces a fitted number by the other route
+#: and it is the same mistake `CASES` below is labelled FITTED for.
+#:
+#: Rewritten to the bar `HELD_OUT` sets: different vocabulary, different verbs, typos,
+#: colloquial speech, reported and quoted client turns, content buried mid-message. Nothing
+#: here reuses a phrasing that appears in the prompt.
+CONTRAST = [
+    {"message": "spoke to the ops lead at northstar, she said the applications we're "
+                "sending are mostly out of state. i pushed back and told her the targeting "
+                "radius was what they signed off on. would naren have gone there",
+     "expect": "contrast_my_reply",
+     "note": "THE CANONICAL CASE, in nobody's words but a CSM's. Reported client turn, "
+             "reported reply, and 'would naren have gone there' -- a phrasing the prompt "
+             "does not contain"},
+    {"message": "they wrote in saying the january invoice doesnt match what we agreed. my "
+                "response was that id pull the reconciliation and send it over by eod. "
+                "curious how he handles those",
+     "expect": "contrast_my_reply",
+     "note": "typo'd, and the ask is 'curious how he handles those' rather than any of the "
+             "prompt's example phrasings"},
+    {"message": "on the call the client goes \"we're not seeing any of this in our ATS\". i "
+                "answered that the feed runs nightly so theres a lag. is that the sort of "
+                "thing hed say",
+     "expect": "contrast_my_reply",
+     "note": "QUOTED client turn this time, colloquial framing, reply buried in the middle"},
+    {"message": "client escalated that we've missed the go live twice now. my plan is to "
+                "say ill own it personally and come back tomorrow with a dated plan. how "
+                "does that stack up",
+     "expect": "contrast_my_reply",
+     "note": "a DRAFT rather than a sent reply -- 'my plan is to say'. The prompt names this "
+             "case but in different words ('i was going to tell them'), so this tests the "
+             "rule rather than the example"},
+
+    # -- the negatives ---------------------------------------------------------------------
+    {"message": "spoke to the ops lead at northstar, she said the applications we're "
+                "sending are mostly out of state. what do i say",
+     "expect": "reply_to_client",
+     "query_must_not_contain": ["what do i say"],
+     "note": "THE MINIMAL PAIR, and the whole discriminator: case 1 with the CSM's reply "
+             "removed and nothing else changed. Wanting an answer is not wanting a "
+             "comparison, and this must stay on the Layer B path -- the one with the "
+             "measured accuracy number"},
+    {"message": "i replied to that client thing yesterday, was that how naren would do it",
+     "expect": "clarify",
+     "note": "A REPLY WITH NOTHING TO SEARCH ON. The CSM has replied, so the first half of "
+             "the discriminator fires -- but no client words and no topic are anywhere in "
+             "the message, so there is nothing to find the matching moment with. A contrast "
+             "needs BOTH halves; this has one"},
+    {"message": "how do we usually handle it when applications come in from the wrong "
+                "region",
+     "expect": "procedure",
+     "note": "no client quoted and no reply written -- the general play"},
+    {"message": "how does naren actually word it when he pushes back on targeting "
+                "complaints",
+     "expect": "phrasing",
+     "note": "asks for HIS words with no reply of the CSM's own. The nearest playbook intent "
+             "to a contrast, because both are about wording"},
+    {"message": "whats our standard discount for a two year commitment",
+     "expect": "out_of_scope",
+     "note": "an internal fact, with no client and no reply anywhere in it"},
+]
+
+
 THREADED = [
     # -- must be read as follow-ups: no new situation, only the one already answered -------
     {"thread": [_ANSWERED],
@@ -760,7 +902,7 @@ def main() -> int:
     ap.add_argument("--out", default=str(ARTIFACTS / "intake_accuracy.json"))
     ap.add_argument("--set", dest="which", default="fitted",
                     choices=("fitted", "heldout", "threaded", "procedure", "rendered",
-                             "playbook", "both"),
+                             "playbook", "contrast", "both"),
                     help="fitted = the 12 the prompt was tuned on (NOT an accuracy "
                          "rate); heldout = cases never used to change the prompt; "
                          "threaded = the conversation-shaped cases (issue #16)")
@@ -774,7 +916,7 @@ def main() -> int:
     load_config()
     pool = {"fitted": CASES, "heldout": HELD_OUT, "threaded": THREADED,
             "procedure": PROCEDURE, "rendered": RENDERED, "playbook": PLAYBOOK_SET,
-            "both": CASES + HELD_OUT}[args.which]
+            "contrast": CONTRAST, "both": CASES + HELD_OUT}[args.which]
     cases = pool[:args.limit] if args.limit else pool
 
     rows = []
@@ -798,9 +940,20 @@ def main() -> int:
             # and means the opposite, which is the corpus's most common failure shape
             # (docs/findings/answer-failure-modes.md). Checked only where a query is
             # expected at all.
-            verbatim = (decision.intent != "reply_to_client"
+            #
+            # SCORED ON EVERY INTENT THAT EMBEDS, matching what the service enforces. It was
+            # scored only for `reply_to_client` while `responding._guarded` checked two
+            # intents and eight embedded -- so the instrument was narrower than the guard,
+            # which was narrower than the truth. One list, `intake.RETRIEVING_INTENTS`, now
+            # drives the prompt's rules, the validator, the runtime guard and this.
+            verbatim = (decision.intent not in intake.RETRIEVING_INTENTS
                         or intake.is_verbatim_span(decision.retrieval_query,
                                                    case["message"]))
+            # The CSM's own reply (issue #21) is a SECOND span of the same message and is
+            # guarded the same way -- not because it is embedded (it is not) but because it
+            # is shown back to the CSM as what they wrote.
+            reply_verbatim = (not decision.my_reply
+                              or intake.is_verbatim_span(decision.my_reply, case["message"]))
             row = {
                 "message": case["message"],
                 "thread_turns": len(thread),
@@ -808,6 +961,8 @@ def main() -> int:
                 "got": decision.intent,
                 "correct": decision.intent == case["expect"],
                 "retrieval_query": decision.retrieval_query,
+                "my_reply": decision.my_reply,
+                "my_reply_verbatim": reply_verbatim,
                 "question": decision.question,
                 "framing_leaked": leaked,
                 "verbatim_span": verbatim,
@@ -833,6 +988,7 @@ def main() -> int:
              "procedure": "PROCEDURE cases (issue #17)",
              "rendered": "RENDERED-INTENT cases (issues #19, #20)",
              "playbook": "PLAYBOOK-INTENT cases (issue #18)",
+             "contrast": "CONTRAST cases (issue #21)",
              "both": "fitted + held-out"}[args.which]
     print(f"ROUTING ACCURACY -- {args.model} "
           f"(reasoning={args.reasoning or chr(110)+chr(111)+chr(110)+chr(101)}) -- {label}")
@@ -891,6 +1047,21 @@ def main() -> int:
         for r in composed:
             print(f"    - {r['retrieval_query'][:64]!r}")
             print(f"      from {r['message'][:64]!r}")
+
+    # Only meaningful where a reply was extracted at all, so it is reported over those rows
+    # rather than over all of them -- a 34/34 that is really 0 cases checked reads as
+    # evidence when it is silence.
+    replies = [r for r in rows if r["my_reply"]]
+    if replies:
+        bad = [r for r in replies if not r["my_reply_verbatim"]]
+        print(f"\n  THE CSM'S OWN REPLY is a span COPIED from the message: "
+              f"{len(replies) - len(bad)}/{len(replies)} clean")
+        if bad:
+            print("  A COMPOSED reply puts words in the CSM's mouth on a page whose whole")
+            print("  subject is what they wrote:")
+            for r in bad:
+                print(f"    - {r['my_reply'][:64]!r}")
+                print(f"      from {r['message'][:64]!r}")
 
     lost = [r for r in rows if r["meaning_dropped"]]
     print(f"\n  MEANING PRESERVED -- no negation or subject dropped from the query: "

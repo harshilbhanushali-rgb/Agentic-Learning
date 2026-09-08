@@ -91,6 +91,16 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
                        moves_for=moves_for),
             decision)
 
+    if decision.intent == intake.CONTRAST_MY_REPLY:
+        # THE CLIENT'S WORDS ARE THE QUERY, not the CSM's reply -- the question is "what did
+        # Naren say when a client said this". `_guarded` has already established that both
+        # spans were copied from the message rather than composed.
+        return _with_intake(
+            answering.answer_contrast(
+                decision.retrieval_query, decision.my_reply, pool, gateway,
+                embed_query=embed_query, label_for=label_for),
+            decision)
+
     if decision.intent == intake.CLARIFY:
         # Returned WITHOUT retrieving or generating. That is what makes a clarify cheap
         # enough to be worth asking, and it is why a clarify has nothing to ground.
@@ -286,6 +296,13 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
 
        Reading `intake.RETRIEVING_INTENTS` rather than a list written out here is the point
        -- that drift is what the constant exists to make impossible.
+
+    5. SO IS THE CSM'S OWN REPLY (issue #21). `my_reply` is never embedded, so ADR 0006 does
+       not reach it -- but it is rendered back to the CSM as the thing Naren is contrasted
+       against, and a composed one puts words in their mouth. The tool would then show a
+       CSM a comparison against a reply they never wrote, on a page whose whole subject is
+       what they wrote. That is worse than a wrong answer, because there is nothing in it
+       for them to disbelieve.
     """
     if decision.intent == intake.CLARIFY and (
             threads.awaiting_clarify(turns)
@@ -301,6 +318,10 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
 
     if (decision.intent in intake.RETRIEVING_INTENTS
             and not intake.is_verbatim_span(decision.retrieval_query, message)):
+        return intake.fallback_decision(message)
+
+    if (decision.intent == intake.CONTRAST_MY_REPLY
+            and not intake.is_verbatim_span(decision.my_reply, message)):
         return intake.fallback_decision(message)
 
     return decision

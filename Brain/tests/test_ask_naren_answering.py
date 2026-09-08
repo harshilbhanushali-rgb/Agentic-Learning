@@ -340,3 +340,115 @@ def test_an_entirely_unauthorised_ranking_raises_rather_than_declining():
     with pytest.raises(RuntimeError, match="no kb_pair the pool authorises"):
         answering.answer_situation("a client situation", pool, StubGateway(_payload()),
                                    embed_query=_embed_query)
+
+
+# -- contrasting the CSM's own reply against Naren's (issue #21) ---------------------------
+
+MY_REPLY = "we would review the campaign settings this week and get back to them"
+
+
+def _contrast(*payloads, my_reply=MY_REPLY,
+              situation="your cost per hire is way off what you pitched"):
+    gw = StubGateway(*payloads)
+    result = answering.answer_contrast(situation, my_reply, _pool(), gw,
+                                       embed_query=_embed_query)
+    return result, gw
+
+
+def test_a_contrast_answers_and_carries_back_what_the_csm_wrote():
+    """The CSM's own reply is echoed on the response because the answer is a COMPARISON --
+    a contrast rendered without the thing being contrasted is half an answer, and the page
+    would otherwise have to trust its own memory of what was typed."""
+    result, _ = _contrast(_payload())
+    assert result["outcome"] == "answered"
+    assert result["my_reply"] == MY_REPLY
+    assert result["quote"] == GOOD_QUOTE
+
+
+def test_a_contrast_goes_through_the_same_grounding_gate():
+    """One gate, a different source is the rule (ask-naren/CONTEXT.md). A contrast is still
+    a model paraphrasing Naren's real reply, so a fabricated quote must decline exactly as
+    it does on the reply_to_client path."""
+    fabricated = _payload(answer="You were wrong.", quote="a 40% lift by Friday")
+    result, _ = _contrast(fabricated, fabricated)
+    assert result["outcome"] == "declined"
+    assert result["reason"] == "grounding_unverified"
+    assert "40% lift" not in repr(result)
+
+
+def test_the_contrast_prompt_shows_naren_and_the_csm_and_asks_for_neither_verdict():
+    """Criterion 4: it must not claim the CSM was right or wrong. That judgement needs
+    Layer D's grader and is out of scope, so the prompt forbids it rather than hoping."""
+    _, gw = _contrast(_payload())
+    prompt = gw.calls[0]["prompt"]
+    assert MY_REPLY in prompt
+    assert RESPONSE in prompt
+    assert "right or wrong" in prompt.lower()
+
+
+def test_the_frozen_prompts_are_not_what_a_contrast_uses():
+    """ADR 0001 freezes build_prompt and build_playbook_prompt, and #21 says its prompt must
+    be a NEW variant. This pins that the contrast path does not reach for either of them;
+    that they are still byte-identical to what ADR 0001 measured is checked separately, by
+    test_the_frozen_prompts_are_byte_identical_to_the_ones_adr_0001_measured below."""
+    matched = _pool().by_pair_id(11)
+    contrast = answering.build_contrast_prompt("their words", MY_REPLY, matched)
+    assert contrast != answering.build_prompt("their words", matched)
+    assert MY_REPLY not in answering.build_prompt("their words", matched)
+
+
+def test_a_contrast_with_nothing_to_contrast_is_a_programming_error():
+    """The intake decision validator already refuses this, so reaching answering with an
+    empty reply means a caller bypassed it -- which is worth a loud failure rather than a
+    generation that quietly answers a different question."""
+    with pytest.raises(ValueError):
+        answering.answer_contrast("their words", "  ", _pool(), StubGateway(_payload()),
+                                  embed_query=_embed_query)
+
+
+# -- ADR 0001's freeze, made checkable ------------------------------------------------------
+
+def _prototype():
+    """The throwaway prototype whose prompt ADR 0001's measurement was taken on.
+
+    Imported by path because `ask-naren/` is not a package and must not become one -- it is
+    documentation and audit scripts, not a library. The prototype's own module-level imports
+    resolve against Brain/, which it bootstraps itself.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    path = (Path(__file__).resolve().parents[2] / "ask-naren" / "prototype"
+            / "eval_pairs_vs_playbook.py")
+    spec = importlib.util.spec_from_file_location("_ask_naren_prototype", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_frozen_prompts_are_byte_identical_to_the_ones_adr_0001_measured():
+    """ADR 0001 records that this was established ONCE, by hand, by importing the prototype
+    and comparing output -- and nothing has re-checked it since. `sanity_check_harness.py`
+    only asserts that `answer_situation` USES `build_prompt`, which stays true however
+    `build_prompt`'s text changes.
+
+    So a future editor could reword the frozen prompt, watch the whole suite and the harness
+    pass, and silently invalidate the ~80% the project quotes as its measured accuracy --
+    because that number describes the prototype's text, not this function's name.
+
+    This is the check that was being claimed rather than performed. It is also what makes
+    #21's third criterion ("build_prompt and build_playbook_prompt are unchanged") a fact
+    rather than an assertion.
+    """
+    proto = _prototype()
+    matched = {"trigger_text": "our cost per hire looks terrible this quarter",
+               "response_text": RESPONSE, "call_filename": CALL}
+    moves = [{"name": "Reframe on their own baseline",
+              "criterion": "Compare against their own history.",
+              "evidence": [{"quote": GOOD_QUOTE, "call": CALL}]}]
+    situation = "client says our cost per hire is way too high"
+
+    assert answering.build_prompt(situation, matched) == proto._build_prompt(
+        situation, matched, None)
+    assert answering.build_playbook_prompt(situation, matched, moves) == proto._build_prompt(
+        situation, matched, moves)

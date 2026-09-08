@@ -33,8 +33,9 @@ class StubGateway:
 
 
 def _reply(intent="reply_to_client", retrieval_query="our cost per hire is way too high",
-           question=""):
-    return {"intent": intent, "retrieval_query": retrieval_query, "question": question}
+           question="", my_reply=""):
+    return {"intent": intent, "retrieval_query": retrieval_query, "question": question,
+            "my_reply": my_reply}
 
 
 SITUATION = "client said our cost per hire is way too high"
@@ -74,6 +75,46 @@ def test_an_out_of_scope_question_is_not_a_clarify():
         "what is our actual list price for a 12 month contract",
         StubGateway(_reply(intent="out_of_scope", retrieval_query="", question="")))
     assert decision.intent == "out_of_scope"
+
+
+# -- the CSM's own reply (issue #21) -----------------------------------------------------
+
+CONTRAST = ('client said "your cost per hire is way off what you pitched" and i replied '
+            "that we would review the campaign settings this week -- is that how naren "
+            "would have handled it")
+
+
+def test_a_message_carrying_the_csms_own_reply_extracts_both_halves():
+    """Two spans, not one. The CLIENT's words are what gets embedded, exactly as on every
+    retrieving path; the CSM's own reply is what the answer contrasts against and is never
+    embedded -- adding it to the query would be the boilerplate dilution intake exists to
+    strip, with the CSM's own wording as the boilerplate."""
+    decision, _ = intake.classify(CONTRAST, StubGateway(_reply(
+        intent="contrast_my_reply",
+        retrieval_query="your cost per hire is way off what you pitched",
+        my_reply="we would review the campaign settings this week")))
+    assert decision.intent == "contrast_my_reply"
+    assert decision.retrieval_query == "your cost per hire is way off what you pitched"
+    assert decision.my_reply == "we would review the campaign settings this week"
+
+
+def test_a_contrast_with_no_reply_to_contrast_is_rejected():
+    """Shape-valid and useless: the whole answer is the comparison, so without the CSM's
+    reply there is nothing to compare Naren against. Rejecting sends it to the retry and
+    then to the fallback, which answers the situation as written -- still useful."""
+    with pytest.raises(ValueError):
+        intake.IntakeDecision(intent="contrast_my_reply",
+                              retrieval_query="your cost per hire is way off", my_reply="")
+
+
+def test_only_a_contrast_may_carry_a_reply_even_if_the_model_writes_one():
+    """Cleared rather than rejected, the same treatment `retrieval_query` gets on a
+    follow-up: a model that helpfully fills the field is being misleading, not unusable, and
+    a `my_reply` on a path that never shows one would report a comparison that never ran."""
+    decision = intake.IntakeDecision(intent="reply_to_client",
+                                     retrieval_query="our cost per hire is way too high",
+                                     my_reply="i told them we would look into it")
+    assert decision.my_reply == ""
 
 
 # -- the thread (issues #15, #16) --------------------------------------------------------

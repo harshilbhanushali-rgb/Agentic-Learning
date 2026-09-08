@@ -67,12 +67,14 @@ PHRASING = "phrasing"
 PITFALLS = "pitfalls"
 SCENARIO_CHECK = "scenario_check"
 PLAY_CONFIDENCE = "play_confidence"
+CONTRAST_MY_REPLY = "contrast_my_reply"
 
 #: Every intent intake may return today. Issues #17-#23 add more; each addition is a change
 #: to the schema sent to the gateway AND to the prompt's discriminators, never one alone.
 INTENTS = (REPLY_TO_CLIENT, CLARIFY, OUT_OF_SCOPE, FOLLOW_UP, PROCEDURE,
            DISCOVERY, FREQUENCY, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT, COVERAGE_CHECK,
-           SEQUENCE, PHRASING, PITFALLS, SCENARIO_CHECK, PLAY_CONFIDENCE)
+           SEQUENCE, PHRASING, PITFALLS, SCENARIO_CHECK, PLAY_CONFIDENCE,
+           CONTRAST_MY_REPLY)
 
 #: The intents answered from a scenario's LAYER C PLAYBOOK by rendering it (issue #18).
 #: Grouped because one rule covers all five: the playbook already holds the answer, so
@@ -103,7 +105,7 @@ CORPUS_INTENTS = (DISCOVERY, FREQUENCY)
 #: updated when #18 added five intents at once; a shared tuple is what makes "add an intent"
 #: a single edit rather than four that must be remembered together.
 RETRIEVING_INTENTS = (REPLY_TO_CLIENT, PROCEDURE, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT,
-                      COVERAGE_CHECK, *PLAYBOOK_INTENTS)
+                      COVERAGE_CHECK, *PLAYBOOK_INTENTS, CONTRAST_MY_REPLY)
 
 
 class IntakeDecision(BaseModel):
@@ -121,12 +123,22 @@ class IntakeDecision(BaseModel):
     intent: Literal["reply_to_client", "clarify", "out_of_scope", "follow_up",
                     "procedure", "discovery", "frequency", "show_exchange",
                     "what_happened_next", "coverage_check", "sequence", "phrasing",
-                    "pitfalls", "scenario_check", "play_confidence"]
+                    "pitfalls", "scenario_check", "play_confidence",
+                    "contrast_my_reply"]
     #: The CLIENT'S OWN WORDS, which is what gets embedded -- never the CSM's framing around
     #: them. Empty for any intent that does not retrieve.
     retrieval_query: str = ""
     #: What to put to the CSM when clarifying. Empty otherwise.
     question: str = ""
+    #: THE CSM'S OWN REPLY, on a `contrast_my_reply` only (issue #21). Empty otherwise.
+    #:
+    #: A SECOND SPAN OF THE SAME MESSAGE, AND IT IS NEVER EMBEDDED. The client's words go to
+    #: the vector as on every retrieving path; this goes to the PROMPT, as the thing Naren's
+    #: real reply is set against. Adding it to the query would be exactly the dilution
+    #: intake exists to strip (ADR 0006's mechanism), with the CSM's own wording as the
+    #: shared boilerplate -- and it would search for what the CSM said rather than for what
+    #: the client said, which is a different conversation.
+    my_reply: str = ""
 
     @model_validator(mode="before")
     @classmethod
@@ -140,11 +152,19 @@ class IntakeDecision(BaseModel):
         (`responding._with_intake`), and on this path echoing a query that was never
         embedded would report a search that did not happen.
         """
-        if isinstance(data, dict) and data.get("intent") in (FOLLOW_UP, *CORPUS_INTENTS):
-            return {**data, "retrieval_query": ""}
-        return data
+        if not isinstance(data, dict):
+            return data
+        cleaned = dict(data)
+        if cleaned.get("intent") in (FOLLOW_UP, *CORPUS_INTENTS):
+            cleaned["retrieval_query"] = ""
+        # SAME RULE, SECOND FIELD (issue #21). Only a contrast shows the CSM's own reply
+        # back, so a `my_reply` on any other intent describes a comparison that never ran --
+        # misleading rather than unusable, which is why it is cleared and not rejected.
+        if cleaned.get("intent") != CONTRAST_MY_REPLY:
+            cleaned["my_reply"] = ""
+        return cleaned
 
-    @field_validator("retrieval_query", "question")
+    @field_validator("retrieval_query", "question", "my_reply")
     @classmethod
     def _stripped(cls, v: str) -> str:
         return (v or "").strip()
@@ -161,6 +181,8 @@ class IntakeDecision(BaseModel):
             raise ValueError("a clarify with no question is a dead end, not a clarify")
         if self.intent in RETRIEVING_INTENTS and not self.retrieval_query:
             raise ValueError(f"{self.intent} with no retrieval_query would embed nothing")
+        if self.intent == CONTRAST_MY_REPLY and not self.my_reply:
+            raise ValueError("a contrast with no reply to contrast has nothing to compare")
         return self
 
 
@@ -275,6 +297,13 @@ def build_prompt(message: str, thread=()) -> str:
         "solid is this\", \"how many calls is this based on\", \"how much should i trust "
         "this\".",
         "",
+        f'  "{CONTRAST_MY_REPLY}" -- the CSM HAS ALREADY REPLIED to the client and wants '
+        "their own reply set against Naren's: \"i told them we'd review the settings this "
+        "week, is that how naren would have handled it\", \"i said we'd get back to them "
+        "friday -- would he have said something different\", \"here's what i sent, how "
+        "does that compare\". The message contains BOTH the client's words AND the CSM's "
+        "own reply to them.",
+        "",
         f'  "{OUT_OF_SCOPE}" -- THE CSM is asking YOU for an internal fact about Joveo: a '
         "list price, a contract term, which integrations exist, what a policy says. Naren's "
         "call transcripts are not a product document. Do NOT clarify these; there is nothing "
@@ -320,6 +349,12 @@ def build_prompt(message: str, thread=()) -> str:
         "kind of situation they mean, rather than composing a situation out of the "
         "conversation above.",
         "",
+        f'  - For "{CONTRAST_MY_REPLY}", set BOTH: retrieval_query to the CLIENT\'S words '
+        "(that is what gets searched -- we are looking for the moment Naren faced the same "
+        "thing), and my_reply to the CSM'S OWN reply, both copied verbatim from the "
+        "message. Do NOT put the CSM's reply in retrieval_query; searching on it would look "
+        "for the wrong side of the conversation.",
+        "",
         "Two distinctions that are easy to get wrong:",
         "",
         f'  - ABOUT ONE SITUATION or ABOUT THE WHOLE CORPUS separates "{COVERAGE_CHECK}" '
@@ -341,6 +376,17 @@ def build_prompt(message: str, thread=()) -> str:
         "outreach?\" is a client turn Naren has faced and answered. Only route to "
         f'"{OUT_OF_SCOPE}" when the CSM is asking YOU for the fact, with no client in the '
         "picture.",
+        "",
+        f'  - HAS THE CSM ALREADY REPLIED separates "{CONTRAST_MY_REPLY}" from '
+        f'"{REPLY_TO_CLIENT}". "Client said X, what do i say" wants an answer and is '
+        f'"{REPLY_TO_CLIENT}". "Client said X, i told them Y, is that right" already has '
+        f'an answer and wants it compared -- that is "{CONTRAST_MY_REPLY}". A message that '
+        "describes what the CSM PLANS to say (\"i was going to tell them...\") counts as "
+        "already replied: it is a draft to compare, not a question to answer.",
+        "",
+        f'  - A CSM asking how they DID is still "{CONTRAST_MY_REPLY}", not a request for a '
+        "grade. We show what Naren did in the closest real moment and let them compare. "
+        "Route it here whether they ask \"was that right\" or \"how does that compare\".",
         "",
         "  - Reported speech counts. \"Client is asking why their spend went up 40% in "
         "March\" is not a quote, but it carries a specific claim that can be searched. "
