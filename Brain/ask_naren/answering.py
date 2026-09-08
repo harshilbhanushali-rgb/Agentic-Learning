@@ -54,6 +54,7 @@ NO_CLOSE_MATCH = "no_close_match"
 GROUNDING_UNVERIFIED = "grounding_unverified"
 OUT_OF_SCOPE = "out_of_scope"
 FOLLOW_UP_UNGROUNDED = "follow_up_ungrounded"
+NO_PLAYBOOK_EVIDENCE = "no_playbook_evidence"
 
 _MESSAGES = {
     NO_CLOSE_MATCH: (
@@ -74,6 +75,12 @@ _MESSAGES = {
         "That follow-up goes beyond what Naren said in the call the last answer came from. "
         "Rather than guess, Ask Naren is declining -- describe the situation as a fresh "
         "question and it will search his calls for a closer moment."
+    ),
+    NO_PLAYBOOK_EVIDENCE: (
+        "There is a play recorded for this kind of situation, but nothing Naren actually "
+        "said is attached to it, so Ask Naren cannot show you the play grounded in his own "
+        "words. Describe a specific client situation instead and it will find the closest "
+        "real exchange."
     ),
 }
 
@@ -290,6 +297,143 @@ def answer_follow_up(message: str, turns, source: dict, gateway, *,
                     "citation": _citation(source, label_for)}
 
     return decline_without_search(FOLLOW_UP_UNGROUNDED)
+
+
+def build_procedure_prompt(question: str, scenario_key: str, playbook: dict) -> str:
+    """The Layer C `procedure` prompt (issue #17): the scenario's play, and the real quotes
+    it was derived from.
+
+    A NEW VARIANT. `build_prompt` and `build_playbook_prompt` are frozen against ADR 0001
+    and are not touched. Note this is NOT `build_playbook_prompt`, which answers a CLIENT
+    SITUATION with playbook moves as extra context and was measured at no lift. This one
+    answers a question ABOUT the play, which that variant cannot do at all.
+
+    MOVES ARE RENDERED WHOLE -- name, criterion and evidence together, never split into
+    separate items. Measured: bundled criteria are credited more often (rho +0.35, p=0.001),
+    and the "one statable thing per move" rule was WITHDRAWN on that measurement
+    (`Brain/docs/findings/layer-d-say-arm.md` §14). Splitting them here would re-introduce a
+    rule the pipeline already retired.
+
+    `arc` is rendered as the ORDER, which is what it is -- a list of the move names in the
+    sequence Naren tends to run them. `db/schema.sql` warns that `key_moves` order is
+    load-bearing, so neither list is re-sorted.
+    """
+    lines = [
+        'You are "Ask Naren", an internal Joveo tool that answers a CSM from what Naren '
+        "actually does on real client calls.",
+        "",
+        "The CSM is asking about the GENERAL PLAY for a kind of situation, not about one "
+        "client's words. Answer from the play below.",
+        "",
+        f"CSM's question: {question}",
+        "",
+        f"The play for this situation ({scenario_key}):",
+        f"  When it applies: {playbook.get('situation_signature', '')}",
+    ]
+
+    arc = [step for step in (playbook.get("arc") or []) if str(step).strip()]
+    if arc:
+        lines += ["", "  The order Naren tends to run it in:"]
+        lines += [f"    {n}. {step}" for n, step in enumerate(arc, 1)]
+
+    lines += ["", "  The moves, each with what Naren really said:"]
+    for n, move in enumerate(playbook.get("key_moves") or [], 1):
+        lines += [
+            "",
+            f"  [{n}] {move.get('name', '')}",
+            f"      What it means: {move.get('criterion', '')}",
+        ]
+        for evidence in move.get("evidence") or []:
+            lines += [
+                f"      Naren said: {evidence.get('quote', '')}",
+                f"      (call: {evidence.get('call', '')})",
+            ]
+
+    lines += [
+        "",
+        "Using ONLY the play above, tell the CSM what to do. Say what the moves are and "
+        "what order to run them in. Do not invent a move that is not listed.",
+        "",
+        "Respond as JSON with exactly these keys:",
+        '  "declined": boolean,',
+        '  "answer": the coaching answer for the CSM (empty string if declined),',
+        '  "quote": a verbatim substring copied from one of the "Naren said" lines above -- '
+        "NOT from a move's name or from what it means, which are our words rather than his "
+        "(empty string if declined),",
+        '  "cited_call": the call identifier printed beside the quote you chose, copied '
+        "exactly (empty string if declined).",
+    ]
+    return "\n".join(lines)
+
+
+def answer_procedure(question: str, match: Match, playbook: dict, gateway, *,
+                     label_for=citations.resolve_label) -> dict:
+    """Answer "what is the general play for X" from the scenario's Layer C playbook.
+
+    `match` is how the SCENARIO was chosen: the question is embedded and the nearest
+    exchange's scenario is the one whose play gets answered. That is a retrieval, so unlike
+    a follow-up this response reports its cosine -- and it is why the answer names its
+    scenario, because a catch-all can absorb a question that is not really about it
+    (`application_volume_and_prioritization` carries 11.8% of coachable pairs and 16% of
+    what routes there is about jobs rather than applications).
+
+    THE GATE IS THE SAME GATE, with a different source (issue #17): the quote must appear
+    verbatim in one of the playbook's EVIDENCE quotes, not in a criterion. A criterion is
+    model-written prose sitting in the prompt beside the real thing, so quoting it reads as
+    grounded and is not -- which is the failure this path is most likely to produce.
+    """
+    if not (question or "").strip():
+        raise ValueError("question is empty")
+
+    scenario_key = match.pair["scenario_key"]
+    sources = grounding.from_playbook_evidence(_playbook_evidence(playbook))
+    if not sources:
+        # A live playbook with no quotable evidence anywhere cannot ground an answer, and
+        # generating one would spend a call to fail the gate twice. Same decline as a
+        # scenario with no playbook at all.
+        return _decline(NO_PLAYBOOK_EVIDENCE, match, 1, label_for)
+
+    prompt = build_procedure_prompt(question, scenario_key, playbook)
+    for _ in range(MAX_ATTEMPTS):
+        payload, _meta = gateway.chat_json(
+            prompt, model=CHAT_MODEL, reasoning_effort=REASONING_EFFORT,
+            temperature=TEMPERATURE, max_tokens=MAX_TOKENS, no_cache=True)
+        if payload.get("declined"):
+            return _decline(NO_CLOSE_MATCH, match, 1, label_for)
+        gate = grounding.check(payload, sources)
+        if gate.passed:
+            evidence = gate.source.payload
+            return {
+                "outcome": ANSWERED,
+                "answer": payload["answer"].strip(),
+                "quote": payload["quote"].strip(),
+                # NO pair_id: a playbook evidence quote records the call it came from, not a
+                # kb_pairs row. Inventing one would point an engineer at an exchange this
+                # answer does not rest on.
+                "citation": {
+                    "label": label_for(evidence["call"]) or evidence["call"],
+                    "call_filename": evidence["call"],
+                    "scenario_key": scenario_key,
+                },
+                "match": _match_info(match, 1),
+            }
+
+    return _decline(GROUNDING_UNVERIFIED, match, 1, label_for)
+
+
+def _playbook_evidence(playbook: dict) -> list[dict]:
+    """Every quotable evidence entry in a playbook, flattened.
+
+    `key_moves` and `pitfalls_and_variants` nest theirs under `evidence`;
+    `signature_language` IS an evidence entry (it carries `quote`/`call`/`account` directly
+    plus the phrase). Only `arc` has none -- it is a list of move names, which are our words.
+    """
+    entries: list[dict] = []
+    for section in ("key_moves", "pitfalls_and_variants"):
+        for item in playbook.get(section) or []:
+            entries.extend(item.get("evidence") or [])
+    entries.extend(playbook.get("signature_language") or [])
+    return entries
 
 
 def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_query,

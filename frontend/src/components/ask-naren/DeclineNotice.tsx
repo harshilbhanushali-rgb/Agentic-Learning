@@ -48,6 +48,13 @@ const COPY: Record<AskNarenDeclineReason, { heading: string; hint: string }> = {
     // this says Naren did not cover it THERE, not that nothing close exists anywhere.
     hint: 'Ask it as a fresh question, in the client’s own words, and Ask Naren will search his calls for a closer moment.',
   },
+  no_playbook_evidence: {
+    heading: 'The play is not quotable',
+    // A play exists for this situation but carries no evidence quotes, so it cannot be
+    // shown grounded. Asking about a concrete client situation reaches Layer B instead,
+    // which does have Naren's own words.
+    hint: 'Describe a specific client situation instead — Ask Naren will find the closest real exchange and answer from what Naren actually said.',
+  },
   service_error: {
     heading: 'Ask Naren is unavailable',
     hint: 'Nothing you typed caused this, and rewording it will not help. The answer you asked for is not lost — ask again once it is back.',

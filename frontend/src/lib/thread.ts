@@ -73,7 +73,13 @@ export function turnFrom(message: string, result: AskNarenResponse): ThreadTurn 
         ...base,
         reply: result.answer,
         scenario_key: result.citation.scenario_key,
-        pair_id: result.citation.pair_id,
+        // NULL ON A LAYER C ANSWER (issue #17), which rests on a playbook evidence quote
+        // rather than on a `kb_pairs` row. The consequence is deliberate and correct: a
+        // follow-up needs a carried `pair_id` to ground on, so following up on a Layer C
+        // answer finds none and the message is answered as a fresh question instead. That
+        // is the honest degradation — the alternative is grounding a follow-up in whatever
+        // exchange happened to be cited earlier, about a different thing.
+        pair_id: result.citation.pair_id ?? null,
         call_filename: result.citation.call_filename,
       };
     case 'clarify':

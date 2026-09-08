@@ -428,3 +428,110 @@ def test_intake_failing_completely_still_answers_the_message_as_written():
     result, _, embed = _respond(_boom, _answer_payload())
     assert result["outcome"] == "answered"
     assert embed.seen == [FRAMED]
+
+
+# -- procedure: the general play, from Layer C (issue #17) ---------------------------------
+
+PLAY_QUOTE = "show them cost per hire against their own baseline"
+PLAYBOOK = {
+    "situation_signature": "The client challenges cost per hire against what was pitched.",
+    "arc": ["Reframe on their own baseline", "Agree a realistic target"],
+    "key_moves": [
+        {"name": "Reframe on their own baseline",
+         "criterion": "Compare cost per hire against the client's own history, not a "
+                      "benchmark.",
+         "evidence": [{"quote": PLAY_QUOTE, "call": CALL, "account": "uber.com"}]},
+    ],
+    "signature_language": [],
+    "pitfalls_and_variants": [],
+}
+
+PLAY_QUESTION = "how do we usually handle cost per hire pushback"
+
+
+def _play_payload(quote=PLAY_QUOTE, cited_call=CALL):
+    return {"declined": False, "answer": "Reframe on their own baseline first.",
+            "quote": quote, "cited_call": cited_call}
+
+
+def _ask_procedure(*payloads, playbook_for=lambda key: PLAYBOOK, query=None):
+    gw = StubGateway(*payloads)
+    embed = RecordingEmbedder()
+    result = responding.respond(
+        PLAY_QUESTION, _pool(), gw, embed_query=embed,
+        classify=_decides("procedure", query or "cost per hire pushback"),
+        playbook_for=playbook_for)
+    return result, gw, embed
+
+
+def test_a_procedure_question_is_answered_from_the_playbook():
+    result, _, _ = _ask_procedure(_play_payload())
+    assert result["outcome"] == "answered"
+    assert result["quote"] == PLAY_QUOTE
+    assert result["citation"]["scenario_key"] == "performance_pushback"
+
+
+def test_a_procedure_answer_names_its_scenario():
+    """A catch-all can absorb a question that is not really about it --
+    application_volume_and_prioritization carries 11.8% of coachable pairs and 16% of what
+    routes there is about jobs rather than applications. Naming it is what lets a CSM
+    reject a misroute."""
+    result, _, _ = _ask_procedure(_play_payload())
+    assert result["match"]["scenario_key"] == "performance_pushback"
+    assert result["citation"]["scenario_key"] == "performance_pushback"
+
+
+def test_a_procedure_answer_carries_no_pair_id_because_it_rests_on_a_playbook_quote():
+    """A playbook evidence quote records the call it came from, not a kb_pairs row.
+    Inventing a pair_id would point an engineer at an exchange the answer does not rest
+    on."""
+    result, _, _ = _ask_procedure(_play_payload())
+    assert "pair_id" not in result["citation"]
+    assert result["citation"]["call_filename"] == CALL
+
+
+def test_quoting_the_criterion_instead_of_the_evidence_declines():
+    """The failure this path is most likely to produce: a criterion is model-written prose
+    sitting in the prompt right beside the real quote, so quoting it reads as grounded."""
+    composed = _play_payload(quote="Compare cost per hire against the client's own history")
+    result, _, _ = _ask_procedure(composed, composed)
+    assert result["outcome"] == "declined"
+    assert result["reason"] == "grounding_unverified"
+    assert "answer" not in result
+
+
+def test_a_scenario_with_no_live_playbook_falls_back_to_the_layer_b_answer():
+    """1 of 34 coachable scenarios has none. The tool still knows what Naren SAID in the
+    closest real exchange, and a grounded answer to a slightly different question beats a
+    decline -- the ticket's 'degrades rather than fails'."""
+    result, _, embed = _ask_procedure(_answer_payload(), playbook_for=lambda key: None)
+    assert result["outcome"] == "answered"
+    assert result["citation"]["pair_id"] == 11        # the Layer B shape, with a pair
+    assert embed.seen == ["cost per hire pushback"]
+
+
+def test_a_service_started_without_playbooks_still_answers():
+    """`playbook_for` is None when the caller loaded none at all. That must degrade to the
+    Layer B path rather than raise."""
+    gw = StubGateway(_answer_payload())
+    result = responding.respond(
+        PLAY_QUESTION, _pool(), gw, embed_query=RecordingEmbedder(),
+        classify=_decides("procedure", "cost per hire pushback"), playbook_for=None)
+    assert result["outcome"] == "answered"
+
+
+def test_a_live_playbook_with_no_quotable_evidence_declines_without_generating():
+    """Generating first would spend two calls to fail the gate twice."""
+    empty = {**PLAYBOOK, "key_moves": [{"name": "x", "criterion": "y", "evidence": []}]}
+    result, gw, _ = _ask_procedure(playbook_for=lambda key: empty)
+    assert result["outcome"] == "declined"
+    assert result["reason"] == "no_playbook_evidence"
+    assert gw.calls == []
+
+
+def test_the_procedure_query_is_still_a_span_of_the_message():
+    """ADR 0006 applies here too: a query the model composed rather than copied is
+    discarded and the message is answered as written."""
+    _, _, embed = _ask_procedure(_answer_payload(), query="something it made up",
+                                 playbook_for=lambda key: None)
+    assert embed.seen == [PLAY_QUESTION]

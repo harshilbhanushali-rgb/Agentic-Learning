@@ -56,10 +56,11 @@ REPLY_TO_CLIENT = "reply_to_client"
 CLARIFY = "clarify"
 OUT_OF_SCOPE = "out_of_scope"
 FOLLOW_UP = "follow_up"
+PROCEDURE = "procedure"
 
 #: Every intent intake may return today. Issues #17-#23 add more; each addition is a change
 #: to the schema sent to the gateway AND to the prompt's discriminators, never one alone.
-INTENTS = (REPLY_TO_CLIENT, CLARIFY, OUT_OF_SCOPE, FOLLOW_UP)
+INTENTS = (REPLY_TO_CLIENT, CLARIFY, OUT_OF_SCOPE, FOLLOW_UP, PROCEDURE)
 
 
 class IntakeDecision(BaseModel):
@@ -74,7 +75,8 @@ class IntakeDecision(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    intent: Literal["reply_to_client", "clarify", "out_of_scope", "follow_up"]
+    intent: Literal["reply_to_client", "clarify", "out_of_scope", "follow_up",
+                    "procedure"]
     #: The CLIENT'S OWN WORDS, which is what gets embedded -- never the CSM's framing around
     #: them. Empty for any intent that does not retrieve.
     retrieval_query: str = ""
@@ -111,8 +113,8 @@ class IntakeDecision(BaseModel):
         """
         if self.intent == CLARIFY and not self.question:
             raise ValueError("a clarify with no question is a dead end, not a clarify")
-        if self.intent == REPLY_TO_CLIENT and not self.retrieval_query:
-            raise ValueError("reply_to_client with no retrieval_query would embed nothing")
+        if self.intent in (REPLY_TO_CLIENT, PROCEDURE) and not self.retrieval_query:
+            raise ValueError(f"{self.intent} with no retrieval_query would embed nothing")
         return self
 
 
@@ -171,6 +173,12 @@ def build_prompt(message: str, thread=()) -> str:
         "performance\"). Searching on a bare summary reaches a different part of the corpus "
         "than searching on what was really said, so ask for the client's actual words.",
         "",
+        f'  "{PROCEDURE}" -- the CSM wants the GENERAL PLAY for a kind of situation, not a '
+        "reply to one thing a client said. They are preparing rather than reacting: \"how "
+        "do we usually handle renewals that stall\", \"what's the play when spend "
+        "overruns\", \"how should i approach a QBR where performance is down\". No client "
+        "is quoted and none needs to be.",
+        "",
         f'  "{OUT_OF_SCOPE}" -- THE CSM is asking YOU for an internal fact about Joveo: a '
         "list price, a contract term, which integrations exist, what a policy says. Naren's "
         "call transcripts are not a product document. Do NOT clarify these; there is nothing "
@@ -199,7 +207,18 @@ def build_prompt(message: str, thread=()) -> str:
            "them all look alike to the search and reaches the wrong exchange."]
           if thread else []),
         "",
+        f'  - For "{PROCEDURE}", set retrieval_query to the SITUATION the CSM is asking '
+        "about, copied from their message with the asking-framing removed (\"what's the "
+        "play when\", \"how do we usually handle\", \"how should i approach\"). It is used "
+        "to find which kind of situation they mean.",
+        "",
         "Two distinctions that are easy to get wrong:",
+        "",
+        f'  - A SPECIFIC CLIENT UTTERANCE is what separates "{REPLY_TO_CLIENT}" from '
+        f'"{PROCEDURE}". "Client said our CPA is 3x, what do i say" quotes a client and is '
+        f'"{REPLY_TO_CLIENT}". "How do we usually handle CPA complaints" quotes nobody and '
+        f'is "{PROCEDURE}". Reported speech still counts as a client utterance; a '
+        "hypothetical does not.",
         "",
         "  - A CLIENT asking about Joveo's product is still "
         f'"{REPLY_TO_CLIENT}", not "{OUT_OF_SCOPE}". "Do you guys use WhatsApp for '

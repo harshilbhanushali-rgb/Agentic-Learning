@@ -21,7 +21,8 @@ from ask_naren.retrieval import RetrievalPool
 
 def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(),
             classify=intake.classify, k: int = answering.DEFAULT_K,
-            label_for=citations.resolve_label, moves_for=None) -> dict:
+            label_for=citations.resolve_label, moves_for=None,
+            playbook_for=None) -> dict:
     """Answer one message, ask the CSM something, or decline.
 
     `message` is what the CSM typed, framing and all. What reaches RETRIEVAL is intake's
@@ -67,6 +68,18 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
             answering.answer_follow_up(message, turns, source, gateway,
                                        label_for=label_for), decision)
 
+    if decision.intent == intake.PROCEDURE:
+        # THE SCENARIO IS FOUND BY RETRIEVING, not by asking the model to name one. A model
+        # that can name a scenario can name one that does not exist, and the taxonomy is
+        # Brain's to define. So the question is embedded, the nearest exchange is found, and
+        # its scenario is the one whose play gets answered -- which is also what gives this
+        # response a real cosine to report.
+        return _with_intake(
+            _procedure(message, decision, pool, gateway, embed_query=embed_query,
+                       label_for=label_for, playbook_for=playbook_for, k=k,
+                       moves_for=moves_for),
+            decision)
+
     if decision.intent == intake.CLARIFY:
         # Returned WITHOUT retrieving or generating. That is what makes a clarify cheap
         # enough to be worth asking, and it is why a clarify has nothing to ground.
@@ -83,6 +96,46 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
             decision.retrieval_query, pool, gateway, embed_query=embed_query, k=k,
             label_for=label_for, moves_for=moves_for),
         decision)
+
+
+def _procedure(message: str, decision: intake.IntakeDecision, pool: RetrievalPool, gateway,
+               *, embed_query, label_for, playbook_for, k: int, moves_for) -> dict:
+    """The Layer C `procedure` path (issue #17), and its degradation.
+
+    NO LIVE PLAYBOOK FALLS BACK TO THE LAYER B ANSWER rather than declining. 1 of 34
+    coachable scenarios has no live playbook (contract_and_legal_review, whose snap collapsed
+    below the move floor), and `playbook_for` is None entirely when the service was started
+    without loading them. In both cases the tool still knows what Naren SAID in the closest
+    real exchange, and a grounded answer to a slightly different question beats "no" -- which
+    is the ticket's "degrades rather than fails".
+
+    The retrieval here is `decision.retrieval_query`, the situation with the asking-framing
+    stripped, exactly as on the reply_to_client path. It is embedded once and used twice: to
+    pick the scenario, and -- on the fallback -- to answer from.
+    """
+    # EMBEDDED ONCE PER REQUEST, not once per caller. Finding the scenario needs a vector
+    # and so does the Layer B fallback, and they are the same vector -- but the embedder's
+    # disk cache cannot save the second call, because a live CSM query is a novel string and
+    # therefore a guaranteed miss. Without this memo the fallback path silently bills two
+    # gateway embeddings for one question.
+    embedded: dict[tuple, object] = {}
+
+    def embed_once(texts):
+        key = tuple(texts)
+        if key not in embedded:
+            embedded[key] = embed_query(texts)
+        return embedded[key]
+
+    if playbook_for is not None:
+        match = pool.top1(embed_once([decision.retrieval_query])[0])
+        playbook = playbook_for(match.pair["scenario_key"])
+        if playbook:
+            return answering.answer_procedure(message, match, playbook, gateway,
+                                              label_for=label_for)
+
+    return answering.answer_situation(
+        decision.retrieval_query, pool, gateway, embed_query=embed_once, k=k,
+        label_for=label_for, moves_for=moves_for)
 
 
 def _guarded(decision: intake.IntakeDecision, message: str, turns,
@@ -134,7 +187,7 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
                 or pool.by_pair_id(carried.pair_id) is None):
             return intake.fallback_decision(message)
 
-    if (decision.intent == intake.REPLY_TO_CLIENT
+    if (decision.intent in (intake.REPLY_TO_CLIENT, intake.PROCEDURE)
             and not intake.is_verbatim_span(decision.retrieval_query, message)):
         return intake.fallback_decision(message)
 

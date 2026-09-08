@@ -147,10 +147,12 @@ def build_pool(hostaddr: str | None):
     config = load_config()
     conn = _connect_read_only(config.database_url, hostaddr)
     moves_by_scenario: dict[str, list] = {}
+    playbooks_by_scenario: dict[str, dict] = {}
     try:
         pairs = retrieval.load_coachable_pairs(conn)
         if PLAYBOOK_AUGMENTED:
             moves_by_scenario = _load_key_moves(conn, pairs)
+        playbooks_by_scenario = _load_playbooks(conn, pairs)
     finally:
         conn.close()
     if not pairs:
@@ -161,7 +163,40 @@ def build_pool(hostaddr: str | None):
     pool = retrieval.RetrievalPool(pairs, store=_build_store(config, pairs, scenario_keys))
     print(f"[pool] ready: {len(pool)} pairs across {len(scenario_keys)} coachable scenarios",
           flush=True)
-    return pool, moves_by_scenario
+    return pool, moves_by_scenario, playbooks_by_scenario
+
+
+def _load_playbooks(conn, pairs: list[dict]) -> dict[str, dict]:
+    """`scenario_key` -> the LIVE playbook document, for the scenarios in the pool (#17).
+
+    READ IN THE SAME CONNECTION WINDOW AS THE POOL, and for the same reason: the service
+    holds no database handle while answering, so a playbook cannot be fetched per request.
+    That is why `responding.respond` takes a `playbook_for` function rather than looking one
+    up itself -- the same shape as `moves_for` and `label_for`.
+
+    `status='live'` is `storage.get_playbook_for_scenario`'s default and is the guard that
+    matters: the placebo twins and the UNRESOLVED r1 trial documents sit in this same table
+    and are indistinguishable from production content without it. Serving a placebo to a CSM
+    is exactly what that filter prevents, so this calls the function rather than writing its
+    own SELECT.
+
+    A scenario with no live playbook is simply absent, and the procedure path falls back to
+    the Layer B answer for it -- the ordinary case for contract_and_legal_review, 1 of 34.
+    """
+    playbooks: dict[str, dict] = {}
+    missing = []
+    for key in sorted({p["scenario_key"] for p in pairs}):
+        row = storage.get_playbook_for_scenario(conn, key)
+        document = (row or {}).get("playbook")
+        if document:
+            playbooks[key] = document
+        else:
+            missing.append(key)
+    print(f"[playbook] {len(playbooks)} scenarios have a live playbook, {len(missing)} do "
+          f"not and will answer from Layer B instead", flush=True)
+    if missing:
+        print(f"[playbook] no live playbook: {', '.join(missing)}", flush=True)
+    return playbooks
 
 
 def _build_store(config, pairs: list[dict], scenario_keys: list[str]):
@@ -264,7 +299,7 @@ def main() -> int:
                          "Pass '' to disable.")
     args = ap.parse_args()
 
-    pool, moves_by_scenario = build_pool(args.hostaddr or None)
+    pool, moves_by_scenario, playbooks_by_scenario = build_pool(args.hostaddr or None)
     label_for = build_label_resolver()
     # None unless the constant above was edited. answer_situation treats None as pairs-only,
     # so the shipped path never touches the playbook code at all.
@@ -281,7 +316,8 @@ def main() -> int:
             # stored here between requests, which is the point -- see the module docstring.
             return responding.respond(
                 situation, pool, gateway, embed_query=embedder.embed_query_matrix,
-                thread=thread, label_for=label_for, moves_for=moves_for)
+                thread=thread, label_for=label_for, moves_for=moves_for,
+                playbook_for=playbooks_by_scenario.get)
 
         if args.ask:
             # One message, no thread. `--ask` is a single-shot check of the whole path.

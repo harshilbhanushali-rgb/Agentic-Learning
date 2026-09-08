@@ -21,7 +21,7 @@ The Ask Naren prompt variant that adds the scenario's Brain Layer C playbook (`k
 _Avoid_: variant B, playbook prompt.
 
 **Grounding gate**:
-The check Ask Naren runs at request time, before a grounded answer reaches the CSM: the model's returned quote must verify as verbatim against the answer's **grounding source**, and what it cites must be something it was actually shown. There is ONE gate; what differs between answer paths is the grounding source, never whether an answer has one. **Only the `kb_pair` source is built** -- the gate verifies against a retrieved pair's response text today; issue #17 generalises it. On failure Ask Naren regenerates once and then declines rather than showing an unverified answer. This is what makes the citation guarantee in `docs/adr/0002-citations-are-unredacted.md` a property of every live answer instead of a statistic from an offline eval.
+The check Ask Naren runs at request time, before a grounded answer reaches the CSM: the model's returned quote must verify as verbatim against the answer's **grounding source**, and what it cites must be something it was actually shown. There is ONE gate; what differs between answer paths is the grounding source, never whether an answer has one. Two sources are built: a retrieved `kb_pair`'s response text, and a playbook's evidence quotes (issue #17). On failure Ask Naren regenerates once and then declines rather than showing an unverified answer. This is what makes the citation guarantee in `docs/adr/0002-citations-are-unredacted.md` a property of every live answer instead of a statistic from an offline eval.
 _Avoid_: quote check, verbatim check, hallucination filter.
 
 **Retrieval floor**:
@@ -53,7 +53,7 @@ The step that reads an incoming message before any retrieval and decides what ha
 _Avoid_: the read, the router, triage, dispatcher.
 
 **Intent**:
-**Built for three intents** (issue #14): answering from a client's words, clarifying, and declining an out-of-scope question. Issues #17-#23 add the rest. What kind of question a CSM is asking — reply to a client, the general play for a scenario, Naren's phrasing, what the tool even covers. A classification with a knowable correct answer, which is what makes intake measurable without a reader or a generation.
+**Built for five intents** -- `reply_to_client`, `clarify`, `out_of_scope` (issue #14), `follow_up` (issue #16) and `procedure` (issue #17): answering from a client's words, clarifying, and declining an out-of-scope question. Issues #17-#23 add the rest. What kind of question a CSM is asking — reply to a client, the general play for a scenario, Naren's phrasing, what the tool even covers. A classification with a knowable correct answer, which is what makes intake measurable without a reader or a generation.
 _Avoid_: question type, category, route.
 
 **Answer path**:
@@ -61,7 +61,7 @@ _Avoid_: question type, category, route.
 _Avoid_: route, handler, pipeline.
 
 **Grounding source**:
-**Named now, variable later** -- every live answer grounds in a `kb_pair`; the playbook source is issue #17. The specific stored text an answer must rest on, and what the grounding gate verifies its quote against. A Layer B answer grounds in the matched `kb_pair`'s response text; a Layer C answer grounds in the playbook's evidence quotes.
+**Built and variable** (issue #17). Modelled as `grounding.GroundingSource` -- an identifier the model must cite, the text its quote must appear in, and the payload the caller gets back. Layer B builds them from retrieved pairs, Layer C from a playbook's evidence quotes; one gate checks both. It needed no new field in the model's JSON contract, because every playbook evidence quote already records the call it came from. The specific stored text an answer must rest on, and what the grounding gate verifies its quote against. A Layer B answer grounds in the matched `kb_pair`'s response text; a Layer C answer grounds in the playbook's evidence quotes.
 _Avoid_: context, the source, evidence, grounding text.
 
 **Clarify**:

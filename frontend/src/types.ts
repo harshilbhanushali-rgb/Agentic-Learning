@@ -176,7 +176,10 @@ export interface AskNarenCitation {
    *  shape change for every caller. */
   label: string;
   call_filename: string;
-  pair_id: number;
+  /** ABSENT ON A LAYER C ANSWER (issue #17). A playbook evidence quote records the call it
+   *  came from, not a `kb_pairs` row, so there is no pair to point at — and inventing one
+   *  would send an engineer tracing a bad answer to an exchange it does not rest on. */
+  pair_id?: number;
   scenario_key: string;
 }
 
@@ -250,6 +253,10 @@ export type AskNarenDeclineReason =
    *  THAT call", not "nothing close exists". Asking it as a fresh question is the useful
    *  next move, and that is what makes it its own reason. */
   | 'follow_up_ungrounded'
+  /** The scenario has a live playbook but nothing Naren actually said is attached to it, so
+   *  the play cannot be shown grounded in his own words (issue #17). Distinct from
+   *  `no_close_match`: the play exists, its evidence does not. */
+  | 'no_playbook_evidence'
   | 'service_error'
   | 'service_unreachable';
 
