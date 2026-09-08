@@ -520,13 +520,15 @@ def test_a_service_started_without_playbooks_still_answers():
     assert result["outcome"] == "answered"
 
 
-def test_a_live_playbook_with_no_quotable_evidence_declines_without_generating():
-    """Generating first would spend two calls to fail the gate twice."""
+def test_a_live_playbook_with_no_quotable_evidence_degrades_to_layer_b():
+    """Same footing as a scenario with no playbook at all: the play cannot be grounded, but
+    the tool still knows what Naren SAID in the closest real exchange. It costs no gateway
+    call to discover this -- the Layer C generation is never attempted."""
     empty = {**PLAYBOOK, "key_moves": [{"name": "x", "criterion": "y", "evidence": []}]}
-    result, gw, _ = _ask_procedure(playbook_for=lambda key: empty)
-    assert result["outcome"] == "declined"
-    assert result["reason"] == "no_playbook_evidence"
-    assert gw.calls == []
+    result, gw, _ = _ask_procedure(_answer_payload(), playbook_for=lambda key: empty)
+    assert result["outcome"] == "answered"
+    assert result["citation"]["pair_id"] == 11        # the Layer B shape
+    assert len(gw.calls) == 1                         # one generation, not two
 
 
 def test_the_procedure_query_is_still_a_span_of_the_message():
@@ -535,3 +537,24 @@ def test_the_procedure_query_is_still_a_span_of_the_message():
     _, _, embed = _ask_procedure(_answer_payload(), query="something it made up",
                                  playbook_for=lambda key: None)
     assert embed.seen == [PLAY_QUESTION]
+
+
+def test_the_gate_is_not_given_evidence_the_prompt_never_showed():
+    """`procedure` renders key_moves. If the gate's sources were built from the whole
+    document, a quote from signature_language -- which this prompt does not show -- would
+    pass, dropping the "cited something it was actually shown" half of the guarantee.
+
+    It also makes the cheap pre-decline honest: a playbook whose key_moves carry no evidence
+    must decline WITHOUT generating, even when other sections have quotes."""
+    elsewhere = "we always attribute it back to the source"
+    playbook = {
+        **PLAYBOOK,
+        "key_moves": [{"name": "x", "criterion": "y", "evidence": []}],
+        "signature_language": [{"phrase": "attribute it back",
+                                "quote": elsewhere, "call": CALL, "account": "uber.com"}],
+    }
+    result, gw, _ = _ask_procedure(_answer_payload(), playbook_for=lambda key: playbook)
+    assert result["outcome"] == "answered"
+    assert result["citation"]["pair_id"] == 11        # degraded to Layer B, not Layer C
+    assert len(gw.calls) == 1
+    assert elsewhere not in gw.calls[0]["prompt"]

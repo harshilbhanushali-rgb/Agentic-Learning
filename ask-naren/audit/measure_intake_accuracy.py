@@ -4,6 +4,7 @@
     python ask-naren/audit/measure_intake_accuracy.py                  # the fitted set
     python ask-naren/audit/measure_intake_accuracy.py --set heldout    # the real number
     python ask-naren/audit/measure_intake_accuracy.py --set threaded   # issue #16
+    python ask-naren/audit/measure_intake_accuracy.py --set procedure  # issue #17
     python ask-naren/audit/measure_intake_accuracy.py --limit 6        # smoke test
 
 WHY THIS IS CHEAP, AND WHY THAT MATTERS. Every other quality question in this project needs a
@@ -362,6 +363,85 @@ _ASKED_BACK = {
     "reply": "What did the client actually say?",
 }
 
+# PROCEDURE cases (issue #17). The intent that answers "what is the general play for X" from
+# a scenario's Layer C playbook, with no client quoted at all.
+#
+# HELD OUT: written before the discriminator was worded and not edited after reading a
+# result. The negative half is the point, as everywhere else here -- issue #12 names the
+# discriminator explicitly ("presence of a specific client utterance separates
+# reply_to_client from procedure"), and an intake that routed every how-do-we question to
+# `procedure` would score perfectly on the positive cases while quietly diverting real
+# client situations away from the path with the measured accuracy number.
+PROCEDURE = [
+    # -- must route to the play: no client is quoted and none needs to be ------------------
+    {"message": "how do we usually handle it when a client says their cost per hire is "
+                "higher than we pitched",
+     "expect": "procedure",
+     "note": "the canonical one -- a KIND of situation, phrased hypothetically"},
+    {"message": "whats the play when spend overruns halfway through the month",
+     "expect": "procedure",
+     "note": "preparing rather than reacting; no client in the room"},
+    {"message": "how should i approach a QBR where performance is down",
+     "expect": "procedure",
+     "note": "asks for an approach, not for a reply to anything"},
+
+    # -- must NOT route to the play: a client actually said something ----------------------
+    {"message": "client just said \"our cost per hire is higher than you pitched\", what "
+                "do i say",
+     "expect": "reply_to_client",
+     "query_must_contain": ["cost per hire"],
+     "query_must_not_contain": ["what do i say"],
+     "note": "THE DISCRIMINATOR. Same topic as the first case above, but a client utterance "
+             "is present -- so it belongs on the path with the measured accuracy number"},
+    {"message": "she told me on the call that spend overran and nobody warned her",
+     "expect": "reply_to_client",
+     "query_must_contain": ["spend"],
+     "note": "reported speech is still a client utterance; the hypothetical version of this "
+             "is the procedure case above"},
+
+    # -- must NOT route to the play: still out of scope, still too thin --------------------
+    {"message": "whats our standard discount for a two year commitment",
+     "expect": "out_of_scope",
+     "note": "a how-do-we question about OUR terms is an internal fact, not a play"},
+    {"message": "how do we usually handle difficult clients",
+     "expect": "clarify",
+     "note": "names no situation at all -- 'difficult' is a mood. A play needs a KIND of "
+             "situation to look up, so this one has to be asked about first"},
+]
+
+
+## THE PROCEDURE SET (`--set procedure`, issue #17), 2026-09-08
+
+`procedure` answers "what is the general play for X" from a scenario's Layer C playbook, and
+adding it CHANGED THE PROMPT FOR EVERY MESSAGE -- the intent and its discriminator sit in the
+unconditional section, because a CSM can ask for a play with or without a conversation. That
+makes it a change to the one step whose accuracy is on record, so it was measured.
+
+| run | overall | must-not-clarify | verbatim | meaning | framing |
+| --- | --- | --- | --- | --- | --- |
+| held out, before any fix | **6/7** | 6/6 | 7/7 | 7/7 | 7/7 |
+| after the prompt fix (**fitted**) | 7/7 | 6/6 | 7/7 | 7/7 | 7/7 |
+
+*** QUOTE 6/7. *** The prompt was changed after reading the first run, which makes the second
+a repaired instrument rather than an accuracy rate -- the same distinction the fitted twelve
+and the threaded set already carry. n=7.
+
+The failure, and why it was worth a prompt change rather than a shrug: **"how do we usually
+handle difficult clients" routed to `procedure`.** A play is looked up BY THE KIND OF
+SITUATION, and "difficult" is a mood -- so there is no scenario to look up. Routed to
+`procedure` it would embed "difficult clients", retrieve whatever is nearest (a catch-all,
+most likely -- `application_volume_and_prioritization` carries 11.8% of coachable pairs), and
+answer confidently with that scenario's play. Grounded, coherent, about nothing the CSM
+asked. The discriminator now says a mood is not a situation.
+
+**The negative half is the discriminator issue #12 names explicitly**: "presence of a
+specific client utterance separates `reply_to_client` from `procedure`". Cases 4 and 5 are
+the same topics as cases 1 and 2 with a client actually speaking, and they must stay on the
+Layer B path -- the one with the measured accuracy number. An intake that routed every
+how-do-we question to `procedure` would score 3/3 on the positive cases while quietly
+diverting real client situations away from it.
+
+
 THREADED = [
     # -- must be read as follow-ups: no new situation, only the one already answered -------
     {"thread": [_ANSWERED],
@@ -445,7 +525,7 @@ def main() -> int:
     ap.add_argument("--limit", type=int, help="only the first N cases (smoke test)")
     ap.add_argument("--out", default=str(ARTIFACTS / "intake_accuracy.json"))
     ap.add_argument("--set", dest="which", default="fitted",
-                    choices=("fitted", "heldout", "threaded", "both"),
+                    choices=("fitted", "heldout", "threaded", "procedure", "both"),
                     help="fitted = the 12 the prompt was tuned on (NOT an accuracy "
                          "rate); heldout = cases never used to change the prompt; "
                          "threaded = the conversation-shaped cases (issue #16)")
@@ -458,7 +538,7 @@ def main() -> int:
 
     load_config()
     pool = {"fitted": CASES, "heldout": HELD_OUT, "threaded": THREADED,
-            "both": CASES + HELD_OUT}[args.which]
+            "procedure": PROCEDURE, "both": CASES + HELD_OUT}[args.which]
     cases = pool[:args.limit] if args.limit else pool
 
     rows = []
@@ -514,6 +594,7 @@ def main() -> int:
     label = {"fitted": "FITTED cases (not an accuracy rate)",
              "heldout": "HELD-OUT cases",
              "threaded": "THREAD-SHAPED cases (issue #16)",
+             "procedure": "PROCEDURE cases (issue #17)",
              "both": "fitted + held-out"}[args.which]
     print(f"ROUTING ACCURACY -- {args.model} "
           f"(reasoning={args.reasoning or chr(110)+chr(111)+chr(110)+chr(101)}) -- {label}")
@@ -525,7 +606,7 @@ def main() -> int:
     # Reported per class, never pooled. A pooled rate hides the failure that matters: an
     # intake biased toward clarify looks fine overall while making the tool ask questions
     # instead of answering.
-    for label in ("reply_to_client", "clarify", "out_of_scope", "follow_up"):
+    for label in ("reply_to_client", "clarify", "out_of_scope", "follow_up", "procedure"):
         group = [r for r in rows if r["expect"] == label]
         if group:
             hit = sum(r["correct"] for r in group)

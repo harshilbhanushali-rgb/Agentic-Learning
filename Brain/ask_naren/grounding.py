@@ -63,9 +63,19 @@ def from_playbook_evidence(entries: list[dict]) -> list[GroundingSource]:
     whichever section it came from. Each quote is its own source rather than the section
     being one big source, because the gate must be able to say WHICH quote an answer rests
     on, exactly as it says which exchange on the Layer B path.
+
+    AN ENTRY MISSING EITHER FIELD IS DROPPED, not read defensively into a broken source.
+    These come from a model-authored jsonb document, so a missing key is a real shape rather
+    than a hypothetical: without a `quote` the containment check is trivially true for
+    anything, and without a `call` there is no identifier for the model to cite, so the
+    source could never be selected and would only pad the list. Dropping them means a
+    playbook whose evidence is entirely malformed produces NO sources -- which the caller
+    already turns into an honest decline rather than a 500.
     """
-    return [GroundingSource(identifier=e["call"], text=e["quote"], payload=e)
-            for e in entries if (e.get("quote") or "").strip()]
+    return [GroundingSource(identifier=(e.get("call") or "").strip(),
+                            text=e["quote"], payload=e)
+            for e in entries
+            if (e.get("quote") or "").strip() and (e.get("call") or "").strip()]
 
 
 @dataclass(frozen=True)

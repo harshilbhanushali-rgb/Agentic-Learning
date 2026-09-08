@@ -140,8 +140,17 @@ def build_prompt(message: str, thread=()) -> str:
     `thread` is the conversation so far (issue #16). It is shown so intake can do the three
     things it cannot do without it -- tell a follow-up from a new situation, recognise a
     message as the answer to its own earlier clarify, and avoid asking a question twice.
-    An empty thread produces the exact prompt that shipped in #14, so a first message in a
-    conversation is classified by the same text the routing accuracy was measured on.
+
+    *** THE PROMPT IS NO LONGER THE ONE #14's ROUTING ACCURACY WAS MEASURED ON. *** Through
+    #16 an empty thread still produced that exact text, and this docstring said so. Issue
+    #17 added the `procedure` intent and its discriminator to the UNCONDITIONAL section --
+    correctly, because a CSM can ask for the general play with or without a conversation --
+    which means every message, first or not, is now classified by a different prompt.
+
+    That is a real change to the one step whose accuracy is on record, so it was re-measured
+    rather than assumed: see `ask-naren/audit/measure_intake_accuracy.py`, which now carries
+    `procedure` cases and the negative cases that must NOT route to it. Do not restore the
+    old claim without re-running that harness.
     """
     history = []
     if thread:
@@ -178,6 +187,9 @@ def build_prompt(message: str, thread=()) -> str:
         "do we usually handle renewals that stall\", \"what's the play when spend "
         "overruns\", \"how should i approach a QBR where performance is down\". No client "
         "is quoted and none needs to be.",
+        f"    A PLAY IS LOOKED UP BY THE KIND OF SITUATION, so the message has to name one. "
+        f'"difficult clients", "tricky accounts", "when things get tense" name a MOOD, not '
+        f'a situation -- those are "{CLARIFY}". Ask which kind of situation they mean.',
         "",
         f'  "{OUT_OF_SCOPE}" -- THE CSM is asking YOU for an internal fact about Joveo: a '
         "list price, a contract term, which integrations exist, what a policy says. Naren's "

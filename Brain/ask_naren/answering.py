@@ -54,7 +54,6 @@ NO_CLOSE_MATCH = "no_close_match"
 GROUNDING_UNVERIFIED = "grounding_unverified"
 OUT_OF_SCOPE = "out_of_scope"
 FOLLOW_UP_UNGROUNDED = "follow_up_ungrounded"
-NO_PLAYBOOK_EVIDENCE = "no_playbook_evidence"
 
 _MESSAGES = {
     NO_CLOSE_MATCH: (
@@ -75,12 +74,6 @@ _MESSAGES = {
         "That follow-up goes beyond what Naren said in the call the last answer came from. "
         "Rather than guess, Ask Naren is declining -- describe the situation as a fresh "
         "question and it will search his calls for a closer moment."
-    ),
-    NO_PLAYBOOK_EVIDENCE: (
-        "There is a play recorded for this kind of situation, but nothing Naren actually "
-        "said is attached to it, so Ask Naren cannot show you the play grounded in his own "
-        "words. Describe a specific client situation instead and it will find the closest "
-        "real exchange."
     ),
 }
 
@@ -337,7 +330,7 @@ def build_procedure_prompt(question: str, scenario_key: str, playbook: dict) -> 
         lines += [f"    {n}. {step}" for n, step in enumerate(arc, 1)]
 
     lines += ["", "  The moves, each with what Naren really said:"]
-    for n, move in enumerate(playbook.get("key_moves") or [], 1):
+    for n, move in enumerate(procedure_moves(playbook), 1):
         lines += [
             "",
             f"  [{n}] {move.get('name', '')}",
@@ -386,12 +379,20 @@ def answer_procedure(question: str, match: Match, playbook: dict, gateway, *,
         raise ValueError("question is empty")
 
     scenario_key = match.pair["scenario_key"]
-    sources = grounding.from_playbook_evidence(_playbook_evidence(playbook))
+    # THE SAME MOVES THE PROMPT RENDERS, which is the whole point of routing both through
+    # `procedure_moves`. A gate handed sources the prompt never showed would accept a quote
+    # the model was not given -- and "what it cites must be something it was actually shown"
+    # is half of what the gate means (`ask-naren/CONTEXT.md`). Two independent traversals of
+    # this document is exactly how that guarantee rots.
+    sources = grounding.from_playbook_evidence(move_evidence(procedure_moves(playbook)))
     if not sources:
-        # A live playbook with no quotable evidence anywhere cannot ground an answer, and
-        # generating one would spend a call to fail the gate twice. Same decline as a
-        # scenario with no playbook at all.
-        return _decline(NO_PLAYBOOK_EVIDENCE, match, 1, label_for)
+        # NOT AN ANSWER AND NOT A DECLINE -- the caller degrades to Layer B, exactly as it
+        # does for a scenario with no live playbook at all. A playbook whose moves carry no
+        # quotable evidence cannot ground a Layer C answer, but the tool still knows what
+        # Naren SAID in the closest real exchange, and this ticket's stated principle is
+        # that a missing playbook degrades rather than fails. Returning None here rather
+        # than generating also means the failure costs no gateway call.
+        return None
 
     prompt = build_procedure_prompt(question, scenario_key, playbook)
     for _ in range(MAX_ATTEMPTS):
@@ -421,18 +422,29 @@ def answer_procedure(question: str, match: Match, playbook: dict, gateway, *,
     return _decline(GROUNDING_UNVERIFIED, match, 1, label_for)
 
 
-def _playbook_evidence(playbook: dict) -> list[dict]:
-    """Every quotable evidence entry in a playbook, flattened.
+def procedure_moves(playbook: dict) -> list[dict]:
+    """The moves the `procedure` path answers from: `key_moves`, in order.
 
-    `key_moves` and `pitfalls_and_variants` nest theirs under `evidence`;
-    `signature_language` IS an evidence entry (it carries `quote`/`call`/`account` directly
-    plus the phrase). Only `arc` has none -- it is a list of move names, which are our words.
+    ONE DEFINITION WITH TWO CONSUMERS -- the prompt renders these, and the gate's sources are
+    built from these. It exists as a function rather than as two `playbook["key_moves"]`
+    reads precisely so a later section cannot be added to one and forgotten in the other: a
+    gate holding sources the prompt never showed silently drops the "cited something it was
+    actually shown" half of the guarantee, which nothing downstream would catch.
+
+    `signature_language` and `pitfalls_and_variants` are deliberately NOT here. They are
+    issue #18's intents (`phrasing`, `pitfalls`), and each arrives with its own prompt --
+    at which point it renders what its own gate verifies against, the same way this does.
+
+    Order is preserved: `db/schema.sql` records that `key_moves` order is load-bearing.
     """
+    return list(playbook.get("key_moves") or [])
+
+
+def move_evidence(moves: list[dict]) -> list[dict]:
+    """Every evidence entry carried by these moves, flattened, in the order shown."""
     entries: list[dict] = []
-    for section in ("key_moves", "pitfalls_and_variants"):
-        for item in playbook.get(section) or []:
-            entries.extend(item.get("evidence") or [])
-    entries.extend(playbook.get("signature_language") or [])
+    for move in moves:
+        entries.extend(move.get("evidence") or [])
     return entries
 
 

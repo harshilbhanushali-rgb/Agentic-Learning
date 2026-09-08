@@ -202,18 +202,31 @@ def _total(turns) -> int:
 # does not exist.
 
 def carried_source(turns) -> ThreadTurn | None:
-    """The grounding source already cited -- the most recent turn that rested on one.
+    """The grounding source a follow-up inherits: the source THE LAST ANSWER rested on.
 
     This is ADR 0006's corollary in one function: what carries forward is an IDENTIFIER, so
     a follow-up can be answered from the exchange already cited without embedding a single
     word of history. The text is looked up from the pool the service already holds.
 
-    None when nothing in the thread grounded in anything -- an all-clarify thread, or a
-    first message. The follow-up path has nothing to answer from in that case and says so.
+    IT STOPS AT THE MOST RECENT ANSWER RATHER THAN HUNTING FOR A `pair_id`, and the
+    difference is not cosmetic. Since issue #17 an answered turn can carry NO `pair_id` --
+    a Layer C answer rests on a playbook evidence quote, not on a `kb_pairs` row. A rule
+    that skipped such a turn and kept walking would ground the follow-up in an OLDER,
+    unrelated exchange while the CSM is plainly asking about the answer they just read:
+    grounded, coherent, and about the wrong thing, which is the exact failure
+    `responding._guarded` rule 3 exists to prevent.
+
+    Clarifies and declines ARE skipped, because they are not answers -- they ground nothing,
+    so a follow-up after "what did the client actually say?" is still about the answer
+    before it.
+
+    None when the last answer grounded in no retrievable pair (a Layer C answer) or when
+    nothing in the thread has been answered at all. The caller degrades to answering the
+    message as a fresh question, which is the honest outcome in both cases.
     """
     for turn in reversed(list(turns)):
-        if turn.pair_id is not None:
-            return turn
+        if turn.outcome == "answered":
+            return turn if turn.pair_id is not None else None
     return None
 
 

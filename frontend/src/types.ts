@@ -253,10 +253,6 @@ export type AskNarenDeclineReason =
    *  THAT call", not "nothing close exists". Asking it as a fresh question is the useful
    *  next move, and that is what makes it its own reason. */
   | 'follow_up_ungrounded'
-  /** The scenario has a live playbook but nothing Naren actually said is attached to it, so
-   *  the play cannot be shown grounded in his own words (issue #17). Distinct from
-   *  `no_close_match`: the play exists, its evidence does not. */
-  | 'no_playbook_evidence'
   | 'service_error'
   | 'service_unreachable';
 

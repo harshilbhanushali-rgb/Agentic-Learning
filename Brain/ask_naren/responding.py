@@ -130,8 +130,12 @@ def _procedure(message: str, decision: intake.IntakeDecision, pool: RetrievalPoo
         match = pool.top1(embed_once([decision.retrieval_query])[0])
         playbook = playbook_for(match.pair["scenario_key"])
         if playbook:
-            return answering.answer_procedure(message, match, playbook, gateway,
-                                              label_for=label_for)
+            # None means the playbook carries no quotable evidence, which degrades to
+            # Layer B below on the same footing as a scenario with no playbook at all.
+            answered = answering.answer_procedure(message, match, playbook, gateway,
+                                                  label_for=label_for)
+            if answered is not None:
+                return answered
 
     return answering.answer_situation(
         decision.retrieval_query, pool, gateway, embed_query=embed_once, k=k,

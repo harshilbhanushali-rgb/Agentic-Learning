@@ -198,3 +198,12 @@ def test_an_evidence_entry_with_no_quote_is_not_a_source():
     """A playbook move can carry an empty evidence slot. An empty source would make the
     gate's containment check trivially true for any quote."""
     assert grounding.from_playbook_evidence([{"quote": "  ", "call": MOVE_CALL}]) == []
+
+
+def test_an_evidence_entry_with_no_call_is_not_a_source():
+    """These come from a model-authored jsonb document, so a missing key is a real shape.
+    Without a `call` there is no identifier for the model to cite, so the source could never
+    be selected -- and reading it defensively into a broken source would turn a malformed
+    playbook into a 500 instead of a decline."""
+    assert grounding.from_playbook_evidence([{"quote": MOVE_QUOTE}]) == []
+    assert grounding.from_playbook_evidence([{"quote": MOVE_QUOTE, "call": "  "}]) == []

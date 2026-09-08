@@ -143,13 +143,16 @@ def test_a_thread_that_grounded_in_nothing_carries_no_source():
 
 
 def test_a_carried_identifier_survives_the_trim_that_drops_its_prose():
-    """The two rules meeting: what a follow-up inherits is still there after the message it
-    came from has been blanked to fit."""
-    turns = [_grounded(1), *[_turn(n, message="m" * 500, reply="r" * 500)
+    """The two rules meeting: what a later message inherits is still there after the message
+    it came from has been blanked to fit."""
+    turns = [_grounded(1), *[_turn(n, message="m" * 500, reply="r" * 500, pair_id=n,
+                                   scenario_key="performance_pushback",
+                                   call_filename=f"call_{n}.txt")
                              for n in range(2, 8)]]
     trimmed = threads.trim(turns, budget=1500)
     assert not trimmed[0].message                     # its prose went
-    assert threads.carried_source(trimmed).pair_id == 1   # its identifier did not
+    assert trimmed[0].pair_id == 1                    # its identifier did not
+    assert threads.carried_source(trimmed).pair_id == 7   # and the last answer resolves
 
 
 def test_a_clarify_as_the_last_turn_means_the_csm_is_answering_it_now():
@@ -177,3 +180,25 @@ def test_an_elided_turn_says_so_rather_than_reading_as_silence():
     rendered = threads.render([_grounded(1).elided()])
     assert "dropped to fit" in rendered
     assert "call_1.txt" in rendered      # the identifier is still visible
+
+
+def test_a_layer_c_answer_stops_the_walk_back_rather_than_being_skipped():
+    """Since issue #17 an ANSWERED turn can carry no pair_id -- a Layer C answer rests on a
+    playbook evidence quote, not on a kb_pairs row.
+
+    A rule that skipped it and kept hunting would ground a follow-up in an OLDER, unrelated
+    exchange while the CSM is plainly asking about the answer they just read: grounded,
+    coherent and about the wrong thing. So the walk stops at the most recent ANSWER."""
+    layer_c = threads.ThreadTurn(message="what's the play for cpa pushback",
+                                 reply="Reframe on their own baseline first.",
+                                 outcome="answered", pair_id=None,
+                                 scenario_key="performance_pushback",
+                                 call_filename="a_call.txt")
+    assert threads.carried_source([_grounded(1), layer_c]) is None
+
+
+def test_a_clarify_after_an_answer_does_not_break_the_carried_source():
+    """A clarify grounds nothing, so a follow-up after "what did they actually say?" is
+    still about the answer before it."""
+    turns = [_grounded(1), _clarify()]
+    assert threads.carried_source(turns).pair_id == 1

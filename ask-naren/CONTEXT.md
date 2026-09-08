@@ -57,7 +57,7 @@ _Avoid_: the read, the router, triage, dispatcher.
 _Avoid_: question type, category, route.
 
 **Answer path**:
-**Partly built** -- `reply_to_client` ships, and intake also routes to clarify and to an out-of-scope decline (issue #14); the layer paths are issues #17-#23. The machinery that serves one intent end to end, including which Brain layer it reads. Distinct from an intent because a composite path reads several layers, and distinct from Brain's **routing**, which means assigning a pair or turn to a scenario — something Ask Naren also does, which is why the two must not share a word.
+**Partly built** -- `reply_to_client`, clarify and the out-of-scope decline (issue #14), `follow_up` (issue #16), and `procedure`, the first LAYER C path, which answers the general play for a scenario from its playbook `key_moves` and `arc` (issue #17). The remaining layer paths are issues #18-#23. The machinery that serves one intent end to end, including which Brain layer it reads. Distinct from an intent because a composite path reads several layers, and distinct from Brain's **routing**, which means assigning a pair or turn to a scenario — something Ask Naren also does, which is why the two must not share a word.
 _Avoid_: route, handler, pipeline.
 
 **Grounding source**:
