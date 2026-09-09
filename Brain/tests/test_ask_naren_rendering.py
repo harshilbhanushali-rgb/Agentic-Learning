@@ -497,3 +497,131 @@ def test_a_neighbourhood_that_drifted_reports_how_far():
     assert result["scenario_key"] == "performance_pushback"   # the nearest one
     assert result["same_scenario"] == 2
     assert result["exchanges"] == 3
+
+
+# -- the two composites (issue #23) ---------------------------------------------------------
+#
+# BOTH RENDER, and that is the reading of criterion 3 ("composes existing answer paths rather
+# than introducing a new grounding rule"). Composing only RENDERED paths means there is
+# nothing to mix: ADR 0009 warns that stitching a Layer C summary to a Layer B answer
+# inherits the weaker of the two guarantees, and the way not to inherit a weaker guarantee is
+# not to take one on.
+
+def _prep_scenarios():
+    return [_scenario("performance_pushback", desc="Client challenges the pitch.", calls=40),
+            _scenario("timeline_question", desc="Client asks when it lands.", calls=9)]
+
+
+def _prep_playbooks():
+    return {"performance_pushback": {"playbook": PLAYBOOK, "n_evidence": 7}}
+
+
+def test_call_prep_names_the_likely_scenarios_with_their_plays_and_a_real_example():
+    other = _seen(UBER_B, 2)
+    other.pair["scenario_key"] = "timeline_question"
+    result = rendering.call_prep(
+        "renewal call tomorrow", [_seen(UBER_A, 1), other, _seen(RECKITT, 3)],
+        scenarios=_prep_scenarios(), playbook_for=_prep_playbooks().get,
+        label_for=lambda f: "Uber - 3 May 2023")
+    assert result["outcome"] == "rendered"
+    assert result["kind"] == "call_prep"
+    keys = [s["scenario_key"] for s in result["scenarios"]]
+    assert keys[0] == "performance_pushback"      # most exchanges first
+    assert "timeline_question" in keys
+    first = result["scenarios"][0]
+    assert first["description"] == "Client challenges the pitch."
+    assert first["steps"] == ["Reframe on their own baseline", "Agree a realistic target"]
+    assert first["example"]["naren_replied"] == RESPONSE
+    assert first["example"]["citation"]["label"] == "Uber - 3 May 2023"
+
+
+def test_call_prep_says_plainly_when_a_scenario_has_no_recorded_play():
+    """1 of 34 coachable scenarios has no live playbook. Showing the scenario with an empty
+    step list would read as "there is no play here"; saying so is an answer."""
+    other = _seen(UBER_B, 2)
+    other.pair["scenario_key"] = "timeline_question"
+    result = rendering.call_prep(
+        "x", [_seen(UBER_A, 1), other], scenarios=_prep_scenarios(),
+        playbook_for=_prep_playbooks().get)
+    by_key = {s["scenario_key"]: s for s in result["scenarios"]}
+    assert by_key["performance_pushback"]["has_play"] is True
+    assert by_key["timeline_question"]["has_play"] is False
+    assert by_key["timeline_question"]["steps"] == []
+
+
+def test_call_prep_generates_nothing_and_shows_stored_text_verbatim():
+    result = rendering.call_prep(
+        "x", [_seen(UBER_A, 1)], scenarios=_prep_scenarios(),
+        playbook_for=_prep_playbooks().get)
+    assert "answer" not in result and "quote" not in result
+    assert result["scenarios"][0]["example"]["client_said"] == TRIGGER
+
+
+def test_call_prep_raises_on_an_empty_ranking_like_every_other_retrieving_path():
+    import pytest
+    with pytest.raises(RuntimeError, match="no kb_pair the pool authorises"):
+        rendering.call_prep("x", [], scenarios=_prep_scenarios(),
+                            playbook_for=_prep_playbooks().get)
+
+
+def test_improve_at_move_focuses_the_move_the_csm_actually_named():
+    """Criterion 2: the criterion, its pitfalls, and Naren doing it. The move is chosen by
+    plain word overlap with what the CSM asked -- deterministic, no model, no embedding."""
+    result = rendering.improve_at_move(
+        "i want to get better at reframing on their own baseline",
+        "performance_pushback", {"playbook": PLAYBOOK, "n_evidence": 7},
+        label_for=lambda f: "Uber - 3 May 2023")
+    assert result["kind"] == "improve_at_move"
+    assert result["focused"] is True
+    assert len(result["moves"]) == 1
+    move = result["moves"][0]
+    assert move["name"] == "Reframe on their own baseline"
+    assert move["criterion"] == "Compare against history."
+    assert move["evidence"][0]["quote"] == "against their own baseline"
+    assert move["evidence"][0]["label"] == "Uber - 3 May 2023"
+    assert result["pitfalls"][0]["text"].startswith("Quoting the market benchmark")
+
+
+def test_improve_at_move_shows_every_move_when_nothing_the_csm_said_matches_one():
+    """DEGRADES TO THE WHOLE PLAY rather than guessing a move. Picking one on no evidence
+    would answer a question the CSM did not ask, and `focused` says which happened."""
+    result = rendering.improve_at_move(
+        "i want to get better at this", "performance_pushback",
+        {"playbook": PLAYBOOK, "n_evidence": 7})
+    assert result["focused"] is False
+    assert [m["name"] for m in result["moves"]] == ["Reframe on their own baseline"]
+
+
+def test_improve_at_move_names_its_scenario_and_generates_nothing():
+    result = rendering.improve_at_move("x", "performance_pushback",
+                                       {"playbook": PLAYBOOK, "n_evidence": 7})
+    assert result["scenario_key"] == "performance_pushback"
+    assert result["outcome"] == "rendered"
+    assert "answer" not in result and "quote" not in result
+
+
+def test_call_prep_breaks_ties_by_nearness_rather_than_alphabetically():
+    """MEASURED WHY THIS MATTERS: `topk_headroom.json` puts the top-20 neighbourhood at a
+    mean of 6.19/20 same-situation, so ONE scenario usually dominates and the rest of the
+    list is a long tail of singletons. Positions 2 and 3 -- two of the three things a CSM is
+    told to walk into the call ready for -- are therefore decided by the tiebreak almost
+    every time.
+
+    Sorting on the key would hand them to whichever scenario starts with the earliest
+    letter, and `application_volume_and_prioritization` -- the catch-all ADR 0009 names,
+    carrying 11.8% of coachable pairs with 16% of what routes there off-topic -- starts with
+    'a' and would win nearly every tie. Python's sort is stable and the groups are built
+    nearest-first, so dropping the key restores proximity for free."""
+    near = _seen(UBER_A, 1)
+    near.pair["scenario_key"] = "zzz_the_second_nearest"
+    far = _seen(UBER_B, 2)
+    far.pair["scenario_key"] = "aaa_much_further_away"
+    dominant = [_seen(RECKITT, 10 + i) for i in range(3)]
+    for m in dominant:
+        m.pair["scenario_key"] = "performance_pushback"
+
+    result = rendering.call_prep(
+        "x", dominant + [near, far], scenarios=_prep_scenarios(),
+        playbook_for=_prep_playbooks().get)
+    keys = [s["scenario_key"] for s in result["scenarios"]]
+    assert keys == ["performance_pushback", "zzz_the_second_nearest", "aaa_much_further_away"]

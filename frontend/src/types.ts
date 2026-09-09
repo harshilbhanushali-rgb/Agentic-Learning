@@ -424,6 +424,43 @@ export type AskNarenRendered =
       unnamed_calls: number;
       exchanges: number;
       basis: string }
+  /* The two composites (issue #23). BOTH RENDER, and that is the guarantee rather than the
+     layout: ADR 0009 warns that stitching a Layer C summary onto a Layer B answer inherits
+     the weaker of the two, so these compose only rendered paths and inherit neither. The
+     cost is real — neither can summarise or tailor its advice to a particular client; they
+     assemble what is on file and let the CSM read. */
+  | { outcome: 'rendered'; kind: 'call_prep'; intake?: AskNarenIntake;
+      asked_about: string;
+      /** The likely ground, most-represented first: what tends to come up, the recorded
+       *  play for each, and one real exchange to read.
+       *
+       *  `has_play` false means no play is RECORDED for that situation — not that there is
+       *  none. Render the difference; an empty step list alone reads as the second. */
+      scenarios: {
+        scenario_key: string;
+        description: string;
+        exchanges: number;
+        has_play: boolean;
+        steps: string[];
+        example: AskNarenExchange & { citation: AskNarenCitation };
+      }[];
+      /** How many distinct situations the neighbourhood held, which may exceed the number
+       *  shown — a CSM should know the list was trimmed rather than exhaustive. */
+      scenarios_found: number;
+      exchanges: number;
+      basis: string }
+  | { outcome: 'rendered'; kind: 'improve_at_move'; intake?: AskNarenIntake;
+      asked_about: string; scenario_key: string;
+      /** TRUE when the CSM's own words picked one move out, FALSE when nothing matched and
+       *  this is the whole play instead. The page must say which — presenting all the moves
+       *  as though they were the one thing asked about is a quiet lie about what was
+       *  understood. */
+      focused: boolean;
+      moves: { name: string; criterion: string;
+               evidence: { quote: string; call: string; label: string }[] }[];
+      pitfalls: { text: string;
+                  evidence: { quote: string; call: string; label: string }[] }[];
+      basis: string }
   | { outcome: 'rendered'; kind: 'coverage_check'; intake?: AskNarenIntake;
       asked_about: string;
       nearest: AskNarenScenarioRef & {

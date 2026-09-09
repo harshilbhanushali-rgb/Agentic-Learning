@@ -44,6 +44,8 @@ PITFALLS = intake.PITFALLS
 SCENARIO_CHECK = intake.SCENARIO_CHECK
 PLAY_CONFIDENCE = intake.PLAY_CONFIDENCE
 WHERE_ELSE_SEEN = intake.WHERE_ELSE_SEEN
+CALL_PREP = intake.CALL_PREP
+IMPROVE_AT_MOVE = intake.IMPROVE_AT_MOVE
 
 #: How many scenarios `frequency` ranks. All 34 is a wall of text a CSM will not read; the
 #: point of the intent is "what comes up most", which is the head of the distribution.
@@ -534,6 +536,205 @@ def where_else_seen(asked: str, matches: list, account_for=citations.account_for
                   "exchange is about the same situation; the count above says how many "
                   "are."),
     }
+
+
+# -- the two composites (issue #23) --------------------------------------------------------
+#
+# BOTH RENDER, AND NEITHER GENERATES. #23 asks each to "compose existing answer paths rather
+# than introducing a new grounding rule", and ADR 0009 warns that a composite stitching a
+# Layer C summary onto a Layer B answer INHERITS THE WEAKER OF THE TWO GUARANTEES and should
+# say so. The way not to inherit a weaker guarantee is not to take one on: compose only the
+# RENDERED paths, and the composite keeps the structural guarantee both halves already have
+# -- nothing was generated, so nothing can have been invented, and there is no gate to
+# reconcile because neither half has one.
+#
+# That is a real constraint on what they can say, not a free win. Neither composite can
+# summarise, prioritise or tailor its advice to the CSM's particular client; they assemble
+# stored rows and let the CSM read. A generating version of `call_prep` -- "here is your
+# brief" -- would be a better product and would inherit exactly the mixed guarantee ADR 0009
+# describes. It is the obvious next ticket, not this one.
+
+#: How many scenarios `call_prep` shows. A CSM about to join a call reads three things, not
+#: eight, and the tail of a 25-exchange neighbourhood is mostly drift (`topk_headroom.json`:
+#: a mean of 6.19/20 share the top hit's situation).
+PREP_SCENARIOS = 3
+
+
+def call_prep(asked: str, matches: list, *, scenarios: list[dict], playbook_for,
+              label_for=citations.resolve_label) -> dict:
+    """Preparing for a call on a topic (issue #23): what is likely to come up, the play for
+    each, and a real exchange to read.
+
+    THREE EXISTING PATHS COMPOSED, one per criterion clause. The likely SCENARIOS come from
+    the neighbourhood, the same way `where_else_seen` reads one. Each PLAY is the scenario's
+    `arc`, exactly what `sequence` renders. Each EXAMPLE is a stored exchange shown verbatim,
+    exactly what `show_exchange` renders. Nothing here is a new way of knowing something.
+
+    RANKED BY HOW MUCH OF THE NEIGHBOURHOOD EACH SCENARIO CARRIES, which is the only signal
+    available that is not a cosine -- and ADR 0005 measured cosine as unable to separate
+    right answers from wrong ones, so it must not become a relevance score here either.
+
+    A SCENARIO WITH NO LIVE PLAYBOOK IS SHOWN WITH `has_play` FALSE rather than dropped or
+    given an empty step list. 1 of 34 coachable scenarios has none. Dropping it would hide a
+    thing the CSM should still expect on the call; an empty list reads as "there is no play",
+    which is a different claim from "we have not recorded one".
+    """
+    if not matches:
+        # The same rule as every other retrieving path: an empty authorised ranking is a
+        # fact about the INDEX, not about the corpus (ADR 0008).
+        raise RuntimeError(
+            "retrieval returned no kb_pair the pool authorises -- the vector store and the "
+            "pool disagree about what exists. Run ops/check_vector_coverage.py.")
+
+    described = {s["scenario_key"]: (s.get("business_description") or "").strip()
+                 for s in scenarios}
+    grouped: dict[str, list] = {}
+    for match in matches:
+        grouped.setdefault(match.pair["scenario_key"], []).append(match)
+
+    # MOST-CARRIED FIRST, AND TIES BROKEN BY NEARNESS. `grouped` is built by walking
+    # `matches` nearest-first and Python's sort is stable, so sorting on the count alone
+    # keeps the closer scenario ahead of an equally-common further one -- deterministic
+    # without a second key.
+    #
+    # A `scenario_key` tiebreak looked tidier and was wrong. `topk_headroom.json` puts the
+    # top-20 neighbourhood at a mean of 6.19/20 same-situation, so one scenario usually
+    # dominates and the rest is a long tail of singletons -- which makes positions 2 and 3,
+    # two of the three things a CSM is told to walk in ready for, decided by the tiebreak
+    # nearly every time. Alphabetical would hand them to the earliest letter, and
+    # `application_volume_and_prioritization` -- the catch-all ADR 0009 names, 11.8% of
+    # coachable pairs with 16% of what routes there off-topic -- starts with 'a'.
+    ranked = sorted(grouped.items(), key=lambda kv: -len(kv[1]))
+    out = []
+    for key, seen in ranked[:PREP_SCENARIOS]:
+        playbook = ((playbook_for(key) if playbook_for else None) or {}).get("playbook") or {}
+        steps = [str(s).strip() for s in (playbook.get("arc") or []) if str(s).strip()]
+        example = seen[0].pair
+        out.append({
+            "scenario_key": key,
+            "description": described.get(key, ""),
+            "exchanges": len(seen),
+            "has_play": bool(steps),
+            "steps": steps,
+            # Verbatim, for the reason `show_exchange` is verbatim: a CSM preparing for a
+            # call wants to judge the fit themselves rather than read our summary of it.
+            "example": {"client_said": example["trigger_text"],
+                        "naren_replied": example["response_text"],
+                        "citation": _citation(example, label_for)},
+        })
+
+    return {
+        "outcome": RENDERED,
+        "kind": CALL_PREP,
+        "asked_about": asked,
+        "scenarios": out,
+        "scenarios_found": len(grouped),
+        "exchanges": len(matches),
+        "basis": ("The situations that come up most in the exchanges nearest to what you "
+                  "described, each with its recorded play and one real moment to read. "
+                  "Nothing here is written for you -- it is what is on file, so the "
+                  "judgement about your client stays yours."),
+    }
+
+
+def improve_at_move(asked: str, scenario_key: str, record: dict,
+                    label_for=citations.resolve_label) -> dict:
+    """Getting better at one specific thing (issue #23): the criterion, its pitfalls, and
+    Naren doing it.
+
+    THREE PARTS OF ONE DOCUMENT, all rendered. The criterion is a `key_moves` entry, the
+    same rows `procedure` answers from; the pitfalls are what `pitfalls` renders; the quotes
+    are the move's own evidence, verbatim-snapped offline like every other playbook quote.
+
+    THE MOVE IS CHOSEN BY PLAIN WORD OVERLAP with what the CSM asked -- deterministic, no
+    model call and no second embedding. It is a weak matcher and it is meant to be: the
+    alternative is asking a model which move they meant, which is a generation, an invention
+    risk and a new failure mode on a path whose whole guarantee is that nothing was
+    generated.
+
+    NO MATCH SHOWS EVERY MOVE, and `focused` says which happened. Picking one on no evidence
+    would answer a question the CSM did not ask, and the whole play is a useful answer to
+    "help me get better at this" while a wrongly-picked move is not.
+
+    *** IT FOCUSES 26% OF THE TIME, MEASURED 2026-09-09. *** Over eight realistic asks against
+    all 33 live playbooks (264 pairs), the matcher picked a single move in 69. The reason is
+    in the data: a live `key_moves` name averages 9.4 words and is a generated sentence
+    ("Implement standardized campaign parameter structures and tracking solutions to eliminate
+    attribution gaps"), not a short label, so a CSM's plain words rarely overlap one.
+
+    So THREE QUARTERS OF THE TIME this answers with the whole play. That still delivers every
+    part the ticket asks for -- the criteria, the pitfalls and Naren's own words -- but it is
+    not narrowed to the one thing they named, and `focused` is what makes the difference
+    visible instead of silent.
+
+    RAISING IT WOULD NEED A LABELLED SET THAT DOES NOT EXIST. A looser matcher focuses more
+    often and there is nothing to say whether it focuses on the RIGHT move; a higher rate
+    bought that way is a worse answer that looks like a better one. This project's bar for a
+    matching change is a measurement (ADR 0005 applied it to a retrieval floor and rejected
+    it), and the honest state is that this one has a rate and no accuracy.
+    """
+    playbook = (record or {}).get("playbook") or {}
+    moves = [m for m in (playbook.get("key_moves") or []) if (m.get("name") or "").strip()]
+    chosen = _best_move(asked, moves)
+
+    def rendered(move: dict) -> dict:
+        return {
+            "name": (move.get("name") or "").strip(),
+            "criterion": (move.get("criterion") or "").strip(),
+            "evidence": [{"quote": (e.get("quote") or "").strip(),
+                          **_source((e.get("call") or "").strip(), label_for)}
+                         for e in (move.get("evidence") or [])
+                         if (e.get("quote") or "").strip()],
+        }
+
+    return {
+        "outcome": RENDERED,
+        "kind": IMPROVE_AT_MOVE,
+        "asked_about": asked,
+        "scenario_key": scenario_key,
+        #: True when the CSM's own words picked the move out. False means this is the whole
+        #: play rather than the one thing they asked about, which the page must say.
+        "focused": chosen is not None,
+        "moves": [rendered(chosen)] if chosen else [rendered(m) for m in moves],
+        # The scenario's pitfalls, not the move's -- `pitfalls_and_variants` is a property of
+        # the play rather than of a step, and there is no recorded link from one to the other.
+        # Filtering by the same word overlap would be inventing that link.
+        "pitfalls": pitfalls(scenario_key, playbook, label_for=label_for)["pitfalls"],
+        "basis": ("The recorded criterion for this move, what tends to go wrong around it, "
+                  "and Naren's own words doing it. All of it is on file rather than written "
+                  "for you."),
+    }
+
+
+#: Words too common to carry a match. Small and literal, for the same reason `citations`'
+#: token sets are: a general stop-word list is a dependency and a tuning knob, and this needs
+#: to be readable by whoever debugs a wrong move six months from now.
+_COMMON = frozenset(
+    "a an and are as at be better but by can do does for from get getting good has have how "
+    "i if in is it its me my of on or should so that the their them then there they this to "
+    "up want was what when where which who why with you your at".split())
+
+
+def _best_move(asked: str, moves: list[dict]) -> dict | None:
+    """The move whose NAME the CSM's words overlap most, or None when nothing overlaps.
+
+    Name only, not the criterion: a criterion is a sentence of our prose and long enough that
+    almost anything overlaps it a little, which would make every question "focused" and the
+    flag meaningless.
+    """
+    words = {w for w in _norm_words(asked) if w not in _COMMON}
+    best, best_score = None, 0
+    for move in moves:
+        score = len(words & {w for w in _norm_words(move.get("name"))
+                             if w not in _COMMON})
+        if score > best_score:
+            best, best_score = move, score
+    return best
+
+
+def _norm_words(text: str | None) -> set[str]:
+    keep = "".join(c if c.isalnum() or c.isspace() else " " for c in (text or "").lower())
+    return set(keep.split())
 
 
 def _citation(pair: dict, label_for) -> dict:

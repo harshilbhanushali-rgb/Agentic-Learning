@@ -829,3 +829,51 @@ def test_where_else_seen_still_answers_when_no_account_can_be_named_at_all():
     assert result["accounts_named"] == 0
     assert result["unnamed_calls"] == 3
     assert all(a["named"] is False for a in result["accounts"])
+
+
+# -- the two composites through the seam (issue #23) ----------------------------------------
+
+def test_call_prep_composes_rendered_paths_and_generates_nothing():
+    """Criterion 3: composes existing answer paths rather than introducing a new grounding
+    rule. Composing only RENDERED paths is what makes that true -- ADR 0009 warns a composite
+    inherits the weaker of its halves' guarantees, and neither half here has a weaker one."""
+    gw = StubGateway()          # a generation here is a test failure
+    embed = RecordingEmbedder()
+    result = responding.respond(
+        "im on a renewal call tomorrow about cost per hire", _wide_pool(), gw,
+        embed_query=embed,
+        classify=_decides("call_prep", "cost per hire"),
+        scenarios_for=lambda: SCENARIOS,
+        playbook_for=lambda key: PLAYBOOK_RECORD)
+    assert result["outcome"] == "rendered"
+    assert result["kind"] == "call_prep"
+    assert gw.calls == []
+    assert embed.seen == ["cost per hire"]
+    assert result["scenarios"][0]["scenario_key"] == "performance_pushback"
+    assert result["intake"]["intent"] == "call_prep"
+
+
+def test_improve_at_move_names_its_scenario_and_generates_nothing():
+    """Criterion 4: names its scenarios so a misroute is visible."""
+    gw = StubGateway()
+    embed = RecordingEmbedder()
+    result = responding.respond(
+        "i keep fumbling the reframe on their own baseline", _pool(), gw, embed_query=embed,
+        classify=_decides("improve_at_move", "reframe on their own baseline"),
+        playbook_for=lambda key: PLAYBOOK_RECORD)
+    assert result["kind"] == "improve_at_move"
+    assert result["scenario_key"] == "performance_pushback"
+    assert gw.calls == []
+
+
+def test_improve_at_move_with_no_recorded_play_asks_rather_than_faking_one():
+    """Same clarify `_from_playbook` returns, from the same definition: there is no Layer B
+    substitute for "the criterion for this move"."""
+    gw = StubGateway()
+    result = responding.respond(
+        "i keep fumbling the reframe", _pool(), gw, embed_query=RecordingEmbedder(),
+        classify=_decides("improve_at_move", "reframe"),
+        playbook_for=lambda key: None)
+    assert result["outcome"] == "clarify"
+    assert "performance pushback" in result["question"]
+    assert gw.calls == []

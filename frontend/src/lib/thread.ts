@@ -224,6 +224,8 @@ const RENDERED_REPLIES: Record<AskNarenRendered['kind'], string> = {
   scenario_check: 'Showed when that play applies.',
   play_confidence: 'Showed how well evidenced that play is.',
   where_else_seen: 'Listed which accounts that has come up with.',
+  call_prep: 'Laid out what is likely to come up on that call.',
+  improve_at_move: 'Showed the criterion, the pitfalls and Naren doing it.',
 };
 
 /** The same fields the service's pydantic turn requires, checked in the same strictness:

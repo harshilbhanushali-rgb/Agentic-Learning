@@ -149,6 +149,17 @@ def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool
     # alone (ADR 0006).
     query_vec = embed_query([decision.retrieval_query])[0]
 
+    if decision.intent == intake.CALL_PREP:
+        # A COMPOSITE, AND EVERY PART OF IT IS RENDERED (issue #23). It reads a
+        # neighbourhood the way `where_else_seen` does, each scenario's `arc` the way
+        # `sequence` does, and one stored exchange the way `show_exchange` does. Composing
+        # only rendered paths is what keeps ADR 0009's warning inapplicable: there is no
+        # weaker guarantee to inherit, because neither half generates anything.
+        return rendering.call_prep(
+            message, pool.topk(query_vec, rendering.NEIGHBOURS_SCANNED),
+            scenarios=(scenarios_for() if scenarios_for else []),
+            playbook_for=playbook_for, label_for=label_for)
+
     if decision.intent == intake.WHERE_ELSE_SEEN:
         # THE ONE RENDERED INTENT THAT READS A NEIGHBOURHOOD RATHER THAN A NEAREST MATCH
         # (issue #22). "Is this a one-client quirk or a pattern" has no single-exchange form,
@@ -167,6 +178,17 @@ def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool
     if decision.intent == intake.WHAT_HAPPENED_NEXT:
         following = following_for(match.pair["pair_id"]) if following_for else []
         return rendering.what_happened_next(match, following, label_for=label_for)
+
+    if decision.intent == intake.IMPROVE_AT_MOVE:
+        # THE SCENARIO IS FOUND BY RETRIEVING, as on every playbook path -- a model that can
+        # name a scenario can name one that does not exist. No live playbook is the same
+        # clarify `_from_playbook` returns, and for the same reason: there is no Layer B
+        # substitute for "the criterion for this move".
+        scenario_key = match.pair["scenario_key"]
+        record = playbook_for(scenario_key) if playbook_for else None
+        if not (record or {}).get("playbook"):
+            return _no_play(scenario_key)
+        return rendering.improve_at_move(message, scenario_key, record, label_for=label_for)
 
     if decision.intent in intake.PLAYBOOK_INTENTS:
         return _from_playbook(message, decision, match, playbook_for, label_for=label_for)
@@ -247,10 +269,7 @@ def _from_playbook(message: str, decision: intake.IntakeDecision, match,
     record = playbook_for(scenario_key) if playbook_for else None
     playbook = (record or {}).get("playbook")
     if not playbook:
-        return answering.clarify(
-            f"There is no recorded play for {scenario_key.replace('_', ' ')}, which is the "
-            f"closest situation to what you asked. Describe a specific client situation "
-            f"instead and Ask Naren will answer from the closest real exchange.")
+        return _no_play(scenario_key)
 
     if decision.intent == intake.SEQUENCE:
         return rendering.sequence(scenario_key, playbook)
@@ -261,6 +280,22 @@ def _from_playbook(message: str, decision: intake.IntakeDecision, match,
     if decision.intent == intake.SCENARIO_CHECK:
         return rendering.scenario_check(message, scenario_key, playbook)
     return rendering.play_confidence(scenario_key, record)
+
+
+def _no_play(scenario_key: str) -> dict:
+    """No live playbook for the closest situation -- a CLARIFY, not a decline and not a
+    Layer B fallback.
+
+    ONE DEFINITION, shared by `_from_playbook` and `improve_at_move` (issue #23), because
+    both say the same thing for the same reason: unlike `procedure`, where Layer B still
+    knows what Naren SAID about the situation, there is no Layer B substitute for "what
+    order do i do this in" or "what is the criterion for this move". Two copies would be two
+    places for the sentence a CSM reads to drift.
+    """
+    return answering.clarify(
+        f"There is no recorded play for {scenario_key.replace('_', ' ')}, which is the "
+        f"closest situation to what you asked. Describe a specific client situation "
+        f"instead and Ask Naren will answer from the closest real exchange.")
 
 
 def _guarded(decision: intake.IntakeDecision, message: str, turns,

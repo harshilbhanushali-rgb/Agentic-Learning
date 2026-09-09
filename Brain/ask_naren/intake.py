@@ -69,13 +69,15 @@ SCENARIO_CHECK = "scenario_check"
 PLAY_CONFIDENCE = "play_confidence"
 CONTRAST_MY_REPLY = "contrast_my_reply"
 WHERE_ELSE_SEEN = "where_else_seen"
+CALL_PREP = "call_prep"
+IMPROVE_AT_MOVE = "improve_at_move"
 
 #: Every intent intake may return today. Issues #17-#23 add more; each addition is a change
 #: to the schema sent to the gateway AND to the prompt's discriminators, never one alone.
 INTENTS = (REPLY_TO_CLIENT, CLARIFY, OUT_OF_SCOPE, FOLLOW_UP, PROCEDURE,
            DISCOVERY, FREQUENCY, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT, COVERAGE_CHECK,
            SEQUENCE, PHRASING, PITFALLS, SCENARIO_CHECK, PLAY_CONFIDENCE,
-           CONTRAST_MY_REPLY, WHERE_ELSE_SEEN)
+           CONTRAST_MY_REPLY, WHERE_ELSE_SEEN, CALL_PREP, IMPROVE_AT_MOVE)
 
 #: The intents answered from a scenario's LAYER C PLAYBOOK by rendering it (issue #18).
 #: Grouped because one rule covers all five: the playbook already holds the answer, so
@@ -90,7 +92,7 @@ PLAYBOOK_INTENTS = (SEQUENCE, PHRASING, PITFALLS, SCENARIO_CHECK, PLAY_CONFIDENC
 #: situation.
 RENDERED_INTENTS = (DISCOVERY, FREQUENCY, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT, COVERAGE_CHECK,
                     SEQUENCE, PHRASING, PITFALLS, SCENARIO_CHECK, PLAY_CONFIDENCE,
-                    WHERE_ELSE_SEEN)
+                    WHERE_ELSE_SEEN, CALL_PREP, IMPROVE_AT_MOVE)
 
 #: Of those, the two that describe the WHOLE corpus and therefore search for nothing.
 CORPUS_INTENTS = (DISCOVERY, FREQUENCY)
@@ -113,7 +115,7 @@ CORPUS_INTENTS = (DISCOVERY, FREQUENCY)
 #: the thing whose hand-maintenance was the bug. Nothing in the code reads a number.
 RETRIEVING_INTENTS = (REPLY_TO_CLIENT, PROCEDURE, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT,
                       COVERAGE_CHECK, *PLAYBOOK_INTENTS, CONTRAST_MY_REPLY,
-                      WHERE_ELSE_SEEN)
+                      WHERE_ELSE_SEEN, CALL_PREP, IMPROVE_AT_MOVE)
 
 
 class IntakeDecision(BaseModel):
@@ -132,7 +134,8 @@ class IntakeDecision(BaseModel):
                     "procedure", "discovery", "frequency", "show_exchange",
                     "what_happened_next", "coverage_check", "sequence", "phrasing",
                     "pitfalls", "scenario_check", "play_confidence",
-                    "contrast_my_reply", "where_else_seen"]
+                    "contrast_my_reply", "where_else_seen", "call_prep",
+                    "improve_at_move"]
     #: The CLIENT'S OWN WORDS, which is what gets embedded -- never the CSM's framing around
     #: them. Empty for any intent that does not retrieve.
     retrieval_query: str = ""
@@ -270,6 +273,12 @@ def build_prompt(message: str, thread=()) -> str:
         f'"difficult clients", "tricky accounts", "when things get tense" name a MOOD, not '
         f'a situation -- those are "{CLARIFY}". Ask which kind of situation they mean.',
         "",
+        f'  "{CALL_PREP}" -- the CSM has a CALL COMING UP and wants to walk in ready: "im '
+        "on a renewal call with them tomorrow, what should i be ready for\", \"prepping for "
+        "a QBR where spend overran, where do i start\", \"walk me through what usually "
+        "comes up on an onboarding kickoff\". They want the LIKELY GROUND rather than one "
+        "answer -- what tends to come up, the play for each, and something real to read.",
+        "",
         f'  "{SHOW_EXCHANGE}" -- the CSM wants to SEE the real exchange rather than a '
         "summary of it: \"show me what he actually said\", \"can i see the real "
         "conversation\", \"what were his exact words about renewals\".",
@@ -304,6 +313,12 @@ def build_prompt(message: str, thread=()) -> str:
         "",
         f'  "{PITFALLS}" -- the CSM wants to know WHAT GOES WRONG: "what usually goes wrong '
         "here\", \"what mistakes do people make\", \"what should i avoid\".",
+        "",
+        f'  "{IMPROVE_AT_MOVE}" -- the CSM wants to GET BETTER at one specific thing they '
+        "already do: \"i keep fumbling the part where i reframe on their own baseline\", "
+        "\"how do i get sharper at pushing back on a benchmark comparison\", \"what should "
+        "i practise about setting expectations on timelines\". They are working on "
+        "THEMSELVES rather than handling a live client.",
         "",
         f'  "{SCENARIO_CHECK}" -- the CSM wants to know whether a play APPLIES to what they '
         "are seeing: \"does this play apply here\", \"is this that kind of situation\", "
@@ -351,6 +366,16 @@ def build_prompt(message: str, thread=()) -> str:
            "them all look alike to the search and reaches the wrong exchange."]
           if thread else []),
         "",
+        f'  - For "{CALL_PREP}" and "{IMPROVE_AT_MOVE}", set retrieval_query to the SITUATION '
+        "or the MOVE they named, copied from the message with the framing removed (\"im on "
+        "a call tomorrow about\", \"i keep fumbling\", \"how do i get sharper at\"). It is "
+        "used to find which kind of situation they mean.",
+        "    COPY ONE CONTINUOUS RUN OF THE MESSAGE. These questions often mention the "
+        "account, the timing and the topic in one sentence, and stitching the useful words "
+        "together from different parts of it produces text that is in the message nowhere. "
+        "Take the LONGEST UNBROKEN RUN that carries the situation, even if it drags along a "
+        "word or two you would rather drop.",
+        "",
         f'  - For "{WHERE_ELSE_SEEN}", set retrieval_query to the SITUATION being asked '
         "about, copied from the message with the asking-framing removed (\"which other "
         "clients\", \"have we seen this anywhere else\"). It is used to find the "
@@ -385,6 +410,21 @@ def build_prompt(message: str, thread=()) -> str:
         f'  - WANTING HIS WORDS vs WANTING AN ANSWER separates "{SHOW_EXCHANGE}" from '
         f'"{REPLY_TO_CLIENT}". Asking to SEE the exchange is "{SHOW_EXCHANGE}"; asking what '
         f'to say is "{REPLY_TO_CLIENT}", even when a client is quoted in both.',
+        "",
+        f'  - A SPECIFIC MEETING THEY ARE ABOUT TO BE IN separates "{CALL_PREP}" from '
+        f'"{PROCEDURE}". Both are preparing rather than reacting. "{PROCEDURE}" asks for the '
+        f'play for ONE kind of situation; "{CALL_PREP}" is about an upcoming meeting and '
+        "wants the several things likely to come up in it.",
+        f'    WHAT MAKES IT "{CALL_PREP}" is something pinning the meeting to a real '
+        "occasion: a time (\"tomorrow\", \"thursday\", \"next week\"), a named account, or "
+        "a possessive (\"my\", \"our\"). Naming a kind of meeting in general, with no "
+        "particular one coming up, is not enough on its own.",
+        "",
+        f'  - WORKING ON THEMSELVES separates "{IMPROVE_AT_MOVE}" from "{PHRASING}" and '
+        f'"{PITFALLS}". "How does naren word it" wants HIS language; "what usually goes '
+        "wrong\" wants the failure modes; \"i keep fumbling this bit, help me get better\" "
+        f'wants both plus the criterion, aimed at their own practice -- that is '
+        f'"{IMPROVE_AT_MOVE}". Look for the CSM naming their own weakness.',
         "",
         f'  - WHO ELSE vs WHAT IS COVERED separates "{WHERE_ELSE_SEEN}" from '
         f'"{COVERAGE_CHECK}". "Do you have anything on renewals" asks whether Ask Naren '

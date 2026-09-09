@@ -340,6 +340,136 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
         </article>
       );
 
+    case 'call_prep':
+      return (
+        <article className={SHELL}>
+          <header className="flex flex-col gap-1">
+            <span className={EYEBROW}>What to be ready for</span>
+            <p className="text-[12px] text-ink-2">
+              You asked about &ldquo;{result.asked_about}&rdquo;
+              {result.scenarios_found > result.scenarios.length &&
+                ` — the ${result.scenarios.length} most likely of ${result.scenarios_found} situations nearby`}
+            </p>
+          </header>
+
+          <div className="flex flex-col gap-6">
+            {result.scenarios.map((s, i) => (
+              <section key={i} className="flex flex-col gap-3">
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+                    <span className="text-[13px] font-medium text-ink">
+                      {scenarioLabel(s.scenario_key)}
+                    </span>
+                    {/* HOW MUCH OF THE NEIGHBOURHOOD BACKS IT. The list is ranked on this,
+                        and the header calls them the most likely — so without it a position
+                        backed by one exchange looks identical to one backed by fifteen.
+                        The neighbourhood is normally one dominant situation and a tail of
+                        singletons (topk_headroom.json: 6.19/20 same-situation), which makes
+                        that the usual case rather than the edge. */}
+                    <span className="text-[12px] tabular-nums text-ink-placeholder">
+                      {s.exchanges} {s.exchanges === 1 ? 'exchange' : 'exchanges'} nearby
+                    </span>
+                  </div>
+                  {s.description && (
+                    <span className="text-[12px] leading-relaxed text-ink-2">
+                      {s.description}
+                    </span>
+                  )}
+                </div>
+
+                {s.has_play ? (
+                  <ol className="flex flex-col gap-1.5">
+                    {s.steps.map((step, j) => (
+                      <li key={j} className="flex gap-3">
+                        <span className="mt-0.5 min-w-[1.25rem] text-[11px] font-semibold tabular-nums text-ink-placeholder">
+                          {j + 1}
+                        </span>
+                        <span className="text-[13px] leading-relaxed text-ink">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  /* NOT the same claim as an empty list. "No play is recorded" is a fact
+                     about what we have; "there is no play" would be a fact about the work. */
+                  <p className="text-[12px] leading-relaxed text-ink-2">
+                    No play is recorded for this one &mdash; the exchange below is what
+                    there is.
+                  </p>
+                )}
+
+                <div className="rounded-md border border-line-subtle p-4">
+                  <Exchange
+                    clientSaid={s.example.client_said}
+                    narenReplied={s.example.naren_replied}
+                  />
+                  <div className="mt-3">
+                    <QuoteSource label={s.example.citation.label} />
+                  </div>
+                </div>
+              </section>
+            ))}
+          </div>
+
+          <p className="text-[12px] leading-relaxed text-ink-2">{result.basis}</p>
+        </article>
+      );
+
+    case 'improve_at_move':
+      return (
+        <article className={SHELL}>
+          <Play
+            kind={result.focused ? 'Getting better at this' : 'The whole play'}
+            scenarioKey={result.scenario_key}
+          />
+
+          {/* SAYS WHEN IT DID NOT FIND THE ONE THING ASKED ABOUT. Showing every move as
+              though it were the move the CSM named is a quiet lie about what was
+              understood. */}
+          {!result.focused && (
+            <p className="text-[12px] leading-relaxed text-ink-2">
+              Nothing in &ldquo;{result.asked_about}&rdquo; matched a single recorded move,
+              so this is the whole play rather than the one part you asked about.
+            </p>
+          )}
+
+          <div className="flex flex-col gap-5">
+            {result.moves.map((m, i) => (
+              <div key={i} className="flex flex-col gap-1.5">
+                <span className="text-[13px] font-medium text-ink">{m.name}</span>
+                {m.criterion && (
+                  <p className="text-[12px] leading-relaxed text-ink-2">{m.criterion}</p>
+                )}
+                {m.evidence.map((e, j) => (
+                  <blockquote key={j} className="flex flex-col gap-1.5 border-l-2 border-line pl-4">
+                    <p className="text-[12px] italic leading-relaxed text-ink-2">{e.quote}</p>
+                    <QuoteSource label={e.label} />
+                  </blockquote>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {result.pitfalls.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-line-subtle pt-4">
+              <span className={EYEBROW}>What tends to go wrong</span>
+              {result.pitfalls.map((p, i) => (
+                <div key={i} className="flex flex-col gap-1.5">
+                  <p className="text-[13px] leading-relaxed text-ink">{p.text}</p>
+                  {p.evidence.map((e, j) => (
+                    <blockquote key={j} className="flex flex-col gap-1.5 border-l-2 border-line pl-4">
+                      <p className="text-[12px] italic leading-relaxed text-ink-2">{e.quote}</p>
+                      <QuoteSource label={e.label} />
+                    </blockquote>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="text-[12px] leading-relaxed text-ink-2">{result.basis}</p>
+        </article>
+      );
+
     case 'where_else_seen':
       return (
         <article className={SHELL}>

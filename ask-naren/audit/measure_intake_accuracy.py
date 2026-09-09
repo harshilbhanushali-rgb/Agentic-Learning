@@ -519,7 +519,125 @@ held out.
 | rendered (#19, #20) | 8/8 | **8/8** |
 | procedure (#17) | 7/7 | **7/7** |
 
-The contrast set deserves a second look: 8/9 before and after, but a DIFFERENT case fails.
+## THE COMPOSITE SET (`--set composite`, issue #23), 2026-09-09
+
+`call_prep` and `improve_at_move`, the two intents that read several layers at once.
+
+**8/8 HELD OUT, 0/8 echoing the prompt** -- and the second half of that was briefly false,
+which is worth recording because the check caught it and a person did not.
+
+`prompt_echoes` was clean on the first run. Then the `procedure` label conflict below was
+fixed by tightening a discriminator, and the tightening QUOTED TWO OF THESE CASES VERBATIM
+into the prompt as illustrations. The next run printed the echo; it was skimmed past as part
+of the case list. A code review found it in the artifact. **A check nobody reads is a check
+nobody has.** Reworded to illustrate the rule without quoting any case, and 0/8 again.
+
+Half the set is the neighbours, because that is where these two get lost. Both composites
+are about PREPARING rather than reacting, which is also what `procedure`, `phrasing` and
+`pitfalls` are about:
+
+| message | intent | what separates it |
+| --- | --- | --- |
+| "sitting down with the meijer team thursday..." | `call_prep` | a MEETING they are about to be in |
+| "whats our usual approach when a feed keeps breaking" | `procedure` | one situation, no meeting |
+| "the bit where i justify our numbers... is where i come off weakest" | `improve_at_move` | their OWN weakness |
+| "what phrasing does he land on when hes justifying numbers" | `phrasing` | wants HIS words |
+| "what trips people up when theyre setting integration expectations" | `pitfalls` | failure modes in general |
+| "meijer just wrote in saying the feed has been stale..." | `reply_to_client` | a client SAID something |
+
+The last is the sharpest: same account and same topic as the first case, and it must stay on
+the Layer B path.
+
+### A REGRESSION THAT WAS A TYPO, AND THE WRONG CONCLUSION IT NEARLY BOUGHT
+
+`contrast` measured **7/9, stable over three runs** (`intake_accuracy_contrast_under_prompt_typo.json`),
+immediately after these two intents
+landed. Moving the blocks -- the remedy #22 established -- did not recover it, and the
+write-up being drafted said: "nineteen intents share one prompt and `contrast_my_reply` paid
+for the last two; the boundary degrades as intents are added."
+
+**That was wrong.** Inserting the `call_prep` block had eaten one space from an adjacent,
+unrelated line, so the shipped prompt read `"what do ido first"` in the `sequence`
+discriminator. Every #23 measurement was taken against a corrupted prompt. A code review
+found the character; repairing it took contrast to **9/9**
+(`intake_accuracy_contrast_after_typo_repair.json`), the highest it has ever scored.
+
+Two things worth keeping:
+
+1. **A stable score is not a correct score.** Three runs agreeing at 7/9 established the
+   effect was real, and it was -- it was simply not the effect being attributed to it.
+   Stability separates signal from noise and says nothing about cause.
+2. **A prompt typo is invisible to every other check here.** 1,879 tests passed, the
+   frozen-prompt harness passed, and `npm run build` was green, because none of them reads
+   this prompt's text. The only instrument that saw it was a person reading the diff.
+
+### The one genuine label conflict these intents created
+
+With the prompt repaired, `procedure` fell to 6/7: "how should i approach a QBR where
+performance is down" routed `call_prep`. That case was written for #17, and it was the
+DISCRIMINATOR that was wrong rather than the case -- it read "if they mention a call, a
+meeting, a QBR or a kickoff, it is `call_prep`", and mentioning a KIND of meeting is not the
+same as having one. Tightened to require something pinning it to a real occasion -- a time,
+an account, or a possessive -- which is what it always meant. `procedure` returned to 7/7
+and `contrast` settled at 8/9, its established value.
+
+**That case is FITTED now**, the rule having changed after the result was read, and the
+number to quote for `procedure` is the **6/7** it scored held out under the loose rule
+(`intake_accuracy_procedure_before_meeting_rule.json`).
+
+#### A CLEAN INSTRUMENT WAS CHOSEN OVER A BETTER NUMBER
+
+The first tightening scored best of anything tried -- heldout 10/11, procedure 7/7, composite
+8/8, **contrast 8/9** -- and it got there by quoting the `procedure` QBR case and a
+`composite` case VERBATIM into the prompt as illustrations. That makes both of those sets
+partly circular: a case the prompt contains is a case the model is reproducing rather than
+classifying, which is the mistake #21 and #22 each paid for.
+
+Reworded to state the rule without quoting any case. The cost is one contrast case -- **7/9,
+stable over three runs, down from 8/9** -- and it is the right trade. A set that scores 8/9
+because the prompt contains its answers is not measuring 8/9 of anything.
+
+Two intermediate phrasings are worth not re-deriving: "naming a KIND of meeting ... is still
+`procedure`" names `procedure` twice and dragged a held-out `reply_to_client` case into it
+(heldout 9/11, stable); framing the rule positively -- what makes it `call_prep` -- holds
+heldout at 10/11.
+
+### ROUTING 8/8 WAS NOT THE WHOLE STORY: the query was COMPOSED on 2 of 8
+
+Caught by a live run disagreeing with an offline 8/8, then found sitting in this harness's
+own output all along -- **VERBATIM 6/8** -- because the sweeps had been grepping only the
+`overall:` line. That run was overwritten before anyone thought to keep it, so unlike every
+other rejected arm in this directory the 6/8 has no artifact; the 8/8 after the fix is in
+`intake_accuracy_composite.json`.
+
+Both composites ask about a situation that is scattered through the sentence ("sitting down
+with the meijer team thursday about their feed problems"), so the model stitched the useful
+words together: `"meijer team feed problems"`, which appears in the message nowhere. That is
+exactly what ADR 0006's runtime guard exists to catch, and it caught it -- `responding._guarded`
+discarded the decision and answered as `reply_to_client`. **Correct routing, and the CSM got
+a Layer B answer instead of call prep.**
+
+The fix was an instruction that already existed and had only ever been given to
+`reply_to_client`: copy the LONGEST UNBROKEN RUN rather than composing a new sentence.
+Extended to these two intents, verbatim went 6/8 -> **8/8** with routing unchanged.
+
+**Read the whole summary, not the headline.** A set can route perfectly and still produce
+decisions the service will throw away, and this file prints both numbers precisely so the
+gap cannot hide -- it just has to be looked at.
+
+### Nineteen intents share one prompt
+
+| set | before #23 | after |
+| --- | --- | --- |
+| held out (core) | 10/11 | **10/11** |
+| composite (#23) | -- | **8/8** |
+| contrast (#21) | 8/9 | **7/9** -- the price of a non-circular discriminator, above |
+| where else seen (#22) | 7/7 | **7/7** |
+| playbook (#18) | 8/8 | **8/8** |
+| rendered (#19, #20) | 8/8 | **8/8** |
+| procedure (#17) | 7/7 | **7/7**, and 6/7 held out before the discriminator was tightened |
+
+The contrast set deserves a second look: 8/9 before and after #22, but a DIFFERENT case fails.
 Across this ticket's runs, cases 1, 2, 3 and 4 have each failed at some point and never more
 than one at a time on a shipped prompt. That says the contrast/reply boundary is genuinely
 fuzzy rather than that one case is uniquely hard -- and that diagnosing it from whichever
@@ -958,6 +1076,50 @@ WHERE_ELSE = [
 ]
 
 
+#: The two composites (issue #23). Written before reading the prompt back, and verified
+#: against `prompt_echoes` -- which exists because the two previous sets were not.
+COMPOSITE = [
+    {"message": "sitting down with the meijer team thursday about their feed problems, what "
+                "should i have in my head",
+     "expect": "call_prep",
+     "note": "THE CANONICAL CASE: a meeting they are about to be in, and they want the "
+             "likely ground rather than one answer"},
+    {"message": "first quarterly review with a new account next week and i dont want to be "
+                "caught out on attribution",
+     "expect": "call_prep",
+     "note": "a QBR, named without the word 'prep' anywhere"},
+    {"message": "the bit where i have to justify our numbers against a competitor is where "
+                "i come off weakest, help me sharpen it",
+     "expect": "improve_at_move",
+     "note": "THE CANONICAL CASE for the other one: names their OWN weakness and asks to "
+             "work on it"},
+    {"message": "i never sound convincing when im setting expectations on how long "
+                "integration takes. what am i missing",
+     "expect": "improve_at_move",
+     "note": "'what am i missing' about their own delivery, not about a client"},
+
+    # -- the neighbours, which is where these two actually get lost -------------------------
+    {"message": "whats our usual approach when a feed keeps breaking",
+     "expect": "procedure",
+     "note": "THE NEAREST NEIGHBOUR to call_prep: also preparing rather than reacting, but "
+             "about ONE kind of situation and no meeting in sight"},
+    {"message": "what phrasing does he land on when hes justifying numbers against a "
+                "competitor",
+     "expect": "phrasing",
+     "note": "THE NEAREST NEIGHBOUR to improve_at_move, same topic as case 3: wants HIS "
+             "words rather than help with the CSM's own practice"},
+    {"message": "what trips people up when theyre setting integration expectations",
+     "expect": "pitfalls",
+     "note": "same topic as case 4, but asks about the failure modes in general rather than "
+             "about the CSM's own weakness"},
+    {"message": "meijer just wrote in saying the feed has been stale for three days, what do "
+                "i tell them",
+     "expect": "reply_to_client",
+     "note": "the same account and the same topic as case 1, but a client has SAID "
+             "something and they need an answer now. Must stay on the Layer B path"},
+]
+
+
 THREADED = [
     # -- must be read as follow-ups: no new situation, only the one already answered -------
     {"thread": [_ANSWERED],
@@ -1086,7 +1248,8 @@ def main() -> int:
     ap.add_argument("--out", default=str(ARTIFACTS / "intake_accuracy.json"))
     ap.add_argument("--set", dest="which", default="fitted",
                     choices=("fitted", "heldout", "threaded", "procedure", "rendered",
-                             "playbook", "contrast", "whereelse", "both"),
+                             "playbook", "contrast", "whereelse", "composite",
+                             "both"),
                     help="fitted = the 12 the prompt was tuned on (NOT an accuracy "
                          "rate); heldout = cases never used to change the prompt; "
                          "threaded = the conversation-shaped cases (issue #16)")
@@ -1100,7 +1263,7 @@ def main() -> int:
     load_config()
     pool = {"fitted": CASES, "heldout": HELD_OUT, "threaded": THREADED,
             "procedure": PROCEDURE, "rendered": RENDERED, "playbook": PLAYBOOK_SET,
-            "contrast": CONTRAST, "whereelse": WHERE_ELSE,
+            "contrast": CONTRAST, "whereelse": WHERE_ELSE, "composite": COMPOSITE,
             "both": CASES + HELD_OUT}[args.which]
     cases = pool[:args.limit] if args.limit else pool
 
@@ -1182,6 +1345,7 @@ def main() -> int:
              "playbook": "PLAYBOOK-INTENT cases (issue #18)",
              "contrast": "CONTRAST cases (issue #21)",
              "whereelse": "WHERE-ELSE-SEEN cases (issue #22)",
+             "composite": "COMPOSITE cases (issue #23)",
              "both": "fitted + held-out"}[args.which]
     print(f"ROUTING ACCURACY -- {args.model} "
           f"(reasoning={args.reasoning or chr(110)+chr(111)+chr(110)+chr(101)}) -- {label}")
