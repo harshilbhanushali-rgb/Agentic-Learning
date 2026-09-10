@@ -182,3 +182,200 @@ def present_trigger_pair_ids(api_key: str, index_name: str, pair_ids: list[str],
             if "pair_id" in md:
                 found[str(int(md["pair_id"]))] = md.get("scenario_key") or ""
     return found
+
+
+# =========================================================================================
+# THE ASYNC READS (added 2026-09-10, issue #29)
+# =========================================================================================
+#
+# Everything above is unchanged and stays synchronous: the upsert path, index creation, and
+# the pipeline's own `query_triggers`. Those run in batch jobs where blocking is correct.
+#
+# Below are async twins of the THREE reads Ask Naren makes -- the ranking search on every
+# request, and the two startup coverage checks. They exist because a blocking HTTP call
+# inside a coroutine freezes the event loop for its duration, which would serialise exactly
+# the requests issue #27 is making concurrent. Pinecone's own async client is used, so NO
+# THREAD is involved; #27 commits to no threads in the request path.
+#
+# READ-ONLY BY CONSTRUCTION. There is no async upsert and no async index creation here, and
+# there must not be: Ask Naren issues no writes anywhere (ADR 0008).
+
+
+class AsyncTriggerIndex:
+    """Ask Naren's three reads against one index, held open for the process lifetime.
+
+    A CLASS RATHER THAN THREE FUNCTIONS, and the reason is not style. The sync reads can be
+    stateless functions taking an api_key because the pipeline calls them in batches and an
+    index handle is cached module-level. Pinecone's async client resolves an index by HOST
+    and both the client and the index are async context managers, so a stateless async
+    function would have to open a client, resolve the host, open the index, query, and tear
+    all three down -- on every single CSM question. Opened once at startup and closed at
+    shutdown, the same lifetime as the gateway client.
+
+    `index` is the test seam, mirroring `transport` on `AsyncGatewayClient`: production
+    calls `open()`, tests inject a fake. When a test supplies the index, this object closes
+    only what it was given and never touches a network.
+    """
+
+    def __init__(self, index, client=None):
+        self._index = index
+        self._client = client
+
+    @classmethod
+    async def open(cls, api_key: str, index_name: str) -> "AsyncTriggerIndex":
+        """Resolve the index's host ONCE, then hold the connection.
+
+        `pc.index(name=...)` does the describe-index host resolution itself, with a cache.
+        An earlier version of this hand-rolled that with `describe_index` and then
+        `IndexAsyncio(host=...)`, which pinecone 9.1.0 documents as `:meta private:` and a
+        "backwards-compatibility shim ... new code should use pc.index(host=...)" -- an SDK
+        bump that drops the shim would be an AttributeError at service startup.
+
+        Note `index()` is itself a COROUTINE despite returning an `AsyncIndex` rather than
+        an awaitable-looking object; forgetting the await yields a coroutine that fails
+        later with "'coroutine' object has no attribute 'query'".
+
+        Either way the lookup is a real round trip, which is why it happens here, once, and
+        not on the request path.
+        """
+        from pinecone import PineconeAsyncio
+        client = PineconeAsyncio(api_key=api_key)
+        return cls(await client.index(name=index_name), client=client)
+
+    async def aclose(self) -> None:
+        await self._index.close()
+        if self._client is not None:
+            await self._client.close()
+
+    async def __aenter__(self) -> "AsyncTriggerIndex":
+        return self
+
+    async def __aexit__(self, *exc) -> None:
+        await self.aclose()
+
+    # -- the ranking search, on every request ------------------------------------
+
+    async def query_trigger_vectors(self, query_vec: list[float], top_k: int = 25,
+                                    namespace: str = "triggers",
+                                    scenario_keys: list[str] | None = None
+                                    ) -> list[tuple[str, float]]:
+        """Rank trigger vectors and return `(record_id, score)`, nearest first.
+
+        The async twin of the module-level function of the same name, and it must keep
+        asking the SAME question: `include_metadata=False` is load-bearing, not an
+        optimisation. Pinecone truncates the stored `text` to 500 characters, so an answer
+        must never be groundable in it -- and a field cannot be read from a payload that was
+        never requested.
+
+        Ordering is Pinecone's and is not recomputed here.
+
+        *** TWO THINGS THE CALLER STILL OWES, AND BOTH FAIL SILENTLY IF FORGOTTEN. *** This
+        returns exactly what the sync twin returns -- Pinecone's RAW record ids and RAW
+        scores -- because this layer is the transport, not the store:
+
+          * `trigger_1234`, not `1234`. Ask Naren's pool keys on the bare pair_id, and a
+            store handing it prefixed ids post-filters to nothing, so the tool declines
+            every situation. `ask_naren/vector_store.py` warns that this "reads as a quality
+            problem rather than a type bug".
+          * Scores are NOT clamped. Querying this index with one of its own stored unit
+            vectors returns that record at up to 1.00135, which is not a cosine at all --
+            it comes from a quantized ANN representation. `Match.cosine` is documented as a
+            real cosine and is read against ADR 0005's measured bands.
+
+        `ask_naren/vector_store.PineconeTriggerStore` does both with `_bare_id` and
+        `_clamp_cosine`. Its async twin (issue #30) must reuse those two functions rather
+        than re-deriving them here -- putting them in this layer would give the sync and
+        async stores two different contracts, which is the specific rollback hazard ADR 0008
+        exists to prevent.
+        """
+        filter_ = ({"scenario_key": {"$in": list(scenario_keys)}}
+                   if scenario_keys else None)
+        results = await self._index.query(
+            vector=query_vec, top_k=top_k, namespace=namespace,
+            include_metadata=False, include_values=False, filter=filter_)
+        return [(str(m_id), float(score)) for m_id, score in _id_scores(results)]
+
+    # -- the startup coverage guard ----------------------------------------------
+
+    async def present_trigger_pair_ids(self, pair_ids: list[str],
+                                       namespace: str = "triggers") -> dict[str, str]:
+        """`pair_id` -> the `scenario_key` the INDEX has for it, for the ids it holds.
+
+        Returns the key rather than bare presence because presence alone is not what makes
+        a pair retrievable: the search restricts on `scenario_key`, and the index's copy was
+        written at vector-ship time while the pool's is read live from Postgres. Two jobs
+        UPDATE that column with no re-upsert, so they can diverge -- and a pair whose
+        indexed key has left the filter is invisible to retrieval while being unambiguously
+        present. A presence-only guard reports full coverage while every pair in a graduated
+        scenario is unreachable.
+
+        The query vector is a dummy and the ranking is irrelevant: the metadata filter
+        selects exactly the requested ids, `top_k` covers the whole batch, and the namespace
+        holds one record per pair_id, so every present id comes back regardless of order.
+
+        Still an ANN query, so a caller must treat a reported ABSENCE as provisional and
+        confirm it with `fetch_trigger_ids`, which is exact.
+        """
+        dummy = [0.0] * 3072
+        dummy[0] = 1.0
+        found: dict[str, str] = {}
+        BATCH = 1000
+        for i in range(0, len(pair_ids), BATCH):
+            batch = pair_ids[i:i + BATCH]
+            results = await self._index.query(
+                vector=dummy, top_k=len(batch), namespace=namespace,
+                include_values=False, include_metadata=True,
+                filter={"pair_id": {"$in": [int(p) for p in batch]}})
+            for md in _metadatas(results):
+                if "pair_id" in md:
+                    found[str(int(md["pair_id"]))] = md.get("scenario_key") or ""
+        return found
+
+    async def fetch_trigger_ids(self, record_ids: list[str],
+                                namespace: str = "triggers") -> set[str]:
+        """Which of `record_ids` the namespace actually holds -- the EXACT confirmation.
+
+        Vectors are not requested; this answers presence. Batched because fetch caps a
+        request's id count. Used only to confirm an absence the cheap ANN check reported,
+        because a false alarm must not refuse to serve a healthy index.
+        """
+        found: set[str] = set()
+        BATCH = 250
+        for i in range(0, len(record_ids), BATCH):
+            got = await self._index.fetch(ids=record_ids[i:i + BATCH], namespace=namespace)
+            found.update(str(k) for k in _vectors_of(got))
+        return found
+
+
+def _matches_of(results):
+    """The SDK has answered with a dict and with an object across versions, and the three
+    synchronous reads above each inline that check.
+
+    Shared by the ASYNC reads only -- deliberately not retrofitted upward, because #29's
+    contract is that the synchronous functions are untouched. So this is not yet "the one
+    place" the shapes are understood; it is the one place the async reads understand them,
+    and a future SDK shape change still has to be fixed in the sync functions too."""
+    if isinstance(results, dict):
+        return results.get("matches", [])
+    return results.matches
+
+
+def _id_scores(results):
+    for m in _matches_of(results):
+        if isinstance(m, dict):
+            yield m.get("id"), m.get("score")
+        else:
+            yield m.id, m.score
+
+
+def _metadatas(results):
+    for m in _matches_of(results):
+        md = (m.get("metadata") if isinstance(m, dict) else m.metadata) or {}
+        yield md
+
+
+def _vectors_of(fetched):
+    """A `fetch` response's records, in either SDK shape. Keys only are ever used: this
+    answers presence, and pulling 3072 floats per id to answer yes/no is what made
+    extracting the pool cost ~168s."""
+    return fetched.get("vectors", {}) if isinstance(fetched, dict) else fetched.vectors

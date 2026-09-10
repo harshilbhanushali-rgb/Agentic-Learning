@@ -97,6 +97,44 @@ finishes, so it gets a short JITTERED wait (`_PARALLEL_MARKERS`) and deliberatel
 `penalise()` the shared bucket — slowing the whole job down does not create a free parallel
 slot, and releasing every worker on the same schedule just reproduces the collision.
 
+### That 8 is SHARED with `/chat/completions`, and the sync client does not pace chat at all (2026-09-10)
+
+Everything above was measured on `/embeddings` during a corpus fetch, and reads as an embedding
+concern. It is not. Measured against the production gateway with a direct `httpx.AsyncClient`
+(no retry ladder, so nothing absorbed the rejections):
+
+| what was fired | result |
+| --- | --- |
+| 1, 2, 4, 6, 8 concurrent `/chat/completions` | all clean |
+| 10 concurrent `/chat/completions` | **2 rejected**, `max_parallel_requests` |
+| 6 chat **+** 6 embed together (12 in flight) | **9 ok, 3 rejected** |
+
+So generation counts against the same budget of 8, and `max_parallel_requests` is a property of
+the KEY, not of an endpoint. **`GatewayClient`'s semaphore guards `embed_one` only** — chat has
+no admission control whatsoever. That is invisible today because the only chat-heavy consumer
+(Ask Naren) answers one request at a time, and it is the first thing to break when it stops.
+
+`AsyncGatewayClient` (issue #28) puts the semaphore in `_post`, so it covers both endpoints.
+Two further facts from the same run: the gateway **negotiates HTTP/2**, and keep-alive works
+(1.45s then 0.88s through one client) — so concurrent calls can multiplex over one socket.
+
+**Two rules that now come with the async client:**
+
+- **Never run the sync and async clients in one process.** Each keeps its own limiter, and two
+  limiters cannot honour one per-key budget — they race each other into the same rejection,
+  which is exactly what the module-level bucket exists to prevent. Nothing enforces this.
+- **The async client must be driven by ONE long-lived event loop.** Its gate is keyed on the
+  running loop (an asyncio primitive raises if awaited from a loop other than the one it bound
+  to). A caller wrapping each request in its own `asyncio.run` gets a fresh limiter every time,
+  so admission control silently degrades from per-key to **unbounded** while looking healthy.
+
+**Where the async client deliberately differs from the sync one:** the slot is taken per
+ATTEMPT and released while backing off, not held across the ladder. A request sleeping out a
+backoff is not in flight at the gateway, and holding through the 15/30/45s quota ladder — which
+`penalise()` deliberately synchronises across siblings — would stall every chat call in the
+process for up to ~90s over a limit chat is not even subject to. The sync client cannot exhibit
+this because its semaphore never covers chat.
+
 ## Editing a module while a process has it imported corrupts that process's traceback
 
 Python has already compiled the module into memory, so **an edit does not change the running
