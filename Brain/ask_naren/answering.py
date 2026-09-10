@@ -316,7 +316,8 @@ def build_contrast_prompt(client_words: str, my_reply: str, matched: dict) -> st
     ])
 
 
-def answer_contrast(client_words: str, my_reply: str, pool: RetrievalPool, gateway, *,
+async def answer_contrast(client_words: str, my_reply: str, pool: RetrievalPool,
+                          gateway, *,
                     embed_query, label_for=citations.resolve_label) -> dict:
     """Set the CSM's own reply against Naren's closest real one (issue #21).
 
@@ -354,7 +355,7 @@ def answer_contrast(client_words: str, my_reply: str, pool: RetrievalPool, gatew
         # question -- louder is better than helpful.
         raise ValueError("a contrast with no reply to contrast has nothing to compare")
 
-    candidates = pool.topk(embed_query([client_words])[0], 1)
+    candidates = await pool.topk((await embed_query([client_words]))[0], 1)
     if not candidates:
         # Same RuntimeError, same reason as answer_situation: an entirely unauthorised
         # ranking is a fact about the INDEX, not about the corpus, and dressing it as a
@@ -368,7 +369,7 @@ def answer_contrast(client_words: str, my_reply: str, pool: RetrievalPool, gatew
 
     prompt = build_contrast_prompt(client_words, my_reply, pairs[0])
     for _ in range(MAX_ATTEMPTS):
-        payload, _meta = gateway.chat_json(
+        payload, _meta = await gateway.chat_json(
             prompt, model=CHAT_MODEL, reasoning_effort=REASONING_EFFORT,
             temperature=TEMPERATURE, max_tokens=MAX_TOKENS, no_cache=True)
         if payload.get("declined"):
@@ -383,7 +384,7 @@ def answer_contrast(client_words: str, my_reply: str, pool: RetrievalPool, gatew
     return _decline(GROUNDING_UNVERIFIED, candidates[0], 1, label_for)
 
 
-def answer_follow_up(message: str, turns, source: dict, gateway, *,
+async def answer_follow_up(message: str, turns, source: dict, gateway, *,
                      label_for=citations.resolve_label) -> dict:
     """Answer a follow-up from the thread and the grounding source already cited.
 
@@ -405,7 +406,7 @@ def answer_follow_up(message: str, turns, source: dict, gateway, *,
 
     prompt = build_follow_up_prompt(message, turns, source)
     for _ in range(MAX_ATTEMPTS):
-        payload, _meta = gateway.chat_json(
+        payload, _meta = await gateway.chat_json(
             prompt, model=CHAT_MODEL, reasoning_effort=REASONING_EFFORT,
             temperature=TEMPERATURE, max_tokens=MAX_TOKENS, no_cache=True)
         if payload.get("declined"):
@@ -491,7 +492,7 @@ def build_procedure_prompt(question: str, scenario_key: str, playbook: dict) -> 
     return "\n".join(lines)
 
 
-def answer_procedure(question: str, match: Match, playbook: dict, gateway, *,
+async def answer_procedure(question: str, match: Match, playbook: dict, gateway, *,
                      label_for=citations.resolve_label) -> dict:
     """Answer "what is the general play for X" from the scenario's Layer C playbook.
 
@@ -528,7 +529,7 @@ def answer_procedure(question: str, match: Match, playbook: dict, gateway, *,
 
     prompt = build_procedure_prompt(question, scenario_key, playbook)
     for _ in range(MAX_ATTEMPTS):
-        payload, _meta = gateway.chat_json(
+        payload, _meta = await gateway.chat_json(
             prompt, model=CHAT_MODEL, reasoning_effort=REASONING_EFFORT,
             temperature=TEMPERATURE, max_tokens=MAX_TOKENS, no_cache=True)
         if payload.get("declined"):
@@ -584,7 +585,7 @@ def move_evidence(moves: list[dict]) -> list[dict]:
     return entries
 
 
-def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_query,
+async def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_query,
                      k: int = DEFAULT_K, label_for=citations.resolve_label,
                      moves_for=None) -> dict:
     """The one call the HTTP layer makes. Returns the response body itself.
@@ -614,8 +615,8 @@ def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_quer
     if not (situation or "").strip():
         raise ValueError("situation is empty")
 
-    query_vec = embed_query([situation])[0]
-    candidates = pool.topk(query_vec, k)
+    query_vec = (await embed_query([situation]))[0]
+    candidates = await pool.topk(query_vec, k)
     if not candidates:
         # Unreachable before ADR 0008: an exact in-memory search over a non-empty pool
         # always ranked its own rows. A store's ranking can now be entirely unauthorised,
@@ -645,7 +646,7 @@ def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_quer
         prompt = build_prompt(situation, pairs[0])
 
     for _ in range(MAX_ATTEMPTS):
-        payload, _meta = gateway.chat_json(
+        payload, _meta = await gateway.chat_json(
             prompt,
             model=CHAT_MODEL,
             reasoning_effort=REASONING_EFFORT,

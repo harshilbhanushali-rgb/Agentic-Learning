@@ -45,6 +45,7 @@ Exit 0 when both bars pass, 1 otherwise.
 from __future__ import annotations
 
 import json
+import asyncio
 import sys
 import time
 from pathlib import Path
@@ -84,7 +85,7 @@ def load_situations() -> list[tuple[str, str]]:
     return out
 
 
-def main() -> int:
+async def main() -> int:
     situations = load_situations()
     if not situations:
         print("ERROR: no situations found in audit artifacts.")
@@ -107,9 +108,9 @@ def main() -> int:
     print(f"[memory arm] ready in {time.time() - t0:.1f}s")
     memory_pool = retrieval.RetrievalPool(pairs, vectors)
 
-    pinecone_pool = retrieval.RetrievalPool(
-        pairs, store=vector_store.PineconeTriggerStore(
-            config.pinecone_api_key, VECTOR_INDEX_NAME, scenario_keys))
+    pinecone_store_ = await vector_store.PineconeTriggerStore.open(
+        config.pinecone_api_key, VECTOR_INDEX_NAME, scenario_keys=scenario_keys)
+    pinecone_pool = retrieval.RetrievalPool(pairs, store=pinecone_store_)
     print(f"[pinecone arm] {VECTOR_INDEX_NAME}, no vectors held")
 
     print(f"[queries] embedding {len(situations)} situations...", flush=True)
@@ -125,10 +126,10 @@ def main() -> int:
 
     for (source, text), qv in zip(situations, query_vecs):
         t0 = time.time()
-        mem = memory_pool.topk(np.asarray(qv), K)
+        mem = await memory_pool.topk(np.asarray(qv), K)
         memory_ms.append((time.time() - t0) * 1000)
         t0 = time.time()
-        pine = pinecone_pool.topk(np.asarray(qv), K)
+        pine = await pinecone_pool.topk(np.asarray(qv), K)
         pinecone_ms.append((time.time() - t0) * 1000)
 
         mem_ids = [m.pair["pair_id"] for m in mem]
@@ -202,8 +203,12 @@ def main() -> int:
           if passed else
           f"FAIL: top-1 {top1_agree}/{n}, max cosine delta {d.max():.2e} "
           f"(bar {COSINE_BAR:.0e}).")
+    # The pool owns its store (RetrievalPool.aclose); an open Pinecone session
+    # outlives the useful part of this run and warns on exit.
+    await pinecone_pool.aclose()
     return 0 if passed else 1
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # ONE loop for the process (issue #30), the same rule ops/serve_ask_naren.py follows.
+    sys.exit(asyncio.run(main()))

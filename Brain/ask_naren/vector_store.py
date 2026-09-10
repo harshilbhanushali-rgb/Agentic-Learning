@@ -57,9 +57,16 @@ class TriggerVectorStore(Protocol):
     `pair_id` is the bare identifier as a string. Ordering is the store's and is not
     recomputed by the caller -- two ranking implementations would be a place for the
     shortlist and the shipped rank-1 path to disagree silently about what "closest" means.
+
+    AWAITED SINCE ISSUE #30, on BOTH implementations. The Pinecone store genuinely waits on
+    a network; the in-memory one is a numpy dot product with nothing to await. It is still
+    `async def`, because a Protocol with two different calling conventions is not one seam
+    -- and one seam is the whole property this module exists to provide, the thing that lets
+    `ops/serve_ask_naren.py` swap the store back in a single line. An `await` on a coroutine
+    that never suspends costs one trip through the event loop and buys that.
     """
 
-    def search(self, query_vec, top_k: int) -> list[tuple[str, float]]:
+    async def search(self, query_vec, top_k: int) -> list[tuple[str, float]]:
         ...
 
 
@@ -80,7 +87,13 @@ class InMemoryTriggerStore:
         self.pair_ids = [str(p) for p in pair_ids]
         self.vectors = _unit_rows(vectors)
 
-    def search(self, query_vec, top_k: int) -> list[tuple[str, float]]:
+    async def search(self, query_vec, top_k: int) -> list[tuple[str, float]]:
+        """`async def` with nothing awaited inside it, deliberately -- see the Protocol.
+
+        The work here is a 6,496 x 3072 dot product, which is CPU and measured in single
+        milliseconds. It is NOT moved to a thread: doing so would put a thread back into the
+        request path that issue #27 exists to keep free of them, to hide a few milliseconds.
+        """
         if not self.pair_ids:
             return []
         # Both sides unit-normalized, so the returned numbers ARE cosines. Normalizing the
@@ -109,26 +122,68 @@ class PineconeTriggerStore:
     Holds no database handle and cannot write: this class only ever queries.
     """
 
-    def __init__(self, api_key: str, index_name: str, scenario_keys: Sequence[str],
+    def __init__(self, index, *, scenario_keys: Sequence[str],
                  namespace: str = TRIGGERS_NAMESPACE):
+        """`index` is a `shared.pinecone_store.AsyncTriggerIndex`, HELD OPEN.
+
+        It used to be an api_key and an index name, with the connection re-derived inside
+        every `search`. That was affordable when the process answered one CSM at a time;
+        under issue #27 it would resolve the index host on every question. Use `open()`
+        rather than constructing this directly -- the bare constructor exists so a test can
+        pass a fake index without a network.
+
+        KEYWORD-ONLY AFTER `index`, and that is a FIX rather than a preference. The old
+        signature was `(api_key, index_name, scenario_keys)`. When it changed, an
+        unconverted caller in ask-naren/audit/ silently bound `index=api_key` and
+        `scenario_keys="narens-brain-3072"` -- and `if not scenario_keys` passes on a
+        non-empty string, so `sorted(set(...))` built a scenario filter over single
+        CHARACTERS. The guard below, whose whole purpose is to refuse an unrestricted
+        filter, was defeated by a positional reshuffle with no error at all. Keywords
+        make that class of miss impossible.
+        """
         if not scenario_keys:
             raise ValueError(
                 "no coachable scenario keys -- an unrestricted filter would let Ask Naren "
                 "answer from scenarios it is not allowed to coach")
-        self._api_key = api_key
-        self._index_name = index_name
+        self._index = index
         self._namespace = namespace
         self._scenario_keys = sorted(set(scenario_keys))
 
-    def search(self, query_vec, top_k: int) -> list[tuple[str, float]]:
+    @classmethod
+    async def open(cls, api_key: str, index_name: str, *, scenario_keys: Sequence[str],
+                   namespace: str = TRIGGERS_NAMESPACE) -> "PineconeTriggerStore":
+        """Resolve and hold the index once, at startup."""
         from shared import pinecone_store
-        matches = pinecone_store.query_trigger_vectors(
-            self._api_key, self._index_name, _as_floats(query_vec), top_k=top_k,
+        # Validated BEFORE the connection is opened, so a misconfigured pool fails without
+        # a network round trip and without a handle to close.
+        if not scenario_keys:
+            raise ValueError(
+                "no coachable scenario keys -- an unrestricted filter would let Ask Naren "
+                "answer from scenarios it is not allowed to coach")
+        index = await pinecone_store.AsyncTriggerIndex.open(api_key, index_name)
+        return cls(index, scenario_keys=scenario_keys, namespace=namespace)
+
+    async def aclose(self) -> None:
+        await self._index.aclose()
+
+    async def search(self, query_vec, top_k: int) -> list[tuple[str, float]]:
+        """The ranking, translated into this module's contract.
+
+        `_bare_id` and `_clamp_cosine` are applied HERE and are not the transport's job.
+        Pinecone answers with its own record ids (`trigger_1234`) and with scores that can
+        read 1.00135, which is not a cosine at all. Both conversions belong to the STORE
+        because both stores must agree on one contract -- putting them a layer down would
+        give the two implementations different outputs and turn a rollback into a silent
+        change of meaning. See `shared/pinecone_store.AsyncTriggerIndex` for the same note
+        from the other side.
+        """
+        matches = await self._index.query_trigger_vectors(
+            _as_floats(query_vec), top_k=top_k,
             namespace=self._namespace, scenario_keys=self._scenario_keys)
         return [(_bare_id(m_id), _clamp_cosine(score)) for m_id, score in matches]
 
-    def unretrievable(self, pairs: Sequence[dict]) -> tuple[list[tuple[str, str]],
-                                                            list[tuple[str, str]]]:
+    async def unretrievable(self, pairs: Sequence[dict]) -> tuple[list[tuple[str, str]],
+                                                                  list[tuple[str, str]]]:
         """(fatal, stale) for these pool pairs -- the startup guard (ADR 0008).
 
         Retrieval depends on the index holding a trigger vector for every coachable pair,
@@ -162,10 +217,9 @@ class PineconeTriggerStore:
         cheap check is an ANN query and a false alarm must not refuse a healthy index. A key
         that came BACK needs no confirmation -- the metadata is the authority on itself.
         """
-        from shared import pinecone_store
         expected = {str(p["pair_id"]): p["scenario_key"] for p in pairs}
-        indexed = pinecone_store.present_trigger_pair_ids(
-            self._api_key, self._index_name, list(expected), namespace=self._namespace)
+        indexed = await self._index.present_trigger_pair_ids(
+            list(expected), namespace=self._namespace)
 
         admitted = set(self._scenario_keys)
         fatal: list[tuple[str, str]] = []
@@ -183,8 +237,7 @@ class PineconeTriggerStore:
 
         provisional = [p for p in expected if p not in indexed]
         if provisional:
-            confirmed = pinecone_store.fetch_trigger_ids(
-                self._api_key, self._index_name,
+            confirmed = await self._index.fetch_trigger_ids(
                 [f"{_ID_PREFIX}{p}" for p in provisional], namespace=self._namespace)
             found = {_bare_id(i) for i in confirmed}
             fatal.extend((p, "absent from the index") for p in provisional if p not in found)

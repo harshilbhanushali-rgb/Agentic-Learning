@@ -5,6 +5,7 @@ is being tested is the EXTERNAL contract (what a caller receives), not prompt st
 internal call counts -- except where the contract itself is about a second attempt, which
 has no other observable.
 """
+import asyncio
 import numpy as np
 import pytest
 
@@ -28,7 +29,7 @@ def _pool():
     return retrieval.RetrievalPool(pairs, np.array([[1.0, 0.0], [0.0, 1.0]]))
 
 
-def _embed_query(texts):
+async def _embed_query(texts):
     """Stands in for the live embedder: always lands on the first pool pair."""
     return np.array([[1.0, 0.05]] * len(texts))
 
@@ -41,7 +42,7 @@ class StubGateway:
         self.payloads = list(payloads)
         self.calls = []
 
-    def chat_json(self, prompt, **kwargs):
+    async def chat_json(self, prompt, **kwargs):
         self.calls.append({"prompt": prompt, **kwargs})
         if not self.payloads:
             raise AssertionError("the service asked for more generations than the contract "
@@ -57,7 +58,7 @@ def _payload(answer="Pull their last 90 days and reframe on their own baseline."
 
 def _ask(*payloads, situation="client says our cost per hire is way too high"):
     gw = StubGateway(*payloads)
-    result = answering.answer_situation(situation, _pool(), gw, embed_query=_embed_query)
+    result = asyncio.run(answering.answer_situation(situation, _pool(), gw, embed_query=_embed_query))
     return result, gw
 
 
@@ -197,7 +198,7 @@ def test_generation_asks_for_the_licensed_model_and_reasoning_effort():
 def test_a_blank_situation_is_refused_without_spending_a_generation():
     gw = StubGateway()
     with pytest.raises(ValueError):
-        answering.answer_situation("   ", _pool(), gw, embed_query=_embed_query)
+        asyncio.run(answering.answer_situation("   ", _pool(), gw, embed_query=_embed_query))
     assert gw.calls == []
 
 
@@ -209,8 +210,8 @@ SECOND_QUOTE = "come back to you today"
 
 def _ask_k(*payloads, k, situation="client says our cost per hire is way too high"):
     gw = StubGateway(*payloads)
-    result = answering.answer_situation(situation, _pool(), gw,
-                                        embed_query=_embed_query, k=k)
+    result = asyncio.run(answering.answer_situation(situation, _pool(), gw,
+                                        embed_query=_embed_query, k=k))
     return result, gw
 
 
@@ -290,8 +291,8 @@ def test_with_no_moves_supplied_the_prompt_is_byte_identical_to_pairs_only():
 
 def test_when_switched_on_the_key_moves_reach_the_prompt():
     gw = StubGateway(_payload())
-    answering.answer_situation("client says our cost per hire is way too high", _pool(), gw,
-                               embed_query=_embed_query, moves_for=_moves_for)
+    asyncio.run(answering.answer_situation("client says our cost per hire is way too high", _pool(), gw,
+                               embed_query=_embed_query, moves_for=_moves_for))
     prompt = gw.calls[0]["prompt"]
     for move in MOVES:
         assert move["name"] in prompt
@@ -303,9 +304,9 @@ def test_switched_on_but_the_scenario_has_no_live_playbook_degrades_to_pairs_onl
     none. A missing playbook must not be an error -- it is the ordinary case for that
     scenario, and a CSM asking about it should still get an answer."""
     gw = StubGateway(_payload())
-    result = answering.answer_situation(
+    result = asyncio.run(answering.answer_situation(
         "client says our cost per hire is way too high", _pool(), gw,
-        embed_query=_embed_query, moves_for=lambda _key: None)
+        embed_query=_embed_query, moves_for=lambda _key: None))
     assert result["outcome"] == "answered"
     assert gw.calls[0]["prompt"] == answering.build_prompt(
         "client says our cost per hire is way too high", _pool().pairs[0])
@@ -316,9 +317,9 @@ def test_the_grounding_gate_applies_identically_in_the_playbook_variant():
     declines, and still after exactly one retry."""
     fabricated = _payload(answer="Promise them a 40% lift.", quote="a 40% lift by Friday")
     gw = StubGateway(fabricated, fabricated)
-    result = answering.answer_situation(
+    result = asyncio.run(answering.answer_situation(
         "client says our cost per hire is way too high", _pool(), gw,
-        embed_query=_embed_query, moves_for=_moves_for)
+        embed_query=_embed_query, moves_for=_moves_for))
     assert result["outcome"] == "declined"
     assert result["reason"] == "grounding_unverified"
     assert "40% lift" not in repr(result)
@@ -331,15 +332,15 @@ def test_an_entirely_unauthorised_ranking_raises_rather_than_declining():
     the search filter. Returning no_close_match here would hide a broken index behind a
     normal-looking answer for as long as nobody looked."""
     class _NothingAuthorised:
-        def search(self, query_vec, top_k):
+        async def search(self, query_vec, top_k):
             return [("999999", 0.99)]
 
     pairs = [{"pair_id": 11, "trigger_text": "t", "response_text": RESPONSE,
               "call_filename": CALL, "scenario_key": "performance_pushback"}]
     pool = retrieval.RetrievalPool(pairs, store=_NothingAuthorised())
     with pytest.raises(RuntimeError, match="no kb_pair the pool authorises"):
-        answering.answer_situation("a client situation", pool, StubGateway(_payload()),
-                                   embed_query=_embed_query)
+        asyncio.run(answering.answer_situation("a client situation", pool, StubGateway(_payload()),
+                                   embed_query=_embed_query))
 
 
 # -- contrasting the CSM's own reply against Naren's (issue #21) ---------------------------
@@ -350,8 +351,8 @@ MY_REPLY = "we would review the campaign settings this week and get back to them
 def _contrast(*payloads, my_reply=MY_REPLY,
               situation="your cost per hire is way off what you pitched"):
     gw = StubGateway(*payloads)
-    result = answering.answer_contrast(situation, my_reply, _pool(), gw,
-                                       embed_query=_embed_query)
+    result = asyncio.run(answering.answer_contrast(situation, my_reply, _pool(), gw,
+                                       embed_query=_embed_query))
     return result, gw
 
 
@@ -402,8 +403,8 @@ def test_a_contrast_with_nothing_to_contrast_is_a_programming_error():
     empty reply means a caller bypassed it -- which is worth a loud failure rather than a
     generation that quietly answers a different question."""
     with pytest.raises(ValueError):
-        answering.answer_contrast("their words", "  ", _pool(), StubGateway(_payload()),
-                                  embed_query=_embed_query)
+        asyncio.run(answering.answer_contrast("their words", "  ", _pool(), StubGateway(_payload()),
+                                  embed_query=_embed_query))
 
 
 # -- ADR 0001's freeze, made checkable ------------------------------------------------------

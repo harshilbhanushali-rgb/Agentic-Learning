@@ -15,15 +15,17 @@ routing accuracy is measured separately against labelled messages.
 """
 from __future__ import annotations
 
+import asyncio
+
 from ask_naren import answering, citations, intake, rendering, threads
 from ask_naren.retrieval import RetrievalPool
 
 
-def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(),
-            classify=intake.classify, k: int = answering.DEFAULT_K,
-            label_for=citations.resolve_label, moves_for=None,
-            playbook_for=None, scenarios_for=None, following_for=None,
-            account_for=citations.account_for) -> dict:
+async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(),
+                  classify=intake.classify, k: int = answering.DEFAULT_K,
+                  label_for=citations.resolve_label, moves_for=None,
+                  playbook_for=None, scenarios_for=None, following_for=None,
+                  account_for=citations.account_for) -> dict:
     """Answer one message, ask the CSM something, or decline.
 
     `message` is what the CSM typed, framing and all. What reaches RETRIEVAL is intake's
@@ -52,7 +54,7 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
     turns = threads.trim(thread)
 
     try:
-        decision, _meta = classify(message, gateway, thread=turns)
+        decision, _meta = await classify(message, gateway, thread=turns)
     except Exception:                       # noqa: BLE001 -- see the docstring
         # ONE definition of the fallback, shared with intake's own retry exhaustion. Two
         # copies of a safety net is two places for them to stop agreeing.
@@ -66,8 +68,8 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
         # nothing to ground on.
         source = pool.by_pair_id(threads.carried_source(turns).pair_id)
         return _with_intake(
-            answering.answer_follow_up(message, turns, source, gateway,
-                                       label_for=label_for), decision)
+            await answering.answer_follow_up(message, turns, source, gateway,
+                                             label_for=label_for), decision)
 
     if decision.intent in intake.RENDERED_INTENTS:
         # NO MODEL CALL AT ALL (issues #19, #20). These answer from stored rows, so their
@@ -75,9 +77,10 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
         # coachable scenarios cannot invent a 35th. Nothing here can reach the gate because
         # nothing here generates anything for it to check.
         return _with_intake(
-            _rendered(message, decision, pool, embed_query=embed_query, label_for=label_for,
-                      scenarios_for=scenarios_for, following_for=following_for,
-                      playbook_for=playbook_for, account_for=account_for),
+            await _rendered(message, decision, pool, embed_query=embed_query,
+                            label_for=label_for, scenarios_for=scenarios_for,
+                            following_for=following_for, playbook_for=playbook_for,
+                            account_for=account_for),
             decision)
 
     if decision.intent == intake.PROCEDURE:
@@ -87,9 +90,9 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
         # its scenario is the one whose play gets answered -- which is also what gives this
         # response a real cosine to report.
         return _with_intake(
-            _procedure(message, decision, pool, gateway, embed_query=embed_query,
-                       label_for=label_for, playbook_for=playbook_for, k=k,
-                       moves_for=moves_for),
+            await _procedure(message, decision, pool, gateway, embed_query=embed_query,
+                             label_for=label_for, playbook_for=playbook_for, k=k,
+                             moves_for=moves_for),
             decision)
 
     if decision.intent == intake.CONTRAST_MY_REPLY:
@@ -97,7 +100,7 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
         # Naren say when a client said this". `_guarded` has already established that both
         # spans were copied from the message rather than composed.
         return _with_intake(
-            answering.answer_contrast(
+            await answering.answer_contrast(
                 decision.retrieval_query, decision.my_reply, pool, gateway,
                 embed_query=embed_query, label_for=label_for),
             decision)
@@ -114,15 +117,15 @@ def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(
             answering.decline_without_search(answering.OUT_OF_SCOPE), decision)
 
     return _with_intake(
-        answering.answer_situation(
+        await answering.answer_situation(
             decision.retrieval_query, pool, gateway, embed_query=embed_query, k=k,
             label_for=label_for, moves_for=moves_for),
         decision)
 
 
-def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool, *,
-              embed_query, label_for, scenarios_for, following_for, playbook_for,
-              account_for=citations.account_for) -> dict:
+async def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool,
+                    *, embed_query, label_for, scenarios_for, following_for,
+                    playbook_for, account_for=citations.account_for) -> dict:
     """The five answers built from stored rows (issues #19, #20).
 
     `scenarios_for` returns the COACHABLE Layer A rows, and `following_for` returns the
@@ -147,7 +150,7 @@ def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool
 
     # The query is embedded exactly as on every other retrieving path -- the current message
     # alone (ADR 0006).
-    query_vec = embed_query([decision.retrieval_query])[0]
+    query_vec = (await embed_query([decision.retrieval_query]))[0]
 
     if decision.intent == intake.CALL_PREP:
         # A COMPOSITE, AND EVERY PART OF IT IS RENDERED (issue #23). It reads a
@@ -156,7 +159,7 @@ def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool
         # only rendered paths is what keeps ADR 0009's warning inapplicable: there is no
         # weaker guarantee to inherit, because neither half generates anything.
         return rendering.call_prep(
-            message, pool.topk(query_vec, rendering.NEIGHBOURS_SCANNED),
+            message, await pool.topk(query_vec, rendering.NEIGHBOURS_SCANNED),
             scenarios=(scenarios_for() if scenarios_for else []),
             playbook_for=playbook_for, label_for=label_for)
 
@@ -166,11 +169,11 @@ def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool
         # so the breadth is required by the question rather than chosen -- see
         # `rendering.NEIGHBOURS_SCANNED` for why that is not the shortlist ADR 0005 rejected.
         return rendering.where_else_seen(
-            message, pool.topk(query_vec, rendering.NEIGHBOURS_SCANNED),
+            message, await pool.topk(query_vec, rendering.NEIGHBOURS_SCANNED),
             account_for=account_for)
 
     # The rest are ABOUT one situation and answer from the nearest exchange.
-    match = pool.top1(query_vec)
+    match = await pool.top1(query_vec)
 
     if decision.intent == intake.SHOW_EXCHANGE:
         return rendering.show_exchange(match, label_for=label_for)
@@ -200,8 +203,9 @@ def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool
     return rendering.coverage_check(message, match, scenario, label_for=label_for)
 
 
-def _procedure(message: str, decision: intake.IntakeDecision, pool: RetrievalPool, gateway,
-               *, embed_query, label_for, playbook_for, k: int, moves_for) -> dict:
+async def _procedure(message: str, decision: intake.IntakeDecision,
+                     pool: RetrievalPool, gateway, *, embed_query, label_for,
+                     playbook_for, k: int, moves_for) -> dict:
     """The Layer C `procedure` path (issue #17), and its degradation.
 
     NO LIVE PLAYBOOK FALLS BACK TO THE LAYER B ANSWER rather than declining. 1 of 34
@@ -215,34 +219,63 @@ def _procedure(message: str, decision: intake.IntakeDecision, pool: RetrievalPoo
     stripped, exactly as on the reply_to_client path. It is embedded once and used twice: to
     pick the scenario, and -- on the fallback -- to answer from.
     """
-    # EMBEDDED ONCE PER REQUEST, not once per caller. Finding the scenario needs a vector
-    # and so does the Layer B fallback, and they are the same vector -- but the embedder's
-    # disk cache cannot save the second call, because a live CSM query is a novel string and
-    # therefore a guaranteed miss. Without this memo the fallback path silently bills two
-    # gateway embeddings for one question.
-    embedded: dict[tuple, object] = {}
-
-    def embed_once(texts):
-        key = tuple(texts)
-        if key not in embedded:
-            embedded[key] = embed_query(texts)
-        return embedded[key]
+    embed_once = _memoised(embed_query)
 
     if playbook_for is not None:
-        match = pool.top1(embed_once([decision.retrieval_query])[0])
+        match = await pool.top1((await embed_once([decision.retrieval_query]))[0])
         record = playbook_for(match.pair["scenario_key"])
         playbook = (record or {}).get("playbook")
         if playbook:
             # None means the playbook carries no quotable evidence, which degrades to
             # Layer B below on the same footing as a scenario with no playbook at all.
-            answered = answering.answer_procedure(message, match, playbook, gateway,
-                                                  label_for=label_for)
+            answered = await answering.answer_procedure(message, match, playbook, gateway,
+                                                        label_for=label_for)
             if answered is not None:
                 return answered
 
-    return answering.answer_situation(
+    return await answering.answer_situation(
         decision.retrieval_query, pool, gateway, embed_query=embed_once, k=k,
         label_for=label_for, moves_for=moves_for)
+
+
+def _memoised(embed_query):
+    """`embed_query`, but each distinct text is embedded ONCE per request.
+
+    Finding the scenario needs a vector and so does the Layer B fallback, and they are the
+    same vector -- yet the embedder's disk cache cannot save the second call, because a live
+    CSM query is a novel string and therefore a guaranteed miss. Without this the fallback
+    path silently bills two gateway embeddings for one question.
+
+    *** IT CACHES THE IN-FLIGHT OPERATION, NOT THE FINISHED VECTOR. *** The synchronous
+    version stored the result, which is safe only while nothing else can run during the
+    call. Under async, `await` is a suspension point: two awaits on a cold key would BOTH
+    see an empty dict and BOTH start an embedding.
+
+    BE PRECISE ABOUT WHEN THAT CAN HAPPEN, because an earlier version of this comment was
+    not. `_procedure` awaits sequentially, so it cannot double-bill even with a naive
+    value-cache -- a review proved that by reverting this to value-caching and watching the
+    test still pass. So this is not fixing a live defect on today's path; it is making the
+    double-bill unreachable for ANY caller, including a future one that embeds a situation
+    and its variants concurrently. The test drives it concurrently on purpose, since the
+    production path does not.
+
+    EXTRACTED FROM `_procedure` RATHER THAN LEFT A CLOSURE for exactly that reason: a memo
+    whose correctness argument is about concurrency has to be reachable by a test that is
+    concurrent, and a closure inside a dispatch function is not.
+    """
+    embedded: dict[tuple, "asyncio.Task"] = {}
+
+    async def embed_once(texts):
+        key = tuple(texts)
+        task = embedded.get(key)
+        if task is None:
+            # ensure_future, not a bare coroutine: a coroutine can only be awaited once, so
+            # caching one would make the second caller raise instead of reuse it.
+            task = asyncio.ensure_future(embed_query(texts))
+            embedded[key] = task
+        return await task
+
+    return embed_once
 
 
 def _from_playbook(message: str, decision: intake.IntakeDecision, match,

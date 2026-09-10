@@ -6,6 +6,7 @@ cannot drift from the exchange. There is no gateway in this file because there i
 gateway in the module -- that absence IS the guarantee, and `test_ask_naren_responding.py`
 pins it from the outside by asserting no generation happens.
 """
+import asyncio
 import numpy as np
 
 from ask_naren import rendering, retrieval
@@ -27,7 +28,7 @@ def _pool():
 
 
 def _match():
-    return _pool().top1(np.array([1.0, 0.0]))
+    return asyncio.run(_pool().top1(np.array([1.0, 0.0])))
 
 
 # -- discovery (issue #19) -----------------------------------------------------------------

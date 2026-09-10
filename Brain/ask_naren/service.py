@@ -6,13 +6,29 @@ STDLIB `http.server`, AND SINGLE-THREADED, BOTH ON PURPOSE.
     one health GET. Adding fastapi/uvicorn would add two dependencies to Brain's venv for
     routing two paths.
 
-  * NOT ThreadingHTTPServer. Requests are served one at a time because the request path
-    embeds the incoming situation, and the embedder's disk cache (shared/embed_cache.py)
-    holds a `sqlite3.connect` made WITHOUT check_same_thread=False. A second request thread
-    touching that connection raises outright. Serialising is the honest fix for an internal
-    tool whose requests take a few seconds each; making the cache thread-safe, or pinning
-    embedding to a dedicated worker thread, is a real change to shared/ and not this
-    ticket's job. The consequence to know: /health queues behind an in-flight generation.
+  * NOT ThreadingHTTPServer -- and READ THE NEXT PARAGRAPH BEFORE ACTING ON THAT.
+
+    The original reason was the embedder's disk cache (shared/embed_cache.py), which holds
+    a `sqlite3.connect` made WITHOUT check_same_thread=False, so a second request thread
+    touching it raises outright. *** THAT BLOCKER IS GONE AS OF ISSUE #30. *** It was not
+    fixed, it was BYPASSED: the request path no longer goes through preprocessing/embedder
+    at all, so the cache object is never constructed and the connection that raises does
+    not exist. Nothing in shared/ was edited. A live CSM situation is a novel string and
+    therefore a guaranteed cache miss, so nothing was lost by skipping it -- and the cache
+    stays enabled everywhere it earns its keep. Pinned by
+    tests/test_ask_naren_async_path.py::test_answering_a_situation_opens_no_sqlite_connection.
+
+    So do NOT start #31 by making the embed cache thread-safe. ADR 0003 predicted that was
+    the blocker to remove first; it was wrong, and this comment used to repeat it.
+
+    WHAT STILL MAKES THIS SERIAL is only this module: `HTTPServer` handles one request at a
+    time, and `ops/serve_ask_naren.py` bridges to the awaited path with
+    `loop.run_until_complete` per request. The path underneath ALREADY overlaps -- measured
+    2026-09-11 at 3 situations in 15.2s against 30.4s serialised
+    (ask-naren/audit/check_async_concurrency.py). Issue #31 replaces this layer with an ASGI
+    app on uvicorn and deletes that bridge; nothing below it needs to change.
+
+    The consequence until then: /health still queues behind an in-flight generation.
 
 The layer does no reshaping. Whatever the answerer decided is what the caller reads --
 retrieval, grounding and model-calling all live in one place, and it is not here.

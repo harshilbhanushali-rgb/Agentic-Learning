@@ -6,6 +6,7 @@ elsewhere. Two reasons, both deliberate: a dispatch test must not pay for a gene
 routing accuracy is a separate question measured against labelled messages
 (`ask-naren/audit/measure_intake_accuracy.py`) rather than smuggled into behaviour tests.
 """
+import asyncio
 import json
 
 import numpy as np
@@ -41,7 +42,7 @@ class RecordingEmbedder:
     def __init__(self):
         self.seen = []
 
-    def __call__(self, texts):
+    async def __call__(self, texts):
         self.seen.extend(texts)
         return np.array([[1.0, 0.05]] * len(texts))
 
@@ -51,7 +52,7 @@ class StubGateway:
         self.payloads = list(payloads)
         self.calls = []
 
-    def chat_json(self, prompt, **kwargs):
+    async def chat_json(self, prompt, **kwargs):
         self.calls.append({"prompt": prompt, **kwargs})
         if not self.payloads:
             raise AssertionError("more generations than the contract allows")
@@ -69,7 +70,7 @@ def _decides(intent, retrieval_query="", question="", seen_threads=None, my_repl
     `seen_threads` records what thread intake was handed, which is the only externally
     observable part of "history reaches intake" (issue #15).
     """
-    def _classify(message, gateway, *, thread=()):
+    async def _classify(message, gateway, *, thread=()):
         if seen_threads is not None:
             seen_threads.append(thread)
         return intake.IntakeDecision(intent=intent, retrieval_query=retrieval_query,
@@ -80,8 +81,8 @@ def _decides(intent, retrieval_query="", question="", seen_threads=None, my_repl
 def _respond(classify, *payloads, message=FRAMED, embedder=None, thread=()):
     gw = StubGateway(*payloads)
     embed = embedder or RecordingEmbedder()
-    result = responding.respond(message, _pool(), gw, embed_query=embed, thread=thread,
-                                classify=classify)
+    result = asyncio.run(responding.respond(message, _pool(), gw, embed_query=embed,
+                                            thread=thread, classify=classify))
     return result, gw, embed
 
 
@@ -414,9 +415,9 @@ def test_a_post_retrieval_reason_cannot_be_declined_as_if_nothing_was_searched()
 
 def test_an_empty_message_is_refused():
     with pytest.raises(ValueError):
-        responding.respond("   ", _pool(), StubGateway(),
+        asyncio.run(responding.respond("   ", _pool(), StubGateway(),
                            embed_query=RecordingEmbedder(),
-                           classify=_decides("reply_to_client", "x"))
+                           classify=_decides("reply_to_client", "x")))
 
 
 def test_intake_failing_completely_still_answers_the_message_as_written():
@@ -462,10 +463,10 @@ def _play_payload(quote=PLAY_QUOTE, cited_call=CALL):
 def _ask_procedure(*payloads, playbook_for=lambda key: PLAYBOOK_RECORD, query=None):
     gw = StubGateway(*payloads)
     embed = RecordingEmbedder()
-    result = responding.respond(
+    result = asyncio.run(responding.respond(
         PLAY_QUESTION, _pool(), gw, embed_query=embed,
         classify=_decides("procedure", query or "cost per hire pushback"),
-        playbook_for=playbook_for)
+        playbook_for=playbook_for))
     return result, gw, embed
 
 
@@ -519,9 +520,9 @@ def test_a_service_started_without_playbooks_still_answers():
     """`playbook_for` is None when the caller loaded none at all. That must degrade to the
     Layer B path rather than raise."""
     gw = StubGateway(_answer_payload())
-    result = responding.respond(
+    result = asyncio.run(responding.respond(
         PLAY_QUESTION, _pool(), gw, embed_query=RecordingEmbedder(),
-        classify=_decides("procedure", "cost per hire pushback"), playbook_for=None)
+        classify=_decides("procedure", "cost per hire pushback"), playbook_for=None))
     assert result["outcome"] == "answered"
 
 
@@ -593,10 +594,10 @@ def _ask_rendered(intent, query="cost per hire pushback", scenarios_for=lambda: 
     message = "what do you cover" if corpus else f"can you show me {query}"
     gw = StubGateway()          # NO payloads queued: a generation here is a test failure
     embed = RecordingEmbedder()
-    result = responding.respond(
+    result = asyncio.run(responding.respond(
         message, _pool(), gw, embed_query=embed,
         classify=_decides(intent, "" if corpus else query),
-        scenarios_for=scenarios_for, following_for=following_for)
+        scenarios_for=scenarios_for, following_for=following_for))
     return result, gw, embed
 
 
@@ -658,10 +659,10 @@ def _ask_playbook(intent, playbook_for=lambda key: PLAYBOOK_RECORD):
     # The query is a span of the message, for the reason `_ask_rendered` spells out.
     gw = StubGateway()          # a generation here is a test failure
     embed = RecordingEmbedder()
-    result = responding.respond(
+    result = asyncio.run(responding.respond(
         "what order do i do these in for cost per hire pushback", _pool(), gw,
         embed_query=embed, classify=_decides(intent, "cost per hire pushback"),
-        playbook_for=playbook_for)
+        playbook_for=playbook_for))
     return result, gw, embed
 
 
@@ -686,12 +687,12 @@ def test_a_composed_query_is_not_embedded_on_any_intent_that_retrieves():
     for intent in ("sequence", "phrasing", "pitfalls", "scenario_check", "play_confidence",
                    "show_exchange", "what_happened_next", "coverage_check"):
         embed = RecordingEmbedder()
-        responding.respond(
+        asyncio.run(responding.respond(
             "and what usually goes wrong?", _pool(), StubGateway(_answer_payload()),
             embed_query=embed, classify=_decides(intent, from_history),
             playbook_for=lambda key: PLAYBOOK_RECORD,
             scenarios_for=lambda: SCENARIOS,
-            thread=(_prior(reply=from_history),))
+            thread=(_prior(reply=from_history),)))
         assert from_history not in embed.seen, intent
 
 
@@ -700,10 +701,10 @@ def test_a_copied_span_still_reaches_the_vector_on_a_playbook_intent():
     degrades to a Layer B generation on a fragment."""
     message = "what usually goes wrong with cost per hire pushback"
     embed = RecordingEmbedder()
-    result = responding.respond(
+    result = asyncio.run(responding.respond(
         message, _pool(), StubGateway(), embed_query=embed,
         classify=_decides("pitfalls", "cost per hire pushback"),
-        playbook_for=lambda key: PLAYBOOK_RECORD)
+        playbook_for=lambda key: PLAYBOOK_RECORD))
     assert embed.seen == ["cost per hire pushback"]
     assert result["kind"] == "pitfalls"
 
@@ -735,9 +736,9 @@ def _ask_contrast(*payloads, message=CONTRAST_MESSAGE, my_reply=CSM_REPLY,
                   query="our cost per hire is way too high"):
     gw = StubGateway(*payloads)
     embed = RecordingEmbedder()
-    result = responding.respond(
+    result = asyncio.run(responding.respond(
         message, _pool(), gw, embed_query=embed,
-        classify=_decides("contrast_my_reply", query, my_reply=my_reply))
+        classify=_decides("contrast_my_reply", query, my_reply=my_reply)))
     return result, gw, embed
 
 
@@ -794,11 +795,11 @@ def _wide_pool():
 def _ask_where_else(account_for=lambda call: "Uber" if "uber" in call else None):
     gw = StubGateway()          # a generation here is a test failure
     embed = RecordingEmbedder()
-    result = responding.respond(
+    result = asyncio.run(responding.respond(
         "which other clients have raised cost per hire", _wide_pool(), gw,
         embed_query=embed,
         classify=_decides("where_else_seen", "cost per hire"),
-        account_for=account_for)
+        account_for=account_for))
     return result, gw, embed
 
 
@@ -839,12 +840,12 @@ def test_call_prep_composes_rendered_paths_and_generates_nothing():
     inherits the weaker of its halves' guarantees, and neither half here has a weaker one."""
     gw = StubGateway()          # a generation here is a test failure
     embed = RecordingEmbedder()
-    result = responding.respond(
+    result = asyncio.run(responding.respond(
         "im on a renewal call tomorrow about cost per hire", _wide_pool(), gw,
         embed_query=embed,
         classify=_decides("call_prep", "cost per hire"),
         scenarios_for=lambda: SCENARIOS,
-        playbook_for=lambda key: PLAYBOOK_RECORD)
+        playbook_for=lambda key: PLAYBOOK_RECORD))
     assert result["outcome"] == "rendered"
     assert result["kind"] == "call_prep"
     assert gw.calls == []
@@ -857,10 +858,10 @@ def test_improve_at_move_names_its_scenario_and_generates_nothing():
     """Criterion 4: names its scenarios so a misroute is visible."""
     gw = StubGateway()
     embed = RecordingEmbedder()
-    result = responding.respond(
+    result = asyncio.run(responding.respond(
         "i keep fumbling the reframe on their own baseline", _pool(), gw, embed_query=embed,
         classify=_decides("improve_at_move", "reframe on their own baseline"),
-        playbook_for=lambda key: PLAYBOOK_RECORD)
+        playbook_for=lambda key: PLAYBOOK_RECORD))
     assert result["kind"] == "improve_at_move"
     assert result["scenario_key"] == "performance_pushback"
     assert gw.calls == []
@@ -870,10 +871,10 @@ def test_improve_at_move_with_no_recorded_play_asks_rather_than_faking_one():
     """Same clarify `_from_playbook` returns, from the same definition: there is no Layer B
     substitute for "the criterion for this move"."""
     gw = StubGateway()
-    result = responding.respond(
+    result = asyncio.run(responding.respond(
         "i keep fumbling the reframe", _pool(), gw, embed_query=RecordingEmbedder(),
         classify=_decides("improve_at_move", "reframe"),
-        playbook_for=lambda key: None)
+        playbook_for=lambda key: None))
     assert result["outcome"] == "clarify"
     assert "performance pushback" in result["question"]
     assert gw.calls == []

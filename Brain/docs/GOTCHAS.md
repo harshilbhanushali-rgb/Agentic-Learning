@@ -120,9 +120,27 @@ Two further facts from the same run: the gateway **negotiates HTTP/2**, and keep
 
 **Two rules that now come with the async client:**
 
-- **Never run the sync and async clients in one process.** Each keeps its own limiter, and two
-  limiters cannot honour one per-key budget — they race each other into the same rejection,
-  which is exactly what the module-level bucket exists to prevent. Nothing enforces this.
+- **Never have the sync and async clients IN FLIGHT TOGETHER in one process.** Each keeps its
+  own limiter, and two limiters cannot honour one per-key budget — they race each other into
+  the same rejection, which is exactly what the module-level bucket exists to prevent. Nothing
+  enforces this.
+
+  **Amended 2026-09-11 (issue #30), because two places need the narrower rule** and a
+  narrowing that lives only in a docstring is how an invariant rots. Strictly SEQUENTIAL use
+  is safe and is relied on twice: `ops/serve_ask_naren.py`'s `memory` rollback path embeds
+  6,496 triggers through the sync client *at startup*, before the async client makes a single
+  call (and that path genuinely wants the embed cache — corpus-sized work is what the cache
+  is for); and `ask-naren/audit/build_answer_audit.py` embeds corpus triggers through the
+  cached sync embedder between awaited chat calls, because those texts are cache hits and a
+  measurement harness must stay cheap to re-run.
+
+  **The residual hazard, which sequencing does NOT fix:** the two limiters do not share a
+  window. `EMBED_PER_MINUTE` paces 140/min against a 150-per-**window** cap, and the async
+  `_AsyncRateLimiter` starts at `_next = 0.0` knowing nothing about what the sync bucket just
+  spent. On a cold-cache rollback start, the first CSM questions can land inside the same
+  window as the tail of those 6,496 startup embeddings and take a 429 the pacing exists to
+  prevent. Recoverable (the retry ladder absorbs it) but not invisible — if it bites, embed
+  the rollback pool through the async client and accept the lost cache.
 - **The async client must be driven by ONE long-lived event loop.** Its gate is keyed on the
   running loop (an asyncio primitive raises if awaited from a loop other than the one it bound
   to). A caller wrapping each request in its own `asyncio.run` gets a fresh limiter every time,

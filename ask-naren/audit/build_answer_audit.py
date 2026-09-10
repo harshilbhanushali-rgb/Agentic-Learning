@@ -57,6 +57,7 @@ from the corpus. Read-only Postgres, no writes anywhere.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -70,7 +71,24 @@ from ask_naren import answering, retrieval          # noqa: E402
 from config import load_config                      # noqa: E402
 from preprocessing import embedder                  # noqa: E402
 from shared import storage                          # noqa: E402
-from shared.gateway import GatewayClient            # noqa: E402
+from shared.gateway import AsyncGatewayClient       # noqa: E402
+
+async def _aembed(texts):
+    """The cached embedder, presented as the awaited contract issue #30 introduced.
+
+    Deliberately still `preprocessing.embedder` rather than the async gateway: the texts
+    here are CORPUS TRIGGERS, so they are cache hits, and that is what makes this harness
+    cheap to re-run. The service bypasses the cache because a live CSM situation is a
+    novel string; the opposite is true of a measurement over stored rows.
+
+    Blocking inside a coroutine, and that is acceptable HERE and nowhere in the service:
+    this is a sequential batch harness with nothing else on the loop to starve. The rule
+    it must not break is the other one -- the sync and async gateway clients must never be
+    in flight together (Brain/docs/GOTCHAS.md) -- and a cache hit issues no request at
+    all, while a miss is paid sequentially, before any async chat call starts.
+    """
+    return embedder.embed_query_matrix(list(texts))
+
 
 SEED = 20260826
 MIN_TRIGGER_LEN = 40
@@ -100,12 +118,15 @@ class MaskedPool:
         self._pool = pool
         self._keep = np.array([p["call_filename"] != exclude_call for p in pool.pairs])
 
-    def top1(self, query_vec) -> retrieval.Match:
-        return self.topk(query_vec, 1)[0]
+    async def top1(self, query_vec) -> retrieval.Match:
+        return (await self.topk(query_vec, 1))[0]
 
-    def topk(self, query_vec, k: int) -> list[retrieval.Match]:
+    async def topk(self, query_vec, k: int) -> list[retrieval.Match]:
         """The shipped path selects through topk now (issue #8), so this view has to answer
-        it too.
+        it too -- AWAITED since issue #30, because the pool it stands in for is.
+
+        Nothing here awaits: the ranking is a numpy dot product. It is `async def` so the
+        pool and this view remain substitutable, which is the whole point of the wrapper.
 
         Masked rows are EXCLUDED from the ranking, not merely sorted last. Ranking them to
         -inf and then slicing [:k] puts the held-out call back into the shortlist whenever k
@@ -191,16 +212,16 @@ def was_declined(result: dict) -> bool:
     return bool(result["declined"])
 
 
-def _generate(items, pool, gw, out_path, k):
+async def _generate(items, pool, gw, out_path, k):
     records = []
     for n, item in enumerate(items, 1):
         masked = MaskedPool(pool, item["call_filename"])
-        candidates = masked.topk(
-            embedder.embed_query_matrix([item["trigger_text"]])[0], k)
+        candidates = await masked.topk(
+            (await _aembed([item["trigger_text"]]))[0], k)
         try:
-            result = answering.answer_situation(
+            result = await answering.answer_situation(
                 item["trigger_text"], masked, gw,
-                embed_query=embedder.embed_query_matrix, k=k)
+                embed_query=_aembed, k=k)
         except Exception as e:                        # noqa: BLE001 -- recorded, not fatal
             print(f"  [{n}/{len(items)}] FAILED: {e}", flush=True)
             continue
@@ -280,7 +301,7 @@ def _assemble(answered, positives, n_controls, rng):
     return blind, answer_key
 
 
-def main() -> int:
+async def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--n", type=int, default=36)
@@ -320,8 +341,8 @@ def main() -> int:
         records = json.loads(raw_path.read_text(encoding="utf-8"))
         print(f"[reused] {len(records)} generations from {raw_path.name}", flush=True)
     else:
-        with GatewayClient() as gw:
-            records = _generate(items, pool, gw, raw_path, args.k)
+        async with AsyncGatewayClient() as gw:
+            records = await _generate(items, pool, gw, raw_path, args.k)
 
     answered = [r for r in records if not was_declined(r["result"])]
     print(f"\n[generated] {len(records)} items, {len(answered)} answered, "
@@ -342,12 +363,12 @@ def main() -> int:
     print(f"[positives] generating {args.controls} self-retrieval controls "
           f"(unmasked pool, k={args.k})...", flush=True)
     positives = []
-    with GatewayClient() as gw:
+    async with AsyncGatewayClient() as gw:
         for r in answered[:args.controls]:
             try:
-                res = answering.answer_situation(
+                res = await answering.answer_situation(
                     r["situation"], pool, gw,
-                    embed_query=embedder.embed_query_matrix, k=args.k)
+                    embed_query=_aembed, k=args.k)
             except Exception as e:                    # noqa: BLE001
                 print(f"  positive FAILED: {e}", flush=True)
                 continue
@@ -361,8 +382,8 @@ def main() -> int:
                       f"cos {res['match']['cosine']:.3f}) -- skipped: it is no longer "
                       f"known-right", flush=True)
                 continue
-            candidates = pool.topk(
-                embedder.embed_query_matrix([r["situation"]])[0], args.k)
+            candidates = await pool.topk(
+                (await _aembed([r["situation"]]))[0], args.k)
             shown = next(m for m in candidates
                          if m.pair["pair_id"] == res["citation"]["pair_id"])
             positives.append({"situation": r["situation"],
@@ -385,4 +406,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # ONE loop for the process (issue #30), the same rule ops/serve_ask_naren.py follows.
+    sys.exit(asyncio.run(main()))

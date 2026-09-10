@@ -22,6 +22,7 @@ Exit code 0 when coverage is complete, 1 when it is not, so this is usable as a 
 """
 from __future__ import annotations
 
+import asyncio
 import sys
 import time
 from pathlib import Path
@@ -34,7 +35,7 @@ from ops.serve_ask_naren import (DEFAULT_HOSTADDR,       # noqa: E402
                                  VECTOR_INDEX_NAME, _connect_read_only)
 
 
-def main() -> int:
+async def main() -> int:
     config = load_config()
     conn = _connect_read_only(config.database_url, DEFAULT_HOSTADDR)
     try:
@@ -49,11 +50,14 @@ def main() -> int:
     print(f"[pool] {len(pairs)} coachable kb_pairs after content dedup, "
           f"{len(scenario_keys)} scenarios")
 
-    store = vector_store.PineconeTriggerStore(
-        config.pinecone_api_key, VECTOR_INDEX_NAME, scenario_keys)
+    store = await vector_store.PineconeTriggerStore.open(
+        config.pinecone_api_key, VECTOR_INDEX_NAME, scenario_keys=scenario_keys)
     print(f"[vectors] checking every pair against {VECTOR_INDEX_NAME}...", flush=True)
     t0 = time.time()
-    fatal, stale = store.unretrievable(pairs)
+    try:
+        fatal, stale = await store.unretrievable(pairs)
+    finally:
+        await store.aclose()
     elapsed = time.time() - t0
 
     ok = len(pairs) - len(fatal)
@@ -84,4 +88,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # The store contract became awaited in issue #30. ONE loop for the process, the same
+    # rule ops/serve_ask_naren.py follows: the gateway admission gate is keyed on the
+    # running loop, so a per-call `asyncio.run` would hand out a fresh limiter each time.
+    sys.exit(asyncio.run(main()))

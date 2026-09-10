@@ -10,6 +10,7 @@ answering prompts are (ADR 0001), and pinning wording in a test would make every
 improvement look like a regression. What routing accuracy actually is gets measured by
 `ask-naren/audit/measure_intake_accuracy.py` against labelled messages, not here.
 """
+import asyncio
 import pytest
 
 from ask_naren import intake, threads
@@ -22,7 +23,7 @@ class StubGateway:
         self.payloads = list(payloads)
         self.calls = []
 
-    def chat_json(self, prompt, **kwargs):
+    async def chat_json(self, prompt, **kwargs):
         self.calls.append({"prompt": prompt, **kwargs})
         if not self.payloads:
             raise AssertionError("intake asked for more generations than the contract allows")
@@ -44,7 +45,7 @@ SITUATION = "client said our cost per hire is way too high"
 # -- the decision itself ----------------------------------------------------------------
 
 def test_a_relayed_client_turn_routes_to_the_answering_path():
-    decision, _ = intake.classify(SITUATION, StubGateway(_reply()))
+    decision, _ = asyncio.run(intake.classify(SITUATION, StubGateway(_reply())))
     assert decision.intent == "reply_to_client"
     assert decision.retrieval_query == "our cost per hire is way too high"
 
@@ -54,16 +55,16 @@ def test_the_retrieval_query_is_what_reaches_retrieval_not_the_whole_message():
     around the client's words changes which exchange retrieval reaches for 81% of
     situations. Intake's job is to hand retrieval the CLIENT'S WORDS."""
     framed = "A client said this, can you help with how Naren would reply? " + SITUATION
-    decision, _ = intake.classify(framed, StubGateway(_reply()))
+    decision, _ = asyncio.run(intake.classify(framed, StubGateway(_reply())))
     assert decision.retrieval_query == "our cost per hire is way too high"
     assert "can you help" not in decision.retrieval_query
 
 
 def test_a_message_with_no_client_words_asks_for_them():
-    decision, _ = intake.classify(
+    decision, _ = asyncio.run(intake.classify(
         "client is unhappy about pricing",
         StubGateway(_reply(intent="clarify", retrieval_query="",
-                           question="What did the client actually say?")))
+                           question="What did the client actually say?"))))
     assert decision.intent == "clarify"
     assert decision.question == "What did the client actually say?"
 
@@ -71,9 +72,9 @@ def test_a_message_with_no_client_words_asks_for_them():
 def test_an_out_of_scope_question_is_not_a_clarify():
     """Asking a CSM to reword something Ask Naren fundamentally cannot answer helps nobody.
     Naren's calls are not a product document, so a pricing fact is a decline."""
-    decision, _ = intake.classify(
+    decision, _ = asyncio.run(intake.classify(
         "what is our actual list price for a 12 month contract",
-        StubGateway(_reply(intent="out_of_scope", retrieval_query="", question="")))
+        StubGateway(_reply(intent="out_of_scope", retrieval_query="", question=""))))
     assert decision.intent == "out_of_scope"
 
 
@@ -89,10 +90,10 @@ def test_a_message_carrying_the_csms_own_reply_extracts_both_halves():
     retrieving path; the CSM's own reply is what the answer contrasts against and is never
     embedded -- adding it to the query would be the boilerplate dilution intake exists to
     strip, with the CSM's own wording as the boilerplate."""
-    decision, _ = intake.classify(CONTRAST, StubGateway(_reply(
+    decision, _ = asyncio.run(intake.classify(CONTRAST, StubGateway(_reply(
         intent="contrast_my_reply",
         retrieval_query="your cost per hire is way off what you pitched",
-        my_reply="we would review the campaign settings this week")))
+        my_reply="we would review the campaign settings this week"))))
     assert decision.intent == "contrast_my_reply"
     assert decision.retrieval_query == "your cost per hire is way off what you pitched"
     assert decision.my_reply == "we would review the campaign settings this week"
@@ -165,16 +166,16 @@ def test_the_intents_that_search_for_nothing_are_told_to_leave_it_empty():
 
 def test_the_conversation_reaches_the_model_when_there_is_one():
     gw = StubGateway(_reply())
-    intake.classify("and what if they push back on price?", gw, thread=(_turn(),))
+    asyncio.run(intake.classify("and what if they push back on price?", gw, thread=(_turn(),)))
     prompt = gw.calls[0]["prompt"]
     assert "client says our cpa is 3x" in prompt
     assert "Reframe on their own baseline." in prompt
 
 
 def test_a_follow_up_is_an_intent_the_model_may_return():
-    decision, _ = intake.classify(
+    decision, _ = asyncio.run(intake.classify(
         "and what if they push back on price?",
-        StubGateway(_reply(intent="follow_up", retrieval_query="")), thread=(_turn(),))
+        StubGateway(_reply(intent="follow_up", retrieval_query="")), thread=(_turn(),)))
     assert decision.intent == "follow_up"
 
 
@@ -191,7 +192,7 @@ def test_a_follow_up_carries_no_retrieval_query_even_if_the_model_writes_one():
 
 def test_an_unusable_reply_is_retried_once_and_the_retry_can_succeed():
     gw = StubGateway(_reply(intent="clarify", question=""), _reply())
-    decision, _ = intake.classify(SITUATION, gw)
+    decision, _ = asyncio.run(intake.classify(SITUATION, gw))
     assert decision.intent == "reply_to_client"
     assert len(gw.calls) == 2
 
@@ -201,7 +202,7 @@ def test_two_unusable_replies_fall_through_to_the_answering_path():
     a path that already works. If it cannot decide, the CSM gets the answer they would have
     got before intake existed, which is a working tool rather than an error."""
     gw = StubGateway(_reply(intent="nonsense"), _reply(intent="nonsense"))
-    decision, _ = intake.classify(SITUATION, gw)
+    decision, _ = asyncio.run(intake.classify(SITUATION, gw))
     assert decision.intent == "reply_to_client"
     assert decision.retrieval_query == SITUATION
     assert len(gw.calls) == 2
@@ -209,7 +210,7 @@ def test_two_unusable_replies_fall_through_to_the_answering_path():
 
 def test_a_gateway_failure_falls_through_rather_than_breaking_the_request():
     gw = StubGateway(RuntimeError("gateway down"), RuntimeError("gateway down"))
-    decision, _ = intake.classify(SITUATION, gw)
+    decision, _ = asyncio.run(intake.classify(SITUATION, gw))
     assert decision.intent == "reply_to_client"
     assert decision.retrieval_query == SITUATION
 
@@ -244,7 +245,7 @@ def test_extra_keys_from_the_model_are_refused():
 
 def test_intake_sends_a_schema_so_the_shape_is_constrained_at_the_gateway():
     gw = StubGateway(_reply())
-    intake.classify(SITUATION, gw)
+    asyncio.run(intake.classify(SITUATION, gw))
     schema = gw.calls[0]["schema"]
     assert schema["schema"]["additionalProperties"] is False
     assert set(schema["schema"]["properties"]["intent"]["enum"]) == set(intake.INTENTS)
@@ -252,5 +253,5 @@ def test_intake_sends_a_schema_so_the_shape_is_constrained_at_the_gateway():
 
 def test_intake_never_serves_one_csm_another_csms_cached_decision():
     gw = StubGateway(_reply())
-    intake.classify(SITUATION, gw)
+    asyncio.run(intake.classify(SITUATION, gw))
     assert gw.calls[0]["no_cache"] is True

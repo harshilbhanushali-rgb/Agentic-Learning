@@ -525,7 +525,7 @@ def _thread_rules(thread) -> list[str]:
     ]
 
 
-def classify(message: str, gateway, *, thread=(), model: str = CHAT_MODEL,
+async def classify(message: str, gateway, *, thread=(), model: str = CHAT_MODEL,
              reasoning_effort: str | None = REASONING_EFFORT) -> tuple[IntakeDecision, dict]:
     """Decide what happens to `message`. Returns (decision, meta).
 
@@ -558,7 +558,7 @@ def classify(message: str, gateway, *, thread=(), model: str = CHAT_MODEL,
     meta: dict = {}
     for _ in range(MAX_ATTEMPTS):
         try:
-            payload, meta = gateway.chat_json(
+            payload, meta = await gateway.chat_json(
                 build_prompt(message, thread),
                 model=model,
                 temperature=TEMPERATURE,

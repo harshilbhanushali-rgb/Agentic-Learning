@@ -35,10 +35,13 @@ WHAT THIS PROCESS DOES AND DOES NOT TOUCH:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import random
 import sys
 from pathlib import Path
+
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -47,7 +50,9 @@ from ask_naren import (citations, rendering, responding, retrieval,  # noqa: E40
 from config import load_config                        # noqa: E402
 from preprocessing import embedder                    # noqa: E402
 from shared import storage                            # noqa: E402
-from shared.gateway import GatewayClient              # noqa: E402
+from shared.gateway import (AsyncGatewayClient, EMBED_DIMENSIONS,  # noqa: E402
+                            EMBED_MODEL)
+from shared.tuning import get_tuning                 # noqa: E402
 
 # The local resolver refuses *.neon.tech; `host` stays in the URL for TLS SNI/SCRAM and
 # `hostaddr` only tells the driver which IP to open the socket on. Same default and same
@@ -136,7 +141,7 @@ def _connect_read_only(database_url: str, hostaddr: str | None):
     return conn
 
 
-def build_pool(hostaddr: str | None):
+async def build_pool(hostaddr: str | None):
     """The pool, and (only when the playbook switch is on) the key moves per scenario.
 
     Both are read in ONE connection window, which is then closed before the first request is
@@ -162,7 +167,8 @@ def build_pool(hostaddr: str | None):
                          "that can only decline.")
     print(f"[pool] {len(pairs)} coachable kb_pairs after content dedup", flush=True)
     scenario_keys = sorted({p["scenario_key"] for p in pairs})
-    pool = retrieval.RetrievalPool(pairs, store=_build_store(config, pairs, scenario_keys))
+    pool = retrieval.RetrievalPool(
+        pairs, store=await _build_store(config, pairs, scenario_keys))
     print(f"[pool] ready: {len(pool)} pairs across {len(scenario_keys)} coachable scenarios",
           flush=True)
     return (pool, moves_by_scenario, playbooks_by_scenario,
@@ -271,8 +277,20 @@ def _load_playbooks(conn, pairs: list[dict]) -> dict[str, dict]:
     return playbooks
 
 
-def _build_store(config, pairs: list[dict], scenario_keys: list[str]):
-    """The store the pool ranks with, per the VECTOR_STORE switch above."""
+async def _build_store(config, pairs: list[dict], scenario_keys: list[str]):
+    """The store the pool ranks with, per the VECTOR_STORE switch above.
+
+    THE ROLLBACK PATH IS THE ONE PLACE IN THIS PROCESS THE SYNCHRONOUS GATEWAY CLIENT IS
+    STILL USED. It embeds the pool HERE, at startup, before anything is served and before
+    the async client makes a single call -- and it is also the path that still WANTS the
+    embed cache, because 6,496 triggers is exactly the corpus-sized work the cache exists
+    for.
+
+    That is permitted by the SEQUENTIAL-use carve-out in Brain/docs/GOTCHAS.md, which is
+    where the rule and its one residual hazard live: the two limiters do not share a rate
+    WINDOW, so on a cold-cache rollback start the first CSM questions can land in the same
+    window as the tail of those startup embeddings. Read that entry before relying on this.
+    """
     if VECTOR_STORE == "memory":
         print(f"[vectors] ROLLBACK PATH: embedding {len(pairs)} triggers in-process "
               f"(warm gateway cache -> mostly free)...", flush=True)
@@ -281,15 +299,24 @@ def _build_store(config, pairs: list[dict], scenario_keys: list[str]):
     if VECTOR_STORE != "pinecone":
         raise SystemExit(f"ERROR: unknown VECTOR_STORE {VECTOR_STORE!r} -- "
                          f"expected 'pinecone' or 'memory'.")
-    store = vector_store.PineconeTriggerStore(
-        config.pinecone_api_key, VECTOR_INDEX_NAME, scenario_keys)
+    store = await vector_store.PineconeTriggerStore.open(
+        config.pinecone_api_key, VECTOR_INDEX_NAME, scenario_keys=scenario_keys)
     print(f"[vectors] {VECTOR_INDEX_NAME}, restricted to {len(scenario_keys)} coachable "
           f"scenarios -- nothing embedded, no vectors held", flush=True)
-    _assert_store_covers_pool(store, pairs)
+    try:
+        await _assert_store_covers_pool(store, pairs)
+    except BaseException:
+        # Closed HERE, by the function that opened it. The guard exits the process on a
+        # fatal coverage gap, so `_build_store` never returns and `_run`'s `finally` has no
+        # pool to close -- the operator would get "Unclosed client session" noise stacked on
+        # top of the multi-line coverage error the guard exists to make readable.
+        # BaseException, not Exception: SystemExit is the case that actually happens.
+        await store.aclose()
+        raise
     return store
 
 
-def _assert_store_covers_pool(store, pairs: list[dict]) -> None:
+async def _assert_store_covers_pool(store, pairs: list[dict]) -> None:
     """Refuse to serve if the index is missing pool pairs. See ADR 0008.
 
     The failure this prevents is silent, which is why it is worth a second of startup: a
@@ -303,7 +330,7 @@ def _assert_store_covers_pool(store, pairs: list[dict]) -> None:
     be run after shipping a layer.
     """
     sample = random.sample(pairs, min(COVERAGE_SAMPLE, len(pairs)))
-    fatal, stale = store.unretrievable(sample)
+    fatal, stale = await store.unretrievable(sample)
     if stale:
         print(f"[vectors] WARNING: {len(stale)} of {len(sample)} sampled pairs are filed "
               f"under a different scenario_key in the index than in Postgres, but remain "
@@ -385,15 +412,85 @@ def main() -> int:
                          "Pass '' to disable.")
     args = ap.parse_args()
 
-    (pool, moves_by_scenario, playbooks_by_scenario, coachable_scenarios,
-     following_by_pair) = build_pool(args.hostaddr or None)
-    label_for, account_for = build_label_resolver()
-    # None unless the constant above was edited. answer_situation treats None as pairs-only,
-    # so the shipped path never touches the playbook code at all.
-    moves_for = moves_by_scenario.get if PLAYBOOK_AUGMENTED else None
+    # *** ONE EVENT LOOP FOR THE WHOLE PROCESS, and it is not a style choice. ***
+    #
+    # `shared/gateway.py`'s admission gate is keyed on the running loop, because an asyncio
+    # primitive raises if awaited from a loop other than the one it bound to. A process that
+    # wrapped each request in its own `asyncio.run` would therefore get a FRESH limiter and
+    # semaphore every time -- so the per-API-key bound would silently become per-request,
+    # i.e. unbounded, and look perfectly healthy until the gateway started rejecting.
+    #
+    # So the loop is created once, here, and everything runs inside it. The HTTP layer is
+    # still the synchronous stdlib server (issue #31 replaces it), which is why this is
+    # `run_until_complete` per request rather than one `asyncio.run(...)` around the whole
+    # of main: `httpd.serve_forever()` blocks, and a blocking call cannot sit inside a
+    # running loop. Requests are still serialised -- the server has not changed. What HAS
+    # changed is that the path underneath is awaited end to end.
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return _run(args, loop)
+    finally:
+        loop.close()
 
-    with GatewayClient() as gateway:
-        def answerer(situation: str, thread=()) -> dict:
+
+def _embed_query(gateway):
+    """The request path's embedder: straight to the async gateway, past `preprocessing`.
+
+    *** THIS IS WHAT REMOVES THE BLOCKER ADR 0003 WAS BUILT AROUND, and not the way that
+    ADR predicted. *** It named the embed cache's thread affinity as the thing to fix --
+    `shared/embed_cache.py` opens SQLite without `check_same_thread=False`, so a second
+    request thread touching that connection raises outright.
+
+    It does not need fixing, because on this path it does not need to EXIST. Routing around
+    `preprocessing/embedder.py` means `_cache_for_backend()` is never called, so the
+    connection that raises is never created -- there is no thread-bound object in the
+    request path at all. Nothing in `shared/` is edited and Brain's pipeline is untouched.
+
+    And nothing is lost by skipping the cache: a live CSM situation is a NOVEL STRING and
+    therefore a guaranteed miss. The cache would pay a SQLite write for a hit that never
+    comes. It stays enabled everywhere it earns its keep -- the pipeline, and this file's
+    own `memory` rollback path, which embeds 6,496 triggers at startup.
+
+    Returns a numpy matrix because that is what every caller of `embed_query` already
+    expects, so this substitution is invisible above it.
+    """
+    # Model and width come from tuning.yaml, exactly as preprocessing/embedder does, rather
+    # than from shared.gateway's defaults. They agree today. They must not be ALLOWED to
+    # disagree: a change to `embedding.gemini_model` re-embeds the corpus and re-ships
+    # Pinecone, and a request path still querying with the old model would compare vectors
+    # across two embedding spaces at the same width -- which Brain/CLAUDE.md calls the
+    # biggest live hazard in this project, and which raises no error at all.
+    cfg = get_tuning().embedding
+    model = cfg.gemini_model or EMBED_MODEL
+    dimensions = cfg.gemini_dimensions or EMBED_DIMENSIONS
+
+    async def embed(texts: list[str]):
+        return np.asarray(
+            await gateway.embed(list(texts), model=model, dimensions=dimensions),
+            dtype=np.float32)
+    return embed
+
+
+def _run(args, loop) -> int:
+    # `pool` and `gateway` are bound before the try so the finally can close whatever got
+    # as far as existing -- a failure part-way through startup must not leave an open
+    # Pinecone session for `loop.close()` to tear down underneath. The coverage guard's own
+    # exit is handled where the store is opened, in `_build_store`, because on that path
+    # `build_pool` never returns and there is no pool here to close.
+    pool = gateway = None
+    try:
+        (pool, moves_by_scenario, playbooks_by_scenario, coachable_scenarios,
+         following_by_pair) = loop.run_until_complete(build_pool(args.hostaddr or None))
+        label_for, account_for = build_label_resolver()
+        # None unless the constant above was edited. answer_situation treats None as
+        # pairs-only, so the shipped path never touches the playbook code at all.
+        moves_for = moves_by_scenario.get if PLAYBOOK_AUGMENTED else None
+
+        gateway = AsyncGatewayClient()
+        embed_query = _embed_query(gateway)
+
+        async def answer(situation: str, thread) -> dict:
             # Through responding.respond, not answer_situation directly (issue #14): intake
             # runs first and decides whether this is answerable as written, needs the
             # client's actual words, or is out of scope. answer_situation is unchanged and
@@ -401,19 +498,36 @@ def main() -> int:
             #
             # `thread` is the conversation the caller replayed (issue #15). Nothing is
             # stored here between requests, which is the point -- see the module docstring.
-            return responding.respond(
-                situation, pool, gateway, embed_query=embedder.embed_query_matrix,
+            return await responding.respond(
+                situation, pool, gateway, embed_query=embed_query,
                 thread=thread, label_for=label_for, moves_for=moves_for,
                 playbook_for=playbooks_by_scenario.get,
                 scenarios_for=lambda: coachable_scenarios,
                 following_for=lambda pair_id: following_by_pair.get(pair_id, []),
                 account_for=account_for)
 
+        def answerer(situation: str, thread=()) -> dict:
+            """The synchronous callable the stdlib HTTP layer still expects.
+
+            The ONLY bridge between the sync server and the async path, and it is
+            deliberately this thin: issue #31 deletes it by making the server async, and
+            nothing else in the request path knows the server is synchronous.
+            """
+            return loop.run_until_complete(answer(situation, thread))
+
         if args.ask:
             # One message, no thread. `--ask` is a single-shot check of the whole path.
             print(json.dumps(answerer(args.ask), indent=2))
             return 0
         service.serve(answerer, host=args.host, port=args.port)
+    finally:
+        # Closed on the same loop that opened them, including after Ctrl-C and after a
+        # startup failure: an unclosed AsyncClient leaks its connection pool and warns on
+        # exit. The pool closes its own store -- see RetrievalPool.aclose.
+        if gateway is not None:
+            loop.run_until_complete(gateway.aclose())
+        if pool is not None:
+            loop.run_until_complete(pool.aclose())
     return 0
 
 

@@ -647,6 +647,7 @@ case failed most recently would be reading noise as structure.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -656,7 +657,7 @@ sys.path.insert(0, str(_ROOT / "Brain"))
 
 from ask_naren import intake, threads              # noqa: E402
 from config import load_config                     # noqa: E402
-from shared.gateway import GatewayClient           # noqa: E402
+from shared.gateway import AsyncGatewayClient           # noqa: E402
 
 ARTIFACTS = Path(__file__).resolve().parent / "artifacts"
 
@@ -1241,7 +1242,7 @@ def _words(text: str) -> list[str]:
     return keep.split()
 
 
-def main() -> int:
+async def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--limit", type=int, help="only the first N cases (smoke test)")
@@ -1268,12 +1269,14 @@ def main() -> int:
     cases = pool[:args.limit] if args.limit else pool
 
     rows = []
-    with GatewayClient() as gw:
+    # AsyncGatewayClient since issue #30: `intake.classify` is awaited, and the sync and
+    # async clients must not both be live in one process (Brain/docs/GOTCHAS.md).
+    async with AsyncGatewayClient() as gw:
         for n, case in enumerate(cases, 1):
             # Parsed rather than passed raw, so a case that does not match the wire shape
             # fails here instead of quietly measuring a thread the service would reject.
             thread = threads.parse(case.get("thread"))
-            decision, _ = intake.classify(
+            decision, _ = await intake.classify(
                 case["message"], gw, thread=thread, model=args.model,
                 reasoning_effort=None if args.reasoning in (None, "none") else args.reasoning)
             leaked = [s for s in case.get("query_must_not_contain", [])
@@ -1459,4 +1462,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # ONE loop for the process (issue #30): the gateway admission gate is keyed on the
+    # running loop, so a per-call asyncio.run would hand out a fresh limiter each time.
+    sys.exit(asyncio.run(main()))

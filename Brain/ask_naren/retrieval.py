@@ -148,6 +148,19 @@ class RetrievalPool:
     def __len__(self) -> int:
         return len(self.pairs)
 
+    async def aclose(self) -> None:
+        """Release whatever the store holds open. Safe to call on any pool.
+
+        The pool OWNS its store, so it owns closing it -- two callers reaching into
+        `pool._store` and duck-typing for `aclose` is the second definition of a lifecycle
+        rule, and this codebase treats a second definition of anything as a latent bug.
+
+        A no-op for the in-memory store, which holds a numpy matrix and nothing to release.
+        """
+        closer = getattr(self._store, "aclose", None)
+        if closer is not None:
+            await closer()
+
     def by_pair_id(self, pair_id) -> dict | None:
         """The exchange a thread carried forward, WITHOUT searching for it (ADR 0006).
 
@@ -162,7 +175,7 @@ class RetrievalPool:
         """
         return self._by_pair_id.get(pair_id)
 
-    def top1(self, query_vec: np.ndarray) -> Match:
+    async def top1(self, query_vec: np.ndarray) -> Match:
         """The closest pair to this situation, with a real cosine.
 
         Delegates to topk so there is ONE ranking implementation: two would be a place for
@@ -175,7 +188,7 @@ class RetrievalPool:
         unauthorised, and `[0]` on an empty list would surface as a bare IndexError. See the
         message for what it actually means.
         """
-        matches = self.topk(query_vec, 1)
+        matches = await self.topk(query_vec, 1)
         if not matches:
             raise ValueError(
                 "the vector store returned no kb_pair this pool authorises. That is not a "
@@ -185,7 +198,7 @@ class RetrievalPool:
                 "ops/check_vector_coverage.py.")
         return matches[0]
 
-    def topk(self, query_vec: np.ndarray, k: int) -> list[Match]:
+    async def topk(self, query_vec: np.ndarray, k: int) -> list[Match]:
         """The k closest pairs, nearest first, with real cosines.
 
         The store ranks; this walks that ranking in order and keeps only what the pool
@@ -209,7 +222,7 @@ class RetrievalPool:
         if not self.pairs:
             raise ValueError("retrieval pool is empty -- refusing to answer from nothing")
         matches: list[Match] = []
-        for pair_id, score in self._store.search(query_vec, _overfetch(k)):
+        for pair_id, score in await self._store.search(query_vec, _overfetch(k)):
             pair = self._by_pair_id_str.get(str(pair_id))
             if pair is None:
                 continue

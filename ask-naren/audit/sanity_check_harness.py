@@ -23,6 +23,7 @@ another call's citation -- an ADR 0002 violation that every gate metric reports 
 from __future__ import annotations
 
 import importlib.util
+import asyncio
 import sys
 from pathlib import Path
 
@@ -67,7 +68,10 @@ def check(label, got, want):
         _FAILURES.append(f"{label}: got {got!r}, want {want!r}")
 
 
-def _embed(texts):
+async def _embed(texts):
+    # Awaited since issue #30: the request path embeds through the async gateway, so a
+    # stand-in must present the same contract or this harness stops exercising the path
+    # it exists to sanity-check.
     return np.array([QUERY] * len(texts))
 
 
@@ -76,24 +80,24 @@ class StubGateway:
         self.payloads = list(payloads)
         self.prompts: list[str] = []
 
-    def chat_json(self, prompt, **kwargs):
+    async def chat_json(self, prompt, **kwargs):
         self.prompts.append(prompt)
         return self.payloads.pop(0), {}
 
 
-def main() -> int:
+async def main() -> int:
     pool = retrieval.RetrievalPool(PAIRS, VECTORS)
     masked = baa.MaskedPool(pool, OWN)
 
     print("1. MaskedPool ranks, and NEVER returns the masked call")
-    shortlist = masked.topk(QUERY, 3)
+    shortlist = await masked.topk(QUERY, 3)
     check("k=3 on a 3-pair pool with 1 masked returns 2 candidates",
           [m.pair["pair_id"] for m in shortlist], [2, 3])
     check("nearest first", shortlist[0].cosine > shortlist[1].cosine, True)
-    check("top1 agrees with topk[0]", masked.top1(QUERY).pair["pair_id"], 2)
+    check("top1 agrees with topk[0]", (await masked.top1(QUERY)).pair["pair_id"], 2)
 
     print("2. the UNMASKED pool retrieves the situation's own exchange at cosine 1.0")
-    own = pool.topk(np.array([1.0, 0.0, 0.0]), 3)
+    own = await pool.topk(np.array([1.0, 0.0, 0.0]), 3)
     check("rank 1 is the own call", own[0].pair["call_filename"], OWN)
     check("at cosine 1.0 -- what the positive-control filter relies on",
           round(own[0].cosine, 6), 1.0)
@@ -103,8 +107,9 @@ def main() -> int:
                       "answer": "Tell them you will confirm the date today.",
                       "quote": "confirm the date with the team",
                       "cited_call": FAR})
-    res = answering.answer_situation("do you cover all job boards across the globe",
-                                     masked, gw, embed_query=_embed, k=2)
+    res = await answering.answer_situation(
+        "do you cover all job boards across the globe",
+        masked, gw, embed_query=_embed, k=2)
     # `outcome`, not a boolean (issue #13). The StubGateway payload above still carries a
     # `declined` key because that is the MODEL's contract, frozen by ADR 0001 -- a different
     # thing that happens to share a word.
@@ -115,7 +120,7 @@ def main() -> int:
           all(name in gw.prompts[0] for name in (NEAR, FAR)), True)
 
     print("4. the packet would show the GROUNDED exchange beside the answer")
-    shown = next(m for m in masked.topk(QUERY, 2)
+    shown = next(m for m in await masked.topk(QUERY, 2)
                  if m.pair["pair_id"] == res["citation"]["pair_id"])
     check("shown reply is the one the answer rests on",
           shown.pair["response_text"].startswith("Let me confirm"), True)
@@ -123,7 +128,7 @@ def main() -> int:
     print("5. k=1 through MaskedPool is the arm issue #7 measured, unchanged")
     gw1 = StubGateway({"declined": False, "answer": "Point out it is a curated set.",
                        "quote": "we localized those last quarter", "cited_call": NEAR})
-    res1 = answering.answer_situation("x", masked, gw1, embed_query=_embed, k=1)
+    res1 = await answering.answer_situation("x", masked, gw1, embed_query=_embed, k=1)
     check("answered", res1["outcome"], "answered")
     check("rank is 1", res1["match"]["rank"], 1)
     check("used the single-candidate prompt, byte for byte",
@@ -140,4 +145,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # ONE loop for the process, the same rule ops/serve_ask_naren.py follows: the
+    # gateway's admission gate is keyed on the running loop.
+    sys.exit(asyncio.run(main()))
