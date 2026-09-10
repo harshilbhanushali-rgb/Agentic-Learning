@@ -154,6 +154,9 @@ Checking the key costs nothing: the metadata is already in the response the pres
 
 **Concurrency is unblocked but not solved.** ADR 0003 stands: the per-situation query embedding still writes through the thread-bound SQLite cache, so threading remains unsafe. What a 4.5 s cold start buys is that *N separate processes* becomes an ordinary decision — each owns its own connection, so ADR 0003 never arises — without editing `shared/`, which the pipeline also uses.
 
+> **THIS PARAGRAPH ONLY IS SUPERSEDED, 2026-09-11 (issues #30, #31)** -- ADR 0008 itself
+> is the current design and stands. Both halves of the paragraph above turned out wrong. The query embedding no longer goes through the SQLite cache at all — the request path bypasses `preprocessing/embedder.py`, so the thread-bound connection is never constructed and nothing in `shared/` was edited. And *N separate processes* is the one option that cannot work: the gateway's limits are **per API key**, so N processes each get their own limiter and collectively violate a budget of 8 in flight, with no way to coordinate. One process on one event loop is what shipped. See `Brain/docs/GOTCHAS.md` for the measured limits.
+
 **The pipeline is untouched.** No index created, no upsert, no schema change, no `tuning.yaml` change, no Brain table written. The change to `shared/pinecone_store.py` is purely additive, so every existing caller is unaffected by construction. The legacy 768 index is left in place for the pipeline's own rollback.
 
 ## What this closes, and what it does not

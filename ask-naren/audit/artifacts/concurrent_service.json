@@ -1,0 +1,37 @@
+{
+  "measured_at": "2026-09-11T01:55:34",
+  "situations": 3,
+  "sequential_total_s": 4.53,
+  "sequential_slowest_s": 2.91,
+  "concurrent_wall_s": 1.86,
+  "speedup_vs_sequential": 2.44,
+  "budget_s": 4.65,
+  "concurrent_budget_multiple_of_slowest": 1.6,
+  "per_answer": [
+    {
+      "situation": "client says our cost per hire is way too high",
+      "seconds": 1.53,
+      "status": 200,
+      "outcome": "answered"
+    },
+    {
+      "situation": "the client wants to pause spend until next quarter",
+      "seconds": 1.86,
+      "status": 200,
+      "outcome": "declined"
+    },
+    {
+      "situation": "they are asking why our applicant quality dropped this month",
+      "seconds": 0.25,
+      "status": 200,
+      "outcome": "clarify"
+    }
+  ],
+  "health_polls": 8,
+  "health_worst_ms": 0.0,
+  "health_median_ms": 0.0,
+  "shutdown_gated": false,
+  "shutdown_clean": true,
+  "speedup_is_noisy": false,
+  "passed": true
+}

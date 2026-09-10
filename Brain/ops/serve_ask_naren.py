@@ -420,18 +420,19 @@ def main() -> int:
     # semaphore every time -- so the per-API-key bound would silently become per-request,
     # i.e. unbounded, and look perfectly healthy until the gateway started rejecting.
     #
-    # So the loop is created once, here, and everything runs inside it. The HTTP layer is
-    # still the synchronous stdlib server (issue #31 replaces it), which is why this is
-    # `run_until_complete` per request rather than one `asyncio.run(...)` around the whole
-    # of main: `httpd.serve_forever()` blocks, and a blocking call cannot sit inside a
-    # running loop. Requests are still serialised -- the server has not changed. What HAS
-    # changed is that the path underneath is awaited end to end.
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    # ONE `asyncio.run` around the whole of main is what guarantees that, and issue #31 is
+    # what made it possible: with an ASGI server, uvicorn runs INSIDE our loop instead of
+    # blocking it, so there is no longer a blocking `serve_forever` to work around and no
+    # `run_until_complete`-per-request bridge to maintain. That bridge existed for exactly
+    # one ticket and is now deleted.
     try:
-        return _run(args, loop)
-    finally:
-        loop.close()
+        return asyncio.run(_run(args))
+    except KeyboardInterrupt:
+        # Uvicorn re-raises SIGINT after its graceful shutdown has completed, so by here the
+        # server has stopped and `on_shutdown` has closed everything. Reporting that as a
+        # traceback and exit 130 would make an ordinary Ctrl-C look like a crash to whatever
+        # supervises this process. The stdlib server used to catch this itself.
+        return 0
 
 
 def _embed_query(gateway):
@@ -472,16 +473,36 @@ def _embed_query(gateway):
     return embed
 
 
-def _run(args, loop) -> int:
+async def _run(args) -> int:
     # `pool` and `gateway` are bound before the try so the finally can close whatever got
     # as far as existing -- a failure part-way through startup must not leave an open
     # Pinecone session for `loop.close()` to tear down underneath. The coverage guard's own
     # exit is handled where the store is opened, in `_build_store`, because on that path
     # `build_pool` never returns and there is no pool here to close.
     pool = gateway = None
+    closed = False
+
+    async def _close() -> None:
+        """Release the gateway client and the pool's store. Safe to call twice.
+
+        Called from the server's lifespan shutdown AND from the `finally` below, because
+        neither covers every exit on its own -- see the note at the `serve` call. Closing an
+        httpx client twice is harmless, but the Pinecone session is not, hence the flag.
+        """
+        nonlocal closed
+        if closed:
+            return
+        closed = True
+        # An unclosed AsyncClient leaks its connection pool and warns on exit. The pool
+        # closes its own store -- see RetrievalPool.aclose.
+        if gateway is not None:
+            await gateway.aclose()
+        if pool is not None:
+            await pool.aclose()
+
     try:
         (pool, moves_by_scenario, playbooks_by_scenario, coachable_scenarios,
-         following_by_pair) = loop.run_until_complete(build_pool(args.hostaddr or None))
+         following_by_pair) = await build_pool(args.hostaddr or None)
         label_for, account_for = build_label_resolver()
         # None unless the constant above was edited. answer_situation treats None as
         # pairs-only, so the shipped path never touches the playbook code at all.
@@ -490,7 +511,7 @@ def _run(args, loop) -> int:
         gateway = AsyncGatewayClient()
         embed_query = _embed_query(gateway)
 
-        async def answer(situation: str, thread) -> dict:
+        async def answer(situation: str, thread=()) -> dict:
             # Through responding.respond, not answer_situation directly (issue #14): intake
             # runs first and decides whether this is answerable as written, needs the
             # client's actual words, or is out of scope. answer_situation is unchanged and
@@ -506,28 +527,31 @@ def _run(args, loop) -> int:
                 following_for=lambda pair_id: following_by_pair.get(pair_id, []),
                 account_for=account_for)
 
-        def answerer(situation: str, thread=()) -> dict:
-            """The synchronous callable the stdlib HTTP layer still expects.
-
-            The ONLY bridge between the sync server and the async path, and it is
-            deliberately this thin: issue #31 deletes it by making the server async, and
-            nothing else in the request path knows the server is synchronous.
-            """
-            return loop.run_until_complete(answer(situation, thread))
-
         if args.ask:
             # One message, no thread. `--ask` is a single-shot check of the whole path.
-            print(json.dumps(answerer(args.ask), indent=2))
+            print(json.dumps(await answer(args.ask, ()), indent=2))
             return 0
-        service.serve(answerer, host=args.host, port=args.port)
+
+        # `ready` is trivially true by the time we get here -- the pool is loaded and the
+        # coverage guard has passed, or this line was never reached. It is wired anyway
+        # because the endpoint's value is in a state the process can report WHILE
+        # listening, which is what issue #32's queue bound will need; leaving it
+        # unconnected now would mean discovering the seam does not reach the answerer then.
+        #
+        # `on_shutdown` IS HOW THE TEARDOWN ACTUALLY RUNS ON Ctrl-C, and the `finally` below
+        # is not enough on its own. Measured: `asyncio.run` installs a SIGINT handler that
+        # cancels this task, uvicorn re-raises the signal into it, and by the time the
+        # `finally` runs the task is already cancelled -- so its first `await ...aclose()`
+        # raises CancelledError and the client and Pinecone session leak. Uvicorn runs the
+        # lifespan shutdown as part of its GRACEFUL stop, before any of that. The `finally`
+        # still matters for every other exit: `--ask`, a startup failure, a bind failure.
+        await service.serve(answer, host=args.host, port=args.port, ready=lambda: True,
+                            on_shutdown=_close)
     finally:
-        # Closed on the same loop that opened them, including after Ctrl-C and after a
-        # startup failure: an unclosed AsyncClient leaks its connection pool and warns on
-        # exit. The pool closes its own store -- see RetrievalPool.aclose.
-        if gateway is not None:
-            loop.run_until_complete(gateway.aclose())
-        if pool is not None:
-            loop.run_until_complete(pool.aclose())
+        # Covers `--ask`, a startup failure and a bind failure. On Ctrl-C the lifespan
+        # shutdown has already run `_close`, and this task is cancelled by then -- which is
+        # exactly why the teardown does not live here alone.
+        await _close()
     return 0
 
 

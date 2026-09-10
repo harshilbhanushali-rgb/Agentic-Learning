@@ -1,10 +1,26 @@
 """ask_naren/service.py -- the HTTP contract, over a real socket against a stubbed
-answerer. No gateway, no Postgres, no embeddings."""
+answerer. No gateway, no Postgres, no embeddings.
+
+STILL A REAL SOCKET AFTER ISSUE #31, deliberately. Driving the ASGI app in-process with
+`httpx.ASGITransport` would be faster and needs no thread, and #31's ticket suggested it --
+but this file's job is to pin an HTTP CONTRACT that a Next.js proxy depends on, and
+ASGITransport bypasses the actual HTTP parsing, status line and header handling. The
+concurrency tests at the bottom DO use the in-process transport, where precise ordering is
+the thing being asserted and the socket adds nothing.
+
+The fixture accepts a plain synchronous answerer and adapts it, so every contract test
+below is byte-identical to the one that ran against the stdlib server. The tests that need
+real overlap pass an `async` answerer instead.
+"""
+import asyncio
+import contextlib
 import json
 import threading
+import time
 
 import httpx
 import pytest
+import uvicorn
 
 from ask_naren import service
 
@@ -13,21 +29,55 @@ ANSWER = {"outcome": "answered", "answer": "Reframe on their own baseline.",
           "match": {"cosine": 0.71, "scenario_key": "performance_pushback"}}
 
 
+def _as_async(answerer):
+    """Adapt a synchronous stub to the awaited contract the app now requires.
+
+    Only for stubs. The real answerer is `async` all the way down -- this exists so the
+    contract tests written against the stdlib server keep their exact bodies, rather than
+    being rewritten (and possibly weakened) alongside the layer they are meant to pin.
+    """
+    if asyncio.iscoroutinefunction(answerer):
+        return answerer
+
+    async def adapted(situation, thread=()):
+        return answerer(situation, thread)
+    return adapted
+
+
 @pytest.fixture
 def serve_with():
     """Runs the real server on an ephemeral port with whatever answerer a test supplies."""
-    servers = []
+    started = []
 
-    def _start(answerer):
-        httpd = service.build_server(answerer, host="127.0.0.1", port=0)
-        servers.append(httpd)
-        threading.Thread(target=httpd.serve_forever, daemon=True).start()
-        return f"http://127.0.0.1:{httpd.server_address[1]}"
+    def _start(answerer, ready=None):
+        app = service.build_app(_as_async(answerer), ready=ready)
+        config = uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning")
+        server = uvicorn.Server(config)
+        thread = threading.Thread(target=server.run, daemon=True)
+        thread.start()
+        deadline = time.monotonic() + 10
+        while not server.started:
+            if time.monotonic() > deadline:            # pragma: no cover
+                raise RuntimeError("uvicorn did not start")
+            time.sleep(0.01)
+        port = server.servers[0].sockets[0].getsockname()[1]
+        started.append((server, thread))
+        return f"http://127.0.0.1:{port}"
 
     yield _start
-    for httpd in servers:
-        httpd.shutdown()
-        httpd.server_close()
+    for server, thread in started:
+        server.should_exit = True
+        thread.join(timeout=5)
+
+
+def _drive(app):
+    """An httpx client that speaks to the ASGI app in-process -- no socket, no thread.
+
+    Used only where the assertion is about ORDERING between overlapping requests, which a
+    real socket makes noisier rather than more faithful.
+    """
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                             base_url="http://asgi")
 
 
 def test_a_situation_gets_the_answerers_response_unchanged(serve_with):
@@ -153,10 +203,19 @@ def test_responses_are_json(serve_with):
 
 
 def test_an_idle_client_connection_does_not_block_the_next_caller(serve_with):
-    """Requests are served one at a time on purpose (see the module docstring), so a
-    keep-alive connection left open by one caller must not hold the service hostage: with
-    HTTP/1.1 keep-alive on a serial server, the next CSM's question waits on a socket
-    nobody is using. Each response closes its connection instead."""
+    """Same assertion as before issue #31, for a completely different reason -- which is
+    why the docstring changed and the body did not.
+
+    It used to pass because the serial stdlib server closed every connection: with HTTP/1.1
+    keep-alive, the accept loop would block in `handle_one_request` on an idle socket and
+    the next CSM's question would wait on a connection nobody was using. Measured, not
+    theorised -- one lingering client made every subsequent request time out.
+
+    KEEP-ALIVE IS NOW ALLOWED, because that failure mode was a property of serialisation
+    and disappeared with it: an idle connection occupies no worker. So this now pins the
+    behaviour rather than the workaround. If a future change re-serialises the server, this
+    is one of the tests that fails.
+    """
     base = serve_with(lambda situation, thread=():ANSWER)
     lingering = httpx.Client()
     assert lingering.post(f"{base}/ask", json={"situation": "first"}).status_code == 200
@@ -165,6 +224,125 @@ def test_an_idle_client_connection_does_not_block_the_next_caller(serve_with):
         assert r.status_code == 200
     finally:
         lingering.close()
+
+
+def test_a_response_no_longer_forces_the_connection_shut(serve_with):
+    """The `Connection: close` header was a consequence of serialisation, and ADR 0003 said
+    not to remove it without removing the single-threading first. That has now happened, so
+    the header goes -- a fresh TLS/TCP handshake per question is pure cost once an idle
+    connection is harmless."""
+    base = serve_with(lambda situation, thread=():ANSWER)
+    r = httpx.post(f"{base}/ask", json={"situation": "x"})
+    assert r.status_code == 200
+    assert r.headers.get("connection", "").lower() != "close"
+
+
+# -- what issue #31 is actually for ------------------------------------------------------
+
+def test_two_csms_are_answered_at_once_rather_than_one_after_the_other():
+    """THE POINT OF THE TICKET.
+
+    Two requests arrive while a slow answer is in flight. Both must be accepted and their
+    waits must OVERLAP -- if the server serialised, the second answer would not start until
+    the first finished, and the recorded order would be two disjoint pairs.
+    """
+    order = []
+
+    async def slow(situation, thread=()):
+        order.append(f"{situation}:start")
+        await asyncio.sleep(0.05)
+        order.append(f"{situation}:done")
+        return ANSWER
+
+    app = service.build_app(slow)
+
+    async def body():
+        async with _drive(app) as c:
+            return await asyncio.gather(
+                c.post("/ask", json={"situation": "A"}),
+                c.post("/ask", json={"situation": "B"}))
+
+    first, second = asyncio.run(body())
+    assert first.status_code == second.status_code == 200
+    assert order.index("B:start") < order.index("A:done"), order
+
+
+def test_health_answers_while_a_generation_is_in_flight():
+    """THE DEPLOY BLOCKER ADR 0003 NAMED.
+
+    `/health` used to queue behind an in-flight answer, so an ingress with a normal
+    health-check timeout marked a healthy process dead during EVERY generation, then
+    flapped and killed it. That is why the service could not sit behind a load balancer at
+    all, even for a single user.
+    """
+    answering = asyncio.Event()
+
+    async def slow(situation, thread=()):
+        answering.set()
+        await asyncio.sleep(0.2)
+        return ANSWER
+
+    app = service.build_app(slow)
+
+    async def body():
+        async with _drive(app) as c:
+            ask = asyncio.create_task(c.post("/ask", json={"situation": "x"}))
+            await answering.wait()          # the answer is genuinely in flight
+            started = time.monotonic()
+            health = await c.get("/health")
+            elapsed = time.monotonic() - started
+            await ask
+            return health, elapsed
+
+    health, elapsed = asyncio.run(body())
+    assert health.status_code == 200
+    assert health.json() == {"status": "ok"}
+    assert elapsed < 0.15, f"/health waited {elapsed:.3f}s -- it queued behind the answer"
+
+
+def test_readiness_is_reported_separately_from_liveness(serve_with):
+    """A process that is up but not yet able to answer is NOT a dead one, and an ingress
+    has to be able to tell the difference or it will kill something that is merely starting.
+
+    Note what covers the pool load itself: during it the port is not open at all, so a
+    check gets connection-refused, which every ingress already reads as "not yet". `/ready`
+    is the seam for a state the process can report while listening -- which is what #32's
+    queue bound will need."""
+    base = serve_with(lambda situation, thread=():ANSWER, ready=lambda: False)
+    r = httpx.get(f"{base}/ready")
+    assert r.status_code == 503
+    assert r.json()["status"] == "starting"
+    # Liveness must NOT follow readiness: the process is alive either way.
+    assert httpx.get(f"{base}/health").status_code == 200
+
+
+def test_readiness_is_ok_once_the_service_can_answer(serve_with):
+    base = serve_with(lambda situation, thread=():ANSWER, ready=lambda: True)
+    r = httpx.get(f"{base}/ready")
+    assert r.status_code == 200
+    assert r.json()["status"] == "ready"
+
+
+def test_a_service_with_no_readiness_predicate_reports_ready(serve_with):
+    """`--ask` and the tests build an app with no predicate. Defaulting to ready keeps the
+    endpoint honest for a process that has nothing to wait for."""
+    base = serve_with(lambda situation, thread=():ANSWER)
+    assert httpx.get(f"{base}/ready").status_code == 200
+
+
+def test_an_oversized_body_is_refused_without_being_read_into_memory():
+    """A runaway client must not be able to make the service read itself out of memory. The
+    cap is enforced while the body streams in, not after."""
+    app = service.build_app(_as_async(lambda situation, thread=():ANSWER))
+
+    async def body():
+        async with _drive(app) as c:
+            return await c.post("/ask", content=b'{"situation":"' + b"x" * 200_000 + b'"}',
+                                headers={"content-type": "application/json"})
+
+    r = asyncio.run(body())
+    assert r.status_code == 400
+    assert "too large" in r.json()["error"]
 
 
 def test_a_request_cannot_select_the_playbook_variant(serve_with):
@@ -201,3 +379,224 @@ def test_a_request_cannot_select_the_playbook_variant(serve_with):
                     "moves": [{"name": "injected", "criterion": "injected"}]}],
     })
     assert r.status_code == 400
+
+
+# -- the four contract changes the rewrite brought, pinned so they cannot revert ---------
+
+def test_a_query_string_no_longer_defeats_path_matching(serve_with):
+    """A CHANGE, and an improvement, but an unpinned one is an accident waiting to be
+    undone. The stdlib handler matched on `self.path`, which in BaseHTTPRequestHandler
+    INCLUDES the query string -- so `POST /ask?debug=1` was a 404 and `GET /health?x=1`
+    was too. ASGI splits the query out of `scope["path"]`, so both now route."""
+    base = serve_with(lambda situation, thread=():ANSWER)
+    assert httpx.post(f"{base}/ask?debug=1", json={"situation": "x"}).status_code == 200
+    assert httpx.get(f"{base}/health?probe=1").status_code == 200
+
+
+def test_an_unsupported_method_is_a_json_404_not_an_html_error_page(serve_with):
+    """The stdlib server answered PUT/OPTIONS with a 501 and an HTML error page. Every
+    response this service gives is JSON, and the proxy in front of it parses every body --
+    an HTML 501 was the one shape that could reach it and fail to parse."""
+    base = serve_with(lambda situation, thread=():ANSWER)
+    for request in (httpx.put, httpx.options):
+        r = request(f"{base}/ask")
+        assert r.status_code == 404
+        assert r.headers["content-type"].startswith("application/json")
+        assert r.json() == {"error": "not found"}
+
+
+def test_a_body_with_no_content_length_is_read_rather_than_called_empty():
+    """The stdlib reader trusted `Content-Length` and rejected its absence as an empty
+    body. ASGI hands the body over in chunks, so the cap is enforced against what actually
+    arrives -- which means a chunked request is now answered instead of refused, AND
+    cannot walk past the cap by lying about its length."""
+    app = service.build_app(_as_async(lambda situation, thread=():ANSWER))
+
+    async def chunks():
+        # An ASYNC generator: httpx refuses a sync one on an AsyncClient.
+        yield b'{"situation":'
+        yield b' "cost per hire is too high"}'
+
+    async def body():
+        async with _drive(app) as c:
+            # httpx sends a generator body with Transfer-Encoding: chunked, no length.
+            return await c.post("/ask", content=chunks(),
+                                headers={"content-type": "application/json"})
+
+    r = asyncio.run(body())
+    assert r.status_code == 200
+    assert r.json() == ANSWER
+
+
+# -- shutdown, which a `finally` around serve() cannot be trusted to do -----------------
+
+def test_the_lifespan_shutdown_runs_the_callers_teardown():
+    """THE Ctrl-C FIX, at the only layer that can be tested without sending a signal.
+
+    On Ctrl-C, `asyncio.run` cancels the main task and uvicorn re-raises the signal into
+    that handler, so the caller's own `finally` is already cancelled when it tries to
+    `await gateway.aclose()` -- the client and the Pinecone session leak, and the process
+    exits 130. Uvicorn runs this handshake as part of its GRACEFUL shutdown instead, before
+    any of that, which is why the teardown is wired here.
+    """
+    closed = []
+
+    async def on_shutdown():
+        closed.append("closed")
+
+    app = service.build_app(_as_async(lambda situation, thread=():ANSWER),
+                            on_shutdown=on_shutdown)
+
+    async def body():
+        # The lifespan protocol, driven directly: startup, then shutdown.
+        sent = []
+        events = [{"type": "lifespan.startup"}, {"type": "lifespan.shutdown"}]
+
+        async def receive():
+            return events.pop(0)
+
+        async def send(message):
+            sent.append(message["type"])
+
+        await app({"type": "lifespan"}, receive, send)
+        return sent
+
+    sent = asyncio.run(body())
+    assert sent == ["lifespan.startup.complete", "lifespan.shutdown.complete"]
+    assert closed == ["closed"], "the caller's teardown did not run on shutdown"
+
+
+def test_a_shutdown_with_no_teardown_registered_still_completes():
+    """`--ask` and every test build an app without one. A missing callback must not stall
+    the handshake, or uvicorn waits on a shutdown that never completes."""
+    app = service.build_app(_as_async(lambda situation, thread=():ANSWER))
+
+    async def body():
+        sent = []
+        events = [{"type": "lifespan.startup"}, {"type": "lifespan.shutdown"}]
+
+        async def receive():
+            return events.pop(0)
+
+        async def send(message):
+            sent.append(message["type"])
+
+        await app({"type": "lifespan"}, receive, send)
+        return sent
+
+    assert asyncio.run(body()) == ["lifespan.startup.complete",
+                                   "lifespan.shutdown.complete"]
+
+
+def test_a_real_uvicorn_run_invokes_the_lifespan_shutdown():
+    """The teardown claim, against a REAL server rather than a hand-driven handshake.
+
+    The two tests above prove our lifespan handler calls the callback when the protocol is
+    driven by hand. What they cannot prove is the part the fix actually depends on: that
+    uvicorn runs that handshake at all on the way down. If it did not, the teardown would
+    never fire and the client and Pinecone session would leak on every stop.
+
+    Driven by `should_exit` rather than a signal, deliberately. A real SIGINT cannot be
+    delivered to a child process reliably on Windows -- asyncio's proactor loop does not
+    reach the Python-level handler in time and the process is killed outright -- so a
+    signal-based test here would be testing the platform, not the service. `should_exit` is
+    the same graceful path uvicorn takes once it HAS received a signal.
+    """
+    closed = []
+
+    async def on_shutdown():
+        closed.append("closed")
+
+    app = service.build_app(_as_async(lambda situation, thread=():ANSWER),
+                            on_shutdown=on_shutdown)
+    config = uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning")
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 10
+    while not server.started:
+        if time.monotonic() > deadline:            # pragma: no cover
+            raise RuntimeError("uvicorn did not start")
+        time.sleep(0.01)
+
+    # Answer one request first, so this is a shutdown of a server that actually served.
+    port = server.servers[0].sockets[0].getsockname()[1]
+    assert httpx.post(f"http://127.0.0.1:{port}/ask",
+                      json={"situation": "x"}).status_code == 200
+    assert closed == [], "the teardown ran before shutdown"
+
+    server.should_exit = True
+    thread.join(timeout=10)
+    assert not thread.is_alive(), "the server did not stop"
+    assert closed == ["closed"], "uvicorn shut down without running the teardown"
+
+
+def _free_port() -> int:
+    """A port nothing is listening on right now.
+
+    `serve()` binds its own socket, so a test cannot hand it `port=0` and then discover
+    what it chose. Claiming a port, closing it, and passing the number carries a small race
+    with anything else on the machine -- acceptable, and the alternative is adding a
+    report-the-bound-port hook to production code purely for this test.
+    """
+    import socket
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def test_serve_itself_answers_two_requests_concurrently():
+    """CLOSES THE ONE BLIND SPOT IN THIS FILE.
+
+    Every other concurrency test drives `build_app` -- through ASGITransport, or through a
+    uvicorn the FIXTURE configures. None of them touches `service.serve()`, which is the
+    only thing production calls, and which is where a re-serialisation would most naturally
+    be introduced: `limit_concurrency=1` in its `uvicorn.Config`, a sync wrapper around the
+    app, a worker setting. All of that passes every other test in this file.
+
+    So this runs the real `serve()` and asserts overlap through it. Two 0.4s answers must
+    complete in well under their serial sum.
+    """
+    port = _free_port()
+
+    async def slow(situation, thread=()):
+        await asyncio.sleep(0.4)
+        return ANSWER
+
+    stop = asyncio.Event()
+
+    async def body():
+        server = asyncio.create_task(
+            service.serve(slow, host="127.0.0.1", port=port))
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as c:
+                # Wait for the socket rather than sleeping a guess.
+                deadline = time.monotonic() + 15
+                while True:
+                    try:
+                        if (await c.get(f"http://127.0.0.1:{port}/health")).status_code == 200:
+                            break
+                    except httpx.TransportError:
+                        pass
+                    if time.monotonic() > deadline:      # pragma: no cover
+                        raise RuntimeError("serve() never started listening")
+                    await asyncio.sleep(0.05)
+
+                started = time.monotonic()
+                first, second = await asyncio.gather(
+                    c.post(f"http://127.0.0.1:{port}/ask", json={"situation": "A"}),
+                    c.post(f"http://127.0.0.1:{port}/ask", json={"situation": "B"}))
+                return first, second, time.monotonic() - started
+        finally:
+            server.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await server
+
+    first, second, elapsed = asyncio.run(body())
+    assert first.status_code == second.status_code == 200
+    assert first.json() == second.json() == ANSWER
+    # Serial would be >= 0.8s. Generous margin: this is a serialisation check, not a
+    # latency benchmark, and a loaded machine must not make it flake.
+    assert elapsed < 0.7, (
+        f"two 0.4s answers through serve() took {elapsed:.2f}s -- the server serialised "
+        f"them")

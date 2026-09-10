@@ -1,10 +1,10 @@
 /**
  * Same-origin proxy to the Ask Naren service (issues #3, #6).
  *
- * WHY A PROXY AT ALL. The service is an internal, stdlib `http.server` bound to localhost
+ * WHY A PROXY AT ALL. The service is an internal ASGI app on uvicorn bound to localhost
  * (Brain/ask_naren/service.py). Pointing the browser straight at it would mean exposing it
- * beyond localhost and adding CORS to a stdlib handler that has no framework to do it. A
- * same-origin route keeps the service where it is.
+ * beyond localhost and adding CORS to a service that deliberately has no framework to do
+ * it. A same-origin route keeps the service where it is.
  *
  * ON THE HAPPY PATH THIS FILE RESHAPES NOTHING. The body goes out as received and the
  * response comes back byte-for-byte with its status, so `AskNarenResponse` in src/types.ts
@@ -36,12 +36,22 @@ import type { NextRequest } from 'next/server';
 const SERVICE_URL = process.env.ASK_NAREN_SERVICE_URL ?? 'http://127.0.0.1:8787';
 
 /**
- * Generous on purpose. A single answer takes ~12s (generation at reasoning_effort=medium),
- * and the service is single-threaded BY DESIGN -- `shared/embed_cache.py` holds a
- * thread-bound SQLite connection -- so concurrent questions queue behind each other rather
- * than running in parallel. A timeout tight enough to feel responsive would abort perfectly
- * healthy requests that were merely third in line, and an aborted answer still costs a
- * generation. This exists to bound a hung socket, not to enforce a latency budget.
+ * Generous on purpose, and now generous for a WEAKER reason than it was.
+ *
+ * A single answer takes ~12s (generation at reasoning_effort=medium). This used to be sized
+ * for the serialised worst case: the service was single-threaded by design, so a third
+ * caller genuinely waited ~37s and a tight timeout would have aborted healthy requests that
+ * were merely in line. **That is no longer true** -- as of issues #30/#31 the service
+ * answers several CSMs at once, so queueing is no longer what a long wait means
+ * (reproduced by ask-naren/audit/check_concurrent_service.py; the measurement is
+ * recorded in that directory's artifacts rather than quoted here, because gateway
+ * latency moves).
+ *
+ * Left at 120s deliberately rather than tightened here: the ceiling is now the gateway's
+ * 8-in-flight-per-key budget, and what a caller past it should get is a prompt "busy, try
+ * again" from the SERVICE rather than a timeout from this proxy. Issue #32 adds that bound
+ * and its deadline, and this number should be set against that deadline -- one place, not
+ * two. Until then this exists to bound a hung socket, not to enforce a latency budget.
  */
 const TIMEOUT_MS = 120_000;
 

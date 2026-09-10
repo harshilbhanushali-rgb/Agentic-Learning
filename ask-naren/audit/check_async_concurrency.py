@@ -14,10 +14,14 @@ REAL services: the gateway's admission limit, its rate pacing, Pinecone's connec
 the actual latency shape of a generation. A blocking call anywhere in that stack would make
 the offline test pass and this one fail.
 
-WHY IT DRIVES `respond` DIRECTLY RATHER THAN THE HTTP SERVER. After #30 the server is still
-the synchronous stdlib one, so requests through the socket are still serialised by design.
-The concurrency being verified here is the layer BELOW that -- the thing #31 then exposes.
-Once #31 lands, the same check should be pointed at the socket instead.
+WHY IT DRIVES `respond` DIRECTLY RATHER THAN THE HTTP SERVER. It was written while the
+server was still the serial stdlib one, to prove the layer BELOW it overlapped.
+
+#31 HAS SINCE LANDED, and `check_concurrent_service.py` is the socket-level check -- it
+starts the real service and measures against a single-answer baseline. This one is kept
+rather than replaced, because the two fail differently: a blocking call inside `respond`
+shows up here immediately and precisely, while the socket check also has to survive
+uvicorn's worker model and a subprocess. Run both.
 
 HOW OVERLAP IS MEASURED. Each answer records when it started and finished. If the path
 serialised, every interval would be disjoint and end-to-end would be the SUM of them. If it
