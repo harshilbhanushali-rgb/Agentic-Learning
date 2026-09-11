@@ -1,25 +1,30 @@
 # Ask Naren's service is stdlib `http.server`, single-threaded, on purpose
 
-> **SUPERSEDED 2026-09-11 by issues #30 and #31.** The service is now a raw ASGI
-> application on uvicorn and answers several CSMs at once. Read this ADR as history.
+> **SUPERSEDED 2026-09-11 by
+> [`0010-ask-naren-answers-concurrently-in-one-asyncio-process.md`](0010-ask-naren-answers-concurrently-in-one-asyncio-process.md)**
+> (issues #28–#32). The service is now a raw ASGI application on uvicorn and answers
+> about six CSMs at once, with a bounded queue behind them. Read this ADR as history.
 >
-> Of its two reasons, one was **wrong about the fix** and one **still holds**:
+> Of its two reasons, one was **wrong about the fix** and one **still holds**. Do not
+> act on this document without knowing which half you are reading:
 >
-> * *The cache connection is thread-bound.* True, and it is still true — but the
-  >   closing line below ("the blocker to remove first is the embed cache's thread
-  >   affinity") named the wrong move. The request path was routed AROUND
-  >   `preprocessing/embedder.py` instead, so that connection is never constructed.
-  >   Nothing in `shared/` was edited. A live CSM situation is a novel string and
-  >   therefore a guaranteed cache miss, so nothing was lost.
-> * *There is nothing here a framework would do.* Still honoured — there is no
-  >   framework. `uvicorn` was added, and only as a server; the application is a
-  >   plain ASGI callable doing its own routing.
+> * *The cache connection is thread-bound.* True, and **still true today** — but the
+>   closing line below ("the blocker to remove first is the embed cache's thread
+>   affinity") named the wrong move. The request path was routed AROUND
+>   `preprocessing/embedder.py` instead, so that connection is never constructed.
+>   Nothing in `shared/` was edited. A live CSM situation is a novel string and
+>   therefore a guaranteed cache miss, so nothing was lost.
+> * *There is nothing here a framework would do.* **Still honoured** — there is no
+>   framework. `uvicorn` was added, and only as a server; the application is a
+>   plain ASGI callable doing its own routing.
 >
 > The `Connection: close` instruction below is also reversed, on its own terms: it
 > says not to undo it "without first removing the single-threading constraint", and
 > that is exactly what happened.
 >
-> The replacement ADR is issue #33.
+> What the replacement adds that is not merely the opposite of this one: concurrency
+> is bounded, because the gateway's limits are per API KEY, which makes the **process
+> count** part of the correctness argument rather than a deployment detail.
 
 Ask Naren needs one HTTP endpoint that takes a CSM's free-text situation and returns a grounded answer or a decline, plus a readiness check. Its request path embeds the incoming situation through `preprocessing/embedder.py`, which writes through a disk cache in `shared/embed_cache.py`.
 

@@ -151,6 +151,18 @@ _embed_limiter = _RateLimiter(EMBED_PER_MINUTE)
 #
 # 6 rather than 8 on purpose: retries are themselves requests, so the ceiling must not be the
 # operating point. Override with BRAIN_GATEWAY_MAX_PARALLEL if a key's limit differs.
+#
+# *** THE 8 IS NOT AN EMBEDDINGS BUDGET. IT IS SHARED WITH /chat/completions. ***
+# Everything above was measured during a corpus fetch, and the names here (`_embed_parallel`,
+# `EMBED_MAX_PARALLEL`) record where it was found rather than what it covers -- which makes
+# this the easiest wrong conclusion to draw in the file. `max_parallel_requests` is a property
+# of the KEY, not of an endpoint; the measurement that settles it is in the
+# `AsyncGatewayClient` note below, kept in one place rather than copied to two.
+#
+# THIS SEMAPHORE STILL ONLY GUARDS `embed_one`, so the sync client paces chat not at all.
+# That is harmless only while nothing drives chat concurrently through it. `AsyncGatewayClient`
+# below puts the gate in `_post` and therefore covers both endpoints -- see its own note, and
+# `Brain/docs/GOTCHAS.md` for the rule about never having both clients in flight together.
 EMBED_MAX_PARALLEL = int(os.environ.get("BRAIN_GATEWAY_MAX_PARALLEL", "6"))
 _embed_parallel = threading.Semaphore(EMBED_MAX_PARALLEL)
 
@@ -478,8 +490,11 @@ class GatewayClient:
 # cap was discovered during a corpus fetch. MEASURED 2026-09-10 against the production
 # gateway with a direct async client: `max_parallel_requests` is 8 and the budget is SHARED.
 # Six chat plus six embed fired together = 12 in flight -> 9 ok, 3 rejected. So generation
-# counts against the same 8, and the sync client does not pace it at all. That is invisible
-# while the service answers one CSM at a time, and is the first thing to break when it stops.
+# counts against the same 8, and the sync client does not pace it at all. That WAS invisible
+# while Ask Naren answered one CSM at a time -- and #28-#31 is when it stopped, which is why
+# this client exists. Written in the past tense on purpose: the service now drives chat
+# concurrently through THIS client, so the unpaced sync path is a hazard for any future
+# caller rather than a dormant one.
 #
 # Also measured in the same run: the gateway negotiates HTTP/2, and keep-alive works
 # (1.45s then 0.88s through one client). So concurrent calls can multiplex over ONE socket,

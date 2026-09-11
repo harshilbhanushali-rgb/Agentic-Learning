@@ -27,10 +27,26 @@ own tests so they cannot silently revert: a query string no longer defeats path 
 method is a JSON 404 rather than the stdlib's HTML 501; and a body with no Content-Length
 is now read and size-capped by what actually arrives rather than rejected as empty.
 
-WHAT CHANGED FOR A CSM: two of them are answered at once. Requests overlap while they wait
-on the gateway, which is where essentially all of an answer's ~12.5s goes. Measured live at
-the layer below this one before this layer existed: 3 situations in 15.2s against 30.4s
-serialised (ask-naren/audit/check_async_concurrency.py).
+WHAT CHANGED FOR A CSM: ABOUT SIX OF THEM ARE ANSWERED AT ONCE, and the rest wait in a
+bounded queue rather than being accepted and left to contend. Requests overlap while they
+wait on the gateway, which is where essentially all of an answer goes.
+
+*** SIX IS THE CEILING AND IT IS NOT OURS TO RAISE. *** It is the gateway's 8 requests in
+flight per API KEY -- shared across chat and embeddings -- operated at 6 so a retry has
+somewhere to go. Because that budget belongs to the key rather than the process, running a
+second process does not double capacity; it violates one budget twice while looking healthy.
+So the process count is part of the correctness argument, which is the whole subject of
+ask-naren/docs/adr/0010-ask-naren-answers-concurrently-in-one-asyncio-process.md.
+
+Behind those six, issue #32's `ask_naren/admission.py` holds a queue as deep as the request
+deadline can absorb, refuses anyone past it immediately with an estimate rather than late
+with nothing, and enforces the deadline on whoever it admits.
+
+NO LATENCY FIGURE IS QUOTED HERE, deliberately: an answer's cost has been observed moving by
+several times between runs, so any number written into this docstring is stale within a day
+and checkable against nothing. The harnesses in ask-naren/audit/ measure it and write the
+result to that directory's artifacts/ -- check_concurrent_service.py for overlap,
+check_admission_live.py for the bound, the queue and the deadline.
 
 WHAT CHANGED FOR AN OPERATOR: `/health` no longer queues behind an in-flight generation.
 That was not cosmetic -- with a normal ingress health-check timeout it marked a healthy
