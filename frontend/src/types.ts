@@ -248,7 +248,13 @@ export interface AskNarenAnswer {
  *
  *  The last two are faults; the first two are not. Rendering them identically to a CSM is
  *  deliberate, but COLLAPSING them would hide an outage behind what looks like normal
- *  conservative behaviour, so the reason codes stay distinct all the way through. */
+ *  conservative behaviour, so the reason codes stay distinct all the way through.
+ *
+ *  `service_busy` (issue #32) is a THIRD kind, and neither a fault nor a judgement about
+ *  the question: too many people are asking at once. It matters most that it stays
+ *  separate from `no_close_match` — a capacity problem wearing a quality problem's clothes
+ *  would make the tool look like it was working perfectly and simply declining a lot, and
+ *  the decline-rate reads would quietly be measuring load instead of coverage. */
 export type AskNarenDeclineReason =
   | 'no_close_match'
   | 'grounding_unverified'
@@ -265,7 +271,24 @@ export type AskNarenDeclineReason =
    *  next move, and that is what makes it its own reason. */
   | 'follow_up_ungrounded'
   | 'service_error'
-  | 'service_unreachable';
+  | 'service_unreachable'
+  /** Too many questions at once (issue #32). The service answers a bounded number
+   *  concurrently — the gateway allows 8 requests in flight per API key, shared across chat
+   *  and embeddings, operated at 6 — and queues the rest. This is the caller who arrived
+   *  past what the queue can serve inside its deadline, so it is refused immediately rather
+   *  than accepted and failed later: waiting out a deadline to be told nothing is strictly
+   *  worse than being told now.
+   *
+   *  The ONE decline worth simply retrying, unchanged. Arrives as HTTP 429 with a
+   *  `Retry-After` header, so a busy lunchtime does not look like an outage to anything
+   *  counting 5xx. Carries `retry_after_seconds`. */
+  | 'service_busy'
+  /** Admitted, then ran out of its time budget (issue #32). Distinct from `service_busy`,
+   *  which was never admitted, and from `service_error`, where something actually broke:
+   *  here the service simply stopped rather than leave a CSM on a spinner past the point
+   *  where an answer is still useful. HTTP 504. A rising rate of these means the cost
+   *  estimate the queue depth is sized from has drifted. */
+  | 'deadline_exceeded';
 
 export interface AskNarenDecline {
   outcome: 'declined';
@@ -275,6 +298,12 @@ export interface AskNarenDecline {
    *  `reason` in the frontend, or there are two sources of truth for the same sentence. */
   message: string;
   match?: AskNarenMatch;
+  /** PRESENT ONLY ON `service_busy` (issue #32): roughly how long until there is room,
+   *  derived from the actual queue depth rather than being a fixed suggestion. The same
+   *  number appears inside `message`, which is what gets rendered — this field exists so
+   *  anything that wants to act on it (a retry, a countdown) does not have to parse prose.
+   */
+  retry_after_seconds?: number;
 }
 
 /** Ask Naren asking for something back instead of answering — decided BEFORE retrieval, so

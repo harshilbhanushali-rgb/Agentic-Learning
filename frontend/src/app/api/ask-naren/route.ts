@@ -36,26 +36,43 @@ import type { NextRequest } from 'next/server';
 const SERVICE_URL = process.env.ASK_NAREN_SERVICE_URL ?? 'http://127.0.0.1:8787';
 
 /**
- * Generous on purpose, and now generous for a WEAKER reason than it was.
+ * SET AGAINST THE SERVICE'S OWN DEADLINE (issue #32), which is the thing that decides how
+ * long a CSM waits. It is deliberately NOT a second latency budget.
  *
- * A single answer takes ~12s (generation at reasoning_effort=medium). This used to be sized
- * for the serialised worst case: the service was single-threaded by design, so a third
- * caller genuinely waited ~37s and a tight timeout would have aborted healthy requests that
- * were merely in line. **That is no longer true** -- as of issues #30/#31 the service
- * answers several CSMs at once, so queueing is no longer what a long wait means
- * (reproduced by ask-naren/audit/check_concurrent_service.py; the measurement is
- * recorded in that directory's artifacts rather than quoted here, because gateway
- * latency moves).
+ * The 120s this replaces was sized for a serialised server, where a third caller genuinely
+ * waited in line and a tight timeout would have aborted healthy requests. Issues #30/#31
+ * removed the serialisation and #32 replaced the queueing-forever behaviour with a bounded
+ * queue and a per-request deadline, so every outcome the service can produce -- an answer,
+ * a decline, a busy refusal, its own deadline -- now arrives inside that deadline. A proxy
+ * timeout shorter than it would abort requests the service was about to answer correctly,
+ * and one much longer than it would only ever fire for a socket that has stopped
+ * responding, which is what this is now for.
  *
- * Left at 120s deliberately rather than tightened here: the ceiling is now the gateway's
- * 8-in-flight-per-key budget, and what a caller past it should get is a prompt "busy, try
- * again" from the SERVICE rather than a timeout from this proxy. Issue #32 adds that bound
- * and its deadline, and this number should be set against that deadline -- one place, not
- * two. Until then this exists to bound a hung socket, not to enforce a latency budget.
+ * ONE SOURCE OF TRUTH, MIRRORED ONCE. The deadline is declared in
+ * `Brain/ask_naren/admission.py` (`ANSWER_DEADLINE_SECONDS`) and announced by the service
+ * at startup and on `/ready`; there is no shared config between the Python service and this
+ * route, so this constant restates it and the margin exists so that a response the service
+ * produced AT its deadline still gets through the wire. If the deadline moves, move this.
+ * No latency figure is asserted here -- gateway latency has been observed moving ~6x
+ * between runs, and measurements live in ask-naren/audit/artifacts/.
  */
-const TIMEOUT_MS = 120_000;
+const SERVICE_DEADLINE_MS = 30_000;
+const TIMEOUT_MS = SERVICE_DEADLINE_MS + 5_000;
 
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8' } as const;
+
+/** Response headers worth forwarding from the service, rather than replacing wholesale.
+ *
+ *  `Retry-After` rides on a busy refusal (issue #32) and carries the same estimate as the
+ *  body's `retry_after_seconds`. Rebuilding the response with only `Content-Type` DROPPED
+ *  it -- which made this file quietly reshape a response on the happy path, the one thing
+ *  its own docstring says it never does, and made the contract note on `service_busy` in
+ *  src/types.ts false: it promises a header nothing downstream ever saw.
+ *
+ *  An allowlist rather than forwarding every upstream header, because the rest describe the
+ *  upstream connection rather than the answer -- `content-length` in particular would be
+ *  wrong the moment anything here re-encoded a body. */
+const FORWARDED_HEADERS = ['retry-after'] as const;
 
 /** Kept in the service's voice, and deliberately NOT the no-match wording. A CSM should be
  *  able to tell "Naren never faced this" from "the tool is broken" without being shown a
@@ -108,5 +125,10 @@ export async function POST(request: NextRequest) {
     return Response.json(UNREACHABLE, { status: 503, headers: JSON_HEADERS });
   }
 
-  return new Response(text, { status: upstream.status, headers: JSON_HEADERS });
+  const headers = new Headers(JSON_HEADERS);
+  for (const name of FORWARDED_HEADERS) {
+    const value = upstream.headers.get(name);
+    if (value !== null) headers.set(name, value);
+  }
+  return new Response(text, { status: upstream.status, headers });
 }

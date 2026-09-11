@@ -5,6 +5,10 @@ Run from Brain/, with the Joveo VPN up:
 
     ../.venv/Scripts/python.exe ../ask-naren/audit/check_concurrent_service.py
 
+Pass `--hostaddr <ip>` when the Neon address the service pins is the unhealthy one -- see
+the note on HOSTADDR below, and expect `server closed the connection unexpectedly` during
+startup when it bites.
+
 Exits non-zero if the requests did not overlap, or if /health queued behind an answer.
 
 WHY THIS EXISTS ON TOP OF EVERYTHING ELSE. Three checks each prove a different layer:
@@ -59,6 +63,15 @@ TWO THINGS IT ASSERTS, and they fail independently -- which is the point of keep
      `/ask` separately from `/health`. Do not delete assertion 1 on the grounds that 2 is
      better.
 
+     *** THAT HAS NOW HAPPENED (issue #32 landed). *** `/ask` is bounded and `/health`
+     is not, so a prompt `/health` here no longer says much about `/ask` overlapping.
+     Assertion 1 is therefore the load-bearing one in this file from now on. The
+     `/health`-under-load property did not stop mattering, it moved: it is asserted in
+     `check_admission_live.py` against a SATURATED `/ask`, where a busy answer path and a
+     prompt liveness check are genuinely independent conditions rather than the same one.
+     THREE situations at once stays well inside the bound (6 in flight, 8 queued), so
+     nothing in this harness meets the gate.
+
 Read-only: the service reads Postgres once at startup through a connection Postgres refuses
 to write through, and only queries Pinecone. This harness sends 2N questions.
 """
@@ -94,7 +107,12 @@ SITUATIONS = [
     "they are asking why our applicant quality dropped this month",
 ]
 
-STARTUP_TIMEOUT_S = 180
+#: GENEROUS, because a startup timeout is not a finding and must not be read as one.
+#: Startup is a Postgres read over the VPN plus a Pinecone coverage sample, and it measured
+#: ~26s and then over 200s on the same machine within one hour -- the read is the same size
+#: either way, the network is not. At 180s this harness reported a failure that said nothing
+#: about concurrency at all (2026-09-11, while verifying issue #32).
+STARTUP_TIMEOUT_S = 600
 
 #: A generation takes ~12.5s, so a health check must answer in a tiny fraction of that or it
 #: is queueing. Generous enough not to flake on a loaded machine.
@@ -110,6 +128,26 @@ HEALTH_BUDGET_S = 2.0
 #: that is what to measure against; serialisation means `wall == sum(solo)`, which for any
 #: realistic spread is far above this multiple.
 CONCURRENT_BUDGET = 1.6
+
+#: PASSED THROUGH TO THE SERVICE, because the pinned Neon IP can be the sick one.
+#:
+#: The local resolver refuses `*.neon.tech`, so `ops/serve_ask_naren.py` pins an address and
+#: keeps the hostname in the URL for SNI/SCRAM. That address is ONE OF SEVERAL the host
+#: resolves to, and when the pinned one is unhealthy the read fails mid-flight with
+#: `consuming input failed: server closed the connection unexpectedly` -- the connection
+#: opens, then dies partway through the pool load. Measured 2026-09-11: the pinned default
+#: failed twice in a row while a sibling address loaded the pool in one go.
+#:
+#: A harness that cannot be pointed at a different address turns that into an unexplainable
+#: startup failure, which is the worst kind of result here -- it looks like a finding and is
+#: not one. Empty means "use the service's own default".
+#:
+#:     ../.venv/Scripts/python.exe <this file> --hostaddr 13.251.17.193
+#:
+#: Get the current set with:
+#:     Resolve-DnsName -Name <the pooler host> -Type A -Server 8.8.8.8
+HOSTADDR = None
+
 
 #: The service's own output goes to a FILE, not to a pipe.
 #:
@@ -137,8 +175,11 @@ def _start_service():
     # reach the child's signal handlers -- `terminate()` is TerminateProcess, a hard kill
     # that runs no shutdown at all, which is why the graceful path went unverified at first.
     flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+    argv = [sys.executable, "ops/serve_ask_naren.py", "--host", HOST, "--port", str(PORT)]
+    if HOSTADDR:
+        argv += ["--hostaddr", HOSTADDR]
     proc = subprocess.Popen(
-        [sys.executable, "ops/serve_ask_naren.py", "--host", HOST, "--port", str(PORT)],
+        argv,
         cwd=str(BRAIN), stdout=handle, stderr=subprocess.STDOUT, text=True,
         creationflags=flags)
     return proc, handle
@@ -389,4 +430,8 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
+    # One flag, parsed by hand: argparse for a single optional string would be more code
+    # than it saves, and this harness takes no other input.
+    if "--hostaddr" in sys.argv:
+        HOSTADDR = sys.argv[sys.argv.index("--hostaddr") + 1]
     raise SystemExit(asyncio.run(main()))

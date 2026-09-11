@@ -10,19 +10,34 @@ import type { AskNarenDecline, AskNarenDeclineReason } from '@/types';
  * would put the same explanation in two places, and the service's copy is the one that
  * knows why it declined.
  *
- * THE HEADING AND THE HINT BRANCH ON `reason` (issues #6, #14); the STYLING never does.
- * Every decline reaches this component -- including an outage, which the proxy deliberately
- * shapes as a decline so the page needs no error branch. Three situations need different
- * advice, and giving the wrong one sends a CSM chasing something that cannot work:
+ * THE HEADING AND THE HINT BRANCH ON `reason` (issues #6, #14, #32); the STYLING never
+ * does. Every decline reaches this component -- including an outage, which the proxy
+ * deliberately shapes as a decline so the page needs no error branch. Four situations need
+ * different advice, and giving the wrong one sends a CSM chasing something that cannot
+ * work:
  *
  *   - a fault: the question was fine, the tool is down, rewording is pointless;
  *   - out of scope: rewording is pointless for a different reason -- the answer is not in
  *     Naren's calls to find, however it is phrased;
- *   - a genuine no-match: rewording IS the useful next move.
+ *   - a genuine no-match: rewording IS the useful next move;
+ *   - BUSY (issue #32): nothing is wrong with either the question or the tool, and the
+ *     useful next move is simply to ask the same thing again in a moment. It is the one
+ *     decline where retrying verbatim is the right advice, which is why it needs its own
+ *     words -- reading "try describing the situation in the client's own words" here would
+ *     send a CSM rewriting a question that was fine.
+ *
+ * THE STYLING STILL DOES NOT BRANCH, even though busy is not really a decline at all. The
+ * words are what a CSM reads and they say plainly that this is a queue rather than a
+ * refusal; giving it its own border or colour would be the first crack in the rule that
+ * keeps a fault from eventually looking scarier than a no-match. `message` carries the
+ * estimate ("ask again in about 30 seconds"), composed by the service, so the retry
+ * suggestion is concrete without this file knowing the arithmetic.
  *
  * Both strings come from one table keyed by reason rather than from nested ternaries, so a
- * fourth reason is one entry and cannot end up with a heading from one branch and a hint
- * from another.
+ * new reason is one entry and cannot end up with a heading from one branch and a hint from
+ * another. Verified by deletion: removing the `service_busy` entry fails `npm run build`
+ * with "Property 'service_busy' is missing", so a future reason cannot quietly inherit
+ * another one's advice.
  */
 
 /** One entry per decline reason: what to head it, and what to suggest next. Exhaustive over
@@ -55,6 +70,16 @@ const COPY: Record<AskNarenDeclineReason, { heading: string; hint: string }> = {
   service_unreachable: {
     heading: 'Ask Naren is unavailable',
     hint: 'Nothing you typed caused this, and rewording it will not help. The answer you asked for is not lost — ask again once it is back.',
+  },
+  service_busy: {
+    // NOT "unavailable". Busy and down read identically to a CSM if we let them, and then
+    // the tool looks broken every lunchtime. The estimate itself lives in `message`.
+    heading: 'Ask Naren is busy',
+    hint: 'Your question was fine and nothing is broken — several people are asking at once. Ask the same thing again in a moment and it will go through.',
+  },
+  deadline_exceeded: {
+    heading: 'Ask Naren ran out of time',
+    hint: 'It stopped rather than leave you waiting. Nothing you typed caused this — ask the same thing again.',
   },
 };
 

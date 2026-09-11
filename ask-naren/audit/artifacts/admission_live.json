@@ -1,0 +1,121 @@
+{
+  "measured_at": "2026-09-11T18:48:59",
+  "issue": 32,
+  "deviation_from_shipped": {
+    "BRAIN_GATEWAY_MAX_PARALLEL": 2,
+    "ASK_NAREN_ANSWER_COST_SECONDS": 60.0,
+    "ASK_NAREN_DEADLINE_SECONDS": 180.0,
+    "why": "reaching the shipped depth of 8 behind 6 slots costs 15 simultaneous generations, several minutes of gateway time, and a queue long enough that its own tail becomes a second variable"
+  },
+  "expected": {
+    "in_flight_limit": 2,
+    "queue_limit": 4,
+    "sent": 8,
+    "refused": 2
+  },
+  "burst_wall_seconds": 20.219000000011874,
+  "requests": [
+    {
+      "situation": "client says our cost per hire is way too high",
+      "status": 200,
+      "seconds": 3.312999999994645,
+      "outcome": "answered",
+      "reason": null,
+      "retry_after_seconds": null,
+      "retry_after_header": null,
+      "message": ""
+    },
+    {
+      "situation": "the client wants to pause spend until next quarter",
+      "status": 200,
+      "seconds": 3.6570000000065193,
+      "outcome": "answered",
+      "reason": null,
+      "retry_after_seconds": null,
+      "retry_after_header": null,
+      "message": ""
+    },
+    {
+      "situation": "they are asking why our applicant quality dropped this month",
+      "status": 200,
+      "seconds": 4.625,
+      "outcome": "answered",
+      "reason": null,
+      "retry_after_seconds": null,
+      "retry_after_header": null,
+      "message": ""
+    },
+    {
+      "situation": "the client is threatening to move budget to a competitor",
+      "status": 200,
+      "seconds": 5.032000000006519,
+      "outcome": "clarify",
+      "reason": null,
+      "retry_after_seconds": null,
+      "retry_after_header": null,
+      "message": ""
+    },
+    {
+      "situation": "they want a discount because last month underdelivered",
+      "status": 200,
+      "seconds": 6.2039999999979045,
+      "outcome": "clarify",
+      "reason": null,
+      "retry_after_seconds": null,
+      "retry_after_header": null,
+      "message": ""
+    },
+    {
+      "situation": "the client says our reporting does not match their ATS",
+      "status": 200,
+      "seconds": 20.219000000011874,
+      "outcome": "declined",
+      "reason": "no_close_match",
+      "retry_after_seconds": null,
+      "retry_after_header": null,
+      "message": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing."
+    },
+    {
+      "situation": "they are unhappy that we changed their campaign without telling them",
+      "status": 429,
+      "seconds": 0.01600000000325963,
+      "outcome": "declined",
+      "reason": "service_busy",
+      "retry_after_seconds": 210,
+      "retry_after_header": "210",
+      "message": "Ask Naren is answering as many people as it can right now, and could not get to this one in time to be useful. Nothing is wrong with your question and nothing is broken -- ask again in about 210 seconds."
+    },
+    {
+      "situation": "the client asked for a weekly call instead of monthly",
+      "status": 429,
+      "seconds": 0.01600000000325963,
+      "outcome": "declined",
+      "reason": "service_busy",
+      "retry_after_seconds": 210,
+      "retry_after_header": "210",
+      "message": "Ask Naren is answering as many people as it can right now, and could not get to this one in time to be useful. Nothing is wrong with your question and nothing is broken -- ask again in about 210 seconds."
+    }
+  ],
+  "health_ms": {
+    "polls": 77,
+    "worst": 16.00000000325963,
+    "median": 0.0
+  },
+  "saturated_reports": 13,
+  "abandoned_slot_released_seconds": 0.0,
+  "ready_at_end": {
+    "status": "ready",
+    "in_flight": 0,
+    "in_flight_limit": 2,
+    "queued": 0,
+    "queue_limit": 4,
+    "deadline_seconds": 180.0,
+    "answer_cost_seconds": 60.0,
+    "peak_in_flight": 2,
+    "peak_queued": 4,
+    "admitted": 8,
+    "refused": 2,
+    "deadlines_missed": 0
+  },
+  "failures": []
+}

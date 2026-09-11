@@ -15,6 +15,7 @@ real overlap pass an `async` answerer instead.
 import asyncio
 import contextlib
 import json
+import socket
 import threading
 import time
 
@@ -22,7 +23,7 @@ import httpx
 import pytest
 import uvicorn
 
-from ask_naren import service
+from ask_naren import admission, service
 
 ANSWER = {"outcome": "answered", "answer": "Reframe on their own baseline.",
           "quote": "their own baseline", "citation": {"label": "a_call.txt"},
@@ -49,8 +50,8 @@ def serve_with():
     """Runs the real server on an ephemeral port with whatever answerer a test supplies."""
     started = []
 
-    def _start(answerer, ready=None):
-        app = service.build_app(_as_async(answerer), ready=ready)
+    def _start(answerer, ready=None, gate=None):
+        app = service.build_app(_as_async(answerer), ready=ready, gate=gate)
         config = uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning")
         server = uvicorn.Server(config)
         thread = threading.Thread(target=server.run, daemon=True)
@@ -600,3 +601,363 @@ def test_serve_itself_answers_two_requests_concurrently():
     assert elapsed < 0.7, (
         f"two 0.4s answers through serve() took {elapsed:.2f}s -- the server serialised "
         f"them")
+
+
+# -- the bound, the queue and the deadline (issue #32) -----------------------------------
+#
+# THE NUMBERS HERE ARE TINY ON PURPOSE. The shipped gate answers six at once and queues
+# fourteen behind them, so reaching the refusal through HTTP would mean twenty-one
+# simultaneous requests to observe one number. A gate of one slot and a one-deep queue
+# exercises the identical code paths and makes the arithmetic readable in the assertion.
+# The arithmetic ITSELF -- that the depth really is what the deadline can absorb -- is
+# pinned against the shipped numbers in test_ask_naren_admission.py.
+
+
+def _tiny_gate(**kw):
+    """One slot, one queued behind it, refuse the third. A long deadline unless a test is
+    about the deadline, so a slow stub cannot turn a queueing test into a timeout test.
+
+    25s against a 12.5s answer is the smallest deadline that admits exactly one waiter: the
+    budget has to cover the wait AND that caller's own answer, so a one-answer deadline
+    queues nobody at all. See admission.total_seconds_for."""
+    kw.setdefault("in_flight_limit", 1)
+    kw.setdefault("answer_cost", 12.5)
+    kw.setdefault("deadline", 25.0)
+    return admission.Admission(**kw)
+
+
+def test_a_third_caller_is_refused_as_busy_rather_than_accepted_and_failed():
+    """The whole argument of issue #32 in one assertion.
+
+    Waiting 30 seconds to be told nothing is strictly worse than being told immediately, so
+    a request that cannot be served inside the deadline is refused ON ARRIVAL. The timing
+    assertion is the load-bearing half: a 429 that arrived after a full deadline would
+    satisfy every other check in this file and be the exact behaviour the ticket rejects.
+    """
+    gate = _tiny_gate()
+    assert gate.queue_limit == 1
+    release = asyncio.Event()
+
+    async def slow(situation, thread=()):
+        await release.wait()
+        return ANSWER
+
+    app = service.build_app(slow, gate=gate)
+
+    async def body():
+        async with _drive(app) as c:
+            first = asyncio.create_task(c.post("/ask", json={"situation": "A"}))
+            second = asyncio.create_task(c.post("/ask", json={"situation": "B"}))
+            await asyncio.sleep(0.05)              # one in flight, one queued
+            started = time.monotonic()
+            third = await c.post("/ask", json={"situation": "C"})
+            waited = time.monotonic() - started
+            release.set()
+            await asyncio.gather(first, second)
+            return third, waited
+
+    third, waited = asyncio.run(body())
+    assert third.status_code == 429
+    assert third.json()["outcome"] == "declined"
+    assert third.json()["reason"] == service.SERVICE_BUSY
+    assert waited < 1.0, f"the refusal took {waited:.2f}s -- it queued before refusing"
+
+
+def test_the_busy_refusal_says_roughly_how_long():
+    """"Busy" alone reads as "broken". The service knows the queue depth, so the estimate
+    costs nothing -- and it is the difference between a CSM thinking the tool is down and a
+    CSM asking again in a minute. Carried BOTH as prose (which is what gets rendered) and
+    as `Retry-After` (for anything reading headers)."""
+    gate = _tiny_gate()
+    release = asyncio.Event()
+
+    async def slow(situation, thread=()):
+        await release.wait()
+        return ANSWER
+
+    app = service.build_app(slow, gate=gate)
+
+    async def body():
+        async with _drive(app) as c:
+            held = [asyncio.create_task(c.post("/ask", json={"situation": n}))
+                    for n in "AB"]
+            await asyncio.sleep(0.05)
+            third = await c.post("/ask", json={"situation": "C"})
+            release.set()
+            await asyncio.gather(*held)
+            return third
+
+    third = asyncio.run(body())
+    estimate = third.json()["retry_after_seconds"]
+    assert estimate == gate.retry_after_seconds_at(gate.queue_limit + 1)
+    assert third.headers["retry-after"] == str(estimate)
+    # And the sentence a CSM reads names it, rather than leaving the number to the header.
+    assert str(estimate) in third.json()["message"]
+
+
+def test_a_queued_caller_is_served_rather_than_refused():
+    """THE DEFAULT PATH. At this team's load the queue is empty or one deep, so almost
+    every caller who waits at all is this one -- and a short wait is invisible. A gate that
+    refused rather than queued would make a rejection a routine part of using the tool,
+    which is what the ticket was amended to stop."""
+    gate = _tiny_gate()
+    order = []
+
+    async def slow(situation, thread=()):
+        order.append(f"{situation}:start")
+        await asyncio.sleep(0.05)
+        order.append(f"{situation}:done")
+        return ANSWER
+
+    app = service.build_app(slow, gate=gate)
+
+    async def body():
+        async with _drive(app) as c:
+            return await asyncio.gather(c.post("/ask", json={"situation": "A"}),
+                                        c.post("/ask", json={"situation": "B"}))
+
+    first, second = asyncio.run(body())
+    assert first.status_code == second.status_code == 200
+    assert first.json() == second.json() == ANSWER
+
+    # SERIALISED, but WHICH ONE WENT FIRST IS NOT ASSERTED. Both are dispatched by one
+    # `gather` and each has a body to read before it reaches admission, so nothing promises
+    # A is admitted before B; pinning the exact sequence would make this fail for a reason
+    # unrelated to the bound. What must hold is that the second one WAITED rather than
+    # overlapping or being refused -- and that still fails if the slot is not held, because
+    # two concurrent answers interleave to start, start, done, done.
+    assert [step.split(":")[1] for step in order] == ["start", "done", "start", "done"],         order
+    assert order[0].split(":")[0] == order[1].split(":")[0], order
+
+
+def test_no_more_than_the_bound_are_answered_at_once():
+    """The bound the gateway's shared 8-per-key allowance requires. Over HTTP, because
+    that is where over-acceptance happens: the layer below cannot over-accept anything."""
+    gate = _tiny_gate(in_flight_limit=2, deadline=100.0)
+    live = 0
+    peak = 0
+
+    async def slow(situation, thread=()):
+        nonlocal live, peak
+        live += 1
+        peak = max(peak, live)
+        await asyncio.sleep(0.05)
+        live -= 1
+        return ANSWER
+
+    app = service.build_app(slow, gate=gate)
+
+    async def body():
+        async with _drive(app) as c:
+            return await asyncio.gather(*(c.post("/ask", json={"situation": str(n)})
+                                          for n in range(8)))
+
+    results = asyncio.run(body())
+    assert [r.status_code for r in results] == [200] * 8
+    assert peak == 2, f"{peak} answers were in flight against a bound of 2"
+
+
+def test_the_deadline_fires_rather_than_letting_a_caller_hang():
+    """The only timeout before this was the gateway's 120s, and no CSM waits 120s. 504 and
+    its own reason code: this is neither a fault (nothing broke) nor a busy refusal
+    (this one was admitted), and reporting it as either would hide it."""
+    gate = _tiny_gate(deadline=0.05)
+
+    async def far_too_slow(situation, thread=()):
+        await asyncio.sleep(30)
+        return ANSWER                          # pragma: no cover -- never reached
+
+    app = service.build_app(far_too_slow, gate=gate)
+
+    async def body():
+        async with _drive(app) as c:
+            started = time.monotonic()
+            r = await c.post("/ask", json={"situation": "x"})
+            return r, time.monotonic() - started
+
+    r, elapsed = asyncio.run(body())
+    assert r.status_code == 504
+    assert r.json()["reason"] == service.DEADLINE_EXCEEDED
+    assert r.json()["outcome"] == "declined"
+    assert elapsed < 5, f"took {elapsed:.1f}s -- the deadline did not fire"
+    assert gate.deadlines_missed == 1
+    # And the slot went back, rather than being lost with the abandoned answer.
+    assert gate.in_flight == 0
+
+
+def test_a_timeout_from_underneath_is_a_fault_and_not_our_deadline():
+    """`asyncio.TimeoutError` IS the builtin `TimeoutError` in 3.11, so anything below --
+    a gateway socket timeout, say -- raises the same class our own budget does. Reporting
+    that as `deadline_exceeded` would file a fault under capacity, which is the conflation
+    this whole ticket exists to prevent, one layer further down."""
+    gate = _tiny_gate(deadline=100.0)
+
+    async def blows_up(situation, thread=()):
+        raise TimeoutError("the gateway socket gave up")
+
+    app = service.build_app(blows_up, gate=gate)
+
+    async def body():
+        async with _drive(app) as c:
+            return await c.post("/ask", json={"situation": "x"})
+
+    r = asyncio.run(body())
+    assert r.status_code == 503
+    assert r.json()["reason"] == service.SERVICE_ERROR
+    assert gate.deadlines_missed == 0, "someone else's timeout was counted as ours"
+
+
+def test_busy_is_distinguishable_from_a_fault_and_from_a_no_match_decline():
+    """THE MAIN HAZARD IN ISSUE #32, asserted in one place so it cannot drift apart.
+
+    A capacity problem wearing a quality problem's clothes would make the tool look like it
+    was working perfectly and simply declining a lot -- and the decline-rate reads would
+    quietly be measuring load. So all three differ in the status an operator watches AND in
+    the reason code an engineer greps, and each of the three is checkable without the
+    other two.
+    """
+    no_match = {"outcome": "declined", "reason": "no_close_match",
+                "message": "Nothing in Naren's calls is close enough."}
+
+    gate = _tiny_gate()
+    release = asyncio.Event()
+
+    async def answerer(situation, thread=()):
+        if situation == "fault":
+            raise RuntimeError("the answerer blew up")
+        if situation == "hold":
+            await release.wait()
+        return no_match
+
+    app = service.build_app(answerer, gate=gate)
+
+    async def body():
+        async with _drive(app) as c:
+            declined = await c.post("/ask", json={"situation": "nothing close"})
+            fault = await c.post("/ask", json={"situation": "fault"})
+            held = [asyncio.create_task(c.post("/ask", json={"situation": "hold"}))
+                    for _ in range(2)]
+            await asyncio.sleep(0.05)
+            busy = await c.post("/ask", json={"situation": "third"})
+            release.set()
+            await asyncio.gather(*held)
+            return declined, fault, busy
+
+    declined, fault, busy = asyncio.run(body())
+
+    assert (declined.status_code, declined.json()["reason"]) == (200, "no_close_match")
+    assert (fault.status_code, fault.json()["reason"]) == (503, service.SERVICE_ERROR)
+    assert (busy.status_code, busy.json()["reason"]) == (429, service.SERVICE_BUSY)
+
+    statuses = {declined.status_code, fault.status_code, busy.status_code}
+    reasons = {declined.json()["reason"], fault.json()["reason"], busy.json()["reason"]}
+    assert len(statuses) == len(reasons) == 3
+    # And the words a CSM reads differ too, which is the half no monitor checks.
+    assert len({declined.json()["message"], fault.json()["message"],
+                busy.json()["message"]}) == 3
+
+
+def test_ready_reports_saturation_and_the_counts_behind_it():
+    """What `/ready` had no state to report before (issue #31 left it always-ready).
+
+    Note what saturation is NOT: every slot busy is the service working, because a busy
+    slot means somebody is being answered. It is the QUEUE behind them being as deep as the
+    deadline can absorb -- the point past which accepting anyone is a promise we cannot
+    keep."""
+    gate = _tiny_gate()
+    release = asyncio.Event()
+
+    async def slow(situation, thread=()):
+        await release.wait()
+        return ANSWER
+
+    app = service.build_app(slow, gate=gate)
+
+    async def body():
+        async with _drive(app) as c:
+            calm = await c.get("/ready")
+            held = [asyncio.create_task(c.post("/ask", json={"situation": n}))
+                    for n in "AB"]
+            await asyncio.sleep(0.05)
+            saturated = await c.get("/ready")
+            alive = await c.get("/health")
+            release.set()
+            await asyncio.gather(*held)
+            drained = await c.get("/ready")
+            return calm, saturated, alive, drained
+
+    calm, saturated, alive, drained = asyncio.run(body())
+
+    assert (calm.status_code, calm.json()["status"]) == (200, "ready")
+    assert (saturated.status_code, saturated.json()["status"]) == (503, "saturated")
+    # LIVENESS MUST NOT FOLLOW IT. A saturated process is healthy and busy; an ingress that
+    # cannot tell the difference restarts the thing that is working hardest.
+    assert alive.status_code == 200
+    assert alive.json() == {"status": "ok"}
+    assert (drained.status_code, drained.json()["status"]) == (200, "ready")
+
+    # The counts an operator reads to decide whether this API key's allowance is still
+    # enough. The peaks, not the instantaneous numbers: the interesting moment is never the
+    # one anybody is watching.
+    body_at_peak = saturated.json()
+    assert body_at_peak["in_flight"] == 1
+    assert body_at_peak["in_flight_limit"] == 1
+    assert body_at_peak["queued"] == 1
+    assert body_at_peak["queue_limit"] == 1
+    assert drained.json()["peak_in_flight"] == 1
+    assert drained.json()["peak_queued"] == 1
+
+
+def test_a_malformed_request_costs_nobody_a_slot():
+    """Validated before admission, so a bad body cannot queue anyone behind a request that
+    was never going to be answered -- nor get itself refused as "busy" for it."""
+    gate = _tiny_gate()
+    app = service.build_app(_as_async(lambda situation, thread=(): ANSWER), gate=gate)
+
+    async def body():
+        async with _drive(app) as c:
+            bad = await c.post("/ask", json={"situation": "   "})
+            return bad, await c.get("/ready")
+
+    bad, ready = asyncio.run(body())
+    assert bad.status_code == 400
+    assert ready.json()["peak_in_flight"] == 0
+    assert ready.json()["refused"] == 0
+
+
+def test_an_abandoned_request_gives_its_slot_straight_back(serve_with):
+    """A CSM closing the tab must not leave a colleague queued behind an answer nobody will
+    read. Async is what makes this expressible: the threaded design had no way to notice a
+    vanished caller and no way to stop the work.
+
+    OVER A REAL SOCKET, and it has to be -- `httpx.ASGITransport` only reports
+    `http.disconnect` after the response is complete, so an in-process client CANNOT
+    abandon a request. Nothing below this layer can test this.
+    """
+    gate = _tiny_gate(in_flight_limit=1, deadline=100.0)
+    answering = threading.Event()
+
+    async def slow(situation, thread=()):
+        answering.set()
+        await asyncio.sleep(20)
+        return ANSWER                          # pragma: no cover -- never reached
+
+    base = serve_with(slow, gate=gate)
+    host, port = base.removeprefix("http://").split(":")
+
+    raw = socket.create_connection((host, int(port)))
+    payload = b'{"situation":"a CSM who is about to close the tab"}'
+    raw.sendall(b"POST /ask HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\n"
+                b"Content-Length: " + str(len(payload)).encode() + b"\r\n\r\n" + payload)
+    assert answering.wait(timeout=10), "the answer never started"
+    assert httpx.get(f"{base}/ready").json()["in_flight"] == 1
+
+    raw.close()
+
+    # The answer would have run for 20 more seconds. The slot must come back now, not then.
+    deadline = time.monotonic() + 5
+    while httpx.get(f"{base}/ready").json()["in_flight"] != 0:
+        assert time.monotonic() < deadline, (
+            "the slot was still held 5s after the caller vanished -- an abandoned request "
+            "is still consuming capacity")
+        time.sleep(0.05)
