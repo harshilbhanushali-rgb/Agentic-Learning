@@ -119,7 +119,15 @@ _Avoid_: ask-back, prompt for detail, follow-up question.
 
 **Thread**:
 **Built** (issue #15). One continuing conversation between a CSM and Ask Naren. Ask Naren stores none of it — a thread is held by the caller and replayed with each message, in keeping with the service holding no database handle while answering. A **turn** in it carries what the CSM typed, what Ask Naren said back, and the identifiers of the exchange the answer rested on — never the exchange's text, which is what keeps ADR 0006's corollary true and keeps Naren's words out of a later prompt's reach.
-_Avoid_: session, chat, history, conversation.
+_Avoid_: chat, history, conversation — and **session**, which since issue #42 names the authentication concept below and never a thread.
+
+**Session**:
+**Decided, not built** (issue #42). Proof that a CSM is signed in: carried by a cookie and checked on the server. It has nothing to do with a **thread** — a session belongs to a **user**, outlives any number of threads, and ending one signs somebody out rather than losing their work. The word sat on Thread's _Avoid_ list until #42, because before there were accounts the only thing it could have meant was a thread; it is readmitted with that single meaning, because every auth library and every piece of Next.js guidance uses it and a private synonym would make all of them read wrong against this codebase. What matters is where it is checked: close to the data, in one layer that every route handler and server component calls, and never only in `proxy` / `middleware`, which runs on prefetches too and on Next 14 cannot reach a database at all. A check in a layout is not enough either — layouts do not re-render on navigation and do not stop a child segment rendering.
+_Avoid_: login, token, auth state, thread.
+
+**User**:
+**Decided, not built** (issue #36). A person who can sign in to Ask Naren, and the owner of their threads. Seeded by an admin — there is no self-signup — and identified by their `@joveo.com` email. Usually a CSM, but a user is the sign-in record and a CSM is a role, so the two words are not interchangeable. It is deliberately not called an **account**: that word already means a Joveo client here (see **Where else seen**), and "an account's threads" would read two ways.
+_Avoid_: account, login, member, CSM (when the record rather than the role is meant).
 
 **Trimming a thread**:
 Shrinking a thread to fit a cap by blanking a turn's **prose** while keeping its **carried identifiers**. Not truncation, and specifically not "drop the oldest messages": the message that established the scenario is usually the first one and every later turn inherits its identifier, so dropping it strands the conversation (ADR 0006). Applied twice with two jobs — the page trims to fit the request body, the service trims to bound what a thread contributes to a prompt.
