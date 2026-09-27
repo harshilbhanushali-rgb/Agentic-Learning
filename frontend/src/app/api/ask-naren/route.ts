@@ -32,8 +32,26 @@
 import type { NextRequest } from 'next/server';
 
 /** Matches the service's own DEFAULT_HOST/DEFAULT_PORT. Overridable for a non-local
- *  deployment without touching code. */
+ *  deployment without touching code -- see .env.example. */
 const SERVICE_URL = process.env.ASK_NAREN_SERVICE_URL ?? 'http://127.0.0.1:8787';
+
+/* WARN ONCE AT STARTUP WHEN THE URL IS UNCONFIGURED, because every other signal this module
+ * produces is indistinguishable from the tool working normally. The default is correct for
+ * local development, where the service is on this machine. Anywhere else -- a container, a
+ * deployed environment -- it resolves to that host itself, so the fetch below always fails
+ * and every question comes back as a `service_unreachable` decline: CSM-safe copy, no stack
+ * trace, no crash, page renders fine. An operator looking at a healthy process serving 200s
+ * has nothing to go on. This line is that something.
+ *
+ * Deliberately a warning and not a throw: refusing to boot without the service would make a
+ * frontend that is perfectly usable on every other page unstartable. */
+if (!process.env.ASK_NAREN_SERVICE_URL) {
+  console.warn(
+    `[ask-naren] ASK_NAREN_SERVICE_URL is not set; falling back to ${SERVICE_URL}. ` +
+      'That is correct locally and wrong everywhere else -- outside local development this ' +
+      'is unreachable and every question will be declined with reason `service_unreachable`.',
+  );
+}
 
 /**
  * SET AGAINST THE SERVICE'S OWN DEADLINE (issue #32), which is the thing that decides how

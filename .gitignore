@@ -1,5 +1,10 @@
 # --- Secrets & environments ---
 .env
+# `.env` alone does NOT cover `.env.local`, which is the file Next actually reads for local
+# development -- so a filled-in one was one `git add -A` away from being committed. The
+# negation keeps the checked-in template, which carries no secrets by design.
+.env.*
+!.env.example
 .venv
 
 # --- Python build/cache artifacts ---
