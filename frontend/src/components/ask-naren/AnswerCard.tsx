@@ -2,6 +2,8 @@ import type { AskNarenAnswer } from '@/types';
 
 import { scenarioLabel } from '@/lib/thread';
 
+import { boldSpans } from './boldSpans';
+
 /**
  * An answered response: the guidance, then the verbatim line of Naren's it rests on, then
  * the situation it is about and the call it came from.
@@ -40,7 +42,11 @@ export function AnswerCard({ result }: { result: AskNarenAnswer }) {
         </div>
       )}
 
-      <p className="text-[15px] leading-relaxed text-ink whitespace-pre-line">{result.answer}</p>
+      <p className="text-[15px] leading-relaxed text-ink whitespace-pre-line">
+        {boldSpans(result.answer).map((span, i) =>
+          span.bold ? <strong key={i} className="font-semibold">{span.text}</strong> : span.text,
+        )}
+      </p>
 
       <blockquote className="border-l-2 border-accent pl-4">
         <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-placeholder">

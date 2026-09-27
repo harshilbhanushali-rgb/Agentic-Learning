@@ -11,7 +11,7 @@ import { MenuIcon, SunIcon, MoonIcon } from '@/components/icons';
  *
  * Workspace, Library and Simulator are archived under src/app/_archive/ -- a private folder,
  * so Next serves no route for them -- and the full shell that went with them (the Oracle
- * search, the Veteran/Newbie switch, notifications, the mock "Today" items and profile) is
+ * search, the Veteran/Newbie switch, notifications, the mock "Today" items and mock profile) is
  * kept at src/components/_archive/AppShell.tsx. None of that did anything real: bringing it
  * back is restoring those files, not rebuilding them.
  *
@@ -21,7 +21,21 @@ import { MenuIcon, SunIcon, MoonIcon } from '@/components/icons';
  */
 const NAV_ITEMS = [{ href: '/ask-naren', label: 'Ask Naren' }];
 
-export default function AppShell({ children }: { children: ReactNode }) {
+function initials(name: string): string {
+  // Words that start with a letter or digit: "E2E Test (Claude)" is "ET", not "E(".
+  const startsWord = (w: string) => /\d/.test(w[0]) || w[0].toLowerCase() !== w[0].toUpperCase();
+  const parts = name.trim().split(/\s+/).filter(startsWord);
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
+}
+
+export default function AppShell({
+  children,
+  user,
+}: {
+  children: ReactNode;
+  /** The signed-in user, resolved by the root layout; null when nobody is signed in. */
+  user: { name: string; email: string } | null;
+}) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -82,6 +96,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="sidebar-spacer" />
+
+        {user && (
+          <div className="sidebar-user" title={sidebarOpen ? undefined : `${user.name} · ${user.email}`}>
+            <div className="sidebar-user-avatar" aria-hidden="true">{initials(user.name)}</div>
+            <div className="sidebar-user-info">
+              <div className="sidebar-user-name">{user.name}</div>
+              <div className="sidebar-user-meta" style={{ textTransform: 'none', letterSpacing: 0 }}>{user.email}</div>
+            </div>
+          </div>
+        )}
       </aside>
 
       <div className="app-content-zone">
