@@ -319,9 +319,12 @@ class GatewayClient:
         reasons and descriptions -- which reads as perfect determinism and is actually a
         cache echo of the first run.
 
-        `no_cache=True` sends LiteLLM's `cache: {"no-cache": true}`, verified to bypass it
-        (946ms/794ms, genuinely different text each call). ANY harness measuring run-to-run
-        variance MUST set it. Left default-False so existing callers are unchanged: for a
+        `no_cache=True` sends LiteLLM's `cache: {"no-cache": true}` AND `caching: false`. The
+        first alone was verified to bypass the cache when this was written (946ms/794ms,
+        genuinely different text each call) and had STOPPED doing so by 2026-09-28 (1 distinct
+        text in 3 at temperature 1.0, repeats in 1.3s); `caching: false` bypasses it. So any
+        repeat run made with no_cache between those dates may have read the cache. ANY harness
+        measuring run-to-run variance MUST set it. Left default-False so existing callers are unchanged: for a
         one-shot production pass the cache is a saving, not a hazard.
 
         `schema` (2026-09-08) upgrades the request from JSON MODE to a SCHEMA-CONSTRAINED
@@ -357,7 +360,12 @@ class GatewayClient:
             ),
         }
         if no_cache:
+            # BOTH, deliberately. `cache.no-cache` stopped bypassing the gateway on its own --
+            # measured 2026-09-28: 1 distinct text in 3 at temperature 1.0, repeats in 1.3s --
+            # while `caching: false` bypasses it (3/3 distinct, full latency each). The old key
+            # stays so a gateway that still honours it keeps doing so.
             body["cache"] = {"no-cache": True}
+            body["caching"] = False
         # Optional, additive (2026-08-18, PV model amendment): LiteLLM forwards
         # `reasoning_effort` to reasoning-capable Gemini models. Default None keeps
         # every existing caller's request body byte-identical.
@@ -783,7 +791,12 @@ class AsyncGatewayClient:
             ),
         }
         if no_cache:
+            # BOTH, deliberately. `cache.no-cache` stopped bypassing the gateway on its own --
+            # measured 2026-09-28: 1 distinct text in 3 at temperature 1.0, repeats in 1.3s --
+            # while `caching: false` bypasses it (3/3 distinct, full latency each). The old key
+            # stays so a gateway that still honours it keeps doing so.
             body["cache"] = {"no-cache": True}
+            body["caching"] = False
         if reasoning_effort:
             body["reasoning_effort"] = reasoning_effort
         data = await self._post("/chat/completions", body)

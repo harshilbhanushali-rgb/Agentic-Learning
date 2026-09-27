@@ -473,6 +473,11 @@ def test_optional_request_knobs_ride_along_only_when_asked():
     assert "cache" not in plain and "reasoning_effort" not in plain
     assert plain["messages"] == [{"role": "user", "content": "p"}]
     assert loaded["cache"] == {"no-cache": True}
+    # `cache.no-cache` ALONE STOPPED BYPASSING THE GATEWAY CACHE (measured 2026-09-28: 1 distinct
+    # text in 3 at temperature 1.0, repeats in 1.3s). `caching: false` does bypass it (3/3
+    # distinct, full latency each), so no_cache must send it.
+    assert loaded["caching"] is False
+    assert "caching" not in plain
     assert loaded["reasoning_effort"] == "low"
     assert loaded["messages"][0] == {"role": "system", "content": "be terse"}
 
