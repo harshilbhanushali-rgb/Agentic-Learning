@@ -60,7 +60,7 @@ export async function createSession(
 /**
  * The signed-in user for a cookie's token, or null.
  *
- * NULL MEANS SIGNED OUT, AND ONLY THAT. A database fault throws instead, so a store outage
+ * NULL MEANS SIGNED OUT, AND ONLY THAT. A database fault on the LOOKUP throws instead, so a store outage
  * surfaces as an error rather than masquerading as an expired session and sending a CSM to
  * a sign-in page that cannot work either (issue #40 decides what they read).
  */
@@ -95,17 +95,34 @@ export async function validateSession(
     new Date(row.expires_at).getTime() <= t ||
     lastSeen + IDLE_MS <= t;
   if (dead) {
-    await db.query('delete from ask_naren.sessions where token_hash = $1', [tokenHash]);
+    await housekeeping(db.query('delete from ask_naren.sessions where token_hash = $1', [tokenHash]));
     return null;
   }
 
   if (t - lastSeen >= TOUCH_INTERVAL_MS) {
-    await db.query('update ask_naren.sessions set last_seen_at = $2 where token_hash = $1', [
-      tokenHash,
-      now,
-    ]);
+    await housekeeping(
+      db.query('update ask_naren.sessions set last_seen_at = $2 where token_hash = $1', [
+        tokenHash,
+        now,
+      ]),
+    );
   }
   return { id: row.user_id, email: row.email, name: row.name };
+}
+
+/**
+ * THE LOOKUP DECIDES, THE WRITES ARE HOUSEKEEPING (issue #40). Deleting a dead row and moving
+ * `last_seen_at` forward are both writes, and a store that still reads but refuses writes --
+ * the pooled read-only leak in Brain/docs/GOTCHAS.md -- would otherwise sign out everyone last
+ * seen more than an hour ago although their session is perfectly valid. A failed touch costs
+ * at most an early idle expiry; a failed delete leaves a row the next sign-in sweeps.
+ */
+async function housekeeping(write: Promise<unknown>): Promise<void> {
+  try {
+    await write;
+  } catch (cause) {
+    console.warn('[ask-naren] session housekeeping write failed (ignored):', cause);
+  }
 }
 
 /** Sign out: this browser only (ADR 0011). */

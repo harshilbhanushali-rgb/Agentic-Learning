@@ -34,10 +34,10 @@ npm run build  # Production build (also runs full TypeScript type-check)
 npm start      # Run production build
 npm run lint   # ESLint
 npm test       # vitest: sign-in, sessions, the proxy route -- against real Postgres (PGlite, in-process)
-npm run users -- --help   # admin CLI for Ask Naren users (needs ASK_NAREN_DATABASE_URL)
+npm run users -- --help   # admin CLI for Ask Naren users (needs ASK_NAREN_ADMIN_DATABASE_URL)
 ```
 
-`npm test` covers `src/server/` and the proxy route only; there are no component tests. `npm run build` is still the type-check gate — there is no separate `tsc` script. **Don't run `next` through the shell hook**: RTK rewrites `next start` into a build summary, so start a server with `node node_modules/next/dist/bin/next start`.
+`npm test` covers `src/server/` and the API routes only; there are no component tests. `npm run build` is still the type-check gate — there is no separate `tsc` script. **Don't run `next` or `vitest` through the shell hook.** RTK rewrites `next start` into a build summary, and its vitest summary reports `FAIL (0)` even when whole test files fail to load. Use `node node_modules/next/dist/bin/next start` and `node node_modules/vitest/vitest.mjs run`, and read the `Test Files` line.
 
 ## Stack
 
@@ -46,7 +46,7 @@ npm run users -- --help   # admin CLI for Ask Naren users (needs ASK_NAREN_DATAB
 - **State:** React hooks + `localStorage` + `CustomEvent` — no Redux/Zustand. No data fetching library: the one page that fetches (`/ask-naren`) uses bare `fetch` against a same-origin route
 - **Icons:** inline SVG components in `frontend/src/components/icons/index.tsx` — no icon library
 - All page data is hardcoded mock in `frontend/src/data/`. **One API route exists**: `frontend/src/app/api/ask-naren/route.ts`, a pass-through proxy to the Python Ask Naren service that holds no retrieval, grounding or model logic — see `ask-naren/` and `Brain/CLAUDE.md`
-- **Sign-in (Ask Naren only)** — hand-rolled sessions, ADR 0011. `frontend/src/server/` is server-only code: `db.ts` (the `Db` seam over `pg`; `ASK_NAREN_DATABASE_URL`), `auth/` (scrypt passwords, session rows keyed on the token's SHA-256, users, the admin CLI's logic). Tables are in the `ask_naren` Postgres schema, from `frontend/db/migrations/`, applied by hand — never by the app. **Who is signed in is asked in one place**: `getCurrentUser` / `requireUser` in `auth/current-user.ts` for pages and actions, `validateSession` directly in the proxy route — never in `middleware` or a layout (issue #42). No session is `null`; a database fault throws, and must never be turned into "signed out"
+- **Sign-in (Ask Naren only)** — hand-rolled sessions, ADR 0011. `frontend/src/server/` is server-only code: `db.ts` (the `Db` seam over `pg`; `ASK_NAREN_DATABASE_URL`), `auth/` (scrypt passwords, session rows keyed on the token's SHA-256, users, the admin CLI's logic). Tables are in the `ask_naren` Postgres schema of Brain's Neon instance, from `frontend/db/migrations/`, applied by hand — never by the app. **The app connects as SQL-created roles, never Console-made ones** (ADR 0012: Console roles join `neon_superuser` and can write `kb_pairs`). `ask_naren_app` is the web app and `ask_naren_admin` is the CLI; grants are in `frontend/db/provision/grants.sql`, which must be re-run after every new migration. Setup is in `frontend/db/provision/README.md`. On first use the app refuses to serve a role that could reach Brain's tables (`src/server/privilege.ts`). **Who is signed in is asked in one place**: `getCurrentUser` / `requireUser` in `auth/current-user.ts` for pages and actions, `validateSession` directly in the proxy route — never in `middleware` or a layout (issue #42). No session is `null`; a database fault throws, and must never be turned into "signed out"
 
 ## Architecture
 

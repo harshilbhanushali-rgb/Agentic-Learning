@@ -5,7 +5,7 @@
 import { loadEnvConfig } from '@next/env';
 
 import { USAGE, runCli } from '../src/server/auth/admin-cli';
-import { db } from '../src/server/db';
+import { adminDb } from '../src/server/db';
 
 // The same .env.local the app reads, so the admin tool and the app cannot disagree about
 // which database they are pointed at.
@@ -22,12 +22,12 @@ if (!argv.length || argv.includes('--help')) {
   console.log(USAGE);
   process.exit(argv.length ? 0 : 2);
 }
-if (!process.env.ASK_NAREN_DATABASE_URL) {
-  console.error('ASK_NAREN_DATABASE_URL is not set -- in the environment or .env.local.');
+if (!process.env.ASK_NAREN_ADMIN_DATABASE_URL) {
+  console.error('ASK_NAREN_ADMIN_DATABASE_URL is not set -- in the environment or .env.local.');
   process.exit(1);
 }
 
-runCli(argv, db(), { out: line => console.log(line), readStdin })
+runCli(argv, adminDb(), { out: line => console.log(line), readStdin })
   .then(code => process.exit(code))
   .catch(err => {
     console.error(err);

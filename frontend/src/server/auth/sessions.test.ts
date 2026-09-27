@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Db } from '../db';
 import { freshDb } from '../testing/pglite';
@@ -147,5 +147,20 @@ describe('sessions', () => {
     const { token } = await createSession(db, await seedUser(), T0);
     const broken: Db = { query: () => Promise.reject(new Error('connection refused')) };
     await expect(validateSession(broken, token, T0)).rejects.toThrow('connection refused');
+  });
+});
+
+describe('when the store refuses writes', () => {
+  it('a valid session still resolves: the touch and the sweep are housekeeping', async () => {
+    const { token } = await createSession(db, await seedUser(), T0);
+    const readOnly: Db = {
+      query: (t, p) =>
+        /^\s*(update|delete)/i.test(t) ? Promise.reject(new Error('read-only transaction')) : db.query(t, p),
+    };
+    const quiet = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(await validateSession(readOnly, token, at(2 * TOUCH_INTERVAL_MS))).not.toBeNull();
+    // A dead one is still refused even though its row could not be deleted.
+    expect(await validateSession(readOnly, token, at(ABSOLUTE_MS))).toBeNull();
+    quiet.mockRestore();
   });
 });

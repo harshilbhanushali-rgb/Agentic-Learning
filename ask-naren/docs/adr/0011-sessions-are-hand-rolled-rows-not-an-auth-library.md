@@ -20,7 +20,7 @@ Auth.js v5 was excluded earlier: Credentials cannot use a database session, and 
 
 ## What else was fixed with it
 
-- **Lifetime**: 14 days idle, 30 days absolute. On expiry mid-thread the CSM signs in and returns to the same thread with the unsent draft kept; the thread itself is on the server and loses nothing.
+- **Lifetime**: 14 days idle, 30 days absolute. On expiry mid-thread the CSM signs in and returns to the same thread with the unsent draft kept; the thread itself is on the server and loses nothing. (One caveat, from #40: if the store fails in the seconds between the service answering and the turn being written, the answer is still shown, marked "Not saved to this thread", and the next question starts a fresh thread rather than replaying one with a gap.)
 - **Sign out** ends this browser's session. An admin can end all of a user's sessions. **Offboarding is disabling the user *and* deleting their sessions** — deleting sessions alone lets them sign straight back in, and deleting the user would take their threads and the analytics rows with them.
 - **Passwords are set by an admin**, via a Node script that shares the login path's hashing code, and handed to the user directly. There is no temporary password, no forced change and no self-service reset: a reset is the admin setting a new one.
 - **No throttling on sign-in.** The app relies on a network boundary. **Exposing it publicly reopens this ADR.**
@@ -33,4 +33,5 @@ Workspace changes how identity is *proved*, not what it *is*. The first Google s
 ## Consequences
 
 - We own security-sensitive code. It is small, but it gets a review before merge on the points that fail silently: token entropy, constant-time comparison, cookie flags, scrypt parameters.
-- The session check is a database read, so **when the store is down, nobody can be recognised as signed in** — there is no stateless fallback. What the CSM sees then is #40's decision.
+- The session check is a database read, so **when the store is down, nobody can be recognised as signed in** — there is no stateless fallback. #40 decided what the CSM reads then: a `store_unavailable` decline that puts the question back in the box. It also made the session's own housekeeping writes (the `last_seen_at` touch, sweeping dead rows) best-effort, so a store that reads but refuses writes still signs people in.
+- Roles, grants and the least-privilege check that protect this data are ADR 0012.

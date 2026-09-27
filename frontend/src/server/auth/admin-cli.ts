@@ -29,7 +29,7 @@ export const USAGE = `Usage: npm run users -- <command>
   sign-out <email>                        Sign the user out on every browser.
   list                                    Every user, with status and session count.
 
-Needs ASK_NAREN_DATABASE_URL (read from the environment or .env.local).`;
+Needs ASK_NAREN_ADMIN_DATABASE_URL (read from the environment or .env.local).`;
 
 export interface CliIo {
   out: (line: string) => void;
