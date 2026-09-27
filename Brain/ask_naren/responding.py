@@ -190,8 +190,10 @@ async def _rendered(message: str, decision: intake.IntakeDecision, pool: Retriev
         scenario_key = match.pair["scenario_key"]
         record = playbook_for(scenario_key) if playbook_for else None
         if not (record or {}).get("playbook"):
-            return _no_play(scenario_key)
-        return rendering.improve_at_move(message, scenario_key, record, label_for=label_for)
+            return _no_play(match)
+        return _matched(
+            rendering.improve_at_move(message, scenario_key, record, label_for=label_for),
+            match)
 
     if decision.intent in intake.PLAYBOOK_INTENTS:
         return _from_playbook(message, decision, match, playbook_for, label_for=label_for)
@@ -302,20 +304,42 @@ def _from_playbook(message: str, decision: intake.IntakeDecision, match,
     record = playbook_for(scenario_key) if playbook_for else None
     playbook = (record or {}).get("playbook")
     if not playbook:
-        return _no_play(scenario_key)
+        return _no_play(match)
 
     if decision.intent == intake.SEQUENCE:
-        return rendering.sequence(scenario_key, playbook)
-    if decision.intent == intake.PHRASING:
-        return rendering.phrasing(scenario_key, playbook, label_for=label_for)
-    if decision.intent == intake.PITFALLS:
-        return rendering.pitfalls(scenario_key, playbook, label_for=label_for)
-    if decision.intent == intake.SCENARIO_CHECK:
-        return rendering.scenario_check(message, scenario_key, playbook)
-    return rendering.play_confidence(scenario_key, record)
+        rendered = rendering.sequence(scenario_key, playbook)
+    elif decision.intent == intake.PHRASING:
+        rendered = rendering.phrasing(scenario_key, playbook, label_for=label_for)
+    elif decision.intent == intake.PITFALLS:
+        rendered = rendering.pitfalls(scenario_key, playbook, label_for=label_for)
+    elif decision.intent == intake.SCENARIO_CHECK:
+        rendered = rendering.scenario_check(message, scenario_key, playbook)
+    else:
+        rendered = rendering.play_confidence(scenario_key, record)
+    return _matched(rendered, match)
 
 
-def _no_play(scenario_key: str) -> dict:
+def _matched(response: dict, match) -> dict:
+    """`response`, carrying the `match` that picked its scenario (issue #45).
+
+    EVERY PATH THAT RAN `pool.top1` REPORTS WHAT IT FOUND, in the one shape the answered and
+    declined responses already use. These paths found their scenario by retrieving and had
+    the cosine in hand, but sent none -- so a stored turn recorded NULL for a number that was
+    computed and thrown away.
+
+    ATTACHED HERE RATHER THAN INSIDE `rendering`, because the playbook renderers are handed a
+    scenario key, not a match: they render a PLAY, which is the same document whichever
+    exchange led to it. The match is a fact about this request's retrieval, and this is the
+    layer that ran it.
+
+    `answering._match_info` is the one definition of the shape, so this cannot drift from
+    the answered and declined paths. `rank` is 1: the scenario came from the nearest
+    exchange, and there is no shortlist on these paths.
+    """
+    return {**response, "match": answering._match_info(match, 1)}
+
+
+def _no_play(match) -> dict:
     """No live playbook for the closest situation -- a CLARIFY, not a decline and not a
     Layer B fallback.
 
@@ -324,11 +348,17 @@ def _no_play(scenario_key: str) -> dict:
     knows what Naren SAID about the situation, there is no Layer B substitute for "what
     order do i do this in" or "what is the criterion for this move". Two copies would be two
     places for the sentence a CSM reads to drift.
+
+    IT CARRIES `match`, UNLIKE EVERY OTHER CLARIFY (issue #45), because it is the only one
+    that searched: the scenario it names came from retrieval. A clarify's "no unverified
+    text in any field" rule is untouched -- a cosine, a scenario key and a rank are numbers
+    and an identifier the service computed, not prose for a CSM to believe.
     """
-    return answering.clarify(
+    scenario_key = match.pair["scenario_key"]
+    return _matched(answering.clarify(
         f"There is no recorded play for {scenario_key.replace('_', ' ')}, which is the "
         f"closest situation to what you asked. Describe a specific client situation "
-        f"instead and Ask Naren will answer from the closest real exchange.")
+        f"instead and Ask Naren will answer from the closest real exchange."), match)
 
 
 def _guarded(decision: intake.IntakeDecision, message: str, turns,

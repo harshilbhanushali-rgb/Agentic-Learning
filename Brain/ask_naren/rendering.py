@@ -159,6 +159,10 @@ def what_happened_next(match, following: list[dict], label_for=citations.resolve
     adjacent one: the difference between "what happened next" and "the next thing we happen
     to cover". `is_last` says plainly when there was nothing after it, rather than rendering
     an empty list a CSM has to interpret.
+
+    `match` IS THE SAME BLOCK `show_exchange` CARRIES (issue #45). This path retrieves its
+    exchange exactly as that one does and already had the cosine in hand; leaving it off
+    meant a stored turn recorded NULL for a number that was computed and thrown away.
     """
     pair = match.pair
     return {
@@ -170,6 +174,7 @@ def what_happened_next(match, following: list[dict], label_for=citations.resolve
                       for f in following],
         "is_last": not following,
         "citation": _citation(pair, label_for),
+        "match": {"cosine": match.cosine, "scenario_key": pair["scenario_key"], "rank": 1},
     }
 
 

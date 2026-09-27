@@ -153,6 +153,17 @@ def test_the_last_exchange_in_a_call_says_so_rather_than_returning_an_empty_list
     assert result["following"] == []
 
 
+def test_what_happened_next_reports_the_match_it_retrieved_like_show_exchange():
+    """Issue #45: it retrieves its exchange exactly as `show_exchange` does, so it reports
+    the same block -- otherwise a stored turn records NULL for a cosine that was computed."""
+    match = _match()
+    result = rendering.what_happened_next(match, [])
+    assert result["match"] == rendering.show_exchange(match)["match"]
+    assert result["match"] == {"cosine": match.cosine,
+                               "scenario_key": "performance_pushback", "rank": 1}
+    assert isinstance(result["match"]["cosine"], float)
+
+
 # -- coverage_check (issue #20) -------------------------------------------------------------
 
 def test_coverage_check_is_an_answer_not_a_decline():

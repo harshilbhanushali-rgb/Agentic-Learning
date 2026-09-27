@@ -878,3 +878,98 @@ def test_improve_at_move_with_no_recorded_play_asks_rather_than_faking_one():
     assert result["outcome"] == "clarify"
     assert "performance pushback" in result["question"]
     assert gw.calls == []
+
+
+# -- every path that ran `pool.top1` reports its match (issue #45) ---------------------------
+
+class FixedEmbedder:
+    """Embeds everything to one fixed vector, so a test chooses WHICH pair is nearest."""
+
+    def __init__(self, vector):
+        self.vector = vector
+
+    async def __call__(self, texts):
+        return np.array([self.vector] * len(texts))
+
+
+#: Both pairs in `_pool()`, reached on purpose, so a `scenario_key` that merely happened to
+#: equal a constant cannot pass: it has to be the one retrieval actually reached.
+NEAREST = [([1.0, 0.05], "performance_pushback"), ([0.05, 1.0], "timeline_question")]
+
+#: The eight paths #45 names. The query is a span of the message for the reason
+#: `_ask_rendered` spells out.
+MATCHED_PATHS = ("sequence", "phrasing", "pitfalls", "scenario_check", "play_confidence",
+                 "improve_at_move", "what_happened_next")
+
+
+def _ask_path(intent, vector, playbook_for=lambda key: {**PLAYBOOK_RECORD,
+                                                        "scenario_key": key}):
+    gw = StubGateway()          # a generation here is a test failure
+    result = asyncio.run(responding.respond(
+        "tell me about cost per hire pushback", _pool(), gw,
+        embed_query=FixedEmbedder(vector),
+        classify=_decides(intent, "cost per hire pushback"),
+        playbook_for=playbook_for, following_for=lambda pair_id: [],
+        scenarios_for=lambda: SCENARIOS))
+    assert gw.calls == [], intent
+    return result
+
+
+def _expected_match(vector, scenario_key):
+    """What `show_exchange` -- a path that ALREADY reported its match -- says for the same
+    vector. The new paths must say exactly the same thing, not a near copy."""
+    return asyncio.run(responding.respond(
+        "can you show me cost per hire pushback", _pool(), StubGateway(),
+        embed_query=FixedEmbedder(vector),
+        classify=_decides("show_exchange", "cost per hire pushback")))["match"]
+
+
+@pytest.mark.parametrize("vector,scenario_key", NEAREST)
+@pytest.mark.parametrize("intent", MATCHED_PATHS)
+def test_every_rendered_path_that_retrieved_reports_its_match(intent, vector, scenario_key):
+    result = _ask_path(intent, vector)
+    assert result["outcome"] == "rendered" and result["kind"] == intent
+    assert set(result["match"]) == {"cosine", "scenario_key", "rank"}
+    assert isinstance(result["match"]["cosine"], float)
+    assert result["match"]["scenario_key"] == scenario_key
+    assert result["match"]["rank"] == 1
+    assert result["match"] == _expected_match(vector, scenario_key)
+
+
+@pytest.mark.parametrize("vector,scenario_key", NEAREST)
+@pytest.mark.parametrize("intent", ("sequence", "phrasing", "pitfalls", "scenario_check",
+                                    "play_confidence", "improve_at_move"))
+def test_the_no_recorded_play_clarify_reports_the_match_that_named_its_scenario(
+        intent, vector, scenario_key):
+    """The one clarify that searched: the scenario it names came from retrieval, so it has a
+    real cosine. Still no answer, quote or citation -- the rule is about unverified TEXT."""
+    result = _ask_path(intent, vector, playbook_for=lambda key: None)
+    assert result["outcome"] == "clarify"
+    assert scenario_key.replace("_", " ") in result["question"]
+    assert isinstance(result["match"]["cosine"], float)
+    assert result["match"] == _expected_match(vector, scenario_key)
+    assert "answer" not in result and "quote" not in result and "citation" not in result
+
+
+def test_a_clarify_that_searched_nothing_still_carries_no_match():
+    """Where a path legitimately has no match it stays absent rather than being invented:
+    intake's clarify and the no-topic-index clarify ran no retrieval."""
+    intake_clarify, _, _ = _respond(_decides("clarify", question="What did they say?"),
+                                    message="client is unhappy")
+    no_index, _, _ = _ask_rendered("discovery", scenarios_for=lambda: [])
+    assert intake_clarify["outcome"] == no_index["outcome"] == "clarify"
+    assert "match" not in intake_clarify and "match" not in no_index
+
+
+def test_the_paths_that_already_reported_a_match_are_unchanged():
+    """show_exchange and coverage_check reported `match` before #45; the rendered paths that
+    read a neighbourhood or the whole corpus never did, and still do not."""
+    for intent in ("show_exchange", "coverage_check"):
+        result, _, _ = _ask_rendered(intent)
+        assert result["match"] == {"cosine": pytest.approx(1 / np.sqrt(1.0025)),
+                                   "scenario_key": "performance_pushback", "rank": 1}, intent
+    for intent in ("discovery", "frequency"):
+        result, _, _ = _ask_rendered(intent)
+        assert "match" not in result, intent
+    where, _, _ = _ask_where_else()
+    assert "match" not in where

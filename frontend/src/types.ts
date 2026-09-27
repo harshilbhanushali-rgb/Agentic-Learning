@@ -322,6 +322,15 @@ export interface AskNarenClarify {
   /** The question to put to the CSM, written by the service. Rendered as-is, for the same
    *  reason `message` is on a decline. */
   question: string;
+  /** PRESENT ONLY ON THE NO-RECORDED-PLAY CLARIFY (issue #45) — the one clarify that
+   *  searched, because the scenario it names came from retrieval. Every other clarify is
+   *  decided before anything is searched, so there is no cosine and it stays absent rather
+   *  than invented.
+   *
+   *  This does not bend the absent-fields rule above. That rule is about unverified TEXT
+   *  reaching a CSM; a cosine, a scenario key and a rank are a number and identifiers the
+   *  service computed, not prose anyone is asked to believe. Recorded, never rendered. */
+  match?: AskNarenMatch;
 }
 
 /** An answer built from STORED ROWS, with no model call at all (issues #19, #20).
@@ -369,7 +378,10 @@ export type AskNarenRendered =
       following: (AskNarenExchange & { scenario_key: string })[];
       /** True when nothing followed it in the call. An empty list is something a CSM has to
        *  interpret; this is an answer. */
-      is_last: boolean; citation: AskNarenCitation }
+      is_last: boolean; citation: AskNarenCitation;
+      /** The same block `show_exchange` carries (issue #45): this retrieves its exchange the
+       *  same way, so it reports the same cosine. */
+      match: AskNarenMatch }
   /* The five a scenario's Layer C playbook answers by being rendered (issue #18).
      `scenario_key` is on every one of them because these answers show the PLAY, derived
      from many calls — so for three of the five there is no single call to point at, and the
@@ -378,9 +390,13 @@ export type AskNarenRendered =
      THE OTHER TWO DO POINT AT A CALL, one per quote. `phrasing` and `pitfalls` show Naren's
      verbatim words from a real client call, so each quote carries its own source — a
      verbatim quote a CSM cannot trace is the bare assertion ADR 0002 says a citation
-     exists to prevent. */
+     exists to prevent.
+
+     `match` IS ON ALL FIVE (issue #45): the scenario is picked by retrieving the nearest
+     exchange, and this is that retrieval's cosine — its `scenario_key` always equals the
+     top-level one. Recorded, never rendered as a score. */
   | { outcome: 'rendered'; kind: 'sequence'; intake?: AskNarenIntake;
-      scenario_key: string; steps: string[] }
+      scenario_key: string; steps: string[]; match: AskNarenMatch }
   | { outcome: 'rendered'; kind: 'phrasing'; intake?: AskNarenIntake;
       scenario_key: string;
       /** Phrase and quote are one-to-one here, so unlike a Layer C `answered` response
@@ -390,16 +406,18 @@ export type AskNarenRendered =
        *  `label` is what a CSM reads and `call` is the raw filename an engineer traces
        *  with, the same split as `AskNarenCitation`. `label` falls back to `call`, so it
        *  is never empty. */
-      phrases: { phrase: string; quote: string; call: string; label: string }[] }
+      phrases: { phrase: string; quote: string; call: string; label: string }[];
+      match: AskNarenMatch }
   | { outcome: 'rendered'; kind: 'pitfalls'; intake?: AskNarenIntake;
       scenario_key: string;
       pitfalls: { text: string;
-                  evidence: { quote: string; call: string; label: string }[] }[] }
+                  evidence: { quote: string; call: string; label: string }[] }[];
+      match: AskNarenMatch }
   | { outcome: 'rendered'; kind: 'scenario_check'; intake?: AskNarenIntake;
       asked_about: string; scenario_key: string;
       /** WHEN the play applies. Deliberately not a yes/no — whether it fits a live client
        *  is a judgement Ask Naren has only the CSM's own sentence for. */
-      applies_when: string }
+      applies_when: string; match: AskNarenMatch }
   | { outcome: 'rendered'; kind: 'play_confidence'; intake?: AskNarenIntake;
       scenario_key: string;
       /** Counted from the LIVE document, so they describe what the play rests on today.
@@ -411,7 +429,7 @@ export type AskNarenRendered =
        *  it can invert (50 → 8 quotes; 16 → 9 quotes). Secondary, and always rendered with
        *  `n_evidence_capped`. */
       n_evidence: number; n_evidence_capped: boolean;
-      basis: string }
+      basis: string; match: AskNarenMatch }
   /** Which accounts a situation has come up with (issue #22), so a CSM can tell a
    *  one-client quirk from a pattern across the book. The only rendered kind that reads a
    *  NEIGHBOURHOOD rather than one nearest exchange — its question has no single-exchange
@@ -489,7 +507,9 @@ export type AskNarenRendered =
                evidence: { quote: string; call: string; label: string }[] }[];
       pitfalls: { text: string;
                   evidence: { quote: string; call: string; label: string }[] }[];
-      basis: string }
+      basis: string;
+      /** The retrieval that picked the scenario (issue #45), as on the five playbook kinds. */
+      match: AskNarenMatch }
   | { outcome: 'rendered'; kind: 'coverage_check'; intake?: AskNarenIntake;
       asked_about: string;
       nearest: AskNarenScenarioRef & {
