@@ -33,9 +33,11 @@ npm run dev    # Start dev server at http://localhost:3000
 npm run build  # Production build (also runs full TypeScript type-check)
 npm start      # Run production build
 npm run lint   # ESLint
+npm test       # vitest: sign-in, sessions, the proxy route -- against real Postgres (PGlite, in-process)
+npm run users -- --help   # admin CLI for Ask Naren users (needs ASK_NAREN_DATABASE_URL)
 ```
 
-No test framework is configured. `npm run build` is the type-check gate — there is no separate `tsc` script.
+`npm test` covers `src/server/` and the proxy route only; there are no component tests. `npm run build` is still the type-check gate — there is no separate `tsc` script. **Don't run `next` through the shell hook**: RTK rewrites `next start` into a build summary, so start a server with `node node_modules/next/dist/bin/next start`.
 
 ## Stack
 
@@ -43,7 +45,8 @@ No test framework is configured. `npm run build` is the type-check gate — ther
 - **Tailwind CSS** for component styling
 - **State:** React hooks + `localStorage` + `CustomEvent` — no Redux/Zustand. No data fetching library: the one page that fetches (`/ask-naren`) uses bare `fetch` against a same-origin route
 - **Icons:** inline SVG components in `frontend/src/components/icons/index.tsx` — no icon library
-- All page data is hardcoded mock in `frontend/src/data/` — no database and no auth. **One API route exists**: `frontend/src/app/api/ask-naren/route.ts`, a pass-through proxy to the Python Ask Naren service. It is the only network seam in the frontend, and it holds no retrieval, grounding or model logic — see `ask-naren/` and `Brain/CLAUDE.md`
+- All page data is hardcoded mock in `frontend/src/data/`. **One API route exists**: `frontend/src/app/api/ask-naren/route.ts`, a pass-through proxy to the Python Ask Naren service that holds no retrieval, grounding or model logic — see `ask-naren/` and `Brain/CLAUDE.md`
+- **Sign-in (Ask Naren only)** — hand-rolled sessions, ADR 0011. `frontend/src/server/` is server-only code: `db.ts` (the `Db` seam over `pg`; `ASK_NAREN_DATABASE_URL`), `auth/` (scrypt passwords, session rows keyed on the token's SHA-256, users, the admin CLI's logic). Tables are in the `ask_naren` Postgres schema, from `frontend/db/migrations/`, applied by hand — never by the app. **Who is signed in is asked in one place**: `getCurrentUser` / `requireUser` in `auth/current-user.ts` for pages and actions, `validateSession` directly in the proxy route — never in `middleware` or a layout (issue #42). No session is `null`; a database fault throws, and must never be turned into "signed out"
 
 ## Architecture
 
@@ -59,7 +62,7 @@ All source lives under `frontend/`. `frontend/src/app/layout.tsx` wraps every ro
 - `frontend/src/hooks/useMode.ts` — the mode subscription hook
 - `frontend/src/types.ts` — the single source of domain types (`EgoTrap`, `RadarMeeting`, `CaseStudy`, `FailureEntry`, `Mode`, etc.); annotate new data and props against these. `AskNaren*` at the bottom mirror the Python service's response contract **exactly** and must not drift from it — `AskNarenResponse` is a discriminated union on `outcome` (`answered` | `declined` | `clarify`), which is what makes the render paths exhaustive. Note the service ALSO has a `declined` key inside the model's own JSON — that one is the frozen prompt contract from ADR 0001 and is a different thing entirely
 
-Routing: `/` redirects to `/workspace`. `/workspace`, `/library` and `/ask-naren` are implemented; `/simulator` is a stub. `/ask-naren` is the only page that talks to a backend, and the only one that is mode-agnostic.
+Routing: `/` redirects to `/workspace`. `/workspace`, `/library` and `/ask-naren` are implemented; `/simulator` is a stub. `/ask-naren` is the only page that talks to a backend, the only one that requires sign-in (`/login`), and the only one that is mode-agnostic. `ask-naren/page.tsx` is a server wrapper that resolves the user; the page body is `components/ask-naren/AskNaren.tsx`.
 
 ### Mode system (Veteran / Newbie)
 

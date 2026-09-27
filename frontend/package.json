@@ -6,19 +6,24 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run",
+    "users": "tsx scripts/users.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
     "geist": "^1.7.2",
     "motion": "^12.40.0",
     "next": "^14.2.15",
+    "pg": "^8.23.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@types/node": "^25.9.3",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.5.0",
@@ -26,6 +31,8 @@
     "eslint-config-next": "^14.2.15",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
-    "typescript": "^6.0.3"
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vitest": "^2.1.9"
   }
 }

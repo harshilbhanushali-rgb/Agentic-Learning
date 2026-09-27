@@ -28,8 +28,21 @@
  * plainly that it is a fault on our side, and the failure is logged server-side with the
  * upstream URL and the underlying cause. The HTTP status stays 503: a monitor watching for
  * outages must see one.
+ *
+ * ONLY FOR A SIGNED-IN USER (issue #44, ADR 0011). The session is checked here, in the handler,
+ * because this is where the data is -- not in `middleware` (issue #42). No session is a 401
+ * with no body the page renders: it is not an answer and not a decline, nothing was asked of
+ * the service, and the page's response to it is to keep the question and send the CSM to
+ * sign in. A FAULT DURING THE CHECK IS NOT A 401. Reporting a store outage as "signed out"
+ * would send a CSM to a sign-in page that cannot work either, and hide the outage behind
+ * what looks like an expired session; it is a 500, logged. What a CSM should read then is
+ * issue #40's to decide.
  */
 import type { NextRequest } from 'next/server';
+
+import { db } from '@/server/db';
+import { SESSION_COOKIE } from '@/server/auth/cookie';
+import { type SessionUser, validateSession } from '@/server/auth/sessions';
 
 /** Matches the service's own DEFAULT_HOST/DEFAULT_PORT. Overridable for a non-local
  *  deployment without touching code -- see .env.example. */
@@ -104,6 +117,18 @@ const UNREACHABLE = {
 } as const;
 
 export async function POST(request: NextRequest) {
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  let user: SessionUser | null = null;
+  try {
+    if (token) user = await validateSession(db(), token);
+  } catch (cause) {
+    console.error('[ask-naren] session check failed:', cause);
+    return Response.json({ error: 'session_check_failed' }, { status: 500, headers: JSON_HEADERS });
+  }
+  if (!user) {
+    return Response.json({ error: 'signed_out' }, { status: 401, headers: JSON_HEADERS });
+  }
+
   // Forwarded as text, not as a parsed-and-re-serialised object: the service does its own
   // validation of `situation` (non-empty string, body size cap) and returns a 400 with its
   // own message. Validating here too would put that rule in two places.

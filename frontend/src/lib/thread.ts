@@ -36,10 +36,11 @@ export interface ThreadTurn {
  *  a new key rather than trying to migrate what is in a CSM's browser, and the old one is
  *  simply never read again.
  *
- *  ONE KEY, NOT ONE PER CSM. The `csm_id` dropdown is not built yet (issue #12 phase 0), so
- *  there is no identity to key on. Story 22 — "sharing a machine, I should not see somebody
- *  else's thread" — lands with the dropdown, and this key gains the CSM then. */
-const STORAGE_KEY = 'cs-ask-naren-thread-v1';
+ *  ONE KEY PER SIGNED-IN USER (issue #44), which is Story 22 — "sharing a machine, I should
+ *  not see somebody else's thread". Sign-in is the identity the `csm_id` dropdown was going
+ *  to supply. The unsuffixed key from before sign-in is never read again. */
+const STORAGE_PREFIX = 'cs-ask-naren-thread-v1';
+const storageKey = (userId: number) => `${STORAGE_PREFIX}:${userId}`;
 
 /**
  * The transport budget, in bytes of JSON.
@@ -184,10 +185,10 @@ export function scenarioLabel(key: string): string {
  *  thread is discarded here instead, which costs one conversation and never a working page.
  *
  *  Returns [] during SSR, where there is no `window` at all. */
-export function load(): ThreadTurn[] {
+export function load(userId: number): ThreadTurn[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey(userId));
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed) || !parsed.every(isTurn)) return [];
@@ -197,13 +198,28 @@ export function load(): ThreadTurn[] {
   }
 }
 
-export function save(turns: ThreadTurn[]): void {
+export function save(userId: number, turns: ThreadTurn[]): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(turns));
+    window.localStorage.setItem(storageKey(userId), JSON.stringify(turns));
   } catch {
     // A full or disabled storage must not cost a CSM the answer on their screen. The thread
     // keeps working for this page load and simply does not survive a reload.
+  }
+}
+
+/** Signing out leaves nothing of the conversation behind in the browser — every user's
+ *  thread and the pre-sign-in one. Threads move to the server with #37; until then this is
+ *  what stops a shared machine keeping client names and Naren's replies after sign-out. */
+export function clearAll(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    for (let i = window.localStorage.length - 1; i >= 0; i--) {
+      const key = window.localStorage.key(i);
+      if (key?.startsWith(STORAGE_PREFIX)) window.localStorage.removeItem(key);
+    }
+  } catch {
+    // Storage unavailable: there is nothing in it to clear.
   }
 }
 
