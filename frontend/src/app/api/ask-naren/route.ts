@@ -1,15 +1,31 @@
 /**
- * Same-origin proxy to the Ask Naren service (issues #3, #6).
+ * Same-origin proxy to the Ask Naren service (issues #3, #6), and since #46 THE CALLER that
+ * holds a CSM's thread.
  *
  * WHY A PROXY AT ALL. The service is an internal ASGI app on uvicorn bound to localhost
  * (Brain/ask_naren/service.py). Pointing the browser straight at it would mean exposing it
  * beyond localhost and adding CORS to a service that deliberately has no framework to do
  * it. A same-origin route keeps the service where it is.
  *
- * ON THE HAPPY PATH THIS FILE RESHAPES NOTHING. The body goes out as received and the
- * response comes back byte-for-byte with its status, so `AskNarenResponse` in src/types.ts
- * describes ONE contract rather than the frontend's idea of it. No retrieval, grounding or
- * model-calling logic lives here or anywhere else in the frontend.
+ * THE ROUTE BUILDS THE THREAD, THE BROWSER DOES NOT (#46). The page sends
+ * `{situation, thread_id}`. The route loads that thread's stored turns FOR THIS USER, derives
+ * the wire turns with `turnFrom`, trims them and forwards `{situation, thread}` -- exactly
+ * the body the page used to build. Nothing a browser holds can reach the service's prompt,
+ * and a thread id that is not this user's is a 404 with nothing forwarded.
+ *
+ * THE RESPONSE BODY IS STILL THE SERVICE'S, BYTE FOR BYTE. Status, body and `Retry-After`
+ * come back as the service sent them, so `AskNarenResponse` in src/types.ts describes ONE
+ * contract rather than the frontend's idea of it. What this route adds travels in headers
+ * only: `X-Ask-Naren-Thread` / `X-Ask-Naren-Position` when the turn was recorded, and
+ * `X-Ask-Naren-Recorded: false` when the service answered but the write failed (#40) -- the
+ * answer is still delivered, and the page starts the next question in a fresh thread rather
+ * than replay a thread with a gap in it. No retrieval, grounding or model-calling logic lives
+ * here or anywhere else in the frontend.
+ *
+ * WHAT IS RECORDED. Every response that carries a known `outcome` -- including the outage and
+ * busy declines, so a CSM scrolling back sees that they asked and what happened, and so the
+ * `reason` column can tell an outage from a coverage gap. Never a 400 or 401: neither
+ * answered anything (#37). One retry of the write, then logged.
  *
  * WHEN THE SERVICE CANNOT BE REACHED (issue #6) this route SYNTHESISES a decline rather
  * than letting the failure escape as a 500. Two reasons:
@@ -29,20 +45,30 @@
  * upstream URL and the underlying cause. The HTTP status stays 503: a monitor watching for
  * outages must see one.
  *
- * ONLY FOR A SIGNED-IN USER (issue #44, ADR 0011). The session is checked here, in the handler,
- * because this is where the data is -- not in `middleware` (issue #42). No session is a 401
- * with no body the page renders: it is not an answer and not a decline, nothing was asked of
- * the service, and the page's response to it is to keep the question and send the CSM to
- * sign in. A FAULT DURING THE CHECK IS NOT A 401. Reporting a store outage as "signed out"
- * would send a CSM to a sign-in page that cannot work either, and hide the outage behind
- * what looks like an expired session; it is a 500, logged. What a CSM should read then is
- * issue #40's to decide.
+ * ONLY FOR A SIGNED-IN USER (issue #44, ADR 0011), checked here in the handler because this
+ * is where the data is -- not in `middleware` (issue #42). No session is a 401; a store fault
+ * during the check or the thread load is a 500 `store_unavailable` decline (#40), never a
+ * 401 -- see ./session.ts.
  */
 import type { NextRequest } from 'next/server';
 
+import type { AskNarenResponse } from '@/types';
 import { db } from '@/server/db';
-import { SESSION_COOKIE } from '@/server/auth/cookie';
-import { type SessionUser, validateSession } from '@/server/auth/sessions';
+import { loadThread, recordTurn } from '@/server/threads';
+import { type ThreadTurn, trimThread, turnFrom } from '@/lib/thread';
+
+import {
+  JSON_HEADERS,
+  POSITION_HEADER,
+  RECORDED_HEADER,
+  THREAD_HEADER,
+  parseThreadId,
+  sessionUser,
+  storeUnavailable,
+  threadNotFound,
+} from './session';
+
+export const dynamic = 'force-dynamic';
 
 /** Matches the service's own DEFAULT_HOST/DEFAULT_PORT. Overridable for a non-local
  *  deployment without touching code -- see .env.example. */
@@ -86,11 +112,12 @@ if (!process.env.ASK_NAREN_SERVICE_URL) {
  * produced AT its deadline still gets through the wire. If the deadline moves, move this.
  * No latency figure is asserted here -- gateway latency has been observed moving ~6x
  * between runs, and measurements live in ask-naren/audit/artifacts/.
+ *
+ * The store reads and writes either side of the fetch are not covered by this timeout; #40
+ * bounds them separately, with connect and query timeouts on the pool in src/server/db.ts.
  */
 const SERVICE_DEADLINE_MS = 30_000;
 const TIMEOUT_MS = SERVICE_DEADLINE_MS + 5_000;
-
-const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8' } as const;
 
 /** Response headers worth forwarding from the service, rather than replacing wholesale.
  *
@@ -116,23 +143,83 @@ const UNREACHABLE = {
     'our side, not a "no close match". Try again in a moment.',
 } as const;
 
+const OUTCOMES: ReadonlySet<string> = new Set(['answered', 'declined', 'clarify', 'rendered']);
+
 export async function POST(request: NextRequest) {
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
-  let user: SessionUser | null = null;
+  const session = await sessionUser(request);
+  if (session.refused) return session.refused;
+  const { user } = session;
+
+  // The browser's half of the body. `situation` is forwarded as received: the service
+  // validates it (non-empty string, body size cap) and returns its own 400, and validating
+  // here too would put that rule in two places. Only `thread_id` is this route's to check.
+  let sent: Record<string, unknown>;
   try {
-    if (token) user = await validateSession(db(), token);
-  } catch (cause) {
-    console.error('[ask-naren] session check failed:', cause);
-    return Response.json({ error: 'session_check_failed' }, { status: 500, headers: JSON_HEADERS });
+    const parsed: unknown = JSON.parse(await request.text());
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error();
+    sent = parsed as Record<string, unknown>;
+  } catch {
+    return Response.json({ error: 'invalid_body' }, { status: 400, headers: JSON_HEADERS });
   }
-  if (!user) {
-    return Response.json({ error: 'signed_out' }, { status: 401, headers: JSON_HEADERS });
+  const situation = sent.situation;
+  let threadId: number | null = null;
+  if (sent.thread_id !== undefined && sent.thread_id !== null) {
+    threadId = typeof sent.thread_id === 'number' ? parseThreadId(sent.thread_id) : null;
+    if (threadId === null) {
+      return Response.json({ error: 'invalid_thread_id' }, { status: 400, headers: JSON_HEADERS });
+    }
   }
 
-  // Forwarded as text, not as a parsed-and-re-serialised object: the service does its own
-  // validation of `situation` (non-empty string, body size cap) and returns a 400 with its
-  // own message. Validating here too would put that rule in two places.
-  const body = await request.text();
+  // The replayed thread, from storage and nothing else. A thread that is not this user's --
+  // missing, removed, someone else's -- is a 404 and the service is never called.
+  let thread: ThreadTurn[] = [];
+  if (threadId !== null) {
+    let stored;
+    try {
+      stored = await loadThread(db(), user.id, threadId);
+    } catch (cause) {
+      return storeUnavailable('thread load', cause);
+    }
+    if (!stored) return threadNotFound();
+    // TRIMMED, not truncated: a long conversation is shrunk by dropping old PROSE and never
+    // a carried identifier, because the message that established the scenario is usually
+    // the first one (ADR 0006). Without this the body eventually exceeds the service's cap
+    // and every further question 400s.
+    thread = trimThread(stored.turns.map(t => turnFrom(t.question, t.response)));
+  }
+
+  const askedAt = new Date();
+  const { status, text, headers } = await forward(JSON.stringify({ situation, thread }));
+  const answeredAt = new Date();
+
+  const response = recordable(status, text);
+  if (response && typeof situation === 'string' && situation.trim()) {
+    const recorded = await record({
+      userId: user.id,
+      threadId,
+      question: situation,
+      response,
+      askedAt,
+      answeredAt,
+    });
+    if (recorded) {
+      headers.set(THREAD_HEADER, String(recorded.threadId));
+      headers.set(POSITION_HEADER, String(recorded.position));
+    } else {
+      headers.set(RECORDED_HEADER, 'false');
+    }
+  }
+  return new Response(text, { status, headers });
+}
+
+/** The service's answer as status, body text and the headers to send on -- or the
+ *  synthesised unreachable decline when there is no usable answer. */
+async function forward(body: string): Promise<{ status: number; text: string; headers: Headers }> {
+  const unreachable = () => ({
+    status: 503,
+    text: JSON.stringify(UNREACHABLE),
+    headers: new Headers(JSON_HEADERS),
+  });
 
   let upstream: Response;
   try {
@@ -150,7 +237,7 @@ export async function POST(request: NextRequest) {
     // the upstream URL because "the service is down" is an operator's problem and the
     // CSM-facing message deliberately cannot say which host failed.
     console.error(`[ask-naren] upstream unreachable at ${SERVICE_URL}/ask:`, cause);
-    return Response.json(UNREACHABLE, { status: 503, headers: JSON_HEADERS });
+    return unreachable();
   }
 
   const text = await upstream.text();
@@ -165,7 +252,7 @@ export async function POST(request: NextRequest) {
       `[ask-naren] upstream returned non-JSON (status ${upstream.status}):`,
       text.slice(0, 500),
     );
-    return Response.json(UNREACHABLE, { status: 503, headers: JSON_HEADERS });
+    return unreachable();
   }
 
   const headers = new Headers(JSON_HEADERS);
@@ -173,5 +260,41 @@ export async function POST(request: NextRequest) {
     const value = upstream.headers.get(name);
     if (value !== null) headers.set(name, value);
   }
-  return new Response(text, { status: upstream.status, headers });
+  return { status: upstream.status, text, headers };
+}
+
+/** The response as a turn worth storing, or null. A 400 or 401 answered nothing (#37), and
+ *  a body without a known `outcome` is not this contract. */
+function recordable(status: number, text: string): AskNarenResponse | null {
+  if (status === 400 || status === 401) return null;
+  try {
+    const body = JSON.parse(text) as { outcome?: unknown } | null;
+    return body && typeof body.outcome === 'string' && OUTCOMES.has(body.outcome)
+      ? (body as AskNarenResponse)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** `recordTurn` with ONE retry on a fault (#40). Null when it could not be recorded: both
+ *  attempts threw, or the thread stopped being this user's between load and write (removed
+ *  in another tab) -- which is not a fault, so it is not retried. */
+async function record(
+  input: Parameters<typeof recordTurn>[1],
+): Promise<{ threadId: number; position: number } | null> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const recorded = await recordTurn(db(), input);
+      if (!recorded) {
+        console.error(
+          `[ask-naren] turn not recorded: thread ${input.threadId} is no longer user ${input.userId}'s`,
+        );
+      }
+      return recorded;
+    } catch (cause) {
+      console.error(`[ask-naren] turn write failed (attempt ${attempt} of 2):`, cause);
+    }
+  }
+  return null;
 }

@@ -1,10 +1,17 @@
 /**
- * The thread a CSM's conversation with Ask Naren is held in (issue #15).
+ * The thread a CSM's conversation with Ask Naren is held in (issues #15, #46).
  *
- * THE PAGE HOLDS THE THREAD, NOT THE SERVICE. Ask Naren reads Postgres once at startup and
+ * THE CALLER HOLDS THE THREAD, NOT THE SERVICE. Ask Naren reads Postgres once at startup and
  * closes the connection before serving a single request, so it has nowhere to put a
  * conversation and no handle to put it with. The caller keeps it and replays it with every
- * message. `localStorage` is the same pattern the app already uses for mode and theme.
+ * message. Since #46 the caller is the proxy ROUTE, not the page: the route loads the stored
+ * turns (`src/server/threads.ts`), derives the wire turns below with `turnFrom`, trims them
+ * and forwards them. The browser never sends a thread, so nothing a page holds can reach the
+ * service's prompt. The `localStorage` thread this used to be is retired; only its keys are
+ * still cleared on sign-out (`clearLegacyThreads`).
+ *
+ * STORED SHAPE AND WIRE SHAPE STAY APART (#37). Storage keeps the full response verbatim;
+ * the reduced turn here is DERIVED from it at read time and never stored.
  *
  * WHAT A TURN CARRIES. What the CSM typed, what Ask Naren said back, and the IDENTIFIERS of
  * the exchange the answer rested on — a scenario key, a `pair_id`, a call filename. Not the
@@ -15,10 +22,10 @@
  *
  * The shape here mirrors `Brain/ask_naren/threads.py::ThreadTurn` exactly. That module
  * validates it with pydantic and REJECTS a thread it cannot parse, so a mismatch is a 400
- * rather than a silently ignored field — which is why `load` below validates what comes out
- * of storage instead of trusting it.
+ * rather than a silently ignored field.
  */
 import type { AskNarenRendered, AskNarenResponse } from '@/types';
+import type { StoredThread, StoredTurn, ThreadSummary } from '@/server/threads';
 
 export interface ThreadTurn {
   /** What the CSM typed. Emptied, never removed, when `trimThread` elides a turn. */
@@ -32,15 +39,11 @@ export interface ThreadTurn {
   call_filename: string;
 }
 
-/** Where a thread lives between reloads. Versioned in the key itself: a shape change ships
- *  a new key rather than trying to migrate what is in a CSM's browser, and the old one is
- *  simply never read again.
- *
- *  ONE KEY PER SIGNED-IN USER (issue #44), which is Story 22 — "sharing a machine, I should
- *  not see somebody else's thread". Sign-in is the identity the `csm_id` dropdown was going
- *  to supply. The unsuffixed key from before sign-in is never read again. */
-const STORAGE_PREFIX = 'cs-ask-naren-thread-v1';
-const storageKey = (userId: number) => `${STORAGE_PREFIX}:${userId}`;
+/** Where the retired browser-held thread used to live (issues #15, #44): one key per user,
+ *  plus the unsuffixed one from before sign-in. Never read or written any more (#46 moved
+ *  threads to the server, with no migration); kept only so sign-out can clear what an older
+ *  deploy left behind on a shared machine. */
+const LEGACY_STORAGE_PREFIX = 'cs-ask-naren-thread-v1';
 
 /**
  * The transport budget, in bytes of JSON.
@@ -48,7 +51,8 @@ const storageKey = (userId: number) => `${STORAGE_PREFIX}:${userId}`;
  * The service refuses a body over 64KB (`service.MAX_BODY_BYTES`), and a thread grows with
  * every message — so without a trim here a long enough conversation makes the tool return
  * 400 forever, and clearing it is not something a CSM can be asked to do. This is a smaller
- * number than the cap so the current message and the JSON scaffolding still fit.
+ * number than the cap so the current message and the JSON scaffolding still fit. Applied by
+ * the proxy route to the thread it rebuilds from storage.
  *
  * A SECOND, TIGHTER TRIM RUNS SERVER-SIDE (`threads.MAX_THREAD_CHARS`, 24k characters) and
  * is the authoritative one. Two rules with two jobs: this one makes the request FIT, that
@@ -177,53 +181,87 @@ export function scenarioLabel(key: string): string {
   return key.replace(/_/g, ' ');
 }
 
-/** What is in storage, or an empty thread.
- *
- *  VALIDATED, NOT TRUSTED. The service rejects a malformed thread with a 400 rather than
- *  ignoring it, so a stale shape left in a browser by an older deploy would break the tool
- *  for that CSM until they cleared their own storage. Anything that is not recognisably a
- *  thread is discarded here instead, which costs one conversation and never a working page.
- *
- *  Returns [] during SSR, where there is no `window` at all. */
-export function load(userId: number): ThreadTurn[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(storageKey(userId));
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed) || !parsed.every(isTurn)) return [];
-    return parsed as ThreadTurn[];
-  } catch {
-    return [];
+/**
+ * The scenario the NEXT question would carry forward: the newest turn whose wire turn names
+ * one. Read through `turnFrom` on purpose rather than off the response, because what the
+ * service inherits is exactly what `turnFrom` carries -- a scenario a rendered answer or a
+ * decline mentions is not carried, and naming it here would misreport the risk (#39: "a
+ * stale carried scenario is the known wrong-answer risk, so it has to be visible").
+ */
+export function carriedScenario(turns: { question: string; response: AskNarenResponse }[]): string {
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const key = turnFrom(turns[i].question, turns[i].response).scenario_key;
+    if (key) return key;
   }
+  return '';
 }
 
-export function save(userId: number, turns: ThreadTurn[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(storageKey(userId), JSON.stringify(turns));
-  } catch {
-    // A full or disabled storage must not cost a CSM the answer on their screen. The thread
-    // keeps working for this page load and simply does not survive a reload.
-  }
-}
-
-/** Signing out leaves nothing of the conversation behind in the browser — every user's
- *  thread and the pre-sign-in one. Threads move to the server with #37; until then this is
- *  what stops a shared machine keeping client names and Naren's replies after sign-out. */
-export function clearAll(): void {
+/** Signing out leaves nothing of the retired browser-held thread behind -- every user's and
+ *  the pre-sign-in one. Threads live on the server since #46, so this only ever clears what
+ *  an older deploy wrote; it goes when nobody can still have those keys. */
+export function clearLegacyThreads(): void {
   if (typeof window === 'undefined') return;
   try {
     for (let i = window.localStorage.length - 1; i >= 0; i--) {
       const key = window.localStorage.key(i);
-      if (key?.startsWith(STORAGE_PREFIX)) window.localStorage.removeItem(key);
+      if (key?.startsWith(LEGACY_STORAGE_PREFIX)) window.localStorage.removeItem(key);
     }
   } catch {
     // Storage unavailable: there is nothing in it to clear.
   }
 }
 
-const OUTCOMES: ReadonlySet<string> = new Set(['answered', 'declined', 'clarify', 'rendered']);
+/* -- The thread APIs' JSON (issue #46) ------------------------------------------------------
+ * What `/api/ask-naren/threads` and `/api/ask-naren/threads/[id]` send, and what the page
+ * receives as its initial rail. Dates travel as ISO strings -- JSON has no date type, and a
+ * server component's props are serialised the same way. Frontend-internal: the service never
+ * sees these; the `response` inside a turn is the service's own contract, verbatim. */
+
+export interface ThreadSummaryJson {
+  id: number;
+  title: string;
+  renamed: boolean;
+  createdAt: string;
+  lastTurnAt: string;
+  turnCount: number;
+}
+
+export interface StoredTurnJson {
+  position: number;
+  question: string;
+  response: AskNarenResponse;
+  askedAt: string;
+  answeredAt: string;
+}
+
+export interface StoredThreadJson extends ThreadSummaryJson {
+  turns: StoredTurnJson[];
+}
+
+export function summaryJson(s: ThreadSummary): ThreadSummaryJson {
+  return {
+    id: s.id,
+    title: s.title,
+    renamed: s.renamed,
+    createdAt: s.createdAt.toISOString(),
+    lastTurnAt: s.lastTurnAt.toISOString(),
+    turnCount: s.turnCount,
+  };
+}
+
+function turnJson(t: StoredTurn): StoredTurnJson {
+  return {
+    position: t.position,
+    question: t.question,
+    response: t.response,
+    askedAt: t.askedAt.toISOString(),
+    answeredAt: t.answeredAt.toISOString(),
+  };
+}
+
+export function threadJson(t: StoredThread): StoredThreadJson {
+  return { ...summaryJson(t), turns: t.turns.map(turnJson) };
+}
 
 /** What a rendered answer looks like when replayed as a past turn. The rendered payload is
  *  a list or a verbatim exchange rather than prose, so the thread records what KIND of thing
@@ -243,19 +281,3 @@ const RENDERED_REPLIES: Record<AskNarenRendered['kind'], string> = {
   call_prep: 'Laid out what is likely to come up on that call.',
   improve_at_move: 'Showed the criterion, the pitfalls and Naren doing it.',
 };
-
-/** The same fields the service's pydantic turn requires, checked in the same strictness:
- *  an unrecognised outcome or a wrong-typed identifier means this is not our shape. */
-function isTurn(value: unknown): value is ThreadTurn {
-  if (typeof value !== 'object' || value === null) return false;
-  const t = value as Record<string, unknown>;
-  return (
-    typeof t.message === 'string' &&
-    typeof t.reply === 'string' &&
-    typeof t.scenario_key === 'string' &&
-    typeof t.call_filename === 'string' &&
-    (t.pair_id === null || typeof t.pair_id === 'number') &&
-    typeof t.outcome === 'string' &&
-    OUTCOMES.has(t.outcome)
-  );
-}

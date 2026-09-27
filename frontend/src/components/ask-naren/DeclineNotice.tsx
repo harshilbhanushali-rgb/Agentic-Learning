@@ -81,6 +81,13 @@ const COPY: Record<AskNarenDeclineReason, { heading: string; hint: string }> = {
     heading: 'Ask Naren ran out of time',
     hint: 'It stopped rather than leave you waiting. Nothing you typed caused this — ask the same thing again.',
   },
+  store_unavailable: {
+    // #40. NOT "unavailable": the service may be perfectly healthy -- what failed is the
+    // store behind sign-in and threads, so nothing was asked at all. The page has put the
+    // question back in the box and added nothing to the thread, and the hint says so.
+    heading: 'Ask Naren can’t reach your threads',
+    hint: 'Nothing you typed caused this, and rewording it will not help. Your question has not been sent — send it again in a moment.',
+  },
 };
 
 export function DeclineNotice({ result }: { result: AskNarenDecline }) {

@@ -288,7 +288,14 @@ export type AskNarenDeclineReason =
    *  here the service simply stopped rather than leave a CSM on a spinner past the point
    *  where an answer is still useful. HTTP 504. A rising rate of these means the cost
    *  estimate the queue depth is sized from has drifted. */
-  | 'deadline_exceeded';
+  | 'deadline_exceeded'
+  /** SYNTHESISED BY THE PROXY ROUTE, NOT THE SERVICE (issue #40), the same way
+   *  `service_unreachable` is: the store that holds sessions and threads could not be read,
+   *  so the route could not tell who was asking or load their thread, and NOTHING WAS ASKED
+   *  of the service. HTTP 500. Distinct from `service_unreachable` (503) by status, reason
+   *  and wording, because the fix is different: the service may be perfectly healthy. The
+   *  page puts the question back in the box and does not add it to the thread. */
+  | 'store_unavailable';
 
 export interface AskNarenDecline {
   outcome: 'declined';
