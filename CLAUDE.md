@@ -52,7 +52,9 @@ npm run users -- --help   # admin CLI for Ask Naren users (needs ASK_NAREN_ADMIN
 
 ### Layout & directory shape
 
-All source lives under `frontend/`. `frontend/src/app/layout.tsx` wraps every route in `<AppShell>` (`frontend/src/components/AppShell.tsx`), which renders the sidebar + topbar and owns the mode/theme/sidebar state. Pages are thin composition shells; the UI lives in per-component files:
+**Ask Naren is the only live page (since 2026-09-28).** Workspace, Library and Simulator are **archived**, not deleted. Their routes are in `frontend/src/app/_archive/`, a private folder, so Next serves no route for them, but they are still type-checked by the build. The full app shell that went with them is in `frontend/src/components/_archive/AppShell.tsx`: the Oracle search, the Veteran/Newbie switch, notifications, and the mock "Today" items and profile. To restore a page, move its folder back out of `_archive/` and restore that shell. The workspace/library components, data, `useMode` and the mode CSS below are kept for that.
+
+All source lives under `frontend/`. `frontend/src/app/layout.tsx` wraps every route in `<AppShell>` (`frontend/src/components/AppShell.tsx`). While Ask Naren is the only page, that shell is just the sidebar (one item), the collapse toggle and the theme toggle. Pages are thin composition shells; the UI lives in per-component files:
 
 - `frontend/src/components/workspace/` — workspace cards (one file per card, veteran + newbie variants)
 - `frontend/src/components/library/` — library tabs, cards, and modals
@@ -62,11 +64,11 @@ All source lives under `frontend/`. `frontend/src/app/layout.tsx` wraps every ro
 - `frontend/src/hooks/useMode.ts` — the mode subscription hook
 - `frontend/src/types.ts` — the single source of domain types (`EgoTrap`, `RadarMeeting`, `CaseStudy`, `FailureEntry`, `Mode`, etc.); annotate new data and props against these. `AskNaren*` at the bottom mirror the Python service's response contract **exactly** and must not drift from it — `AskNarenResponse` is a discriminated union on `outcome` (`answered` | `declined` | `clarify`), which is what makes the render paths exhaustive. Note the service ALSO has a `declined` key inside the model's own JSON — that one is the frozen prompt contract from ADR 0001 and is a different thing entirely
 
-Routing: `/` redirects to `/workspace`. `/workspace`, `/library` and `/ask-naren` are implemented; `/simulator` is a stub. `/ask-naren` is the only page that talks to a backend, the only one that requires sign-in (`/login`), and the only one that is mode-agnostic. `ask-naren/page.tsx` is a server wrapper that resolves the user; the page body is `components/ask-naren/AskNaren.tsx`.
+Routing: `/` redirects to `/ask-naren`. Live routes are `/ask-naren`, `/login` and `/api/ask-naren/**`; the archived pages return 404. `/ask-naren` is the only page that talks to a backend, the only one that requires sign-in (`/login`), and the only one that is mode-agnostic. `ask-naren/page.tsx` is a server wrapper that resolves the user; the page body is `components/ask-naren/AskNaren.tsx`.
 
-### Mode system (Veteran / Newbie)
+### Mode system (Veteran / Newbie), archived
 
-Two personas toggled in the topbar render **completely different component trees** within the same page:
+**Not live:** the switch was in the archived shell, and Ask Naren renders identically in both modes. It is described here for restoring the archived pages. Two personas toggled in the topbar render **completely different component trees** within the same page:
 
 1. `AppShell` persists the choice to `localStorage['cs-mode']` and dispatches a `cs-mode-change` `CustomEvent`.
 2. `useMode()` (in `src/hooks`) reads `localStorage` on mount and subscribes to that event; `workspace/page.tsx` and `library/page.tsx` branch on its return value.
