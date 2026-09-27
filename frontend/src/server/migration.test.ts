@@ -14,7 +14,7 @@ afterAll(() => pg.close());
 const insertUser = (email: string, name = 'X') =>
   pg.query('insert into ask_naren.users (email, name) values ($1, $2)', [email, name]);
 
-describe('migration 0001', () => {
+describe('migrations', () => {
   it('is idempotent: applying it again is harmless', async () => {
     await expect(pg.exec(MIGRATION)).resolves.toBeDefined();
   });
@@ -26,6 +26,8 @@ describe('migration 0001', () => {
     );
     expect(rows.map(r => `${r.table_schema}.${r.table_name}`).sort()).toEqual([
       'ask_naren.sessions',
+      'ask_naren.threads',
+      'ask_naren.turns',
       'ask_naren.users',
     ]);
   });
