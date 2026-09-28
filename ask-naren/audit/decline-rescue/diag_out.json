@@ -1,0 +1,188 @@
+[
+  {
+    "question": "On today's kickoff the client's TA lead said: \"How long does the ATS integration take on our side? Our IT team is booked solid through March.\" How should I respond?",
+    "intent": "reply_to_client",
+    "embedded": "How long does the ATS integration take on our side? Our IT team is booked solid through March.",
+    "outcome": "declined",
+    "reason": "no_close_match",
+    "top3": [
+      [
+        0.7959,
+        "ats_integration_and_api_mapping",
+        37178
+      ],
+      [
+        0.7849,
+        "technical_integration_and_timeline_scoping",
+        30328
+      ],
+      [
+        0.7791,
+        "application_volume_and_prioritization",
+        28916
+      ]
+    ],
+    "shown_client_said": "Any limitations from ATS integration standpoint? Do we are there any, like, ATSs that are just it's not gonna work?",
+    "shown_naren_replied": "No. Not that we've come across. You see, so think of it this way is is we're ATS agnostic at the end of the day. As long as we can get an API or or you know, just one, mechanism to integrate. Right? It could be an API key. It could be an authentication and so on, right, that we could integrate with them. We've done this in the past for Salesforce. Okay. We're in conversation with smart decoders. We've done this for items. So so we typically take a very ADS agnostic approach. Okay. As long as they have the ability to to provide us the API and set up, a bidirectional integration, we can do that as well.",
+    "repeat_declined": [
+      true,
+      true,
+      true
+    ]
+  },
+  {
+    "question": "The client said: \"Our ATS can only export a CSV, not XML. Can you still take our jobs?\" What would Naren say?",
+    "intent": "reply_to_client",
+    "embedded": "Our ATS can only export a CSV, not XML. Can you still take our jobs?",
+    "outcome": "declined",
+    "reason": "no_close_match",
+    "top3": [
+      [
+        0.8172,
+        "xml_feed_setup_and_ingestion",
+        29879
+      ],
+      [
+        0.8053,
+        "xml_feed_setup_and_ingestion",
+        34203
+      ],
+      [
+        0.8003,
+        "xml_feed_setup_and_ingestion",
+        34512
+      ]
+    ],
+    "shown_client_said": "So can I just double check on that? If if we've got an existing feed for, say, Indeed, where they are pulling all of our clients' jobs, can we just give you that same feed and you can use that, or do we have to develop a specific feed for you?",
+    "shown_naren_replied": "No. Of course. The no. My question, Chris, was, do you mean, like, are these feeds specific to each client that you provide to Indeed that they scrape off or that they scrape or or is is that what you're referring to?",
+    "repeat_declined": [
+      true,
+      true,
+      true
+    ]
+  },
+  {
+    "question": "The client's recruiter asked me: \"Once we send you the feed, when will our jobs actually go live?\" How do I answer?",
+    "intent": "reply_to_client",
+    "embedded": "Once we send you the feed, when will our jobs actually go live?",
+    "outcome": "declined",
+    "reason": "no_close_match",
+    "top3": [
+      [
+        0.8129,
+        "xml_feed_setup_and_ingestion",
+        29879
+      ],
+      [
+        0.8004,
+        "xml_feed_setup_and_ingestion",
+        33267
+      ],
+      [
+        0.7923,
+        "xml_feed_setup_and_ingestion",
+        33434
+      ]
+    ],
+    "shown_client_said": "So can I just double check on that? If if we've got an existing feed for, say, Indeed, where they are pulling all of our clients' jobs, can we just give you that same feed and you can use that, or do we have to develop a specific feed for you?",
+    "shown_naren_replied": "No. Of course. The no. My question, Chris, was, do you mean, like, are these feeds specific to each client that you provide to Indeed that they scrape off or that they scrape or or is is that what you're referring to?",
+    "repeat_declined": [
+      true,
+      true,
+      true
+    ]
+  },
+  {
+    "question": "The client said: \"Our legal team needs to review the MSA before we can share any data with you.\" What do I say?",
+    "intent": "reply_to_client",
+    "embedded": "Our legal team needs to review the MSA before we can share any data with you.",
+    "outcome": "answered",
+    "reason": null,
+    "top3": [
+      [
+        0.7418,
+        "contract_and_legal_review",
+        38137
+      ],
+      [
+        0.728,
+        "contract_and_legal_review",
+        31774
+      ],
+      [
+        0.7211,
+        "contract_and_legal_review",
+        34550
+      ]
+    ],
+    "shown_client_said": "Yeah. So I have a follow up call with the legal team this afternoon. I think once I understand where where they're at, I can kind of give you an update and and let you know what the next steps are. I think we'll probably have to have a discussion on the limitation of liability part, but, unfortunately, I haven't gotten any feedback, from them yet on that. So I will I'll let you know, and if needed, we can set up a call.",
+    "shown_naren_replied": "Awesome. Perfect. So I I think, completely aligned, on on the approach. So, Sally and team, what what I will do is, you know, we I'll just put in the launch date as the April one for now as just a placeholder. But you know we can probably work through some of these onboarding items targeting the first if you know if the contract gets pushed outside at your point let's say mid month right we we can change that to May one but we'll still be in a really good spot because we we got all the setup items completed right then it would just be a matter of just pushing the button. Right? So so we can kind of take that approach if that's okay. With everybody. Okay. Awesome. Perfect. Now that we've talk",
+    "repeat_declined": [
+      false,
+      false,
+      false
+    ]
+  },
+  {
+    "question": "The client asked: \"Can our agency get access to the dashboard so they can see the reports too?\" How should I reply?",
+    "intent": "reply_to_client",
+    "embedded": "Can our agency get access to the dashboard so they can see the reports too?",
+    "outcome": "answered",
+    "reason": null,
+    "top3": [
+      [
+        0.7905,
+        "dashboard_access_and_reporting",
+        35117
+      ],
+      [
+        0.7889,
+        "dashboard_access_and_reporting",
+        30325
+      ],
+      [
+        0.7725,
+        "dashboard_access_and_reporting",
+        33195
+      ]
+    ],
+    "shown_client_said": "Okay. Awesome, and with that access, I know we talked about getting our client teams their, access, read only access so they could see their dashboard. Is that how does that work?",
+    "shown_naren_replied": "Yep. So customers typically can we we can provide access, Cathy, so the dashboard itself today is is a read only dashboard, the insights or the the unified analytics dashboard that you have. Right? So you don't have to be worried about and then actionable from the customer. Right? So it is read only, right now. So we can replicate that access. The one thing that's on our road map and and that we're currently working towards is if there is any kind of level of customization that you wanna do from an access perspective. Right? That that's coming up. Right? So let's say you'd wanna give access to your customer of only, you know, the campaigns, but not the specific publishers. Right, or or let's",
+    "repeat_declined": [
+      false,
+      false,
+      false
+    ]
+  },
+  {
+    "question": "The client said: \"We want to split the first month's budget across three markets to test.\" How should I respond?",
+    "intent": "reply_to_client",
+    "embedded": "We want to split the first month's budget across three markets to test.",
+    "outcome": "answered",
+    "reason": null,
+    "top3": [
+      [
+        0.747,
+        "budget_allocation_and_testing",
+        38704
+      ],
+      [
+        0.7391,
+        "budget_allocation_and_testing",
+        27516
+      ],
+      [
+        0.7283,
+        "budget_allocation_and_testing",
+        32157
+      ]
+    ],
+    "shown_client_said": "Opinion on limiting to the top 5 cities and increasing the budget, like, per city since you won't be targeting as many?",
+    "shown_naren_replied": "Yeah. So we've already started putting our research together there, Danelle. It's it's gonna definitely affect velocity. Right? Which means just the throughput of the number of applications that we're gonna get. Right, or the number of qualified providers we're gonna get. Right, and it's probably you know, we're we're gonna come back down to, like, just a few applications a week. Right? Because, again, we're already limiting, you know, this to about 20 cities. Right? If if we further do it to, like, 5, my our recommendation is that, you know, we, you know, keep it little broad when we do these optimizations so that we're we're testing these across more geographies, especially since we're we'",
+    "repeat_declined": [
+      false,
+      false,
+      false
+    ]
+  }
+]
