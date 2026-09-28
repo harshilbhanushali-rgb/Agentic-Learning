@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NextRequest } from 'next/server';
@@ -44,13 +45,14 @@ beforeAll(async () => {
   testDb = fresh.db;
   reset = fresh.reset;
   close = () => fresh.pg.close();
-  vi.stubGlobal('fetch', upstream);
 });
 afterAll(() => close());
 beforeEach(async () => {
   current = testDb;
   await reset();
   upstream.mockReset();
+  /* Stubbed per test: tests/setup.ts calls vi.unstubAllGlobals() after every test. */
+  vi.stubGlobal('fetch', upstream);
   upstream.mockImplementation(async () => new Response(JSON.stringify(NO_MATCH), { status: 200 }));
 });
 

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 
 import { MAX_PASSWORD_LENGTH, dummyHash, hashPassword, verifyPassword } from './password';

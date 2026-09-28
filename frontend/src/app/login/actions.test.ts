@@ -1,6 +1,9 @@
+// @vitest-environment node
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Db } from '@/server/db';
+import { createSession, validateSession } from '@/server/auth/sessions';
+import { MAX_PASSWORD_LENGTH } from '@/server/auth/password';
 import { addUser } from '@/server/auth/users';
 import { freshDb } from '@/server/testing/pglite';
 
@@ -22,7 +25,7 @@ vi.mock('next/navigation', () => ({
 let current: Db;
 vi.mock('@/server/db', () => ({ db: () => current }));
 
-const { signIn } = await import('./actions');
+const { signIn, signOut } = await import('./actions');
 
 let testDb: Db;
 let reset: () => Promise<void>;
@@ -73,5 +76,44 @@ describe('signIn', () => {
     expect(result.error).toMatch(/^Sign-in is unavailable right now/);
     expect(result.error).not.toMatch(/do not match/);
     expect(jar.size).toBe(0);
+  });
+
+  it('asks for both fields before touching the store', async () => {
+    current = { query: () => Promise.reject(new Error('must not be reached')) };
+    const blank = { error: 'Enter your email and password.' };
+    expect(await signIn({ error: null }, form('   ', 'pw-for-tests-1'))).toEqual(blank);
+    expect(await signIn({ error: null }, form('priya@joveo.com', ''))).toEqual(blank);
+    expect(await signIn({ error: null }, new FormData())).toEqual(blank);
+  });
+
+  it('refuses an over-long password without hashing it, in the same words as a wrong one', async () => {
+    current = { query: () => Promise.reject(new Error('must not be reached')) };
+    expect(await signIn({ error: null }, form('priya@joveo.com', 'x'.repeat(MAX_PASSWORD_LENGTH + 1)))).toEqual({
+      error: 'That email and password do not match a Joveo user.',
+    });
+  });
+
+  it('never redirects off-site after signing in', async () => {
+    await addUser(testDb, { email: 'priya@joveo.com', name: 'Priya', password: 'pw-for-tests-1' });
+    await expect(
+      signIn({ error: null }, form('priya@joveo.com', 'pw-for-tests-1', '//evil.example')),
+    ).rejects.toMatchObject({ to: '/ask-naren' });
+  });
+});
+
+describe('signOut', () => {
+  it('ends this browser’s session on the server, drops the cookie and goes to sign in', async () => {
+    const userId = await addUser(testDb, { email: 'priya@joveo.com', name: 'Priya', password: 'pw-for-tests-1' });
+    const { token } = await createSession(testDb, userId);
+    jar.set('ask_naren_session', token);
+
+    await expect(signOut()).rejects.toMatchObject({ to: '/login' });
+    expect(jar.has('ask_naren_session')).toBe(false);
+    expect(await validateSession(testDb, token)).toBeNull();
+  });
+
+  it('with no cookie, still lands on sign in without a store read', async () => {
+    current = { query: () => Promise.reject(new Error('must not be reached')) };
+    await expect(signOut()).rejects.toMatchObject({ to: '/login' });
   });
 });

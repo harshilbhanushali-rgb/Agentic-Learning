@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AskNarenResponse } from '@/types';
