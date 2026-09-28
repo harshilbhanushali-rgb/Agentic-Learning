@@ -53,7 +53,9 @@ TREES = (
     Tree(
         src="frontend",
         dst="coder-pets-tray-app",
-        mirror=("src", "db", "scripts"),
+        # tests/fixtures is synced because the synced src/ tests import it; the rest of
+        # tests/ (setup, unit, e2e) belongs to the deployment.
+        mirror=("src", "db", "scripts", "tests/fixtures"),
         owned_downstream=(
             # The deployment's operational surface, which CS-platform has no counterpart for.
             "src/app/api/health/**",
