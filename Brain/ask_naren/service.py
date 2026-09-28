@@ -183,11 +183,17 @@ def build_app(answerer: Answerer, *, ready: ReadyCheck | None = None,
         path = scope["path"].rstrip("/") or "/"
         method = scope["method"]
 
-        if method == "GET" and path == "/health":
+        if method == "GET" and path in ("/health", "/healthz"):
             # LIVENESS. Awaits nothing, so it cannot queue behind an answer no matter how
             # many are in flight. Deliberately says nothing about readiness: an ingress
             # restarting a busy-but-healthy process is the failure this endpoint exists to
             # prevent, not to cause.
+            #
+            # TWO SPELLINGS, ONE ANSWER. `/health` is this service's own contract and what
+            # the audit harnesses poll; `/healthz` is what the Joveo applib template's
+            # probes expect. Aliasing costs nothing and means a probe pointed at either
+            # name works, rather than a healthy process being restarted forever because
+            # the deployment guessed the other spelling.
             return await _send(send, 200, {"status": "ok"})
 
         if method == "GET" and path == "/ready":

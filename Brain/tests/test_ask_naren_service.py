@@ -961,3 +961,22 @@ def test_an_abandoned_request_gives_its_slot_straight_back(serve_with):
             "the slot was still held 5s after the caller vanished -- an abandoned request "
             "is still consuming capacity")
         time.sleep(0.05)
+
+
+def test_healthz_is_the_same_liveness_answer_as_health(serve_with):
+    """THE PROBE SPELLING MUST NOT DECIDE WHETHER THE POD LIVES.
+
+    This service's own contract is `/health`, and the audit harnesses poll that. The Joveo
+    applib template this repo is built from probes `/healthz`. A deployment that guessed the
+    other spelling would get a 404 from a perfectly healthy process, read it as dead, and
+    restart it forever -- the same failure mode ADR 0003 named, arriving through the front
+    door instead. Aliasing costs one tuple entry; this is what keeps it aliased.
+    """
+    called = []
+    base = serve_with(lambda situation, thread=():called.append(situation) or ANSWER)
+
+    healthz = httpx.get(f"{base}/healthz")
+    assert healthz.status_code == 200
+    assert healthz.json() == httpx.get(f"{base}/health").json()
+    # Liveness, so it must not have cost a generation either.
+    assert called == []
