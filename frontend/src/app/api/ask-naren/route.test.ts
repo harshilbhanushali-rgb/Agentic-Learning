@@ -19,6 +19,14 @@ import { STORE_UNAVAILABLE } from './session';
 let current: Db;
 vi.mock('@/server/db', () => ({ db: () => current }));
 
+/* The service-identity gate (src/server/serviceUrl.ts, tested on its own) is stood in here, so
+ * `upstream` sees only the /ask call these tests assert on. A test can swap in a refusal. */
+let gate: { ok: true; base: string } | { ok: false; reason: string } = { ok: true, base: 'http://127.0.0.1:8787' };
+vi.mock('@/server/serviceUrl', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/server/serviceUrl')>()),
+  createServiceGate: () => async () => gate,
+}));
+
 const { POST } = await import('./route');
 
 let testDb: Db;
@@ -49,6 +57,7 @@ beforeAll(async () => {
 afterAll(() => close());
 beforeEach(async () => {
   current = testDb;
+  gate = { ok: true, base: 'http://127.0.0.1:8787' };
   await reset();
   upstream.mockReset();
   /* Stubbed per test: tests/setup.ts calls vi.unstubAllGlobals() after every test. */
@@ -341,5 +350,26 @@ describe('POST /api/ask-naren: recording', () => {
     expect(res.headers.get('Retry-After')).toBe('30');
     expect(await res.text()).toBe(JSON.stringify(busy));
     expect(res.headers.get('X-Ask-Naren-Position')).toBe('1');
+  });
+});
+
+describe('the service-identity gate', () => {
+  it('sends the question to the verified base, never anywhere else', async () => {
+    const { token } = await signedIn();
+    gate = { ok: true, base: 'http://ask-naren.team.svc.cluster.local' };
+    await ask(token);
+    expect(upstream).toHaveBeenCalledTimes(1);
+    expect(upstream.mock.calls[0][0]).toBe('http://ask-naren.team.svc.cluster.local/ask');
+  });
+
+  it('when the target is not provably the service: no question leaves, the CSM gets the outage decline', async () => {
+    const { token } = await signedIn();
+    gate = { ok: false, reason: 'ASK_NAREN_SERVICE_URL points at ask-naren-be.joveo.prod.com, which is not an internal address.' };
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const res = await ask(token);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ outcome: 'declined', reason: 'service_unreachable' });
+    expect(upstream).not.toHaveBeenCalled();
+    expect(logged.mock.calls.flat().join(' ')).toMatch(/question NOT sent: .*joveo\.prod\.com/);
   });
 });

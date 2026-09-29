@@ -67,12 +67,22 @@ import {
   storeUnavailable,
   threadNotFound,
 } from './session';
+import { DEFAULT_SERVICE_URL, createServiceGate, resolveServiceUrl } from '@/server/serviceUrl';
 
 export const dynamic = 'force-dynamic';
 
-/** Matches the service's own DEFAULT_HOST/DEFAULT_PORT. Overridable for a non-local
- *  deployment without touching code -- see .env.example. */
-const SERVICE_URL = process.env.ASK_NAREN_SERVICE_URL ?? 'http://127.0.0.1:8787';
+/** Where the service is. The default matches the service's own DEFAULT_HOST/DEFAULT_PORT;
+ *  a deployment overrides it without touching code -- see .env.example.
+ *
+ *  CHECKED BEFORE ANY QUESTION IS SENT (src/server/serviceUrl.ts). The host must be internal
+ *  and must answer `/health` as the service does. Production once pointed this at a
+ *  third-party wildcard domain, and every question went there. */
+const TARGET = resolveServiceUrl(
+  process.env.ASK_NAREN_SERVICE_URL,
+  process.env.ASK_NAREN_ALLOWED_SERVICE_HOSTS,
+);
+const serviceBase = createServiceGate(TARGET);
+if (!TARGET.ok) console.error(`[ask-naren] ${TARGET.reason}`);
 
 /* WARN ONCE AT STARTUP WHEN THE URL IS UNCONFIGURED, because every other signal this module
  * produces is indistinguishable from the tool working normally. The default is correct for
@@ -86,7 +96,7 @@ const SERVICE_URL = process.env.ASK_NAREN_SERVICE_URL ?? 'http://127.0.0.1:8787'
  * frontend that is perfectly usable on every other page unstartable. */
 if (!process.env.ASK_NAREN_SERVICE_URL) {
   console.warn(
-    `[ask-naren] ASK_NAREN_SERVICE_URL is not set; falling back to ${SERVICE_URL}. ` +
+    `[ask-naren] ASK_NAREN_SERVICE_URL is not set; falling back to ${DEFAULT_SERVICE_URL}. ` +
       'That is correct locally and wrong everywhere else -- outside local development this ' +
       'is unreachable and every question will be declined with reason `service_unreachable`.',
   );
@@ -221,9 +231,17 @@ async function forward(body: string): Promise<{ status: number; text: string; he
     headers: new Headers(JSON_HEADERS),
   });
 
+  // Nothing a CSM typed leaves this process until the target is known to be the service.
+  const target = await serviceBase();
+  if (!target.ok) {
+    console.error(`[ask-naren] question NOT sent: ${target.reason}`);
+    return unreachable();
+  }
+  const serviceUrl = target.base;
+
   let upstream: Response;
   try {
-    upstream = await fetch(`${SERVICE_URL}/ask`, {
+    upstream = await fetch(`${serviceUrl}/ask`, {
       method: 'POST',
       headers: JSON_HEADERS,
       body,
@@ -236,7 +254,7 @@ async function forward(body: string): Promise<{ status: number; text: string; he
     // Connection refused, DNS failure, socket hang-up, or the timeout above. Logged with
     // the upstream URL because "the service is down" is an operator's problem and the
     // CSM-facing message deliberately cannot say which host failed.
-    console.error(`[ask-naren] upstream unreachable at ${SERVICE_URL}/ask:`, cause);
+    console.error(`[ask-naren] upstream unreachable at ${serviceUrl}/ask:`, cause);
     return unreachable();
   }
 
