@@ -3,7 +3,7 @@
  * holds a CSM's thread.
  *
  * WHY A PROXY AT ALL. The service is an internal ASGI app on uvicorn bound to localhost
- * (Brain/ask_naren/service.py). Pointing the browser straight at it would mean exposing it
+ * (Brain/ask_naren/api/). Pointing the browser straight at it would mean exposing it
  * beyond localhost and adding CORS to a service that deliberately has no framework to do
  * it. A same-origin route keeps the service where it is.
  *
@@ -116,7 +116,7 @@ if (!process.env.ASK_NAREN_SERVICE_URL) {
  * responding, which is what this is now for.
  *
  * ONE SOURCE OF TRUTH, MIRRORED ONCE. The deadline is declared in
- * `Brain/ask_naren/admission.py` (`ANSWER_DEADLINE_SECONDS`) and announced by the service
+ * `Brain/ask_naren/api/admission.py` (`ANSWER_DEADLINE_SECONDS`) and announced by the service
  * at startup and on `/ready`; there is no shared config between the Python service and this
  * route, so this constant restates it and the margin exists so that a response the service
  * produced AT its deadline still gets through the wire. If the deadline moves, move this.

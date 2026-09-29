@@ -41,7 +41,7 @@ the environment precisely because it will drift. Re-measure it with
 artifacts; do not trust the default here as a current measurement.
 
 THIS MODULE TOUCHES NO HTTP. What a busy refusal looks like on the wire -- the 429, the
-`Retry-After`, the reason code and the sentence a CSM reads -- is `ask_naren/service.py`,
+`Retry-After`, the reason code and the sentence a CSM reads -- is `ask_naren/api/`,
 because that is the boundary that writes CSM-facing copy. Here there is only the
 arithmetic and the gate.
 """

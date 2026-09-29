@@ -1,4 +1,4 @@
-"""The HTTP contract of `service.py`, as Pydantic models: what `/ask` accepts, and what every
+"""The HTTP contract of `ask_naren.api`, as Pydantic models: what `/ask` accepts, and what every
 endpoint can answer.
 
 THE REQUEST MODEL IS ENFORCED; THE RESPONSE MODELS DOCUMENT. `AskRequest` is what FastAPI

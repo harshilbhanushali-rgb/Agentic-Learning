@@ -592,7 +592,7 @@ async def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embe
 
     `embed_query` is passed in rather than imported so this module stays free of the
     embedder's disk-cache side effects -- which matter, because that cache holds a
-    thread-bound sqlite connection (see ask_naren/service.py).
+    thread-bound sqlite connection (see ask_naren/api/).
 
     `label_for` turns a call filename into the label a CSM reads (issue #4). Injected the
     same way `embed_query` is, rather than read from module state: resolving an opaque UUID

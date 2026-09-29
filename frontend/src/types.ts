@@ -161,7 +161,7 @@ export interface FailureEntry {
 }
 
 /* -- Ask Naren -------------------------------------------------------------------------
- * The response shape of the Ask Naren service (Brain/ask_naren/service.py, POST /ask),
+ * The response shape of the Ask Naren service (Brain/ask_naren/api/, POST /ask),
  * mirrored exactly. The proxy at app/api/ask-naren returns it unchanged, so these types
  * describe the service's contract and must not drift from it.
  *

@@ -110,7 +110,7 @@ _Avoid_: throughput, scale, concurrency limit, workers.
 _Avoid_: rate limit, throttle, rejected, overloaded, 429.
 
 **Deadline**:
-**Built** (issue #32). How long a CSM is willing to wait before "no answer" beats "still waiting": the whole-request budget, queue wait included, and a product decision rather than an engineering one. Every other capacity number is derived from it — in particular the queue is exactly as deep as the deadline can absorb, which is "how many people can still be served in time", not a constant someone picked. Enforced, so an admitted caller either gets an answer or is told plainly that time ran out; it is not an estimate. Declared in `Brain/ask_naren/admission.py` and mirrored once in the frontend proxy, which has no way to read Python — the two are pinned equal by a test, because a proxy that gave up sooner than the service would report a capacity event as a fault.
+**Built** (issue #32). How long a CSM is willing to wait before "no answer" beats "still waiting": the whole-request budget, queue wait included, and a product decision rather than an engineering one. Every other capacity number is derived from it — in particular the queue is exactly as deep as the deadline can absorb, which is "how many people can still be served in time", not a constant someone picked. Enforced, so an admitted caller either gets an answer or is told plainly that time ran out; it is not an estimate. Declared in `Brain/ask_naren/api/admission.py` and mirrored once in the frontend proxy, which has no way to read Python — the two are pinned equal by a test, because a proxy that gave up sooner than the service would report a capacity event as a fault.
 _Avoid_: timeout, SLA, latency budget, TTL.
 
 **Clarify**:

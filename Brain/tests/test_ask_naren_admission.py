@@ -1,4 +1,4 @@
-"""ask_naren/admission.py -- who is served now, who waits, and who is turned away.
+"""ask_naren/api/admission.py -- who is served now, who waits, and who is turned away.
 
 The arithmetic and the gate, with no HTTP anywhere near it. The HTTP shape of a busy
 refusal is pinned in test_ask_naren_service.py; what is pinned here is that the numbers are
@@ -18,7 +18,7 @@ import re
 
 import pytest
 
-from ask_naren import admission
+from ask_naren.api import admission
 
 
 # -- the derivation ----------------------------------------------------------------------

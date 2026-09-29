@@ -91,7 +91,7 @@ export const RECHECK_AFTER_MS = 30_000;
 const PROBE_TIMEOUT_MS = 5_000;
 
 /** Is the thing at `base` the Ask Naren service? Its liveness endpoint answers exactly
- *  `{"status": "ok"}` (Brain/ask_naren/service.py). Nothing a CSM typed is sent. */
+ *  `{"status": "ok"}` (Brain/ask_naren/api/). Nothing a CSM typed is sent. */
 export async function probeService(base: string, fetchImpl: Fetch = fetch): Promise<{ ok: true } | { ok: false; reason: string }> {
   let res: Response;
   try {

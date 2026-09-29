@@ -1,4 +1,4 @@
-"""ask_naren/service.py -- the HTTP contract, over a real socket against a stubbed
+"""ask_naren/api/ -- the HTTP contract, over a real socket against a stubbed
 answerer. No gateway, no Postgres, no embeddings.
 
 STILL A REAL SOCKET AFTER ISSUE #31, deliberately. Driving the ASGI app in-process with
@@ -23,7 +23,8 @@ import httpx
 import pytest
 import uvicorn
 
-from ask_naren import admission, service
+from ask_naren import api
+from ask_naren.api import admission
 
 ANSWER = {"outcome": "answered", "answer": "Reframe on their own baseline.",
           "quote": "their own baseline", "citation": {"label": "a_call.txt"},
@@ -51,7 +52,7 @@ def serve_with():
     started = []
 
     def _start(answerer, ready=None, gate=None):
-        app = service.build_app(_as_async(answerer), ready=ready, gate=gate)
+        app = api.build_app(_as_async(answerer), ready=ready, gate=gate)
         config = uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning")
         server = uvicorn.Server(config)
         thread = threading.Thread(target=server.run, daemon=True)
@@ -255,7 +256,7 @@ def test_two_csms_are_answered_at_once_rather_than_one_after_the_other():
         order.append(f"{situation}:done")
         return ANSWER
 
-    app = service.build_app(slow)
+    app = api.build_app(slow)
 
     async def body():
         async with _drive(app) as c:
@@ -283,7 +284,7 @@ def test_health_answers_while_a_generation_is_in_flight():
         await asyncio.sleep(0.2)
         return ANSWER
 
-    app = service.build_app(slow)
+    app = api.build_app(slow)
 
     async def body():
         async with _drive(app) as c:
@@ -334,7 +335,7 @@ def test_a_service_with_no_readiness_predicate_reports_ready(serve_with):
 def test_an_oversized_body_is_refused_without_being_read_into_memory():
     """A runaway client must not be able to make the service read itself out of memory. The
     cap is enforced while the body streams in, not after."""
-    app = service.build_app(_as_async(lambda situation, thread=():ANSWER))
+    app = api.build_app(_as_async(lambda situation, thread=():ANSWER))
 
     async def body():
         async with _drive(app) as c:
@@ -411,7 +412,7 @@ def test_a_body_with_no_content_length_is_read_rather_than_called_empty():
     body. ASGI hands the body over in chunks, so the cap is enforced against what actually
     arrives -- which means a chunked request is now answered instead of refused, AND
     cannot walk past the cap by lying about its length."""
-    app = service.build_app(_as_async(lambda situation, thread=():ANSWER))
+    app = api.build_app(_as_async(lambda situation, thread=():ANSWER))
 
     async def chunks():
         # An ASYNC generator: httpx refuses a sync one on an AsyncClient.
@@ -445,7 +446,7 @@ def test_the_lifespan_shutdown_runs_the_callers_teardown():
     async def on_shutdown():
         closed.append("closed")
 
-    app = service.build_app(_as_async(lambda situation, thread=():ANSWER),
+    app = api.build_app(_as_async(lambda situation, thread=():ANSWER),
                             on_shutdown=on_shutdown)
 
     async def body():
@@ -470,7 +471,7 @@ def test_the_lifespan_shutdown_runs_the_callers_teardown():
 def test_a_shutdown_with_no_teardown_registered_still_completes():
     """`--ask` and every test build an app without one. A missing callback must not stall
     the handshake, or uvicorn waits on a shutdown that never completes."""
-    app = service.build_app(_as_async(lambda situation, thread=():ANSWER))
+    app = api.build_app(_as_async(lambda situation, thread=():ANSWER))
 
     async def body():
         sent = []
@@ -508,7 +509,7 @@ def test_a_real_uvicorn_run_invokes_the_lifespan_shutdown():
     async def on_shutdown():
         closed.append("closed")
 
-    app = service.build_app(_as_async(lambda situation, thread=():ANSWER),
+    app = api.build_app(_as_async(lambda situation, thread=():ANSWER),
                             on_shutdown=on_shutdown)
     config = uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning")
     server = uvicorn.Server(config)
@@ -550,7 +551,7 @@ def test_serve_itself_answers_two_requests_concurrently():
     """CLOSES THE ONE BLIND SPOT IN THIS FILE.
 
     Every other concurrency test drives `build_app` -- through ASGITransport, or through a
-    uvicorn the FIXTURE configures. None of them touches `service.serve()`, which is the
+    uvicorn the FIXTURE configures. None of them touches `api.serve()`, which is the
     only thing production calls, and which is where a re-serialisation would most naturally
     be introduced: `limit_concurrency=1` in its `uvicorn.Config`, a sync wrapper around the
     app, a worker setting. All of that passes every other test in this file.
@@ -568,7 +569,7 @@ def test_serve_itself_answers_two_requests_concurrently():
 
     async def body():
         server = asyncio.create_task(
-            service.serve(slow, host="127.0.0.1", port=port))
+            api.serve(slow, host="127.0.0.1", port=port))
         try:
             async with httpx.AsyncClient(timeout=20.0) as c:
                 # Wait for the socket rather than sleeping a guess.
@@ -642,7 +643,7 @@ def test_a_third_caller_is_refused_as_busy_rather_than_accepted_and_failed():
         await release.wait()
         return ANSWER
 
-    app = service.build_app(slow, gate=gate)
+    app = api.build_app(slow, gate=gate)
 
     async def body():
         async with _drive(app) as c:
@@ -659,7 +660,7 @@ def test_a_third_caller_is_refused_as_busy_rather_than_accepted_and_failed():
     third, waited = asyncio.run(body())
     assert third.status_code == 429
     assert third.json()["outcome"] == "declined"
-    assert third.json()["reason"] == service.SERVICE_BUSY
+    assert third.json()["reason"] == api.SERVICE_BUSY
     assert waited < 1.0, f"the refusal took {waited:.2f}s -- it queued before refusing"
 
 
@@ -675,7 +676,7 @@ def test_the_busy_refusal_says_roughly_how_long():
         await release.wait()
         return ANSWER
 
-    app = service.build_app(slow, gate=gate)
+    app = api.build_app(slow, gate=gate)
 
     async def body():
         async with _drive(app) as c:
@@ -709,7 +710,7 @@ def test_a_queued_caller_is_served_rather_than_refused():
         order.append(f"{situation}:done")
         return ANSWER
 
-    app = service.build_app(slow, gate=gate)
+    app = api.build_app(slow, gate=gate)
 
     async def body():
         async with _drive(app) as c:
@@ -745,7 +746,7 @@ def test_no_more_than_the_bound_are_answered_at_once():
         live -= 1
         return ANSWER
 
-    app = service.build_app(slow, gate=gate)
+    app = api.build_app(slow, gate=gate)
 
     async def body():
         async with _drive(app) as c:
@@ -767,7 +768,7 @@ def test_the_deadline_fires_rather_than_letting_a_caller_hang():
         await asyncio.sleep(30)
         return ANSWER                          # pragma: no cover -- never reached
 
-    app = service.build_app(far_too_slow, gate=gate)
+    app = api.build_app(far_too_slow, gate=gate)
 
     async def body():
         async with _drive(app) as c:
@@ -777,7 +778,7 @@ def test_the_deadline_fires_rather_than_letting_a_caller_hang():
 
     r, elapsed = asyncio.run(body())
     assert r.status_code == 504
-    assert r.json()["reason"] == service.DEADLINE_EXCEEDED
+    assert r.json()["reason"] == api.DEADLINE_EXCEEDED
     assert r.json()["outcome"] == "declined"
     assert elapsed < 5, f"took {elapsed:.1f}s -- the deadline did not fire"
     assert gate.deadlines_missed == 1
@@ -795,7 +796,7 @@ def test_a_timeout_from_underneath_is_a_fault_and_not_our_deadline():
     async def blows_up(situation, thread=()):
         raise TimeoutError("the gateway socket gave up")
 
-    app = service.build_app(blows_up, gate=gate)
+    app = api.build_app(blows_up, gate=gate)
 
     async def body():
         async with _drive(app) as c:
@@ -803,7 +804,7 @@ def test_a_timeout_from_underneath_is_a_fault_and_not_our_deadline():
 
     r = asyncio.run(body())
     assert r.status_code == 503
-    assert r.json()["reason"] == service.SERVICE_ERROR
+    assert r.json()["reason"] == api.SERVICE_ERROR
     assert gate.deadlines_missed == 0, "someone else's timeout was counted as ours"
 
 
@@ -829,7 +830,7 @@ def test_busy_is_distinguishable_from_a_fault_and_from_a_no_match_decline():
             await release.wait()
         return no_match
 
-    app = service.build_app(answerer, gate=gate)
+    app = api.build_app(answerer, gate=gate)
 
     async def body():
         async with _drive(app) as c:
@@ -846,8 +847,8 @@ def test_busy_is_distinguishable_from_a_fault_and_from_a_no_match_decline():
     declined, fault, busy = asyncio.run(body())
 
     assert (declined.status_code, declined.json()["reason"]) == (200, "no_close_match")
-    assert (fault.status_code, fault.json()["reason"]) == (503, service.SERVICE_ERROR)
-    assert (busy.status_code, busy.json()["reason"]) == (429, service.SERVICE_BUSY)
+    assert (fault.status_code, fault.json()["reason"]) == (503, api.SERVICE_ERROR)
+    assert (busy.status_code, busy.json()["reason"]) == (429, api.SERVICE_BUSY)
 
     statuses = {declined.status_code, fault.status_code, busy.status_code}
     reasons = {declined.json()["reason"], fault.json()["reason"], busy.json()["reason"]}
@@ -871,7 +872,7 @@ def test_ready_reports_saturation_and_the_counts_behind_it():
         await release.wait()
         return ANSWER
 
-    app = service.build_app(slow, gate=gate)
+    app = api.build_app(slow, gate=gate)
 
     async def body():
         async with _drive(app) as c:
@@ -912,7 +913,7 @@ def test_a_malformed_request_costs_nobody_a_slot():
     """Validated before admission, so a bad body cannot queue anyone behind a request that
     was never going to be answered -- nor get itself refused as "busy" for it."""
     gate = _tiny_gate()
-    app = service.build_app(_as_async(lambda situation, thread=(): ANSWER), gate=gate)
+    app = api.build_app(_as_async(lambda situation, thread=(): ANSWER), gate=gate)
 
     async def body():
         async with _drive(app) as c:
@@ -985,7 +986,7 @@ def test_healthz_is_the_same_liveness_answer_as_health(serve_with):
 # -- the FastAPI conversion (2026-09-29): the schema, and the choices that kept the contract
 
 def _openapi():
-    app = service.build_app(_as_async(lambda situation, thread=(): ANSWER))
+    app = api.build_app(_as_async(lambda situation, thread=(): ANSWER))
 
     async def body():
         async with _drive(app) as c:
@@ -1031,7 +1032,7 @@ def test_a_validation_failure_is_the_services_own_400_not_fastapis_422(serve_wit
 def test_a_chunked_body_cannot_walk_past_the_cap():
     """The other half of the no-Content-Length test: with no declared length to refuse, the
     cap is enforced against what actually arrives -- before FastAPI buffers it."""
-    app = service.build_app(_as_async(lambda situation, thread=(): ANSWER))
+    app = api.build_app(_as_async(lambda situation, thread=(): ANSWER))
 
     async def chunks():
         yield b'{"situation":"'
@@ -1053,12 +1054,12 @@ def test_the_services_own_declines_match_the_published_schema():
     """Busy, deadline and fault are the three responses THIS layer writes, so they are the
     three the published schema can be held to."""
     from pydantic import TypeAdapter
-    from ask_naren.api_models import AskResponse
+    from ask_naren.api.models import AskResponse
 
-    for refusal in (service.ServiceBusy(7), service.DeadlineExceeded(), service.ServiceFault()):
+    for refusal in (api.ServiceBusy(7), api.DeadlineExceeded(), api.ServiceFault()):
         TypeAdapter(AskResponse).validate_python(refusal.body)
-    assert service.ServiceBusy(7).body["retry_after_seconds"] == 7
-    assert service.ServiceBusy(7).headers == {"Retry-After": "7"}
+    assert api.ServiceBusy(7).body["retry_after_seconds"] == 7
+    assert api.ServiceBusy(7).headers == {"Retry-After": "7"}
 
 
 def test_a_trailing_slash_is_the_same_route_not_a_redirect(serve_with):

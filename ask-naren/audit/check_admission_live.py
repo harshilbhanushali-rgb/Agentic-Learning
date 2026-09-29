@@ -106,7 +106,7 @@ ANSWER_COST_S = 60.0
 #: request goes through `frontend/src/app/api/ask-naren/route.ts`, which aborts a few seconds
 #: after the deadline, so raising the deadline in a deployed service would make the PROXY
 #: fire first and relabel a capacity event as a fault. See the note on
-#: ANSWER_DEADLINE_SECONDS in Brain/ask_naren/admission.py.
+#: ANSWER_DEADLINE_SECONDS in Brain/ask_naren/api/admission.py.
 DEADLINE_S = 180.0
 
 #: Distinct questions, so nothing can be served from a cache -- though the service already

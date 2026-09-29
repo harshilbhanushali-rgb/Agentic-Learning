@@ -45,8 +45,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ask_naren import (citations, rendering, responding, retrieval,  # noqa: E402
-                       service, vector_store)
+from ask_naren import (api, citations, rendering, responding, retrieval,  # noqa: E402
+                       vector_store)
 from config import load_config                        # noqa: E402
 from preprocessing import embedder                    # noqa: E402
 from shared import storage                            # noqa: E402
@@ -404,8 +404,8 @@ def build_label_resolver():
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--host", default=service.DEFAULT_HOST)
-    ap.add_argument("--port", type=int, default=service.DEFAULT_PORT)
+    ap.add_argument("--host", default=api.DEFAULT_HOST)
+    ap.add_argument("--port", type=int, default=api.DEFAULT_PORT)
     ap.add_argument("--ask", help="answer one situation, print JSON, exit")
     ap.add_argument("--hostaddr", default=DEFAULT_HOSTADDR,
                     help="IP for the Neon host; the system resolver refuses *.neon.tech. "
@@ -545,7 +545,7 @@ async def _run(args) -> int:
         # raises CancelledError and the client and Pinecone session leak. Uvicorn runs the
         # lifespan shutdown as part of its GRACEFUL stop, before any of that. The `finally`
         # still matters for every other exit: `--ask`, a startup failure, a bind failure.
-        await service.serve(answer, host=args.host, port=args.port, ready=lambda: True,
+        await api.serve(answer, host=args.host, port=args.port, ready=lambda: True,
                             on_shutdown=_close)
     finally:
         # Covers `--ask`, a startup failure and a bind failure. On Ctrl-C the lifespan
