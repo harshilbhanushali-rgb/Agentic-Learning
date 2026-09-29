@@ -410,21 +410,33 @@ def test_a_contrast_with_nothing_to_contrast_is_a_programming_error():
 # -- ADR 0001's freeze, made checkable ------------------------------------------------------
 
 def _prototype():
-    """The throwaway prototype whose prompt ADR 0001's measurement was taken on.
+    """The throwaway prototype whose prompt ADR 0001's measurement was taken on -- ONLY its
+    `_build_prompt`, lifted out of the file by AST.
 
     Imported by path because `ask-naren/` is not a package and must not become one -- it is
-    documentation and audit scripts, not a library. The prototype's own module-level imports
-    resolve against Brain/, which it bootstraps itself.
+    documentation and audit scripts, not a library.
+
+    NOT BY EXECUTING THE FILE. Its module-level imports (`preprocessing.embedder`, the
+    gateway, storage) are for its measurement loop, and the deployment image does not carry
+    `preprocessing/` at all -- so running the script made this test fail there on an import
+    it never uses. `_build_prompt` is pure (its arguments and builtins only), so compiling
+    that one definition from the prototype's own source still compares against the text
+    that was measured, which is the whole point.
     """
-    import importlib.util
+    import ast
+    import types
     from pathlib import Path
 
     path = (Path(__file__).resolve().parents[2] / "ask-naren" / "prototype"
             / "eval_pairs_vs_playbook.py")
-    spec = importlib.util.spec_from_file_location("_ask_naren_prototype", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    keep = [node for node in tree.body
+            if (isinstance(node, ast.ImportFrom) and node.module == "__future__")
+            or (isinstance(node, ast.FunctionDef) and node.name == "_build_prompt")]
+    assert any(isinstance(n, ast.FunctionDef) for n in keep), "_build_prompt not found"
+    namespace: dict = {"__name__": "_ask_naren_prototype"}
+    exec(compile(ast.Module(body=keep, type_ignores=[]), str(path), "exec"), namespace)
+    return types.SimpleNamespace(_build_prompt=namespace["_build_prompt"])
 
 
 def test_the_frozen_prompts_are_byte_identical_to_the_ones_adr_0001_measured():
