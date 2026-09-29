@@ -9,7 +9,8 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "users": "tsx scripts/users.ts"
+    "users": "tsx scripts/users.ts",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "clsx": "^2.1.1",

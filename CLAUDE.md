@@ -33,6 +33,7 @@ npm run dev    # Start dev server at http://localhost:3000
 npm run build  # Production build (also runs full TypeScript type-check)
 npm start      # Run production build
 npm run lint   # ESLint
+npm run type-check   # tsc --noEmit -- the only check that type-checks TEST files; next build does not
 npm test       # vitest: sign-in, sessions, the proxy route -- against real Postgres (PGlite, in-process)
 npm run users -- --help   # admin CLI for Ask Naren users (needs ASK_NAREN_ADMIN_DATABASE_URL)
 ```

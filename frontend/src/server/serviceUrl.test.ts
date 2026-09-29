@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { RECHECK_AFTER_MS, createServiceGate, probeService, resolveServiceUrl } from './serviceUrl';
 
-const ok = (base: string) => ({ ok: true, base });
+const ok = (base: string) => ({ ok: true as const, base });
 
 describe('resolveServiceUrl', () => {
   it('refuses the production URL that sent questions to a third party (2026-09-29)', () => {
@@ -72,8 +72,9 @@ describe('resolveServiceUrl', () => {
   });
 });
 
+/** A stand-in for fetch with fetch's own parameters, so a mock's calls can be inspected. */
 function reply(body: string, init: ResponseInit = {}) {
-  return async () => new Response(body, init);
+  return async (_input: string, _init?: RequestInit) => new Response(body, init);
 }
 
 describe('probeService', () => {
