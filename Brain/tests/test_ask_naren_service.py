@@ -980,3 +980,91 @@ def test_healthz_is_the_same_liveness_answer_as_health(serve_with):
     assert healthz.json() == httpx.get(f"{base}/health").json()
     # Liveness, so it must not have cost a generation either.
     assert called == []
+
+
+# -- the FastAPI conversion (2026-09-29): the schema, and the choices that kept the contract
+
+def _openapi():
+    app = service.build_app(_as_async(lambda situation, thread=(): ANSWER))
+
+    async def body():
+        async with _drive(app) as c:
+            return (await c.get("/openapi.json")).json(), (await c.get("/docs")).status_code
+
+    return asyncio.run(body())
+
+
+def test_the_contract_is_published_as_a_schema():
+    """The point of the conversion: `/docs` shows the request model and every outcome, so
+    the contract is readable without this file or `types.ts`."""
+    schema, docs_status = _openapi()
+    assert docs_status == 200
+    ask = schema["paths"]["/ask"]["post"]
+    assert ask["requestBody"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/AskRequest"}
+    assert set(schema["components"]["schemas"]["AskRequest"]["required"]) == {"situation"}
+    for outcome in ("Answered", "Declined", "Clarify", "Discovery", "CoverageCheck"):
+        assert outcome in schema["components"]["schemas"]
+    assert "Retry-After" in ask["responses"]["429"]["headers"]
+
+
+def test_the_schema_promises_exactly_the_statuses_the_service_sends():
+    """No 422: a malformed body is a 400 here, and a schema advertising a status the service
+    cannot produce is exactly the drift it exists to prevent."""
+    schema, _ = _openapi()
+    assert sorted(schema["paths"]["/ask"]["post"]["responses"]) == [
+        "200", "400", "429", "503", "504"]
+    assert "HTTPValidationError" not in schema["components"]["schemas"]
+
+
+def test_a_validation_failure_is_the_services_own_400_not_fastapis_422(serve_with):
+    """The proxy forwards this 400 as its own and does not record it (#37). FastAPI's
+    default -- a 422 with `{"detail": [...]}` -- would be a third status meaning the same
+    thing, in a shape nothing downstream reads."""
+    base = serve_with(lambda situation, thread=(): ANSWER)
+    for body in ({"situation": 5}, {"situation": "x", "thread": "not a list"}, [1]):
+        r = httpx.post(f"{base}/ask", json=body)
+        assert r.status_code == 400, body
+        assert set(r.json()) == {"error"}, body
+
+
+def test_a_chunked_body_cannot_walk_past_the_cap():
+    """The other half of the no-Content-Length test: with no declared length to refuse, the
+    cap is enforced against what actually arrives -- before FastAPI buffers it."""
+    app = service.build_app(_as_async(lambda situation, thread=(): ANSWER))
+
+    async def chunks():
+        yield b'{"situation":"'
+        for _ in range(10):
+            yield b"x" * 10_000
+        yield b'"}'
+
+    async def body():
+        async with _drive(app) as c:
+            return await c.post("/ask", content=chunks(),
+                                headers={"content-type": "application/json"})
+
+    r = asyncio.run(body())
+    assert r.status_code == 400
+    assert "too large" in r.json()["error"]
+
+
+def test_the_services_own_declines_match_the_published_schema():
+    """Busy, deadline and fault are the three responses THIS layer writes, so they are the
+    three the published schema can be held to."""
+    from pydantic import TypeAdapter
+    from ask_naren.api_models import AskResponse
+
+    for refusal in (service.ServiceBusy(7), service.DeadlineExceeded(), service.ServiceFault()):
+        TypeAdapter(AskResponse).validate_python(refusal.body)
+    assert service.ServiceBusy(7).body["retry_after_seconds"] == 7
+    assert service.ServiceBusy(7).headers == {"Retry-After": "7"}
+
+
+def test_a_trailing_slash_is_the_same_route_not_a_redirect(serve_with):
+    """A redirected POST arrives as a GET and loses its body -- so `/ask/` is `/ask`."""
+    base = serve_with(lambda situation, thread=(): ANSWER)
+    r = httpx.post(f"{base}/ask/", json={"situation": "x"})
+    assert r.status_code == 200
+    assert r.json() == ANSWER
+    assert httpx.get(f"{base}/health/").json() == {"status": "ok"}

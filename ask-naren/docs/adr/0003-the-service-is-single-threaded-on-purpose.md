@@ -2,7 +2,7 @@
 
 > **SUPERSEDED 2026-09-11 by
 > [`0010-ask-naren-answers-concurrently-in-one-asyncio-process.md`](0010-ask-naren-answers-concurrently-in-one-asyncio-process.md)**
-> (issues #28–#32). The service is now a raw ASGI application on uvicorn and answers
+> (issues #28–#32). The service is now a FastAPI application on uvicorn (raw ASGI until 2026-09-29) and answers
 > about six CSMs at once, with a bounded queue behind them. Read this ADR as history.
 >
 > Of its two reasons, one was **wrong about the fix** and one **still holds**. Do not
@@ -14,9 +14,9 @@
 >   `preprocessing/embedder.py` instead, so that connection is never constructed.
 >   Nothing in `shared/` was edited. A live CSM situation is a novel string and
 >   therefore a guaranteed cache miss, so nothing was lost.
-> * *There is nothing here a framework would do.* **Still honoured** — there is no
->   framework. `uvicorn` was added, and only as a server; the application is a
->   plain ASGI callable doing its own routing.
+> * *There is nothing here a framework would do.* Honoured by 0010 — and then
+>   **reversed on 2026-09-29** by the operator: the service is now FastAPI, so its
+>   contract is a schema at `/docs`. See 0010's "What survived" section.
 >
 > The `Connection: close` instruction below is also reversed, on its own terms: it
 > says not to undo it "without first removing the single-threading constraint", and

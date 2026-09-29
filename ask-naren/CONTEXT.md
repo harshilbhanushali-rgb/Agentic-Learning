@@ -102,7 +102,7 @@ _Avoid_: context, the source, evidence, grounding text.
 **Capacity**:
 **Built and fixed at about six** (issues #28–#32, recorded in `docs/adr/0010-ask-naren-answers-concurrently-in-one-asyncio-process.md`). How many CSMs Ask Naren answers at once. It is not a property of our code: the gateway allows 8 requests in flight per API **key**, shared across chat and embeddings, and the transport operates at 6 so a retry has somewhere to go. Thirteen of the nineteen intents are **rendered** and never reach the generation budget, so in normal use the queue behind those six is empty or one deep.
 
-**It does not increase by deploying more processes**, and that is the line worth remembering. The budget belongs to the key and each process keeps its own limiter, so N processes violate one budget by construction with no way to coordinate — while every health check passes. More capacity means more key allowance, or sharding across keys. Supersedes the single-threaded decision in `docs/adr/0003-...`, of which the no-web-framework half still holds.
+**It does not increase by deploying more processes**, and that is the line worth remembering. The budget belongs to the key and each process keeps its own limiter, so N processes violate one budget by construction with no way to coordinate — while every health check passes. More capacity means more key allowance, or sharding across keys. Supersedes the single-threaded decision in `docs/adr/0003-...`. Its no-web-framework half held until 2026-09-29, when the service became FastAPI; one process and one loop still hold.
 _Avoid_: throughput, scale, concurrency limit, workers.
 
 **Busy**:

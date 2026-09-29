@@ -60,9 +60,19 @@ make the fix it suggests the right one.
 health GET. Adding `fastapi` and `uvicorn` to Brain's venv to route two paths is cost without
 benefit."*
 
-The `fastapi` half stands and is respected. **There is still no web framework.** The
-application is a plain `async def app(scope, receive, send)` doing its own routing in about
-as many lines as a decorator table would take.
+The `fastapi` half stood and was respected when this ADR was written: the application was a
+plain `async def app(scope, receive, send)` doing its own routing.
+
+> **REVERSED 2026-09-29, by the operator.** The service is now a FastAPI application: a
+> Pydantic request model, documented response models (`Brain/ask_naren/api_models.py`), an
+> `APIRouter`, dependencies for the gate and the answerer, and exception handlers for every
+> refusal. The reason is the one 0003 was not weighing: a contract readable as a schema at
+> `/docs`, and a service shaped like Joveo's other applib services. What the frontend sees
+> did not move -- a malformed body is still a 400 (a handler overrides FastAPI's 422), the
+> 64 KB cap is still enforced while the body streams (an ASGI middleware in front of
+> FastAPI), and anything unrouted is still a JSON 404. **None of this touches the decision
+> below: one process, one event loop, never `--workers`.** FastAPI is an application
+> framework; the budget argument is about processes.
 
 The `uvicorn` half is overridden deliberately. That dependency is what buys concurrency, and
 0003 was weighing it against *routing two paths* rather than against *answering more than one
