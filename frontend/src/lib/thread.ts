@@ -67,9 +67,9 @@ const KEEP_RECENT = 2;
 
 /** Records one completed exchange, ready to be replayed with the next message.
  *
- *  The identifiers come off an ANSWERED response only, because they are the only responses
- *  that rest on anything. A clarify and a decline carry the conversation forward but ground
- *  nothing, so they contribute no identifier to inherit. */
+ *  The identifiers come off an ANSWERED or RENDERED response, because those are the
+ *  responses that are about something. A clarify and a decline carry the conversation
+ *  forward but rest on nothing, so they contribute no identifier to inherit. */
 export function turnFrom(message: string, result: AskNarenResponse): ThreadTurn {
   const base = { message, outcome: result.outcome };
   switch (result.outcome) {
@@ -97,21 +97,50 @@ export function turnFrom(message: string, result: AskNarenResponse): ThreadTurn 
       // A rendered answer is a LIST or a verbatim exchange, not prose, so there is no reply
       // text to replay. The turn records that it happened and what it was about; a CSM
       // scrolling back sees their question and the kind of thing that came back.
-      //
-      // It carries NO pair_id even where one exists on the live response. A follow-up needs
-      // a source to ground GENERATED prose in, and "show me the exchange" grounded nothing
-      // -- so following up on one is answered as a fresh question, the same as for a Layer C
-      // answer. See `carried_source` in Brain/ask_naren/threads.py.
-      return {
-        ...base,
-        reply: RENDERED_REPLIES[result.kind],
-        scenario_key: '',
-        pair_id: null,
-        call_filename: '',
-      };
+      return { ...base, reply: RENDERED_REPLIES[result.kind], ...renderedAnchor(result) };
     default: {
       const unhandled: never = result;
       throw new Error(`unhandled outcome: ${JSON.stringify(unhandled)}`);
+    }
+  }
+}
+
+/**
+ * The identifiers a rendered turn records: exactly the ones its response already carries
+ * (issue #52, ADR 0013). They are what the NEXT message continues from -- after "what's the
+ * play for X", "and how does he word it?" can only stay on X if this turn says X.
+ *
+ * A `pair_id` only where the response shows ONE exchange; a scenario wherever it is about
+ * one scenario; nothing on the four kinds that are about many situations at once.
+ *
+ * This does NOT make a rendered turn a follow-up source. A follow-up generates prose
+ * grounded in a source, and `carried_source` in Brain/ask_naren/threads.py reads that from
+ * ANSWERED turns only. And no `call_filename`: the thread shown to intake prints "(grounded
+ * in <call>)" for a turn that has one, and a rendered answer grounded nothing.
+ */
+function renderedAnchor(result: AskNarenRendered): Pick<ThreadTurn, 'scenario_key' | 'pair_id' | 'call_filename'> {
+  const none = { scenario_key: '', pair_id: null, call_filename: '' };
+  switch (result.kind) {
+    case 'show_exchange':
+    case 'what_happened_next':
+      return { ...none, scenario_key: result.citation.scenario_key, pair_id: result.citation.pair_id ?? null };
+    case 'sequence':
+    case 'phrasing':
+    case 'pitfalls':
+    case 'scenario_check':
+    case 'play_confidence':
+    case 'improve_at_move':
+      return { ...none, scenario_key: result.scenario_key };
+    case 'coverage_check':
+      return { ...none, scenario_key: result.nearest.scenario_key };
+    case 'discovery':
+    case 'frequency':
+    case 'where_else_seen':
+    case 'call_prep':
+      return none;
+    default: {
+      const unhandled: never = result;
+      throw new Error(`unhandled rendered kind: ${JSON.stringify(unhandled)}`);
     }
   }
 }
@@ -184,9 +213,10 @@ export function scenarioLabel(key: string): string {
 /**
  * The scenario the NEXT question would carry forward: the newest turn whose wire turn names
  * one. Read through `turnFrom` on purpose rather than off the response, because what the
- * service inherits is exactly what `turnFrom` carries -- a scenario a rendered answer or a
- * decline mentions is not carried, and naming it here would misreport the risk (#39: "a
- * stale carried scenario is the known wrong-answer risk, so it has to be visible").
+ * service inherits is exactly what `turnFrom` carries -- a scenario a decline or a
+ * many-situation rendered answer mentions is not carried, and naming it here would misreport
+ * the risk (#39: "a stale carried scenario is the known wrong-answer risk, so it has to be
+ * visible").
  */
 export function carriedScenario(turns: { question: string; response: AskNarenResponse }[]): string {
   for (let i = turns.length - 1; i >= 0; i--) {

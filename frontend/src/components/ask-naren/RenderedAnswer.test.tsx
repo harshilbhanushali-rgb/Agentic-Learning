@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { RenderedAnswer } from './RenderedAnswer';
-import { maximal, minimal, RENDERED_KINDS } from '../../../tests/fixtures/ask-naren';
+import { citation, maximal, minimal, RENDERED_KINDS } from '../../../tests/fixtures/ask-naren';
 import type { AskNarenRendered } from '@/types';
 
 /**
@@ -56,6 +56,21 @@ describe('frequency', () => {
       screen.getByText('Ranked across Naren’s recorded calls, not across clients generally.'),
     ).toBeInTheDocument();
     expect(screen.getAllByText('9 calls')[0]).toBeInTheDocument();
+  });
+});
+
+/* The two exchange views NAME THEIR SCENARIO, always (issue #52). A carried identifier can
+ * strand on the old situation when a CSM moves on without saying so, and the scenario line
+ * is the only thing on the card that gives that away (ADR 0013). */
+describe.each(['show_exchange', 'what_happened_next'] as const)('%s', kind => {
+  it('names the scenario of the exchange it shows', () => {
+    const result = {
+      ...maximal[kind],
+      citation: citation({ scenario_key: 'contract_renewal' }),
+    } as AskNarenRendered;
+    render(<RenderedAnswer result={result} />);
+    expect(screen.getByText('contract renewal')).toBeInTheDocument();
+    expect(screen.getByRole('article').textContent).toContain('For contract renewal');
   });
 });
 

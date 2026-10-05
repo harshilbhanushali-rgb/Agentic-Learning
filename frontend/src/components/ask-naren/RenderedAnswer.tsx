@@ -72,11 +72,13 @@ function QuoteSource({ label }: { label: string }) {
   );
 }
 
-/** The header every playbook-derived answer carries: what kind of thing this is, and which
- *  scenario's play it came from. The scenario line is not decoration — three of these five
- *  answers have no citation at all, so it is the only thing that lets a CSM catch a
- *  misroute. */
-function Play({ kind, scenarioKey }: { kind: string; scenarioKey: string }) {
+/** The header every answer about ONE scenario carries: what kind of thing this is, and
+ *  which scenario it is for. The scenario line is not decoration — three of the five
+ *  playbook answers have no citation at all, so it is the only thing that lets a CSM catch a
+ *  misroute. The two exchange views carry it too (issue #52): a carried identifier can
+ *  strand on the previous situation when a CSM moves on without saying so, and this line is
+ *  what gives that away (ADR 0013). */
+function ScenarioHeader({ kind, scenarioKey }: { kind: string; scenarioKey: string }) {
   return (
     <header className="flex flex-col gap-1">
       <span className={EYEBROW}>{kind}</span>
@@ -181,7 +183,7 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
     case 'show_exchange':
       return (
         <article className={SHELL}>
-          <span className={EYEBROW}>The real exchange</span>
+          <ScenarioHeader kind="The real exchange" scenarioKey={result.citation.scenario_key} />
           <Exchange
             clientSaid={result.exchange.client_said}
             narenReplied={result.exchange.naren_replied}
@@ -193,7 +195,7 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
     case 'what_happened_next':
       return (
         <article className={SHELL}>
-          <span className={EYEBROW}>How the conversation went on</span>
+          <ScenarioHeader kind="How the conversation went on" scenarioKey={result.citation.scenario_key} />
           <Exchange
             clientSaid={result.exchange.client_said}
             narenReplied={result.exchange.naren_replied}
@@ -268,7 +270,7 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
     case 'sequence':
       return (
         <article className={SHELL}>
-          <Play kind="The order Naren runs it in" scenarioKey={result.scenario_key} />
+          <ScenarioHeader kind="The order Naren runs it in" scenarioKey={result.scenario_key} />
           <ol className="flex flex-col gap-2">
             {result.steps.map((step, i) => (
               <li key={i} className="flex items-baseline gap-3">
@@ -285,7 +287,7 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
     case 'phrasing':
       return (
         <article className={SHELL}>
-          <Play kind="How Naren words it" scenarioKey={result.scenario_key} />
+          <ScenarioHeader kind="How Naren words it" scenarioKey={result.scenario_key} />
           <div className="flex flex-col gap-5">
             {result.phrases.map((p, i) => (
               <div key={i} className="flex flex-col gap-1.5">
@@ -308,7 +310,7 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
     case 'pitfalls':
       return (
         <article className={SHELL}>
-          <Play kind="What usually goes wrong" scenarioKey={result.scenario_key} />
+          <ScenarioHeader kind="What usually goes wrong" scenarioKey={result.scenario_key} />
           <div className="flex flex-col gap-5">
             {result.pitfalls.map((p, i) => (
               <div key={i} className="flex flex-col gap-1.5">
@@ -328,7 +330,7 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
     case 'scenario_check':
       return (
         <article className={SHELL}>
-          <Play kind="When this play applies" scenarioKey={result.scenario_key} />
+          <ScenarioHeader kind="When this play applies" scenarioKey={result.scenario_key} />
           <p className="text-[13px] leading-relaxed text-ink">{result.applies_when}</p>
           {/* NO VERDICT, deliberately. Whether the play fits a live client is a judgement
               Ask Naren has only the CSM's own sentence for; claiming it would be exactly
@@ -417,7 +419,7 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
     case 'improve_at_move':
       return (
         <article className={SHELL}>
-          <Play
+          <ScenarioHeader
             kind={result.focused ? 'Getting better at this' : 'The whole play'}
             scenarioKey={result.scenario_key}
           />
@@ -548,7 +550,7 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
     case 'play_confidence':
       return (
         <article className={SHELL}>
-          <Play kind="How well evidenced this play is" scenarioKey={result.scenario_key} />
+          <ScenarioHeader kind="How well evidenced this play is" scenarioKey={result.scenario_key} />
           {/* MOVES AND QUOTES LEAD, and `n_evidence` deliberately does not. The first two
               are counted from the live document — what the play rests on today. The third
               is how many moments were CONSIDERED when it was built, capped by the builder's

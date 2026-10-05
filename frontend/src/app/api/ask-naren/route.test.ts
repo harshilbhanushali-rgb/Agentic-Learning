@@ -183,6 +183,29 @@ describe('POST /api/ask-naren: the thread', () => {
     expect((forwarded(1).thread as { pair_id: number }[])[0].pair_id).toBe(481);
   });
 
+  it('a stored rendered turn is replayed with the exchange it showed, with no migration', async () => {
+    // Turns are rebuilt from the STORED response on every request, so a thread recorded
+    // before rendered turns carried identifiers gains them the next time it is continued
+    // (issue #52). The stored body here is the service's own, unchanged.
+    const { token } = await signedIn();
+    const shown: AskNarenResponse = {
+      outcome: 'rendered',
+      kind: 'show_exchange',
+      exchange: { client_said: 'the ATS sync is stuck', naren_replied: 'Let me pull the logs.' },
+      citation: { label: 'call.txt', call_filename: 'call.txt', pair_id: 77, scenario_key: 'ats_integration_and_api_mapping' },
+      match: { cosine: 0.8, scenario_key: 'ats_integration_and_api_mapping', rank: 1 },
+    };
+    upstream.mockImplementationOnce(async () => new Response(JSON.stringify(shown), { status: 200 }));
+    const id = threadOf(await ask(token, { situation: 'show me the ATS sync exchange' }));
+
+    await ask(token, { situation: 'what happened after that?', thread_id: id });
+    expect((forwarded(1).thread as object[])[0]).toMatchObject({
+      outcome: 'rendered',
+      scenario_key: 'ats_integration_and_api_mapping',
+      pair_id: 77,
+    });
+  });
+
   it("another user's thread is a 404, and nothing is forwarded or written", async () => {
     const owner = await signedIn();
     const id = threadOf(await ask(owner.token));

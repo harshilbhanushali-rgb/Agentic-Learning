@@ -10,6 +10,7 @@ import {
   type ThreadTurn,
 } from './thread';
 import type { AskNarenResponse } from '@/types';
+import { citation, maximal } from '../../tests/fixtures/ask-naren';
 
 /** The retired browser-held thread's key prefix; see `clearLegacyThreads`. */
 const STORAGE_KEY = 'cs-ask-naren-thread-v1';
@@ -85,14 +86,55 @@ describe('turnFrom', () => {
     });
   });
 
-  it('summarises a rendered answer by kind and carries no pair_id', () => {
-    const result = { outcome: 'rendered', kind: 'show_exchange' } as unknown as AskNarenResponse;
-    expect(turnFrom('show me', result)).toMatchObject({
+  it('summarises a rendered answer by kind', () => {
+    expect(turnFrom('show me', maximal.show_exchange)).toMatchObject({
       outcome: 'rendered',
       reply: 'Showed the real exchange.',
-      pair_id: null,
-      scenario_key: '',
     });
+  });
+
+  /* What a rendered turn records is what the NEXT message can carry (issue #52, ADR 0013):
+   * after "what's the play for X", "and how does he word it?" continues from X only if this
+   * turn says X. Each kind records exactly the identifiers its response already holds. */
+  it.each(['sequence', 'phrasing', 'pitfalls', 'scenario_check', 'play_confidence', 'improve_at_move'] as const)(
+    'a %s turn records the scenario its play was for, and no exchange',
+    kind => {
+      const result = { ...maximal[kind], scenario_key: 'budget_pressure' } as AskNarenResponse;
+      expect(turnFrom('q', result)).toMatchObject({ scenario_key: 'budget_pressure', pair_id: null });
+    },
+  );
+
+  it('a coverage_check turn records the nearest scenario, and no exchange', () => {
+    const result = {
+      ...maximal.coverage_check,
+      nearest: { scenario_key: 'budget_pressure', description: '', support_calls: 3, evidence: 'thin' },
+      citation: citation({ scenario_key: 'budget_pressure', pair_id: 9 }),
+    } as AskNarenResponse;
+    expect(turnFrom('q', result)).toMatchObject({ scenario_key: 'budget_pressure', pair_id: null });
+  });
+
+  it.each(['show_exchange', 'what_happened_next'] as const)(
+    'a %s turn records the exchange it showed, from its citation',
+    kind => {
+      const result = {
+        ...maximal[kind],
+        citation: citation({ scenario_key: 'budget_pressure', pair_id: 9 }),
+      } as AskNarenResponse;
+      expect(turnFrom('q', result)).toMatchObject({ scenario_key: 'budget_pressure', pair_id: 9 });
+    },
+  );
+
+  it.each(['discovery', 'frequency', 'where_else_seen', 'call_prep'] as const)(
+    'a %s turn records nothing: it is about many situations, not one',
+    kind => {
+      expect(turnFrom('q', maximal[kind])).toMatchObject({ scenario_key: '', pair_id: null, call_filename: '' });
+    },
+  );
+
+  it('a rendered turn records no call filename, so the thread shown to intake is unchanged', () => {
+    // `threads.render` prints "(grounded in <call>)" for a turn with a call filename. A
+    // rendered answer grounded nothing, and adding that line would change the intake prompt.
+    expect(turnFrom('q', maximal.show_exchange).call_filename).toBe('');
   });
 
   it('throws on an outcome outside the union rather than inventing a turn', () => {
@@ -247,6 +289,15 @@ describe('carriedScenario', () => {
         { question: 'd', response: rendered },
       ]),
     ).toBe('performance_pushback');
+  });
+
+  it('names a rendered turn’s scenario when that is the newest one carried', () => {
+    expect(
+      carriedScenario([
+        { question: 'a', response: answered('ramp') },
+        { question: 'b', response: { ...maximal.sequence, scenario_key: 'budget_pressure' } as AskNarenResponse },
+      ]),
+    ).toBe('budget_pressure');
   });
 
   it('is empty when nothing in the thread carries a scenario', () => {
