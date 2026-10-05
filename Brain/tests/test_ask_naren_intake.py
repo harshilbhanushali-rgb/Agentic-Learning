@@ -289,6 +289,18 @@ def test_in_a_thread_the_model_may_say_carried():
     assert decision.intent == "sequence"
 
 
+@pytest.mark.parametrize("intent", ("where_else_seen", "call_prep", "reply_to_client"))
+def test_a_carried_message_on_an_intent_that_cannot_carry_falls_back_without_a_retry(intent):
+    """The prompt says to leave the query empty when carried. On an intent that always
+    searches, that leaves nothing to search on -- which is not a reply worth a second model
+    call: the existing fallback answers the message as written, at once."""
+    gw = StubGateway({**_reply(intent=intent, retrieval_query=""), "situation": "carried"})
+    decision, _ = asyncio.run(intake.classify("where else has this come up", gw,
+                                              thread=(_turn(),)))
+    assert len(gw.calls) == 1
+    assert decision == intake.fallback_decision("where else has this come up")
+
+
 def test_the_situation_rule_is_shown_only_when_there_is_a_conversation():
     """ADR 0013 point 5: block placement in this prompt has been measured moving other
     intents' routing, so a first message sees no new prompt text at all."""

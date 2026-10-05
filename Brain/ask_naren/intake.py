@@ -127,6 +127,8 @@ NO_ANCHOR = "none"
 #: the last ANSWERED turn's pair (`threads.carried_source`) -- and ADR 0013 deliberately
 #: leaves it out of the anchor model until the new field is measured.
 OWN_PATH = "own_path"
+#: The anchors that are about ONE situation, and so the only ones a thread can supply.
+ONE_SITUATION_ANCHORS = (SCENARIO_ANCHOR, EXCHANGE_ANCHOR)
 
 
 class AnchorNeed(NamedTuple):
@@ -184,7 +186,7 @@ def may_carry(intent: str) -> bool:
     treats a message on a carried situation exactly as one that opens a situation.
     """
     need = ANCHORS[intent]
-    return need.kind in (SCENARIO_ANCHOR, EXCHANGE_ANCHOR) and not need.new_only
+    return need.kind in ONE_SITUATION_ANCHORS and not need.new_only
 
 
 class IntakeDecision(BaseModel):
@@ -696,11 +698,26 @@ async def classify(message: str, gateway, *, thread=(), model: str = CHAT_MODEL,
                 # point 5) -- there is nothing above it to carry. Forced BEFORE validation,
                 # so the query the model also copied survives rather than being cleared.
                 payload = {**payload, "situation": OPENS}
+            if _carried_with_nothing_to_search(payload):
+                # The prompt says to leave the query empty when carried; on an intent that
+                # always searches, that leaves nothing to search on. Not a malformed reply
+                # worth a second model call -- the existing fallback, at once (ADR 0013).
+                return fallback_decision(message), meta
             return IntakeDecision.model_validate(payload), meta
         except Exception:                       # noqa: BLE001 -- see the docstring
             continue
 
     return fallback_decision(message), meta
+
+
+def _carried_with_nothing_to_search(payload) -> bool:
+    """A carried reply on an intent that cannot carry (new-only or neighbourhood), with no
+    query of its own. It is read as opening a situation, and has nothing to open it with."""
+    if not isinstance(payload, dict) or payload.get("situation") != CARRIED:
+        return False
+    intent = payload.get("intent")
+    return (intent in RETRIEVING_INTENTS and not may_carry(intent)
+            and not str(payload.get("retrieval_query") or "").strip())
 
 
 def is_verbatim_span(query: str, message: str) -> bool:

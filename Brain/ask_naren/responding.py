@@ -62,7 +62,7 @@ async def _resolve_anchor(decision: intake.IntakeDecision, pool: RetrievalPool,
     message alone (ADR 0006).
     """
     need = intake.ANCHORS[decision.intent]
-    if need.kind not in (intake.SCENARIO_ANCHOR, intake.EXCHANGE_ANCHOR):
+    if need.kind not in intake.ONE_SITUATION_ANCHORS:
         raise ValueError(f"{decision.intent} consumes no scenario or exchange anchor")
     if carried is not None:
         return carried
@@ -87,15 +87,16 @@ def _carried_anchor(decision: intake.IntakeDecision, turns,
     A scenario need is met by the turn's scenario, or by its pair's: an exchange implies its
     scenario. A carried pair the pool no longer holds is no anchor at all -- the pool is
     loaded once at startup and a pipeline re-run can retire a pair mid-conversation.
+
+    Only SCENARIO needs reach here: `_guarded` rule 7 is the one place that keeps carried
+    exchange questions out until issue #54 builds them.
     """
     turn = threads.last_answer(turns)
     if turn is None:
         return None
     pair = pool.by_pair_id(turn.pair_id) if turn.pair_id is not None else None
     scenario_key = turn.scenario_key or (pair or {}).get("scenario_key") or ""
-    if intake.ANCHORS[decision.intent].kind == intake.SCENARIO_ANCHOR and scenario_key:
-        return Anchor(scenario_key=scenario_key, pair=pair)
-    return None
+    return Anchor(scenario_key=scenario_key, pair=pair) if scenario_key else None
 
 
 async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(),

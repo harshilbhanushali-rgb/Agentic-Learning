@@ -73,6 +73,8 @@ class Intake(_Open):
     visible (issue #14)."""
     intent: str
     retrieval_query: str
+    # Required here because this service always sends it; optional in types.ts, which also
+    # reads responses stored before the field existed.
     situation: Literal["carried", "opens"] = Field(
         description="Whether the answer was carried from the thread or searched for (#53).")
 
@@ -130,7 +132,8 @@ class Answered(_Open):
     answer: str
     quote: str
     citation: Citation
-    match: Match | None = Field(default=None, description="Absent on a follow-up.")
+    match: Match | None = Field(
+        default=None, description="Absent on a follow-up, and on a carried procedure (#53).")
     my_reply: str | None = Field(default=None, description="Present only on a contrast.")
 
 

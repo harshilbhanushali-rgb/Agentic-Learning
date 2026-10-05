@@ -219,9 +219,13 @@ export function scenarioLabel(key: string): string {
  * visible").
  */
 export function carriedScenario(turns: { question: string; response: AskNarenResponse }[]): string {
+  // The same turn the service continues from (`threads.last_answer`, issue #53): the newest
+  // answered or rendered one, never further back. Clarifies and declines rest on nothing.
   for (let i = turns.length - 1; i >= 0; i--) {
-    const key = turnFrom(turns[i].question, turns[i].response).scenario_key;
-    if (key) return key;
+    const { outcome } = turns[i].response;
+    if (outcome === 'answered' || outcome === 'rendered') {
+      return turnFrom(turns[i].question, turns[i].response).scenario_key;
+    }
   }
   return '';
 }

@@ -280,15 +280,26 @@ describe('carriedScenario', () => {
     expect(carriedScenario([])).toBe('');
   });
 
-  it('names the newest answered scenario, looking past later declines and rendered turns', () => {
+  it('names the newest answered scenario, looking past later declines', () => {
     expect(
       carriedScenario([
         { question: 'a', response: answered('ramp') },
         { question: 'b', response: answered('performance_pushback') },
         { question: 'c', response: declined },
-        { question: 'd', response: rendered },
       ]),
     ).toBe('performance_pushback');
+  });
+
+  it('never walks back past a newer answer that is about many situations', () => {
+    // The service stops at the most recent answered or rendered turn (`threads.last_answer`)
+    // and asks rather than reaching back, so naming the older scenario would claim a carry
+    // that will not happen.
+    expect(
+      carriedScenario([
+        { question: 'a', response: answered('performance_pushback') },
+        { question: 'd', response: rendered },
+      ]),
+    ).toBe('');
   });
 
   it('names a rendered turn’s scenario when that is the newest one carried', () => {

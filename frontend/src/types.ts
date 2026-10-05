@@ -230,7 +230,10 @@ export interface AskNarenAnswer {
    *  grounding source already cited, with no retrieval at all, so there is no cosine and no
    *  rank — the same reason an out-of-scope decline carries no `match`. Reporting one would
    *  put a fabricated number into the record decline-rate calibration later reads. The
-   *  `citation` still says exactly which exchange the answer rests on. */
+   *  `citation` still says exactly which exchange the answer rests on.
+   *
+   *  ALSO ABSENT ON A CARRIED `procedure` answer (issue #53), for the same reason: its
+   *  scenario came from the thread, so nothing was searched. */
   match?: AskNarenMatch;
   /** PRESENT ONLY ON A CONTRAST (issue #21): the CSM's own reply, which `answer` is a
    *  comparison against. Rendering the comparison without it would be half an answer.
