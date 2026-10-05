@@ -101,6 +101,21 @@ describe('coverage_check', () => {
     expect(screen.getByText(/drawn from 9 of Naren’s calls\./)).toBeInTheDocument();
   });
 
+  it('on a carried situation, says what it is reporting on without claiming a search', () => {
+    // No `match` means the situation came from the thread (issue #54): nothing was searched,
+    // so "nearest" and "closest match" would describe a search that never ran.
+    const { match: _searched, ...carried } = maximal.coverage_check as Extract<
+      AskNarenRendered,
+      { kind: 'coverage_check' }
+    >;
+    render(<RenderedAnswer result={carried as AskNarenRendered} />);
+    const body = screen.getByRole('article').textContent ?? '';
+    expect(body).toContain(
+      'The situation you have been asking about is performance pushback, drawn from 9 of Naren’s calls.',
+    );
+    expect(body).not.toMatch(/nearest|closest match/);
+  });
+
   it('never reads as a confirmation that the situation is covered', () => {
     render(<RenderedAnswer result={maximal.coverage_check} />);
     expect(screen.getByText(/not a confirmation that your situation is covered/)).toBeInTheDocument();

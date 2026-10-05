@@ -228,9 +228,19 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
                 that" either: ADR 0005 measured cosine as unable to separate right answers
                 from wrong ones, so there is no honest threshold. What it can do is show the
                 nearest situation and how much sits behind it, and let the CSM judge. */}
+            {/* NO `match` MEANS THE SITUATION WAS CARRIED from the thread (issue #54) — the
+                one already being discussed, not the nearest to anything. Nothing was
+                searched, so "nearest" and "closest match" would describe a search that never
+                ran. */}
             <p className="text-[13px] leading-relaxed text-ink">
-              The nearest situation Ask Naren has to{' '}
-              <span className="font-medium">&ldquo;{result.asked_about}&rdquo;</span> is{' '}
+              {result.match ? (
+                <>
+                  The nearest situation Ask Naren has to{' '}
+                  <span className="font-medium">&ldquo;{result.asked_about}&rdquo;</span> is{' '}
+                </>
+              ) : (
+                <>The situation you have been asking about is </>
+              )}
               <span className="font-medium">{scenarioLabel(result.nearest.scenario_key)}</span>
               {result.nearest.evidence === 'thin' ? (
                 <>
@@ -242,10 +252,12 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
                 <>, drawn from {result.nearest.support_calls} of Naren&rsquo;s calls.</>
               )}
             </p>
-            <p className="text-[12px] leading-relaxed text-ink-2">
-              Judge for yourself whether that is what you meant — it is the closest match,
-              not a confirmation that your situation is covered.
-            </p>
+            {result.match && (
+              <p className="text-[12px] leading-relaxed text-ink-2">
+                Judge for yourself whether that is what you meant — it is the closest match,
+                not a confirmation that your situation is covered.
+              </p>
+            )}
           </header>
           {result.nearest.description && (
             <p className="border-l-2 border-line pl-4 text-[12px] leading-relaxed text-ink-2">
