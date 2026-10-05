@@ -64,7 +64,8 @@ def _answer_payload():
             "quote": GOOD_QUOTE, "cited_call": CALL}
 
 
-def _decides(intent, retrieval_query="", question="", seen_threads=None, my_reply=""):
+def _decides(intent, retrieval_query="", question="", seen_threads=None, my_reply="",
+             situation="opens"):
     """A stand-in intake that returns a fixed decision without calling a gateway.
 
     `seen_threads` records what thread intake was handed, which is the only externally
@@ -74,7 +75,8 @@ def _decides(intent, retrieval_query="", question="", seen_threads=None, my_repl
         if seen_threads is not None:
             seen_threads.append(thread)
         return intake.IntakeDecision(intent=intent, retrieval_query=retrieval_query,
-                                     question=question, my_reply=my_reply), {}
+                                     question=question, my_reply=my_reply,
+                                     situation=situation), {}
     return _classify
 
 
@@ -294,7 +296,8 @@ def test_a_follow_up_whose_carried_pair_left_the_pool_is_answered_as_a_new_quest
 def test_a_follow_up_echoes_no_retrieval_query_because_it_embedded_nothing():
     result, _, _ = _respond(_decides("follow_up", retrieval_query="pushing back on price"),
                             _answer_payload(), message=FOLLOW_UP, thread=(_answered_turn(),))
-    assert result["intake"] == {"intent": "follow_up", "retrieval_query": ""}
+    assert result["intake"] == {"intent": "follow_up", "retrieval_query": "",
+                                "situation": "carried"}
 
 
 # -- clarify: asked once, never twice (issue #16) ------------------------------------------
@@ -387,7 +390,7 @@ def test_every_response_records_what_intake_decided():
     normal answer. This is what makes a silent failure observable."""
     answered, _, _ = _respond(_decides("reply_to_client", CLIENT_WORDS), _answer_payload())
     assert answered["intake"] == {"intent": "reply_to_client",
-                                  "retrieval_query": CLIENT_WORDS}
+                                  "retrieval_query": CLIENT_WORDS, "situation": "opens"}
 
     clarified, _, _ = _respond(_decides("clarify", question="What did they say?"),
                                message="client is unhappy")
@@ -973,3 +976,243 @@ def test_the_paths_that_already_reported_a_match_are_unchanged():
         assert "match" not in result, intent
     where, _, _ = _ask_where_else()
     assert "match" not in where
+
+
+# -- a message on a carried situation answers from it (issue #53, ADR 0013) ----------------
+
+class NoSearchPool(retrieval.RetrievalPool):
+    """`_pool()`, except that ranking anything fails the test. A carried answer must run no
+    vector search at all, not merely ignore one."""
+
+    async def top1(self, query_vec):
+        raise AssertionError("a carried answer ran a vector search")
+
+    async def topk(self, query_vec, k):
+        raise AssertionError("a carried answer ran a vector search")
+
+
+def _no_search_pool():
+    return NoSearchPool(_pool().pairs, np.array([[1.0, 0.0], [0.0, 1.0]]))
+
+
+#: The thread's scenario is NOT the one a search would reach: `RecordingEmbedder` lands on
+#: pair 11 (performance_pushback), and these turns are about pair 22 (timeline_question).
+#: So an answer about timeline_question can only have come from the thread.
+CARRIED_SCENARIO = "timeline_question"
+
+
+def _on_timeline(outcome="answered", pair_id=22, scenario_key=CARRIED_SCENARIO):
+    return threads.ThreadTurn(message="client asks when the integration goes live",
+                              reply="Let me check with the team.", outcome=outcome,
+                              pair_id=pair_id, scenario_key=scenario_key)
+
+
+def _carried(intent, thread, message="what's the play here", pool=None, payloads=(),
+             playbook_for=lambda key: {**PLAYBOOK_RECORD, "scenario_key": key}):
+    gw = StubGateway(*payloads)
+    embed = RecordingEmbedder()
+    result = asyncio.run(responding.respond(
+        message, pool or _no_search_pool(), gw, embed_query=embed, thread=thread,
+        classify=_decides(intent, situation="carried"), playbook_for=playbook_for,
+        scenarios_for=lambda: SCENARIOS, following_for=lambda pair_id: []))
+    return result, gw, embed
+
+
+SCENARIO_RENDERED = ("sequence", "phrasing", "pitfalls", "scenario_check", "play_confidence",
+                     "improve_at_move")
+
+
+@pytest.mark.parametrize("intent", SCENARIO_RENDERED)
+def test_a_carried_scenario_question_answers_for_the_last_answers_scenario(intent):
+    """Story 1-6: "what's the play here" after an answer gets the play for THAT situation --
+    with no embedding and no vector search, and no match, because nothing was searched."""
+    result, gw, embed = _carried(intent, (_on_timeline(),))
+    assert result["outcome"] == "rendered" and result["kind"] == intent
+    assert result["scenario_key"] == CARRIED_SCENARIO
+    assert embed.seen == []
+    assert gw.calls == []
+    assert "match" not in result
+
+
+def test_a_carried_procedure_answers_the_play_for_the_carried_scenario():
+    """Story 7. Generated from the carried scenario's playbook, so one generation and no
+    search -- and the answer names that scenario."""
+    seen_keys = []
+
+    def playbook_for(key):
+        seen_keys.append(key)
+        return {**PLAYBOOK_RECORD, "scenario_key": key}
+
+    result, gw, embed = _carried("procedure", (_on_timeline(),), payloads=(_play_payload(),),
+                                 playbook_for=playbook_for)
+    assert result["outcome"] == "answered"
+    assert result["citation"]["scenario_key"] == CARRIED_SCENARIO
+    assert seen_keys == [CARRIED_SCENARIO]
+    assert embed.seen == [] and len(gw.calls) == 1
+    assert "match" not in result
+
+
+def test_a_carried_procedure_that_cannot_be_grounded_declines_without_inventing_a_match():
+    composed = _play_payload(quote="Compare cost per hire against the client's own history")
+    result, _, embed = _carried("procedure", (_on_timeline(),), payloads=(composed, composed))
+    assert result["outcome"] == "declined"
+    assert result["reason"] == "grounding_unverified"
+    assert "match" not in result
+    assert embed.seen == []
+
+
+def test_a_carried_procedure_with_no_recorded_play_says_so_rather_than_searching():
+    """`procedure` normally degrades to Layer B -- but that answers from a SEARCH, and a
+    carried message has nothing of its own to search on."""
+    result, gw, embed = _carried("procedure", (_on_timeline(),),
+                                 playbook_for=lambda key: None)
+    assert result["outcome"] == "clarify"
+    assert "timeline question" in result["question"]
+    assert embed.seen == [] and gw.calls == []
+    assert "match" not in result
+
+
+def test_a_rendered_turn_is_carried_too():
+    """After "what's the play for X", "and how does he word it?" stays on X. The rendered
+    turn holds a scenario and no pair (issue #52)."""
+    played = _on_timeline(outcome="rendered", pair_id=None)
+    result, _, embed = _carried("phrasing", (played,), message="and how does he word it?")
+    assert result["scenario_key"] == CARRIED_SCENARIO
+    assert embed.seen == []
+
+
+def test_a_carried_pairs_scenario_counts_as_the_scenario():
+    """An exchange implies its scenario (CONTEXT.md **Anchor**)."""
+    exchange_only = _on_timeline(outcome="rendered", scenario_key="")
+    result, _, _ = _carried("sequence", (exchange_only,))
+    assert result["scenario_key"] == CARRIED_SCENARIO
+
+
+def test_clarifies_and_declines_are_skipped_when_finding_what_is_carried():
+    """Story 17: "what's the play" after "no close match" still means the last real answer."""
+    thread = (_on_timeline(),
+              threads.ThreadTurn(message="x", outcome="declined", reply="Nothing close."),
+              threads.ThreadTurn(message="y", outcome="clarify", reply="Which account?"))
+    result, _, embed = _carried("sequence", thread)
+    assert result["scenario_key"] == CARRIED_SCENARIO
+    assert embed.seen == []
+
+
+def test_carrying_never_walks_back_past_the_most_recent_answer():
+    """Story 16: "show me that" means the thing just read. The newest answered or rendered
+    turn here is about many situations and holds no scenario -- so Ask Naren asks, rather
+    than reaching back to the older answer about something else."""
+    thread = (_on_timeline(),
+              threads.ThreadTurn(message="what do you cover", outcome="rendered",
+                                 reply="Showed what Ask Naren covers."))
+    result, gw, embed = _carried("sequence", thread)
+    assert result["outcome"] == "clarify"
+    assert result["question"] == responding.NO_CARRIED_ANCHOR
+    assert embed.seen == [] and gw.calls == []
+    assert "match" not in result
+
+
+def test_nothing_to_carry_is_the_fixed_clarify():
+    """Stories 14-15: asked by Ask Naren itself, worded the same way every time."""
+    thread = (threads.ThreadTurn(message="x", outcome="declined", reply="Nothing close."),)
+    result, _, _ = _carried("pitfalls", thread)
+    assert result["outcome"] == "clarify"
+    assert result["question"] == responding.NO_CARRIED_ANCHOR
+    assert "paste what the client said" in result["question"].lower()
+
+
+def test_a_carried_pair_gone_from_the_pool_with_no_scenario_is_not_an_anchor():
+    stale = _on_timeline(outcome="rendered", pair_id=9999, scenario_key="")
+    result, _, _ = _carried("sequence", (stale,))
+    assert result["question"] == responding.NO_CARRIED_ANCHOR
+
+
+def test_the_fixed_clarify_is_never_asked_twice_in_a_row():
+    """The existing guard: the CSM is answering it right now, so asking again is the loop.
+    The message is answered as written instead."""
+    asked = threads.ThreadTurn(message="what's the play here", outcome="clarify",
+                               reply=responding.NO_CARRIED_ANCHOR)
+    result, _, embed = _carried("sequence", (asked,), message="still not sure",
+                                pool=_pool(), payloads=(_answer_payload(),))
+    assert result["outcome"] == "answered"
+    assert embed.seen == ["still not sure"]
+
+
+def test_with_no_thread_a_carried_decision_behaves_as_opening_one():
+    """Story 18: a single question behaves exactly as today. Nothing above it to carry, so
+    no copied query is left and the existing fallback answers the message as written."""
+    result, _, embed = _carried("sequence", (), message="what's the play here",
+                                pool=_pool(), payloads=(_answer_payload(),))
+    assert embed.seen == ["what's the play here"]
+    assert result["intake"]["situation"] == "opens"
+
+
+@pytest.mark.parametrize("intent,extra", [
+    ("reply_to_client", {}),
+    ("contrast_my_reply", {"my_reply": "i said we would look into it"}),
+])
+def test_a_new_only_intent_searches_fresh_and_never_inherits(intent, extra):
+    """Stories 11-12: new client words are never answered from the previous client's
+    situation."""
+    message = f"client said {CLIENT_WORDS} and i said we would look into it"
+    embed = RecordingEmbedder()
+    result = asyncio.run(responding.respond(
+        message, _pool(), StubGateway(_answer_payload()), embed_query=embed,
+        thread=(_on_timeline(),),
+        classify=_decides(intent, CLIENT_WORDS, situation="carried", **extra)))
+    assert embed.seen == [CLIENT_WORDS]
+    assert result["citation"]["pair_id"] == 11          # the search's pair, not the thread's 22
+    assert result["intake"]["situation"] == "opens"
+
+
+@pytest.mark.parametrize("intent", ("where_else_seen", "call_prep"))
+def test_a_neighbourhood_intent_searches_fresh(intent):
+    """Story 13, until carrying a neighbourhood is designed separately."""
+    embed = RecordingEmbedder()
+    result = asyncio.run(responding.respond(
+        "which other clients have raised cost per hire", _wide_pool(), StubGateway(),
+        embed_query=embed, thread=(_on_timeline(),),
+        classify=_decides(intent, "cost per hire", situation="carried"),
+        scenarios_for=lambda: SCENARIOS, playbook_for=lambda key: PLAYBOOK_RECORD))
+    assert embed.seen == ["cost per hire"]
+    assert result["kind"] == intent
+
+
+def test_an_opening_decision_that_fails_the_copy_check_falls_back_and_is_never_carried():
+    """Story 28, and ADR 0013's rejected option: a paraphrased NEW situation must not
+    inherit the previous client's scenario."""
+    message = "and what usually goes wrong?"
+    embed = RecordingEmbedder()
+    result = asyncio.run(responding.respond(
+        message, _pool(), StubGateway(_answer_payload()), embed_query=embed,
+        thread=(_on_timeline(),),
+        classify=_decides("pitfalls", "timeline integration problems", situation="opens"),
+        playbook_for=lambda key: PLAYBOOK_RECORD))
+    assert embed.seen == [message]
+    assert result["intake"] == {"intent": "reply_to_client", "retrieval_query": message,
+                                "situation": "opens"}
+
+
+def test_the_intake_echo_shows_a_carried_situation():
+    """Story 24: a carried answer is told apart from a searched one when debugging."""
+    result, _, _ = _carried("sequence", (_on_timeline(),))
+    assert result["intake"] == {"intent": "sequence", "retrieval_query": "",
+                                "situation": "carried"}
+
+
+def test_carrying_embeds_no_thread_text():
+    """Story 27, ADR 0006: the thread supplies an identifier, never text that is embedded."""
+    for intent in (*SCENARIO_RENDERED, "procedure"):
+        _, _, embed = _carried(intent, (_on_timeline(),), payloads=(_play_payload(),))
+        assert embed.seen == [], intent
+
+
+@pytest.mark.parametrize("intent", ("show_exchange", "what_happened_next", "coverage_check"))
+def test_a_carried_exchange_question_is_answered_as_written_until_exchange_carrying_exists(
+        intent):
+    """Carrying an EXCHANGE is #54. Until it exists a carried exchange question takes the
+    existing fallback rather than an exchange chosen some other way."""
+    result, _, embed = _carried(intent, (_on_timeline(),), message="show me the exchange",
+                                pool=_pool(), payloads=(_answer_payload(),))
+    assert embed.seen == ["show me the exchange"]
+    assert result["intake"]["intent"] == "reply_to_client"

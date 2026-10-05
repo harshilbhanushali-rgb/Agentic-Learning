@@ -227,6 +227,75 @@ def test_only_scenario_and_exchange_anchors_may_be_carried():
                          "show_exchange", "what_happened_next", "coverage_check"}
 
 
+# -- the situation field: on a carried situation, or opening one (issue #53, ADR 0013) ---
+
+def test_a_carried_decision_searches_for_nothing_so_carries_no_query():
+    """Cleared, the way a follow-up's is: the echo would otherwise report a search that
+    never ran, on a message whose subject came from the thread."""
+    decision = intake.IntakeDecision(intent="sequence", situation="carried",
+                                     retrieval_query="the play here")
+    assert decision.situation == "carried"
+    assert decision.retrieval_query == ""
+
+
+def test_a_follow_up_is_always_on_a_carried_situation():
+    for said in ("opens", "carried"):
+        decision = intake.IntakeDecision(intent="follow_up", situation=said)
+        assert decision.situation == "carried", said
+    assert intake.IntakeDecision(intent="follow_up").situation == "carried"
+
+
+def test_a_new_only_or_neighbourhood_intent_never_carries_and_keeps_its_query():
+    """These always search fresh (ADR 0013 point 4), so "carried" is read as opens -- and
+    the query is kept, because it is what they search on."""
+    for intent in ("reply_to_client", "where_else_seen", "call_prep"):
+        decision = intake.IntakeDecision(intent=intent, situation="carried",
+                                         retrieval_query="our cost per hire is way too high")
+        assert decision.situation == "opens", intent
+        assert decision.retrieval_query == "our cost per hire is way too high", intent
+
+
+def test_an_opening_decision_on_a_retrieving_intent_still_needs_a_query():
+    with pytest.raises(ValueError):
+        intake.IntakeDecision(intent="sequence", situation="opens", retrieval_query="")
+
+
+def test_an_unknown_situation_is_refused_at_the_boundary():
+    with pytest.raises(ValueError):
+        intake.IntakeDecision(intent="sequence", situation="maybe",
+                              retrieval_query="cost per hire")
+
+
+def test_the_gateway_schema_requires_the_situation():
+    schema = intake.response_schema()["schema"]
+    assert "situation" in schema["required"]
+    assert set(schema["properties"]["situation"]["enum"]) == {"carried", "opens"}
+
+
+def test_with_no_thread_a_carried_reply_is_read_as_opening_and_keeps_its_query():
+    """A first message has nothing to carry. Forced in code BEFORE validation, so the copied
+    query the model also wrote survives and the message is searched as it always was."""
+    gw = StubGateway({**_reply(intent="sequence", retrieval_query="cost per hire"),
+                      "situation": "carried"})
+    decision, _ = asyncio.run(intake.classify("what's the play for cost per hire", gw))
+    assert decision.situation == "opens"
+    assert decision.retrieval_query == "cost per hire"
+
+
+def test_in_a_thread_the_model_may_say_carried():
+    gw = StubGateway({**_reply(intent="sequence", retrieval_query=""), "situation": "carried"})
+    decision, _ = asyncio.run(intake.classify("what's the play here", gw, thread=(_turn(),)))
+    assert decision.situation == "carried"
+    assert decision.intent == "sequence"
+
+
+def test_the_situation_rule_is_shown_only_when_there_is_a_conversation():
+    """ADR 0013 point 5: block placement in this prompt has been measured moving other
+    intents' routing, so a first message sees no new prompt text at all."""
+    assert '"carried"' not in intake.build_prompt(SITUATION)
+    assert '"carried"' in intake.build_prompt(SITUATION, (_turn(),))
+
+
 # -- validation of an untrusted reply ---------------------------------------------------
 
 def test_an_unusable_reply_is_retried_once_and_the_retry_can_succeed():

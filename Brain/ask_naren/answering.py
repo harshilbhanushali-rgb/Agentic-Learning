@@ -492,16 +492,20 @@ def build_procedure_prompt(question: str, scenario_key: str, playbook: dict) -> 
     return "\n".join(lines)
 
 
-async def answer_procedure(question: str, match: Match, playbook: dict, gateway, *,
+async def answer_procedure(question: str, scenario_key: str, playbook: dict, gateway, *,
+                     match: Match | None = None,
                      label_for=citations.resolve_label) -> dict:
     """Answer "what is the general play for X" from the scenario's Layer C playbook.
 
-    `match` is how the SCENARIO was chosen: the question is embedded and the nearest
-    exchange's scenario is the one whose play gets answered. That is a retrieval, so unlike
-    a follow-up this response reports its cosine -- and it is why the answer names its
-    scenario, because a catch-all can absorb a question that is not really about it
-    (`application_volume_and_prioritization` carries 11.8% of coachable pairs and 16% of
-    what routes there is about jobs rather than applications).
+    `match` is how the SCENARIO was chosen when it was searched for: the question is
+    embedded and the nearest exchange's scenario is the one whose play gets answered. That
+    is a retrieval, so unlike a follow-up this response reports its cosine -- and the answer
+    names its scenario either way, because a catch-all can absorb a question that is not
+    really about it (`application_volume_and_prioritization` carries 11.8% of coachable
+    pairs and 16% of what routes there is about jobs rather than applications).
+
+    None when the scenario was CARRIED from the thread (issue #53): nothing was searched,
+    so neither the answer nor a decline reports a match.
 
     THE GATE IS THE SAME GATE, with a different source (issue #17): the quote must appear
     verbatim in one of the playbook's EVIDENCE quotes, not in a criterion. A criterion is
@@ -511,7 +515,6 @@ async def answer_procedure(question: str, match: Match, playbook: dict, gateway,
     if not (question or "").strip():
         raise ValueError("question is empty")
 
-    scenario_key = match.pair["scenario_key"]
     # THE SAME MOVES THE PROMPT RENDERS, which is the whole point of routing both through
     # `procedure_moves`. A gate handed sources the prompt never showed would accept a quote
     # the model was not given -- and "what it cites must be something it was actually shown"
@@ -549,7 +552,7 @@ async def answer_procedure(question: str, match: Match, playbook: dict, gateway,
                     "call_filename": evidence["call"],
                     "scenario_key": scenario_key,
                 },
-                "match": _match_info(match, 1),
+                **({"match": _match_info(match, 1)} if match is not None else {}),
             }
 
     return _decline(GROUNDING_UNVERIFIED, match, 1, label_for)
@@ -731,17 +734,19 @@ def _answer(payload: dict, match: Match, rank: int, label_for) -> dict:
     }
 
 
-def _decline(reason: str, match: Match, rank: int, label_for) -> dict:
-    return {
-        "outcome": DECLINED,
-        "reason": reason,
-        "message": _MESSAGES[reason],
-        # Recorded even on a decline: the spec defers decline-rate calibration to real
-        # usage, and that is only answerable later if each decline says how close the match
-        # it turned down actually was. On a decline this is the NEAREST candidate (rank 1);
-        # no single candidate was chosen, so there is no grounded one to report.
-        "match": _match_info(match, rank),
-    }
+def _decline(reason: str, match: Match | None, rank: int, label_for) -> dict:
+    declined = {"outcome": DECLINED, "reason": reason, "message": _MESSAGES[reason]}
+    # Recorded even on a decline: the spec defers decline-rate calibration to real usage,
+    # and that is only answerable later if each decline says how close the match it turned
+    # down actually was. On a decline this is the NEAREST candidate (rank 1); no single
+    # candidate was chosen, so there is no grounded one to report.
+    #
+    # None only on a CARRIED Layer C answer (issue #53), whose scenario came from the
+    # thread: nothing was searched, so there is no cosine, and inventing one would put a
+    # search that never ran into that record.
+    if match is not None:
+        declined["match"] = _match_info(match, rank)
+    return declined
 
 
 def _match_info(match: Match, rank: int) -> dict:

@@ -73,6 +73,8 @@ class Intake(_Open):
     visible (issue #14)."""
     intent: str
     retrieval_query: str
+    situation: Literal["carried", "opens"] = Field(
+        description="Whether the answer was carried from the thread or searched for (#53).")
 
 
 class Citation(_Open):
@@ -207,7 +209,7 @@ class Sequence(_Rendered):
     kind: Literal["sequence"]
     scenario_key: str
     steps: list[str]
-    match: Match
+    match: Match | None = Field(default=None, description="Absent when carried (#53).")
 
 
 class Phrase(Evidence):
@@ -218,14 +220,14 @@ class Phrasing(_Rendered):
     kind: Literal["phrasing"]
     scenario_key: str
     phrases: list[Phrase]
-    match: Match
+    match: Match | None = Field(default=None, description="Absent when carried (#53).")
 
 
 class Pitfalls(_Rendered):
     kind: Literal["pitfalls"]
     scenario_key: str
     pitfalls: list[Pitfall]
-    match: Match
+    match: Match | None = Field(default=None, description="Absent when carried (#53).")
 
 
 class ScenarioCheck(_Rendered):
@@ -233,7 +235,7 @@ class ScenarioCheck(_Rendered):
     asked_about: str
     scenario_key: str
     applies_when: str
-    match: Match
+    match: Match | None = Field(default=None, description="Absent when carried (#53).")
 
 
 class PlayConfidence(_Rendered):
@@ -244,7 +246,7 @@ class PlayConfidence(_Rendered):
     n_evidence: int
     n_evidence_capped: bool
     basis: str
-    match: Match
+    match: Match | None = Field(default=None, description="Absent when carried (#53).")
 
 
 class Account(_Open):
@@ -304,7 +306,7 @@ class ImproveAtMove(_Rendered):
     moves: list[Move]
     pitfalls: list[Pitfall]
     basis: str
-    match: Match
+    match: Match | None = Field(default=None, description="Absent when carried (#53).")
 
 
 class Nearest(ScenarioRef):

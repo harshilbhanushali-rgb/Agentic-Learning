@@ -142,11 +142,11 @@ A `pair_id`, a `scenario_key` or a call filename passed forward from an earlier 
 _Avoid_: context id, session key, sticky scenario.
 
 **Carried situation**:
-A message is ON a carried situation when it is about the situation the thread has already established -- "what's the play here", "show me the actual exchange", "what happened after that" -- rather than describing one of its own. The opposite is a message that OPENS a situation. Which one a message is, is a judgement about the message; which situation is carried is not a judgement at all, it is whatever the last answer rested on. A message carrying new client words always opens a situation, however much it sounds like a continuation.
+**Built for the scenario intents** (#53; exchange intents are #54; unmeasured until #55). Intake returns it as `situation`: `carried` or `opens`. A message is ON a carried situation when it is about the situation the thread has already established -- "what's the play here", "show me the actual exchange", "what happened after that" -- rather than describing one of its own. The opposite is a message that OPENS a situation. Which one a message is, is a judgement about the message; which situation is carried is not a judgement at all, it is whatever the last answer rested on. A message carrying new client words always opens a situation, however much it sounds like a continuation.
 _Avoid_: follow-up (one answer path, not this property), context, sticky scenario, same topic.
 
 **Anchor**:
-What an answer is about, in the form its answer path consumes it: a **scenario** (a play, a playbook), one **exchange** (a specific real client turn and Naren's reply), or a **neighbourhood** (the many exchanges nearest a situation). An exchange implies its scenario; a scenario does not pick an exchange. A message that opens a situation finds its anchor by searching; a message on a carried situation takes it from the thread.
+**Built** (#51). Every intent declares the anchor its path consumes in `intake.ANCHORS`, and a test fails when one is missing. What an answer is about, in the form its answer path consumes it: a **scenario** (a play, a playbook), one **exchange** (a specific real client turn and Naren's reply), or a **neighbourhood** (the many exchanges nearest a situation). An exchange implies its scenario; a scenario does not pick an exchange. A message that opens a situation finds its anchor by searching; a message on a carried situation takes it from the thread.
 _Avoid_: context, target, match (which is the retrieval result an anchor may come from).
 
 **Quote bleed**:

@@ -211,6 +211,11 @@ export interface AskNarenIntake {
    *  extraction is visible rather than silent. Always derived from the CSM's own message,
    *  never from Naren's calls. */
   retrieval_query: string;
+  /** Whether the answer was CARRIED from the thread or searched for (issue #53, ADR 0013).
+   *  `carried` means the message named no situation of its own and its anchor came from
+   *  the last answer, so `retrieval_query` is empty and nothing was searched. Optional
+   *  because a response stored before this field existed has none. */
+  situation?: 'carried' | 'opens';
 }
 
 export interface AskNarenAnswer {
@@ -399,11 +404,13 @@ export type AskNarenRendered =
      verbatim quote a CSM cannot trace is the bare assertion ADR 0002 says a citation
      exists to prevent.
 
-     `match` IS ON ALL FIVE (issue #45): the scenario is picked by retrieving the nearest
-     exchange, and this is that retrieval's cosine — its `scenario_key` always equals the
-     top-level one. Recorded, never rendered as a score. */
+     `match` IS ON ALL FIVE when the scenario was searched for (issue #45): it is picked by
+     retrieving the nearest exchange, and this is that retrieval's cosine — its
+     `scenario_key` always equals the top-level one. Recorded, never rendered as a score.
+     ABSENT WHEN THE SCENARIO WAS CARRIED from the thread (issue #53): nothing was searched,
+     the same reason a follow-up carries none. */
   | { outcome: 'rendered'; kind: 'sequence'; intake?: AskNarenIntake;
-      scenario_key: string; steps: string[]; match: AskNarenMatch }
+      scenario_key: string; steps: string[]; match?: AskNarenMatch }
   | { outcome: 'rendered'; kind: 'phrasing'; intake?: AskNarenIntake;
       scenario_key: string;
       /** Phrase and quote are one-to-one here, so unlike a Layer C `answered` response
@@ -414,17 +421,17 @@ export type AskNarenRendered =
        *  with, the same split as `AskNarenCitation`. `label` falls back to `call`, so it
        *  is never empty. */
       phrases: { phrase: string; quote: string; call: string; label: string }[];
-      match: AskNarenMatch }
+      match?: AskNarenMatch }
   | { outcome: 'rendered'; kind: 'pitfalls'; intake?: AskNarenIntake;
       scenario_key: string;
       pitfalls: { text: string;
                   evidence: { quote: string; call: string; label: string }[] }[];
-      match: AskNarenMatch }
+      match?: AskNarenMatch }
   | { outcome: 'rendered'; kind: 'scenario_check'; intake?: AskNarenIntake;
       asked_about: string; scenario_key: string;
       /** WHEN the play applies. Deliberately not a yes/no — whether it fits a live client
        *  is a judgement Ask Naren has only the CSM's own sentence for. */
-      applies_when: string; match: AskNarenMatch }
+      applies_when: string; match?: AskNarenMatch }
   | { outcome: 'rendered'; kind: 'play_confidence'; intake?: AskNarenIntake;
       scenario_key: string;
       /** Counted from the LIVE document, so they describe what the play rests on today.
@@ -436,7 +443,7 @@ export type AskNarenRendered =
        *  it can invert (50 → 8 quotes; 16 → 9 quotes). Secondary, and always rendered with
        *  `n_evidence_capped`. */
       n_evidence: number; n_evidence_capped: boolean;
-      basis: string; match: AskNarenMatch }
+      basis: string; match?: AskNarenMatch }
   /** Which accounts a situation has come up with (issue #22), so a CSM can tell a
    *  one-client quirk from a pattern across the book. The only rendered kind that reads a
    *  NEIGHBOURHOOD rather than one nearest exchange — its question has no single-exchange
@@ -515,8 +522,9 @@ export type AskNarenRendered =
       pitfalls: { text: string;
                   evidence: { quote: string; call: string; label: string }[] }[];
       basis: string;
-      /** The retrieval that picked the scenario (issue #45), as on the five playbook kinds. */
-      match: AskNarenMatch }
+      /** The retrieval that picked the scenario (issue #45), as on the five playbook kinds --
+       *  and absent when the scenario was carried (issue #53). */
+      match?: AskNarenMatch }
   | { outcome: 'rendered'; kind: 'coverage_check'; intake?: AskNarenIntake;
       asked_about: string;
       nearest: AskNarenScenarioRef & {

@@ -170,6 +170,13 @@ ANCHORS: dict[str, AnchorNeed] = {
 }
 
 
+#: The two values of `IntakeDecision.situation` (`ask-naren/CONTEXT.md` **Carried
+#: situation**). Which one a message is, is a judgement about the message; WHICH situation is
+#: carried is never asked of the model -- it is whatever the last answer rested on.
+CARRIED = "carried"
+OPENS = "opens"
+
+
 def may_carry(intent: str) -> bool:
     """Can this intent's anchor come from the thread rather than from a search?
 
@@ -190,7 +197,8 @@ class IntakeDecision(BaseModel):
     means a silent regression there surfaces as an error instead of as a field nobody checks.
     """
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True,
+                              json_schema_extra=lambda schema: _require(schema, "situation"))
 
     intent: Literal["reply_to_client", "clarify", "out_of_scope", "follow_up",
                     "procedure", "discovery", "frequency", "show_exchange",
@@ -212,6 +220,11 @@ class IntakeDecision(BaseModel):
     #: shared boilerplate -- and it would search for what the CSM said rather than for what
     #: the client said, which is a different conversation.
     my_reply: str = ""
+    #: Is this message ON A CARRIED SITUATION -- about the one the thread already established,
+    #: naming none of its own -- or does it OPEN one (issue #53, ADR 0013)? REQUIRED in the
+    #: gateway schema, so the model always says; defaulted here only so an absent value
+    #: lands on `opens`, the behaviour every message had before this field existed.
+    situation: Literal["carried", "opens"] = OPENS
 
     @model_validator(mode="before")
     @classmethod
@@ -228,7 +241,25 @@ class IntakeDecision(BaseModel):
         if not isinstance(data, dict):
             return data
         cleaned = dict(data)
-        if cleaned.get("intent") in (FOLLOW_UP, *CORPUS_INTENTS):
+        intent = cleaned.get("intent")
+        if intent in (FOLLOW_UP, *CORPUS_INTENTS):
+            cleaned["retrieval_query"] = ""
+
+        # WHAT "CARRIED" MEANS DEPENDS ON THE INTENT (issue #53), and is settled here so
+        # everything downstream -- the guard, the paths, the echo -- reads one answer.
+        #   * a follow-up is ALWAYS on a carried situation: that is what it is;
+        #   * an intent that cannot carry (new-only, neighbourhood, none) treats it as
+        #     opening one, and KEEPS its query, because that query is what it searches on;
+        #   * a carried decision on an intent that can carry searches for nothing, so its
+        #     query is cleared for the same reason a follow-up's is.
+        # Only the literal "carried" is coerced, so an unknown value still reaches the
+        # Literal and is refused there.
+        if intent == FOLLOW_UP:
+            cleaned["situation"] = CARRIED
+        elif cleaned.get("situation") == CARRIED and not (intent in ANCHORS
+                                                          and may_carry(intent)):
+            cleaned["situation"] = OPENS
+        if cleaned.get("situation") == CARRIED:
             cleaned["retrieval_query"] = ""
         # SAME RULE, SECOND FIELD (issue #21). Only a contrast shows the CSM's own reply
         # back, so a `my_reply` on any other intent describes a comparison that never ran --
@@ -252,7 +283,10 @@ class IntakeDecision(BaseModel):
         """
         if self.intent == CLARIFY and not self.question:
             raise ValueError("a clarify with no question is a dead end, not a clarify")
-        if self.intent in RETRIEVING_INTENTS and not self.retrieval_query:
+        # A CARRIED decision embeds nothing -- its anchor comes from the thread -- so only a
+        # decision that opens a situation needs something to search on.
+        if (self.intent in RETRIEVING_INTENTS and self.situation == OPENS
+                and not self.retrieval_query):
             raise ValueError(f"{self.intent} with no retrieval_query would embed nothing")
         if self.intent == CONTRAST_MY_REPLY and not self.my_reply:
             raise ValueError("a contrast with no reply to contrast has nothing to compare")
@@ -268,6 +302,18 @@ def response_schema() -> dict:
     """
     return {"name": "intake_decision", "strict": True,
             "schema": IntakeDecision.model_json_schema()}
+
+
+def _require(schema: dict, field: str) -> None:
+    """Mark `field` required in the gateway schema while the model keeps a default.
+
+    The model must always SAY whether a message carries a situation, so the schema requires
+    it. The validated decision still defaults it, so a decision built in code -- the
+    fallback, a test -- means "opens" without spelling it out.
+    """
+    required = schema.setdefault("required", [])
+    if field not in required:
+        required.append(field)
 
 
 def build_prompt(message: str, thread=()) -> str:
@@ -584,6 +630,20 @@ def _thread_rules(thread) -> list[str]:
         "not give you what you asked for, answer it as best you can with what is there "
         "rather than asking again.",
         "",
+        f'  - Set situation to "{CARRIED}" when the message is about the situation the '
+        "conversation above already established and describes none of its own: \"what's "
+        "the play here\", \"how does he word it\", \"what usually goes wrong\", \"how sure "
+        "is that play\", \"show me the actual exchange\", \"what happened after that\". "
+        f'Set it to "{OPENS}" when the message describes a situation itself.',
+        f'    ANY NEW CLIENT WORDS MAKE IT "{OPENS}", however much the message sounds like a '
+        "continuation (\"now they say the budget is frozen\", \"different client: they "
+        "think our CPA is too high\"). Answering new client words from the situation above "
+        "is answering about the wrong client.",
+        f'    For "{CARRIED}", choose the intent the message asks for and leave '
+        "retrieval_query empty: what it is about comes from the conversation, not from a "
+        f'search. Do not "{CLARIFY}" to ask which situation they mean -- the conversation '
+        f'above already says. A "{FOLLOW_UP}" is always "{CARRIED}".',
+        "",
     ]
 
 
@@ -631,6 +691,11 @@ async def classify(message: str, gateway, *, thread=(), model: str = CHAT_MODEL,
                 # never be served each other's decision.
                 no_cache=True,
             )
+            if not thread and isinstance(payload, dict):
+                # A FIRST MESSAGE OPENS ITS SITUATION, whatever the model said (ADR 0013
+                # point 5) -- there is nothing above it to carry. Forced BEFORE validation,
+                # so the query the model also copied survives rather than being cleared.
+                payload = {**payload, "situation": OPENS}
             return IntakeDecision.model_validate(payload), meta
         except Exception:                       # noqa: BLE001 -- see the docstring
             continue

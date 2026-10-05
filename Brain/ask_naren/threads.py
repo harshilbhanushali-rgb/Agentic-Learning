@@ -230,6 +230,25 @@ def carried_source(turns) -> ThreadTurn | None:
     return None
 
 
+def last_answer(turns) -> ThreadTurn | None:
+    """The turn a message on a CARRIED SITUATION continues from (issue #53, ADR 0013): the
+    most recent ANSWERED or RENDERED turn, whatever it holds.
+
+    The same "stop at the most recent, never walk further back" rule as `carried_source`,
+    and for the same reason -- but rendered turns count here, because "and how does he word
+    it?" after a rendered play is about that play. `carried_source` deliberately stays on
+    answered turns only: a follow-up generates prose grounded in the source it inherits, and
+    a rendered turn grounded nothing.
+
+    Clarifies and declines are skipped: they rest on nothing, so "what's the play" after
+    "no close match" still means the answer before it.
+    """
+    for turn in reversed(list(turns)):
+        if turn.outcome in ("answered", "rendered"):
+            return turn
+    return None
+
+
 def awaiting_clarify(turns) -> bool:
     """Was the LAST thing Ask Naren did to ask the CSM a question?
 

@@ -40,22 +40,62 @@ class Anchor:
         return cls(scenario_key=match.pair["scenario_key"], pair=match.pair, match=match)
 
 
+#: What Ask Naren asks when a message is on a carried situation but the last answer holds
+#: nothing of the kind it needs (ADR 0013 point 3). WRITTEN HERE, NOT BY THE MODEL: it is the
+#: same question every time and can invent nothing, and the never-ask-twice guard matches
+#: on exactly this text.
+NO_CARRIED_ANCHOR = ("Which conversation do you mean? Paste what the client said and Ask "
+                     "Naren will answer from the closest real exchange in Naren's calls.")
+
+
 async def _resolve_anchor(decision: intake.IntakeDecision, pool: RetrievalPool,
-                          embed_query) -> Anchor:
+                          embed_query, *, carried: Anchor | None = None) -> Anchor:
     """THE ONE PLACE a scenario or exchange path gets the thing it answers about (#51).
 
     It replaces the "embed the query and take the nearest" each of those paths used to run
     for itself, so that how an anchor is found -- by searching, or from the thread -- is
     decided once, from `intake.ANCHORS`, rather than once per path.
 
-    The query is embedded exactly as on every other retrieving path: the current message
-    alone (ADR 0006).
+    `carried` is the anchor `_carried_anchor` already looked up for a message on a carried
+    situation (issue #53); it is used as it is, and nothing is embedded or searched.
+    Otherwise the query is embedded exactly as on every other retrieving path: the current
+    message alone (ADR 0006).
     """
     need = intake.ANCHORS[decision.intent]
     if need.kind not in (intake.SCENARIO_ANCHOR, intake.EXCHANGE_ANCHOR):
         raise ValueError(f"{decision.intent} consumes no scenario or exchange anchor")
+    if carried is not None:
+        return carried
     query_vec = (await embed_query([decision.retrieval_query]))[0]
     return Anchor.searched(await pool.top1(query_vec))
+
+
+def _carried_anchor(decision: intake.IntakeDecision, turns,
+                    pool: RetrievalPool) -> Anchor | None:
+    """The anchor a message on a carried situation inherits, or None if there is none.
+
+    A LOOKUP, NEVER A JUDGEMENT (ADR 0013 point 2): the model says only THAT the message is
+    carried; which scenario is carried is whatever the last answer rested on. A model that
+    can name a row can name one that does not exist.
+
+    It reads the MOST RECENT answered or rendered turn and never walks further back -- the
+    same rule as `threads.carried_source`, for the same reason: walking past a turn that
+    holds no anchor would answer about an older, unrelated thing while the CSM is asking
+    about what they just read. Clarifies and declines are skipped, because they rest on
+    nothing.
+
+    A scenario need is met by the turn's scenario, or by its pair's: an exchange implies its
+    scenario. A carried pair the pool no longer holds is no anchor at all -- the pool is
+    loaded once at startup and a pipeline re-run can retire a pair mid-conversation.
+    """
+    turn = threads.last_answer(turns)
+    if turn is None:
+        return None
+    pair = pool.by_pair_id(turn.pair_id) if turn.pair_id is not None else None
+    scenario_key = turn.scenario_key or (pair or {}).get("scenario_key") or ""
+    if intake.ANCHORS[decision.intent].kind == intake.SCENARIO_ANCHOR and scenario_key:
+        return Anchor(scenario_key=scenario_key, pair=pair)
+    return None
 
 
 async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(),
@@ -99,6 +139,22 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
 
     decision = _guarded(decision, message, turns, pool)
 
+    carried = None
+    if decision.situation == intake.CARRIED and decision.intent != intake.FOLLOW_UP:
+        # ON A CARRIED SITUATION (issue #53): the anchor comes from the thread, so it is
+        # looked up before any path runs. When the last answer holds nothing of the kind
+        # this intent needs, Ask Naren asks -- it never searches the fragment and never
+        # walks back to an older turn (ADR 0013 point 3).
+        carried = _carried_anchor(decision, turns, pool)
+        if carried is None:
+            if (threads.awaiting_clarify(turns)
+                    or threads.clarify_already_asked(turns, NO_CARRIED_ANCHOR)):
+                # The same clarify is never asked twice (`_guarded` rule 1): the CSM is
+                # answering it now, so their message is answered as written.
+                decision = intake.fallback_decision(message)
+            else:
+                return _with_intake(answering.clarify(NO_CARRIED_ANCHOR), decision)
+
     if decision.intent == intake.FOLLOW_UP:
         # NO RETRIEVAL AND NO EMBEDDING (ADR 0006). `_guarded` has already established that
         # a carried source exists and is still in the pool, so this cannot be reached with
@@ -117,19 +173,19 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
             await _rendered(message, decision, pool, embed_query=embed_query,
                             label_for=label_for, scenarios_for=scenarios_for,
                             following_for=following_for, playbook_for=playbook_for,
-                            account_for=account_for),
+                            account_for=account_for, carried=carried),
             decision)
 
     if decision.intent == intake.PROCEDURE:
-        # THE SCENARIO IS FOUND BY RETRIEVING, not by asking the model to name one. A model
-        # that can name a scenario can name one that does not exist, and the taxonomy is
-        # Brain's to define. So the question is embedded, the nearest exchange is found, and
-        # its scenario is the one whose play gets answered -- which is also what gives this
-        # response a real cosine to report.
+        # THE SCENARIO IS FOUND BY RETRIEVING or carried from the thread, never by asking
+        # the model to name one. A model that can name a scenario can name one that does not
+        # exist, and the taxonomy is Brain's to define. Opening a situation embeds the
+        # question and takes the nearest exchange's scenario -- which is also what gives
+        # that response a real cosine to report.
         return _with_intake(
             await _procedure(message, decision, pool, gateway, embed_query=embed_query,
                              label_for=label_for, playbook_for=playbook_for, k=k,
-                             moves_for=moves_for),
+                             moves_for=moves_for, carried=carried),
             decision)
 
     if decision.intent == intake.CONTRAST_MY_REPLY:
@@ -162,7 +218,8 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
 
 async def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool,
                     *, embed_query, label_for, scenarios_for, following_for,
-                    playbook_for, account_for=citations.account_for) -> dict:
+                    playbook_for, account_for=citations.account_for,
+                    carried: Anchor | None = None) -> dict:
     """The five answers built from stored rows (issues #19, #20).
 
     `scenarios_for` returns the COACHABLE Layer A rows, and `following_for` returns the
@@ -209,7 +266,7 @@ async def _rendered(message: str, decision: intake.IntakeDecision, pool: Retriev
         return rendering.where_else_seen(message, neighbours, account_for=account_for)
 
     # The rest are ABOUT one situation, and answer from its anchor.
-    anchor = await _resolve_anchor(decision, pool, embed_query)
+    anchor = await _resolve_anchor(decision, pool, embed_query, carried=carried)
 
     if decision.intent == intake.SHOW_EXCHANGE:
         return rendering.show_exchange(anchor.match, label_for=label_for)
@@ -243,7 +300,8 @@ async def _rendered(message: str, decision: intake.IntakeDecision, pool: Retriev
 
 async def _procedure(message: str, decision: intake.IntakeDecision,
                      pool: RetrievalPool, gateway, *, embed_query, label_for,
-                     playbook_for, k: int, moves_for) -> dict:
+                     playbook_for, k: int, moves_for,
+                     carried: Anchor | None = None) -> dict:
     """The Layer C `procedure` path (issue #17), and its degradation.
 
     NO LIVE PLAYBOOK FALLS BACK TO THE LAYER B ANSWER rather than declining. 1 of 34
@@ -256,20 +314,28 @@ async def _procedure(message: str, decision: intake.IntakeDecision,
     The retrieval here is `decision.retrieval_query`, the situation with the asking-framing
     stripped, exactly as on the reply_to_client path. It is embedded once and used twice: to
     pick the scenario, and -- on the fallback -- to answer from.
+
+    A CARRIED SCENARIO HAS NO LAYER B FALLBACK (issue #53). Layer B answers from a search,
+    and a message on a carried situation has nothing of its own to search on -- searching
+    "what's the general approach here" is exactly the noise carrying exists to avoid. So no
+    usable play is the no-recorded-play clarify, as on the rendered playbook paths.
     """
     embed_once = _memoised(embed_query)
 
-    if playbook_for is not None:
-        anchor = await _resolve_anchor(decision, pool, embed_once)
-        record = playbook_for(anchor.scenario_key)
+    if carried is not None or playbook_for is not None:
+        anchor = await _resolve_anchor(decision, pool, embed_once, carried=carried)
+        record = playbook_for(anchor.scenario_key) if playbook_for else None
         playbook = (record or {}).get("playbook")
         if playbook:
             # None means the playbook carries no quotable evidence, which degrades to
             # Layer B below on the same footing as a scenario with no playbook at all.
-            answered = await answering.answer_procedure(message, anchor.match, playbook,
-                                                        gateway, label_for=label_for)
+            answered = await answering.answer_procedure(
+                message, anchor.scenario_key, playbook, gateway, match=anchor.match,
+                label_for=label_for)
             if answered is not None:
                 return answered
+        if anchor.match is None:
+            return _no_play(anchor)
 
     return await answering.answer_situation(
         decision.retrieval_query, pool, gateway, embed_query=embed_once, k=k,
@@ -389,16 +455,19 @@ def _no_play(anchor: Anchor) -> dict:
     order do i do this in" or "what is the criterion for this move". Two copies would be two
     places for the sentence a CSM reads to drift.
 
-    IT CARRIES `match`, UNLIKE EVERY OTHER CLARIFY (issue #45), because it is the only one
-    that searched: the scenario it names came from retrieval. A clarify's "no unverified
-    text in any field" rule is untouched -- a cosine, a scenario key and a rank are numbers
-    and an identifier the service computed, not prose for a CSM to believe.
+    IT CARRIES `match`, UNLIKE EVERY OTHER CLARIFY (issue #45), when it searched: the
+    scenario it names came from retrieval. A clarify's "no unverified text in any field"
+    rule is untouched -- a cosine, a scenario key and a rank are numbers and an identifier
+    the service computed, not prose for a CSM to believe. On a CARRIED scenario nothing was
+    searched, so it carries none, and it does not call the scenario "the closest".
     """
-    scenario_key = anchor.scenario_key
+    scenario = anchor.scenario_key.replace("_", " ")
+    which = ("the closest situation to what you asked" if anchor.match is not None
+             else "the situation this conversation is about")
     return _matched(answering.clarify(
-        f"There is no recorded play for {scenario_key.replace('_', ' ')}, which is the "
-        f"closest situation to what you asked. Describe a specific client situation "
-        f"instead and Ask Naren will answer from the closest real exchange."), anchor)
+        f"There is no recorded play for {scenario}, which is {which}. Describe a specific "
+        f"client situation instead and Ask Naren will answer from the closest real "
+        f"exchange."), anchor)
 
 
 def _guarded(decision: intake.IntakeDecision, message: str, turns,
@@ -455,6 +524,13 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
        CSM a comparison against a reply they never wrote, on a page whose whole subject is
        what they wrote. That is worse than a wrong answer, because there is nothing in it
        for them to disbelieve.
+
+    6. NOTHING IS CARRIED INTO A FIRST MESSAGE (issue #53, ADR 0013 point 5). There is no
+       thread to carry from; `intake.classify` forces this too, and this is what holds it
+       for any other classifier.
+
+    7. AN EXCHANGE IS NOT CARRIED YET. That is issue #54; until it ships, a carried
+       exchange question is answered as written, as it was before carrying existed.
     """
     if decision.intent == intake.CLARIFY and (
             threads.awaiting_clarify(turns)
@@ -468,7 +544,24 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
                 or pool.by_pair_id(carried.pair_id) is None):
             return intake.fallback_decision(message)
 
-    if (decision.intent in intake.RETRIEVING_INTENTS
+    elif decision.situation == intake.CARRIED:
+        # 6. A FIRST MESSAGE OPENS ITS SITUATION (ADR 0013 point 5). `intake.classify`
+        #    already forces this; an injected classify, or a future caller, may not. A
+        #    carried decision has no query left, so "behaves as opens" is the fallback.
+        if not turns:
+            return intake.fallback_decision(message)
+        # 7. CARRYING AN EXCHANGE IS NOT BUILT YET (issue #54). Until it is, a carried
+        #    exchange question takes the fallback rather than an exchange found any other
+        #    way -- the same answer it would have got before carrying existed.
+        if intake.ANCHORS[decision.intent].kind == intake.EXCHANGE_ANCHOR:
+            return intake.fallback_decision(message)
+
+    # Rule 4 binds a decision that OPENS a situation: a carried one embeds nothing, so there
+    # is no query to check. A decision that opens and fails it falls back and is NEVER
+    # treated as carried instead -- ADR 0013's rejected option, because the copy check also
+    # fails when the model paraphrases a NEW situation, and only intake can tell those apart.
+    if (decision.situation == intake.OPENS
+            and decision.intent in intake.RETRIEVING_INTENTS
             and not intake.is_verbatim_span(decision.retrieval_query, message)):
         return intake.fallback_decision(message)
 
@@ -500,4 +593,8 @@ def _with_intake(response: dict, decision: intake.IntakeDecision) -> dict:
     """
     return {**response,
             "intake": {"intent": decision.intent,
-                       "retrieval_query": decision.retrieval_query}}
+                       "retrieval_query": decision.retrieval_query,
+                       # Whether the answer was carried or searched for (issue #53): the one
+                       # thing that tells a carried answer from a searched one when the
+                       # answer itself looks the same.
+                       "situation": decision.situation}}
