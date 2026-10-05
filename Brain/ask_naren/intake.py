@@ -25,7 +25,7 @@ Nothing here retrieves, generates an answer, or touches Postgres.
 """
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
@@ -116,6 +116,68 @@ CORPUS_INTENTS = (DISCOVERY, FREQUENCY)
 RETRIEVING_INTENTS = (REPLY_TO_CLIENT, PROCEDURE, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT,
                       COVERAGE_CHECK, *PLAYBOOK_INTENTS, CONTRAST_MY_REPLY,
                       WHERE_ELSE_SEEN, CALL_PREP, IMPROVE_AT_MOVE)
+
+#: The kinds of ANCHOR an answer path can consume (`ask-naren/CONTEXT.md`). An exchange
+#: implies its scenario; a scenario does not pick an exchange.
+SCENARIO_ANCHOR = "scenario"
+EXCHANGE_ANCHOR = "exchange"
+NEIGHBOURHOOD_ANCHOR = "neighbourhood"
+NO_ANCHOR = "none"
+#: `follow_up` alone. It does consume an exchange, but finds it by its own measured rule --
+#: the last ANSWERED turn's pair (`threads.carried_source`) -- and ADR 0013 deliberately
+#: leaves it out of the anchor model until the new field is measured.
+OWN_PATH = "own_path"
+
+
+class AnchorNeed(NamedTuple):
+    """What one intent's answer path consumes, and whether it may ever take it from the
+    thread."""
+    kind: str
+    #: Always searches fresh, even on a message intake judged to be on a carried situation.
+    #: The two intents marked so always carry NEW client words, and answering those from an
+    #: inherited scenario is the worst failure this tool has: grounded, coherent, and about
+    #: the wrong client (ADR 0013 point 4).
+    new_only: bool = False
+
+
+#: EVERY INTENT DECLARES ITS ANCHOR, and a test fails when one is missing (issue #51). This
+#: is what makes carrying a situation correct for intents that do not exist yet: the
+#: resolution step reads this table rather than a list of intents, so adding an intent
+#: means saying what its path consumes -- which is part of writing the path anyway -- and
+#: nothing else needs editing. Same reason `RETRIEVING_INTENTS` is one constant.
+ANCHORS: dict[str, AnchorNeed] = {
+    SEQUENCE: AnchorNeed(SCENARIO_ANCHOR),
+    PHRASING: AnchorNeed(SCENARIO_ANCHOR),
+    PITFALLS: AnchorNeed(SCENARIO_ANCHOR),
+    SCENARIO_CHECK: AnchorNeed(SCENARIO_ANCHOR),
+    PLAY_CONFIDENCE: AnchorNeed(SCENARIO_ANCHOR),
+    IMPROVE_AT_MOVE: AnchorNeed(SCENARIO_ANCHOR),
+    PROCEDURE: AnchorNeed(SCENARIO_ANCHOR),
+    SHOW_EXCHANGE: AnchorNeed(EXCHANGE_ANCHOR),
+    WHAT_HAPPENED_NEXT: AnchorNeed(EXCHANGE_ANCHOR),
+    COVERAGE_CHECK: AnchorNeed(EXCHANGE_ANCHOR),
+    # Carrying a neighbourhood needs a vector-store query by the carried pair's id, which is
+    # a separate capability with its own check. Until then these always search.
+    WHERE_ELSE_SEEN: AnchorNeed(NEIGHBOURHOOD_ANCHOR),
+    CALL_PREP: AnchorNeed(NEIGHBOURHOOD_ANCHOR),
+    REPLY_TO_CLIENT: AnchorNeed(EXCHANGE_ANCHOR, new_only=True),
+    CONTRAST_MY_REPLY: AnchorNeed(EXCHANGE_ANCHOR, new_only=True),
+    DISCOVERY: AnchorNeed(NO_ANCHOR),
+    FREQUENCY: AnchorNeed(NO_ANCHOR),
+    CLARIFY: AnchorNeed(NO_ANCHOR),
+    OUT_OF_SCOPE: AnchorNeed(NO_ANCHOR),
+    FOLLOW_UP: AnchorNeed(OWN_PATH),
+}
+
+
+def may_carry(intent: str) -> bool:
+    """Can this intent's anchor come from the thread rather than from a search?
+
+    Only a scenario or one exchange can, and never on a new-only intent. Everything else
+    treats a message on a carried situation exactly as one that opens a situation.
+    """
+    need = ANCHORS[intent]
+    return need.kind in (SCENARIO_ANCHOR, EXCHANGE_ANCHOR) and not need.new_only
 
 
 class IntakeDecision(BaseModel):

@@ -188,6 +188,45 @@ def test_a_follow_up_carries_no_retrieval_query_even_if_the_model_writes_one():
     assert decision.retrieval_query == ""
 
 
+# -- the anchor each intent's path consumes (issue #51, ADR 0013) ------------------------
+
+def test_every_intent_declares_the_anchor_its_path_consumes():
+    """THE STRUCTURAL GUARANTEE FOR INTENTS THAT DO NOT EXIST YET. Carrying a situation is
+    resolved from this table, so an intent missing from it would get no carried-situation
+    behaviour at all -- silently, with every other test green. One session added nine
+    intents; this is what stops the tenth being forgotten."""
+    assert set(intake.ANCHORS) == set(intake.INTENTS)
+    assert len(intake.ANCHORS) == len(intake.INTENTS)
+
+
+def test_the_anchor_table_is_the_one_the_spec_decided():
+    """Spelled out from #50's table rather than derived from the code, so a wrong
+    declaration cannot pass by agreeing with itself."""
+    expected = {
+        "sequence": ("scenario", False), "phrasing": ("scenario", False),
+        "pitfalls": ("scenario", False), "scenario_check": ("scenario", False),
+        "play_confidence": ("scenario", False), "improve_at_move": ("scenario", False),
+        "procedure": ("scenario", False),
+        "show_exchange": ("exchange", False), "what_happened_next": ("exchange", False),
+        "coverage_check": ("exchange", False),
+        "where_else_seen": ("neighbourhood", False), "call_prep": ("neighbourhood", False),
+        "reply_to_client": ("exchange", True), "contrast_my_reply": ("exchange", True),
+        "discovery": ("none", False), "frequency": ("none", False),
+        "clarify": ("none", False), "out_of_scope": ("none", False),
+        "follow_up": ("own_path", False),
+    }
+    assert {i: (a.kind, a.new_only) for i, a in intake.ANCHORS.items()} == expected
+
+
+def test_only_scenario_and_exchange_anchors_may_be_carried():
+    """New-only intents always carry new client words, and a neighbourhood cannot be carried
+    until the vector store can be queried by id (ADR 0013 point 4)."""
+    carriable = {i for i in intake.INTENTS if intake.may_carry(i)}
+    assert carriable == {"sequence", "phrasing", "pitfalls", "scenario_check",
+                         "play_confidence", "improve_at_move", "procedure",
+                         "show_exchange", "what_happened_next", "coverage_check"}
+
+
 # -- validation of an untrusted reply ---------------------------------------------------
 
 def test_an_unusable_reply_is_retried_once_and_the_retry_can_succeed():

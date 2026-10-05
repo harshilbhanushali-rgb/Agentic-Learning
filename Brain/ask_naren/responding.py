@@ -16,9 +16,46 @@ routing accuracy is measured separately against labelled messages.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 
 from ask_naren import answering, citations, intake, rendering, threads
-from ask_naren.retrieval import RetrievalPool
+from ask_naren.retrieval import Match, RetrievalPool
+
+
+@dataclass(frozen=True)
+class Anchor:
+    """What one answer is about, resolved into the form its path consumes
+    (`ask-naren/CONTEXT.md` **Anchor**).
+
+    `scenario_key` is always set: an exchange implies its scenario. `pair` is the exchange,
+    when the anchor holds one. `match` is the retrieval the anchor came from, and is None
+    when nothing was searched -- which is why a path reports a match only if this holds one.
+    """
+    scenario_key: str
+    pair: dict | None = None
+    match: Match | None = None
+
+    @classmethod
+    def searched(cls, match: Match) -> "Anchor":
+        return cls(scenario_key=match.pair["scenario_key"], pair=match.pair, match=match)
+
+
+async def _resolve_anchor(decision: intake.IntakeDecision, pool: RetrievalPool,
+                          embed_query) -> Anchor:
+    """THE ONE PLACE a scenario or exchange path gets the thing it answers about (#51).
+
+    It replaces the "embed the query and take the nearest" each of those paths used to run
+    for itself, so that how an anchor is found -- by searching, or from the thread -- is
+    decided once, from `intake.ANCHORS`, rather than once per path.
+
+    The query is embedded exactly as on every other retrieving path: the current message
+    alone (ADR 0006).
+    """
+    need = intake.ANCHORS[decision.intent]
+    if need.kind not in (intake.SCENARIO_ANCHOR, intake.EXCHANGE_ANCHOR):
+        raise ValueError(f"{decision.intent} consumes no scenario or exchange anchor")
+    query_vec = (await embed_query([decision.retrieval_query]))[0]
+    return Anchor.searched(await pool.top1(query_vec))
 
 
 async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, thread=(),
@@ -148,61 +185,60 @@ async def _rendered(message: str, decision: intake.IntakeDecision, pool: Retriev
             return rendering.discovery(scenarios)
         return rendering.frequency(scenarios)
 
-    # The query is embedded exactly as on every other retrieving path -- the current message
-    # alone (ADR 0006).
-    query_vec = (await embed_query([decision.retrieval_query]))[0]
+    if intake.ANCHORS[decision.intent].kind == intake.NEIGHBOURHOOD_ANCHOR:
+        # The query is embedded exactly as on every other retrieving path -- the current
+        # message alone (ADR 0006). A neighbourhood is always searched (ADR 0013 point 4).
+        neighbours = await pool.topk((await embed_query([decision.retrieval_query]))[0],
+                                     rendering.NEIGHBOURS_SCANNED)
 
-    if decision.intent == intake.CALL_PREP:
-        # A COMPOSITE, AND EVERY PART OF IT IS RENDERED (issue #23). It reads a
-        # neighbourhood the way `where_else_seen` does, each scenario's `arc` the way
-        # `sequence` does, and one stored exchange the way `show_exchange` does. Composing
-        # only rendered paths is what keeps ADR 0009's warning inapplicable: there is no
-        # weaker guarantee to inherit, because neither half generates anything.
-        return rendering.call_prep(
-            message, await pool.topk(query_vec, rendering.NEIGHBOURS_SCANNED),
-            scenarios=(scenarios_for() if scenarios_for else []),
-            playbook_for=playbook_for, label_for=label_for)
+        if decision.intent == intake.CALL_PREP:
+            # A COMPOSITE, AND EVERY PART OF IT IS RENDERED (issue #23). It reads a
+            # neighbourhood the way `where_else_seen` does, each scenario's `arc` the way
+            # `sequence` does, and one stored exchange the way `show_exchange` does.
+            # Composing only rendered paths is what keeps ADR 0009's warning inapplicable:
+            # there is no weaker guarantee to inherit, because neither half generates
+            # anything.
+            return rendering.call_prep(
+                message, neighbours, scenarios=(scenarios_for() if scenarios_for else []),
+                playbook_for=playbook_for, label_for=label_for)
 
-    if decision.intent == intake.WHERE_ELSE_SEEN:
         # THE ONE RENDERED INTENT THAT READS A NEIGHBOURHOOD RATHER THAN A NEAREST MATCH
         # (issue #22). "Is this a one-client quirk or a pattern" has no single-exchange form,
         # so the breadth is required by the question rather than chosen -- see
         # `rendering.NEIGHBOURS_SCANNED` for why that is not the shortlist ADR 0005 rejected.
-        return rendering.where_else_seen(
-            message, await pool.topk(query_vec, rendering.NEIGHBOURS_SCANNED),
-            account_for=account_for)
+        return rendering.where_else_seen(message, neighbours, account_for=account_for)
 
-    # The rest are ABOUT one situation and answer from the nearest exchange.
-    match = await pool.top1(query_vec)
+    # The rest are ABOUT one situation, and answer from its anchor.
+    anchor = await _resolve_anchor(decision, pool, embed_query)
 
     if decision.intent == intake.SHOW_EXCHANGE:
-        return rendering.show_exchange(match, label_for=label_for)
+        return rendering.show_exchange(anchor.match, label_for=label_for)
 
     if decision.intent == intake.WHAT_HAPPENED_NEXT:
-        following = following_for(match.pair["pair_id"]) if following_for else []
-        return rendering.what_happened_next(match, following, label_for=label_for)
+        following = following_for(anchor.pair["pair_id"]) if following_for else []
+        return rendering.what_happened_next(anchor.match, following, label_for=label_for)
 
     if decision.intent == intake.IMPROVE_AT_MOVE:
-        # THE SCENARIO IS FOUND BY RETRIEVING, as on every playbook path -- a model that can
-        # name a scenario can name one that does not exist. No live playbook is the same
-        # clarify `_from_playbook` returns, and for the same reason: there is no Layer B
-        # substitute for "the criterion for this move".
-        scenario_key = match.pair["scenario_key"]
-        record = playbook_for(scenario_key) if playbook_for else None
+        # THE SCENARIO COMES FROM THE ANCHOR, as on every playbook path, and never from the
+        # model -- a model that can name a scenario can name one that does not exist. No
+        # live playbook is the same clarify `_from_playbook` returns, and for the same
+        # reason: there is no Layer B substitute for "the criterion for this move".
+        record = playbook_for(anchor.scenario_key) if playbook_for else None
         if not (record or {}).get("playbook"):
-            return _no_play(match)
+            return _no_play(anchor)
         return _matched(
-            rendering.improve_at_move(message, scenario_key, record, label_for=label_for),
-            match)
+            rendering.improve_at_move(message, anchor.scenario_key, record,
+                                      label_for=label_for),
+            anchor)
 
     if decision.intent in intake.PLAYBOOK_INTENTS:
-        return _from_playbook(message, decision, match, playbook_for, label_for=label_for)
+        return _from_playbook(message, decision, anchor, playbook_for, label_for=label_for)
 
     scenario = None
     if scenarios_for:
         scenario = next((s for s in scenarios_for()
-                         if s["scenario_key"] == match.pair["scenario_key"]), None)
-    return rendering.coverage_check(message, match, scenario, label_for=label_for)
+                         if s["scenario_key"] == anchor.scenario_key), None)
+    return rendering.coverage_check(message, anchor.match, scenario, label_for=label_for)
 
 
 async def _procedure(message: str, decision: intake.IntakeDecision,
@@ -224,14 +260,14 @@ async def _procedure(message: str, decision: intake.IntakeDecision,
     embed_once = _memoised(embed_query)
 
     if playbook_for is not None:
-        match = await pool.top1((await embed_once([decision.retrieval_query]))[0])
-        record = playbook_for(match.pair["scenario_key"])
+        anchor = await _resolve_anchor(decision, pool, embed_once)
+        record = playbook_for(anchor.scenario_key)
         playbook = (record or {}).get("playbook")
         if playbook:
             # None means the playbook carries no quotable evidence, which degrades to
             # Layer B below on the same footing as a scenario with no playbook at all.
-            answered = await answering.answer_procedure(message, match, playbook, gateway,
-                                                        label_for=label_for)
+            answered = await answering.answer_procedure(message, anchor.match, playbook,
+                                                        gateway, label_for=label_for)
             if answered is not None:
                 return answered
 
@@ -280,7 +316,7 @@ def _memoised(embed_query):
     return embed_once
 
 
-def _from_playbook(message: str, decision: intake.IntakeDecision, match,
+def _from_playbook(message: str, decision: intake.IntakeDecision, anchor: Anchor,
                    playbook_for, *, label_for=citations.resolve_label) -> dict:
     """The five questions a scenario's Layer C playbook answers by being rendered (#18).
 
@@ -289,7 +325,7 @@ def _from_playbook(message: str, decision: intake.IntakeDecision, match,
     of move NAMES, `situation_signature` and `n_evidence` are a sentence and a number), so
     they take no label and carry no source.
 
-    THE SCENARIO IS FOUND BY RETRIEVING, exactly as on the `procedure` path and for the same
+    THE SCENARIO COMES FROM THE ANCHOR, exactly as on the `procedure` path and for the same
     reason: a model that can name a scenario can name one that does not exist, and the
     taxonomy is Brain's to define.
 
@@ -300,11 +336,11 @@ def _from_playbook(message: str, decision: intake.IntakeDecision, match,
     honest move is to say the play is not recorded for this situation and point at the thing
     that does work.
     """
-    scenario_key = match.pair["scenario_key"]
+    scenario_key = anchor.scenario_key
     record = playbook_for(scenario_key) if playbook_for else None
     playbook = (record or {}).get("playbook")
     if not playbook:
-        return _no_play(match)
+        return _no_play(anchor)
 
     if decision.intent == intake.SEQUENCE:
         rendered = rendering.sequence(scenario_key, playbook)
@@ -316,11 +352,13 @@ def _from_playbook(message: str, decision: intake.IntakeDecision, match,
         rendered = rendering.scenario_check(message, scenario_key, playbook)
     else:
         rendered = rendering.play_confidence(scenario_key, record)
-    return _matched(rendered, match)
+    return _matched(rendered, anchor)
 
 
-def _matched(response: dict, match) -> dict:
-    """`response`, carrying the `match` that picked its scenario (issue #45).
+def _matched(response: dict, anchor: Anchor) -> dict:
+    """`response`, carrying the `match` that picked its scenario (issue #45) -- when one
+    did. An anchor that was not searched for has no match, and inventing one would put a
+    cosine for a search that never ran into the record.
 
     EVERY PATH THAT RAN `pool.top1` REPORTS WHAT IT FOUND, in the one shape the answered and
     declined responses already use. These paths found their scenario by retrieving and had
@@ -336,10 +374,12 @@ def _matched(response: dict, match) -> dict:
     the answered and declined paths. `rank` is 1: the scenario came from the nearest
     exchange, and there is no shortlist on these paths.
     """
-    return {**response, "match": answering._match_info(match, 1)}
+    if anchor.match is None:
+        return response
+    return {**response, "match": answering._match_info(anchor.match, 1)}
 
 
-def _no_play(match) -> dict:
+def _no_play(anchor: Anchor) -> dict:
     """No live playbook for the closest situation -- a CLARIFY, not a decline and not a
     Layer B fallback.
 
@@ -354,11 +394,11 @@ def _no_play(match) -> dict:
     text in any field" rule is untouched -- a cosine, a scenario key and a rank are numbers
     and an identifier the service computed, not prose for a CSM to believe.
     """
-    scenario_key = match.pair["scenario_key"]
+    scenario_key = anchor.scenario_key
     return _matched(answering.clarify(
         f"There is no recorded play for {scenario_key.replace('_', ' ')}, which is the "
         f"closest situation to what you asked. Describe a specific client situation "
-        f"instead and Ask Naren will answer from the closest real exchange."), match)
+        f"instead and Ask Naren will answer from the closest real exchange."), anchor)
 
 
 def _guarded(decision: intake.IntakeDecision, message: str, turns,
