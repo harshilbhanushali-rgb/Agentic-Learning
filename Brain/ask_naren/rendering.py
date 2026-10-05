@@ -193,8 +193,8 @@ def coverage_check(asked: str, pair: dict, scenario: dict | None,
 
     `pair` is the exchange the question is about -- the nearest one, or the one carried from
     the thread (issue #54). `scenario` is the Layer A row for its scenario, or None if the
-    taxonomy no longer has it. Its `business_description` is what makes the answer useful: naming the
-    scenario alone tells a CSM nothing if the key is opaque.
+    taxonomy no longer has it. Its `business_description` is what makes the answer useful:
+    naming the scenario alone tells a CSM nothing if the key is opaque.
 
     IT REPORTS THE NEAREST THING, AND REFUSES TO CLAIM THAT IS THE SAME AS COVERAGE. There
     is always a nearest exchange -- retrieval returns one for any string -- so rendering it

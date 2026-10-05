@@ -533,7 +533,8 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
 
     6. NOTHING IS CARRIED INTO A FIRST MESSAGE (issue #53, ADR 0013 point 5). There is no
        thread to carry from; `intake.classify` forces this too, and this is what holds it
-       for any other classifier.    """
+       for any other classifier.
+    """
     if decision.intent == intake.CLARIFY and (
             threads.awaiting_clarify(turns)
             or threads.clarify_already_asked(turns, decision.question)):
