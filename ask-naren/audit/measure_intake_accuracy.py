@@ -1198,6 +1198,28 @@ THREADED = [
 ]
 
 
+#: THE CARRIED-vs-OPENS HELD-OUT SET (issue #55, ADR 0013). Kept in its own file, not in this
+#: one, so it can be written by someone who has never opened this harness or intake's prompt:
+#: a case written FROM the prompt measures nothing (see `prompt_echoes`). Each case carries
+#: `expect_situation` ("carried" or "opens") and `new_client_words` (true when the message
+#: carries something a client said or did -- the cases the zero-false-carry bar is held on).
+#: `expect` (an intent) is optional; where present, it is reported but does not gate.
+CARRIED_FILE = Path(__file__).resolve().parent / "cases" / "carried_vs_opens_heldout.json"
+
+
+def _carried_cases() -> list[dict]:
+    if not CARRIED_FILE.exists():
+        raise SystemExit(f"no carried-vs-opens set at {CARRIED_FILE}")
+    return json.loads(CARRIED_FILE.read_text(encoding="utf-8"))
+
+
+#: The two bars #55 sets on the carried-vs-opens set. ASYMMETRIC ON PURPOSE (ADR 0013): a
+#: missed carry costs today's behaviour or a clarify; a false carry is a confident answer
+#: about the wrong client.
+MAX_FALSE_CARRIES = 0
+MIN_CARRIED_RECALL = 0.80
+
+
 #: How long a shared run of words has to be before a case counts as restating the prompt.
 #: Five is short enough to catch "do you have anything on" and long enough not to fire on
 #: ordinary English ("what do i say to").
@@ -1250,7 +1272,7 @@ async def main() -> int:
     ap.add_argument("--set", dest="which", default="fitted",
                     choices=("fitted", "heldout", "threaded", "procedure", "rendered",
                              "playbook", "contrast", "whereelse", "composite",
-                             "both"),
+                             "carried", "both"),
                     help="fitted = the 12 the prompt was tuned on (NOT an accuracy "
                          "rate); heldout = cases never used to change the prompt; "
                          "threaded = the conversation-shaped cases (issue #16)")
@@ -1259,15 +1281,86 @@ async def main() -> int:
                          "'none' to send no reasoning budget")
     ap.add_argument("--model", default=intake.CHAT_MODEL,
                     help="override intake's model, to A/B a cheaper one on the same cases")
+    ap.add_argument("--repeat", type=int, default=1,
+                    help="run the set N times (#55 gates on best of three); each run is "
+                         "written to <out>_runN.json and the best is reported")
+    ap.add_argument("--prompt-diff-against", metavar="REF",
+                    help="also write <out>_prompt.diff: intake's prompt at git REF against "
+                         "the working tree, with and without a thread -- the text these "
+                         "scores were measured on")
     args = ap.parse_args()
+    if args.repeat < 1:
+        raise SystemExit("--repeat must be at least 1")
+    if args.prompt_diff_against:
+        _write_prompt_diff(args.prompt_diff_against, Path(args.out))
 
     load_config()
     pool = {"fitted": CASES, "heldout": HELD_OUT, "threaded": THREADED,
             "procedure": PROCEDURE, "rendered": RENDERED, "playbook": PLAYBOOK_SET,
             "contrast": CONTRAST, "whereelse": WHERE_ELSE, "composite": COMPOSITE,
-            "both": CASES + HELD_OUT}[args.which]
+            "carried": None, "both": CASES + HELD_OUT}[args.which]
+    if pool is None:
+        pool = _carried_cases()
     cases = pool[:args.limit] if args.limit else pool
 
+    runs = []
+    for run in range(1, args.repeat + 1):
+        if args.repeat > 1:
+            print(f"\n#### run {run}/{args.repeat}", flush=True)
+        runs.append(await _run(cases, args))
+    best = max(range(len(runs)), key=lambda i: _score(runs[i]))
+    for i, rows in enumerate(runs, 1):
+        out = Path(args.out) if args.repeat == 1 else _sibling(Path(args.out), f"_run{i}")
+        out.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    if args.repeat > 1:
+        print("\n" + "=" * 78)
+        print(f"BEST OF {args.repeat}: " + ", ".join(
+            f"run {i}: {_score(r)}/{len(r)}" for i, r in enumerate(runs, 1))
+            + f"  -> reporting run {best + 1}")
+    rows = runs[best]
+    args.out = str(Path(args.out) if args.repeat == 1
+                   else _sibling(Path(args.out), f"_run{best + 1}"))
+    return _report(rows, args)
+
+
+def _sibling(path: Path, suffix: str) -> Path:
+    return path.with_name(f"{path.stem}{suffix}{path.suffix}")
+
+
+def _score(rows) -> int:
+    return sum(r["correct"] for r in rows)
+
+
+def _write_prompt_diff(ref: str, out: Path) -> None:
+    """Intake's prompt at `ref` against the working tree -- the text a score rests on.
+
+    #55's rule: read the prompt diff before trusting any score. One missing space once moved
+    a set by two cases, invisible to every test and the build. So the diff a run was
+    measured on is written beside the run, built from the PROMPT TEXT rather than the source,
+    because a source diff hides what the model actually reads.
+    """
+    import difflib
+    import subprocess
+    src = subprocess.run(["git", "show", f"{ref}:Brain/ask_naren/intake.py"],
+                         capture_output=True, text=True, encoding="utf-8", check=True,
+                         cwd=_ROOT).stdout
+    old = {"__name__": "intake_at_ref"}
+    exec(compile(src, f"intake.py@{ref}", "exec"), old)
+    turn = threads.ThreadTurn(message="zz earlier question zz", reply="zz earlier answer zz",
+                              outcome="answered", pair_id=1, scenario_key="zz_scenario")
+    parts = [f"# intake prompt: {ref} -> working tree\n"]
+    for label, thread in (("NO THREAD", ()), ("WITH A THREAD", (turn,))):
+        a = old["build_prompt"](_ECHO_PLACEHOLDER, thread)
+        b = intake.build_prompt(_ECHO_PLACEHOLDER, thread)
+        parts.append(f"\n## {label}: {'IDENTICAL' if a == b else 'CHANGED'}\n")
+        parts.extend(line + "\n" for line in difflib.unified_diff(
+            a.splitlines(), b.splitlines(), f"{ref}", "working tree", lineterm=""))
+    path = _sibling(out, "_prompt").with_suffix(".diff")
+    path.write_text("".join(parts), encoding="utf-8")
+    print(f"prompt diff -> {path}", flush=True)
+
+
+async def _run(cases, args) -> list[dict]:
     rows = []
     # AsyncGatewayClient since issue #30: `intake.classify` is awaited, and the sync and
     # async clients must not both be live in one process (Brain/docs/GOTCHAS.md).
@@ -1297,20 +1390,38 @@ async def main() -> int:
             # intents and eight embedded -- so the instrument was narrower than the guard,
             # which was narrower than the truth. One list, `intake.RETRIEVING_INTENTS`, now
             # drives the prompt's rules, the validator, the runtime guard and this.
-            verbatim = (decision.intent not in intake.RETRIEVING_INTENTS
-                        or intake.is_verbatim_span(decision.retrieval_query,
-                                                   case["message"]))
+            #
+            # A CARRIED decision embeds nothing (issue #53), so there is no query to check --
+            # and its empty query must not be counted as a clean copy either. It is reported
+            # as not applicable, which is what `None` means here.
+            if decision.situation == intake.CARRIED:
+                verbatim = None
+            else:
+                verbatim = (decision.intent not in intake.RETRIEVING_INTENTS
+                            or intake.is_verbatim_span(decision.retrieval_query,
+                                                       case["message"]))
             # The CSM's own reply (issue #21) is a SECOND span of the same message and is
             # guarded the same way -- not because it is embedded (it is not) but because it
             # is shown back to the CSM as what they wrote.
             reply_verbatim = (not decision.my_reply
                               or intake.is_verbatim_span(decision.my_reply, case["message"]))
+            expect = case.get("expect")
+            expect_situation = case.get("expect_situation")
+            intent_ok = expect is None or decision.intent == expect
+            situation_ok = (expect_situation is None
+                            or decision.situation == expect_situation)
             row = {
                 "message": case["message"],
                 "thread_turns": len(thread),
-                "expect": case["expect"],
+                "expect": expect,
                 "got": decision.intent,
-                "correct": decision.intent == case["expect"],
+                # On the carried-vs-opens set the SITUATION is what is scored; an intent,
+                # where a case names one, is reported beside it.
+                "correct": (situation_ok if expect_situation is not None else intent_ok),
+                "intent_correct": intent_ok,
+                "expect_situation": expect_situation,
+                "got_situation": decision.situation,
+                "new_client_words": bool(case.get("new_client_words")),
                 "retrieval_query": decision.retrieval_query,
                 "my_reply": decision.my_reply,
                 "my_reply_verbatim": reply_verbatim,
@@ -1329,16 +1440,22 @@ async def main() -> int:
             }
             rows.append(row)
             mark = "ok  " if row["correct"] else "WRONG"
-            print(f"  [{n}/{len(cases)}] {mark} expect={case['expect']:<15} "
-                  f"got={decision.intent:<15} {case['message'][:55]!r}", flush=True)
+            if expect_situation is not None:
+                print(f"  [{n}/{len(cases)}] {mark} situation {expect_situation:<7} -> "
+                      f"{decision.situation:<7} intent={decision.intent:<18} "
+                      f"{case['message'][:45]!r}", flush=True)
+            else:
+                print(f"  [{n}/{len(cases)}] {mark} expect={case['expect']:<15} "
+                      f"got={decision.intent:<15} {case['message'][:55]!r}", flush=True)
             if leaked:
                 print(f"          FRAMING LEAKED INTO THE QUERY: {leaked}", flush=True)
             if dropped:
                 print(f"          MEANING-BEARING TEXT DROPPED: {dropped}", flush=True)
                 print(f"          query was {decision.retrieval_query!r}", flush=True)
+    return rows
 
-    Path(args.out).write_text(json.dumps(rows, indent=2), encoding="utf-8")
 
+def _report(rows, args) -> int:
     print("\n" + "=" * 78)
     label = {"fitted": "FITTED cases (not an accuracy rate)",
              "heldout": "HELD-OUT cases",
@@ -1349,6 +1466,7 @@ async def main() -> int:
              "contrast": "CONTRAST cases (issue #21)",
              "whereelse": "WHERE-ELSE-SEEN cases (issue #22)",
              "composite": "COMPOSITE cases (issue #23)",
+             "carried": "CARRIED-vs-OPENS held-out cases (issue #55)",
              "both": "fitted + held-out"}[args.which]
     print(f"ROUTING ACCURACY -- {args.model} "
           f"(reasoning={args.reasoning or chr(110)+chr(111)+chr(110)+chr(101)}) -- {label}")
@@ -1356,6 +1474,11 @@ async def main() -> int:
 
     overall = sum(r["correct"] for r in rows)
     print(f"  overall: {overall}/{len(rows)}")
+
+    gate_failed = False
+    situated = [r for r in rows if r["expect_situation"] is not None]
+    if situated:
+        gate_failed = _report_situation(situated)
 
     # Reported per class, never pooled. A pooled rate hides the failure that matters: an
     # intake biased toward clarify looks fine overall while making the tool ask questions
@@ -1369,10 +1492,15 @@ async def main() -> int:
             hit = sum(r["correct"] for r in group)
             print(f"  {label:<16} {hit}/{len(group)}")
 
-    answerable = [r for r in rows if r["expect"] != "clarify"]
+    # The two intent-negative checks read `expect`, so a case that names no intent (the
+    # carried-vs-opens set scores the situation instead) is left out of them rather than
+    # counted as failing them.
+    named = [r for r in rows if r["expect"] is not None]
+    answerable = [r for r in named if r["expect"] != "clarify"]
     over_clarified = [r for r in answerable if r["got"] == "clarify"]
-    print(f"\n  NEGATIVE CASE -- messages that must NOT clarify: "
-          f"{len(answerable) - len(over_clarified)}/{len(answerable)} held")
+    if answerable:
+        print(f"\n  NEGATIVE CASE -- messages that must NOT clarify: "
+              f"{len(answerable) - len(over_clarified)}/{len(answerable)} held")
     if over_clarified:
         print("  Over-clarifying is the failure that makes the tool annoying rather than "
               "wrong; each of these asked a CSM a question when it could have answered:")
@@ -1383,7 +1511,7 @@ async def main() -> int:
     # An intake that reads everything in a thread as a follow-up scores perfectly on the
     # positive cases while answering every new client situation from whatever call happened
     # to be cited last -- grounded, coherent, and about the wrong client.
-    in_thread = [r for r in rows if r["thread_turns"]]
+    in_thread = [r for r in named if r["thread_turns"]]
     if in_thread:
         not_follow_ups = [r for r in in_thread if r["expect"] != "follow_up"]
         over_followed = [r for r in not_follow_ups if r["got"] == "follow_up"]
@@ -1411,9 +1539,12 @@ async def main() -> int:
         print(f"\n  PROMPT ECHO -- no case restates intake's own examples: "
               f"{len(rows)}/{len(rows)} clean")
 
-    composed = [r for r in rows if not r["verbatim_span"]]
+    checked = [r for r in rows if r["verbatim_span"] is not None]
+    composed = [r for r in checked if not r["verbatim_span"]]
     print(f"\n  VERBATIM -- the query is a span COPIED from the message: "
-          f"{len(rows) - len(composed)}/{len(rows)} clean")
+          f"{len(checked) - len(composed)}/{len(checked)} clean"
+          + (f" ({len(rows) - len(checked)} carried, no query to check)"
+             if len(checked) < len(rows) else ""))
     if composed:
         print("  A COMPOSED query is how subject inversion gets in: rewriting \"their side\"")
         print("  to \"our side\" is near-identical in embedding space and means the opposite,")
@@ -1458,7 +1589,45 @@ async def main() -> int:
     print(f"\n  -> {args.out}")
     print("\nNOTE: this measures ROUTING, not answer quality. Whether better queries produce "
           "better answers is issue #9 and needs the blind read.")
-    return 0
+    return 1 if gate_failed else 0
+
+
+def _report_situation(rows) -> bool:
+    """The two #55 bars. Returns True when either fails -- and a failed bar does not ship.
+
+    A FALSE CARRY is a message carrying new client words that intake read as carried: it
+    would be answered from the previous situation, grounded and about the wrong client. The
+    bar is ZERO, not a rate. RECALL is how many genuinely carried messages were recognised;
+    missing one costs today's behaviour or a clarify, so its bar is a rate.
+
+    Both read the EFFECTIVE situation -- after intake's own coercion, which reads "carried"
+    as opens on an intent that cannot carry -- because that is what the service acts on.
+    """
+    new_words = [r for r in rows if r["new_client_words"]]
+    false_carries = [r for r in new_words if r["got_situation"] == intake.CARRIED]
+    carried = [r for r in rows if r["expect_situation"] == intake.CARRIED]
+    recognised = [r for r in carried if r["got_situation"] == intake.CARRIED]
+    recall = len(recognised) / len(carried) if carried else 0.0
+
+    fc_ok = len(false_carries) <= MAX_FALSE_CARRIES
+    rc_ok = bool(carried) and recall >= MIN_CARRIED_RECALL
+    print(f"\n  GATE -- new client words read as carried: {len(false_carries)}/"
+          f"{len(new_words)} (bar: {MAX_FALSE_CARRIES})  {'PASS' if fc_ok else 'FAIL'}")
+    for r in false_carries:
+        print(f"    - {r['message'][:70]!r}")
+    print(f"  GATE -- real carried messages recognised: {len(recognised)}/{len(carried)} = "
+          f"{recall:.0%} (bar: {MIN_CARRIED_RECALL:.0%})  {'PASS' if rc_ok else 'FAIL'}")
+    for r in carried:
+        if r["got_situation"] != intake.CARRIED:
+            print(f"    - missed: {r['message'][:66]!r} (got {r['got']})")
+    opens = [r for r in rows if r["expect_situation"] == intake.OPENS]
+    wrong_opens = [r for r in opens if r["got_situation"] != intake.OPENS]
+    print(f"  opens recognised as opens: {len(opens) - len(wrong_opens)}/{len(opens)}")
+    named = [r for r in rows if r["expect"] is not None]
+    if named:
+        print(f"  intent, where a case names one (reported, not gated): "
+              f"{sum(r['intent_correct'] for r in named)}/{len(named)}")
+    return not (fc_ok and rc_ok)
 
 
 if __name__ == "__main__":

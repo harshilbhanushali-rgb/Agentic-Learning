@@ -1,0 +1,399 @@
+[
+  {
+    "thread": [
+      {"message": "client's job feed keeps failing validation on req-id field, happened with acme corp last week", "outcome": "answered", "reply": "Showed how Naren walked the client through fixing malformed req-id values and resubmitting the feed.", "scenario_key": "xml_feed_setup_and_ingestion", "pair_id": 101, "call_filename": "20230214_acme_joveo_feed_validation.txt"}
+    ],
+    "message": "ok and for the feed thing what do i do first",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "\"feed thing\" names a noun but is the same acme situation just answered, no new facts"
+  },
+  {
+    "thread": [
+      {"message": "so naren told them the applicant quality was low bc of broad targeting on indeed, said he'd tighten it", "outcome": "answered", "reply": "Showed Naren narrowing publisher targeting and explaining the tradeoff to the client.", "scenario_key": "publisher_management_and_exclusions", "pair_id": 102, "call_filename": "20230320_brightpath_joveo_publisher_review.txt"}
+    ],
+    "message": "and then?",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "pure continuation asking what happened next, no situation of its own"
+  },
+  {
+    "thread": [
+      {"message": "whats the general play when a client wants to switch ATS mid contract", "outcome": "rendered", "reply": "Showed the steps Naren runs for an ATS vendor transition: audit mapping, parallel run, cutover.", "scenario_key": "vendor_transition_and_partnership_evaluation", "pair_id": null, "call_filename": ""}
+    ],
+    "message": "ok and how does he usually phrase the parallel run risk to the client",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "wording detail within the same playbook card, not a new client"
+  },
+  {
+    "thread": [
+      {"message": "show me the actual exchange where naren handled a budget pacing complaint", "outcome": "rendered", "reply": "Showed the real exchange.", "scenario_key": "budget_allocation_and_testing", "pair_id": 103, "call_filename": ""}
+    ],
+    "message": "whats the risk with doing it that way",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "asks about the risk of the approach just shown, same situation"
+  },
+  {
+    "thread": [
+      {"message": "client says their landing page conversion dropped after we changed the apply flow, this is for meridian staffing", "outcome": "answered", "reply": "Showed Naren diagnosing a conversion drop tied to an apply-flow change and what he checked first.", "scenario_key": "landing_page_and_conversion_setup", "pair_id": 104, "call_filename": "20230508_meridian_joveo_landing_page.txt"},
+      {"message": "also do you guys know anything about one click apply vs multi step forms in general", "outcome": "declined", "reply": "", "scenario_key": "", "pair_id": null, "call_filename": ""}
+    ],
+    "message": "ok nvm, back to meridian - what should i tell them about timeline for the fix",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "explicitly returns to the earlier meridian situation, skipping the declined tangent, no new facts"
+  },
+  {
+    "thread": [
+      {"message": "had a call with a legal team who wants to redline the indemnification clause in the MSA, prospect is called horizon logistics", "outcome": "answered", "reply": "Showed how Naren responded to a legal team pushing on indemnification language.", "scenario_key": "contract_and_legal_review", "pair_id": 105, "call_filename": "20230112_horizon_joveo_contract_review.txt"}
+    ],
+    "message": "source?",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "one-word request for the source behind the answer just given"
+  },
+  {
+    "thread": [
+      {"message": "client keeps asking for export access to the dashboard so their finance team can pull reports themselves, its a staffing agency called pinecrest", "outcome": "answered", "reply": "Showed Naren setting up read-only export access and explaining the refresh cadence.", "scenario_key": "dashboard_access_and_reporting", "pair_id": 106, "call_filename": "20230601_pinecrest_joveo_dashboard_access.txt"}
+    ],
+    "message": "does that cover sso too or just the export piece",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "\"that\" refers to the pinecrest access setup just discussed, no new client facts"
+  },
+  {
+    "thread": [
+      {"message": "client's ctr tanked after they swapped their logo and job ad creative, want to know if naren has dealt with a brand refresh mid campaign before", "outcome": "answered", "reply": "Showed Naren's response when a client's creative refresh hurt ctr mid-flight.", "scenario_key": "creative_and_media_plan_review", "pair_id": 107, "call_filename": "20230719_summit_joveo_creative_review.txt"}
+    ],
+    "message": "how long before he told them to expect it to recover",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "timeframe follow-up on the same creative-refresh situation"
+  },
+  {
+    "thread": [
+      {"message": "we're moving a client off their old ATS onto workday, they're nervous about losing historical applicant data", "outcome": "answered", "reply": "Showed Naren addressing data-migration concerns during an ATS switch.", "scenario_key": "vendor_transition_and_partnership_evaluation", "pair_id": 108, "call_filename": "20230205_falcon_joveo_ats_switch.txt"},
+      {"message": "whats the usual budget range for something like this", "outcome": "clarify", "reply": "Asked whether \"this\" meant the ATS migration cost or the ad budget during the switch.", "scenario_key": "", "pair_id": null, "call_filename": ""}
+    ],
+    "message": "sorry i meant the ad budget during the switch",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "resolves the clarify but stays on the same falcon ATS-switch situation, no new client facts"
+  },
+  {
+    "thread": [
+      {"message": "client wants to reallocate 20% of spend from indeed to ziprecruiter mid campaign bc applicant quality was better there, account is titan freight", "outcome": "answered", "reply": "Showed Naren's approach to reallocating spend between publishers mid-flight.", "scenario_key": "budget_allocation_and_testing", "pair_id": 109, "call_filename": "20230317_titan_joveo_budget_reallocation.txt"}
+    ],
+    "message": "did he say how long to wait before judging results",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "follow-up on the same reallocation situation, no new client content"
+  },
+  {
+    "thread": [
+      {"message": "general approach for excluding a publisher that's sending fraud traffic?", "outcome": "rendered", "reply": "Showed the steps Naren takes to identify and exclude a fraudulent publisher.", "scenario_key": "publisher_management_and_exclusions", "pair_id": null, "call_filename": ""}
+    ],
+    "message": "whats the biggest pitfall there",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "pitfall question about the same playbook card just shown"
+  },
+  {
+    "thread": [
+      {"message": "client's feed is dropping about 40% of jobs during ingestion, turns out its a category mapping issue, this is for clearwater health", "outcome": "answered", "reply": "Showed Naren tracing a category-mapping bug that was dropping jobs on ingestion.", "scenario_key": "xml_feed_setup_and_ingestion", "pair_id": 110, "call_filename": "20230422_clearwater_joveo_feed_mapping.txt"}
+    ],
+    "message": "ok and for the mapping thing what do i tell them to fix on their end vs our end",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "\"mapping thing\" is the same clearwater issue already discussed, not a new situation"
+  },
+  {
+    "thread": [
+      {"message": "new client onboarding, they want to know what metrics show up on the dashboard by default before go live, its called westline retail", "outcome": "answered", "reply": "Showed Naren walking through the default dashboard metrics during onboarding.", "scenario_key": "dashboard_access_and_reporting", "pair_id": 111, "call_filename": "20230130_westline_joveo_dashboard_overview.txt"},
+      {"message": "can i get the real exchange for that", "outcome": "rendered", "reply": "Showed the real exchange.", "scenario_key": "dashboard_access_and_reporting", "pair_id": 111, "call_filename": ""}
+    ],
+    "message": "whats naren's wording for explaining the lag on cost per click numbers",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "deeper wording ask about the same westline dashboard walkthrough"
+  },
+  {
+    "thread": [
+      {"message": "client is upset cost per hire jumped from like $85 to $140 in a month, no budget changes, account is vantage medical staffing", "outcome": "answered", "reply": "Showed Naren diagnosing a cost-per-hire spike with no budget change.", "scenario_key": "campaign_level_performance_tracking", "pair_id": 112, "call_filename": "20230611_vantage_joveo_cph_spike.txt"}
+    ],
+    "message": "what was actually causing it in that call",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "\"it\" refers back to the same vantage cph spike already on the table"
+  },
+  {
+    "thread": [
+      {"message": "client keeps saying applicants are unqualified even though volume is good, this is oakridge manufacturing", "outcome": "answered", "reply": "Showed Naren separating a volume problem from a qualification problem with the client.", "scenario_key": "campaign_level_performance_tracking", "pair_id": 113, "call_filename": "20230225_oakridge_joveo_applicant_quality.txt"}
+    ],
+    "message": "more on that",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "generic request for more detail, same situation, no new facts"
+  },
+  {
+    "thread": [
+      {"message": "landing page conversion rate is like half of benchmark for a new client, lumen energy, want to know what naren checks first", "outcome": "answered", "reply": "Showed Naren's diagnostic checklist for a low-converting landing page.", "scenario_key": "landing_page_and_conversion_setup", "pair_id": 114, "call_filename": "20230309_lumen_joveo_landing_conversion.txt"},
+      {"message": "unrelated but does the tool know anything about pay per application pricing models", "outcome": "declined", "reply": "", "scenario_key": "", "pair_id": null, "call_filename": ""}
+    ],
+    "message": "going back to lumen, what did he say to check second",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "explicitly returns to the earlier lumen situation after a declined tangent"
+  },
+  {
+    "thread": [
+      {"message": "prospect's procurement team wants a data processing addendum added before signing, its for a company called ferro steel", "outcome": "answered", "reply": "Showed Naren handling a DPA request during contract negotiation.", "scenario_key": "contract_and_legal_review", "pair_id": 115, "call_filename": "20230418_ferro_joveo_dpa_request.txt"}
+    ],
+    "message": "did it hold up the signing timeline",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "follow-up about the outcome of the same ferro contract situation"
+  },
+  {
+    "thread": [
+      {"message": "general steps for mapping custom fields during an ats api integration?", "outcome": "rendered", "reply": "Showed the steps Naren runs for mapping custom ATS fields.", "scenario_key": "ats_integration_and_api_mapping", "pair_id": null, "call_filename": ""}
+    ],
+    "message": "whats the most common field that breaks",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "still inside the same playbook card, no new client introduced"
+  },
+  {
+    "thread": [
+      {"message": "client comparing us against a competitor publisher partnership, wants to know if switching is worth it, account is briar hospitality", "outcome": "answered", "reply": "Showed Naren evaluating a vendor-switch request and what he weighed.", "scenario_key": "vendor_transition_and_partnership_evaluation", "pair_id": 116, "call_filename": "20230214_briar_joveo_vendor_evaluation.txt"}
+    ],
+    "message": "for this one did he recommend staying or switching",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "\"this one\" refers to the same briar evaluation already on the table"
+  },
+  {
+    "thread": [
+      {"message": "client's media plan needs refreshing, same creative running for 6 months and ctr is declining, its goldleaf retail", "outcome": "answered", "reply": "Showed Naren refreshing a stale media plan and creative rotation.", "scenario_key": "creative_and_media_plan_review", "pair_id": 117, "call_filename": "20230626_goldleaf_joveo_creative_refresh.txt"}
+    ],
+    "message": "evidence for that?",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "asking for the evidence behind the same answer, no new facts"
+  },
+  {
+    "thread": [
+      {"message": "show me the exchange where naren handles a client pushing to frontload the whole quarterly budget in month one, client is parkway auto group", "outcome": "rendered", "reply": "Showed the real exchange.", "scenario_key": "budget_allocation_and_testing", "pair_id": 118, "call_filename": ""},
+      {"message": "whats the risk with frontloading like that", "outcome": "answered", "reply": "Showed Naren explaining the pacing risk of frontloading spend.", "scenario_key": "budget_allocation_and_testing", "pair_id": 119, "call_filename": "20230711_parkway_joveo_budget_pacing.txt"}
+    ],
+    "message": "and how does he soften that when he tells the client no",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "continues on wording within the same parkway frontloading situation"
+  },
+  {
+    "thread": [
+      {"message": "client wants a weekly automated email report instead of logging into the dashboard, account is silvercrest logistics", "outcome": "answered", "reply": "Showed Naren setting up a scheduled report as an alternative to dashboard logins.", "scenario_key": "dashboard_access_and_reporting", "pair_id": 120, "call_filename": "20230803_silvercrest_joveo_scheduled_reports.txt"}
+    ],
+    "message": "can it include the publisher breakdown or just totals",
+    "expect_situation": "carried",
+    "new_client_words": false,
+    "note": "\"it\" is the scheduled report just discussed, same situation"
+  },
+  {
+    "thread": [
+      {"message": "client's feed validation kept failing on req-id, fixed it per naren's approach for acme", "outcome": "answered", "reply": "Showed how Naren walked the client through fixing malformed req-id values.", "scenario_key": "xml_feed_setup_and_ingestion", "pair_id": 121, "call_filename": "20230214_acme_joveo_feed_validation.txt"}
+    ],
+    "message": "ok so now a different client, bluewater logistics, says their feed is throwing a schema error on the salary field, is that the same fix",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "new client (bluewater) with a new specific complaint about the salary field"
+  },
+  {
+    "thread": [
+      {"message": "client said applicant volume is fine but they're not converting to hires, account is westbrook construction", "outcome": "answered", "reply": "Showed Naren separating a volume problem from a conversion problem.", "scenario_key": "campaign_level_performance_tracking", "pair_id": 122, "call_filename": "20230504_westbrook_joveo_conversion.txt"}
+    ],
+    "message": "ok update - they just called back and said their hiring manager is now complaining the applicants list wrong city, like they're seeing applicants from states away",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "same account but a brand new complaint (wrong-location applicants) never mentioned before"
+  },
+  {
+    "thread": [
+      {"message": "client asking how to set up a landing page for a new job category launch, account is ferris retail", "outcome": "answered", "reply": "Showed Naren walking through landing page setup for a new category.", "scenario_key": "landing_page_and_conversion_setup", "pair_id": 123, "call_filename": "20230609_ferris_joveo_landing_setup.txt"}
+    ],
+    "message": "here's what i drafted back to them: \"we'll get a dedicated page live within 3 business days and route all new category traffic there\" - does that match how naren usually phrases it",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "CSM pastes their own drafted reply with a new specific commitment (3 business days) to compare against naren"
+  },
+  {
+    "thread": [
+      {"message": "client wants their cost per hire down, not sure what to tell them", "outcome": "clarify", "reply": "Asked whether the client meant lowering cost per hire overall or for a specific role/campaign.", "scenario_key": "", "pair_id": null, "call_filename": ""}
+    ],
+    "message": "its specific to their warehouse associate roles, they said cph is double what corporate budgeted and the regional director wants it fixed by end of quarter",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "answering the clarify brings new client facts (role, exec pressure, deadline) that define the real situation"
+  },
+  {
+    "thread": [
+      {"message": "what's the general approach for reviewing a media plan thats gone stale", "outcome": "rendered", "reply": "Showed the steps Naren runs to refresh a stale media plan.", "scenario_key": "creative_and_media_plan_review", "pair_id": null, "call_filename": ""}
+    ],
+    "message": "different topic - whats the general approach to redlining contract terms when legal pushes back on liability caps",
+    "expect_situation": "opens",
+    "new_client_words": false,
+    "note": "explicit pivot to an unrelated general topic, no client-specific facts"
+  },
+  {
+    "thread": [
+      {"message": "client complained their publisher mix is too indeed-heavy and wants diversification, account is cobalt health staffing", "outcome": "answered", "reply": "Showed Naren diversifying a publisher mix for a client.", "scenario_key": "publisher_management_and_exclusions", "pair_id": 124, "call_filename": "20230222_cobalt_joveo_publisher_mix.txt"}
+    ],
+    "message": "ok so now they're saying since we added ziprecruiter their cost per click doubled and they want it pulled entirely by friday",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "phrased as a continuation but brings a new cost spike and a hard deadline not previously in the thread"
+  },
+  {
+    "thread": [],
+    "message": "client wants to know the minimum daily budget to actually get meaningful volume on a new feed launch, its a trucking company called redline freight",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "fresh conversation opening with a brand new client and specifics"
+  },
+  {
+    "thread": [
+      {"message": "client asked if they can get role-based access on the dashboard so recruiters only see their own reqs, account is palisade finance", "outcome": "answered", "reply": "Showed Naren setting up role-based dashboard permissions.", "scenario_key": "dashboard_access_and_reporting", "pair_id": 125, "call_filename": "20230317_palisade_joveo_role_access.txt"}
+    ],
+    "message": "they just emailed back saying actually they also want their external recruiting agency to have view-only access too, is that doable the same way",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "client's follow-up email adds a new specific request (external agency access) on the same account"
+  },
+  {
+    "thread": [
+      {"message": "client is comparing ats vendors and wants to know what to expect from a switch, account is thornwood legal", "outcome": "answered", "reply": "Showed Naren evaluating an ATS vendor switch request.", "scenario_key": "vendor_transition_and_partnership_evaluation", "pair_id": 126, "call_filename": "20230128_thornwood_joveo_vendor_switch.txt"},
+      {"message": "did he mention downtime during cutover", "outcome": "answered", "reply": "Showed Naren addressing cutover downtime expectations.", "scenario_key": "vendor_transition_and_partnership_evaluation", "pair_id": 127, "call_filename": "20230128_thornwood_joveo_vendor_switch.txt"}
+    ],
+    "message": "separate thing, got a call from quarrystone manufacturing saying their recruiter can't log into the new ats at all since this morning",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "flagged as separate, brings a brand new client and a new urgent issue"
+  },
+  {
+    "thread": [
+      {"message": "client wants their job ads to look more branded, less generic template, account is harborline shipping", "outcome": "answered", "reply": "Showed Naren advising on branded creative for job ads.", "scenario_key": "creative_and_media_plan_review", "pair_id": 128, "call_filename": "20230415_harborline_joveo_creative_branding.txt"}
+    ],
+    "message": "so they sent over new logo files finally, but also mentioned offhand that their marketing director wants to kill the ziprecruiter spend entirely and move it all to linkedin, is that something naren's weighed in on",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "buried mid-sentence new fact (kill ZipRecruiter spend, move to LinkedIn) is a different situation than the branding request"
+  },
+  {
+    "thread": [],
+    "message": "prospect pushing back hard on the auto-renewal clause, wants it changed to opt-in only, company is vantaggio consulting",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "fresh thread, new client and specific contract ask"
+  },
+  {
+    "thread": [
+      {"message": "client needs help understanding why their dashboard numbers don't match the publisher's own reporting, account is driftwood hospitality", "outcome": "answered", "reply": "Showed Naren reconciling a dashboard-vs-publisher reporting discrepancy.", "scenario_key": "dashboard_access_and_reporting", "pair_id": 129, "call_filename": "20230519_driftwood_joveo_reporting_discrepancy.txt"}
+    ],
+    "message": "also, they just told me separately their CFO wants a cost breakdown by department for the next board meeting, is that a standard dashboard view or something custom",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "\"also,\" introduces a distinct new request (CFO department breakdown) not part of the original reconciliation issue"
+  },
+  {
+    "thread": [
+      {"message": "general approach when cost per hire looks fine on paper but client still complains", "outcome": "rendered", "reply": "Showed the playbook for a cost-per-hire perception mismatch.", "scenario_key": "campaign_level_performance_tracking", "pair_id": null, "call_filename": ""}
+    ],
+    "message": "ok this actually just happened with one of my accounts, ironclad security, their CFO said cph is 'clearly broken' even though the dashboard shows it under target, and he's threatening to pause spend next week",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "moves from a general playbook question to a specific client with new concrete facts and urgency"
+  },
+  {
+    "thread": [
+      {"message": "client asked why their jobs aren't showing up on glassdoor anymore, account is meridian health partners", "outcome": "answered", "reply": "Showed Naren diagnosing a publisher feed drop-off.", "scenario_key": "publisher_management_and_exclusions", "pair_id": 130, "call_filename": "20230207_meridian_joveo_publisher_dropoff.txt"},
+      {"message": "was it a budget issue or a feed issue in that case", "outcome": "answered", "reply": "Showed Naren confirming it traced back to a feed filter, not budget.", "scenario_key": "publisher_management_and_exclusions", "pair_id": 131, "call_filename": "20230207_meridian_joveo_publisher_dropoff.txt"}
+    ],
+    "message": "ok switching gears, do you know much about clients who want seasonal campaigns, like holiday retail hiring spikes? got one asking now, its called frostline retail",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "explicit topic switch plus a brand new client and a seasonal-hiring situation"
+  },
+  {
+    "thread": [
+      {"message": "client's spend is pacing way under budget for the month, account is copperline insurance", "outcome": "answered", "reply": "Showed Naren diagnosing underpacing spend.", "scenario_key": "budget_allocation_and_testing", "pair_id": 132, "call_filename": "20230612_copperline_joveo_underpacing.txt"}
+    ],
+    "message": "turns out it wasn't pacing after all, they just told me they accidentally paused 3 of their 5 campaigns last week and forgot, now they want to know if they lost ranking by pausing",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "new fact (accidental pause, ranking worry) recasts the situation; must not be answered from the underpacing framing"
+  },
+  {
+    "thread": [
+      {"message": "client's recruiter asked how the ats sync handles duplicate candidates, account is stonebridge finance", "outcome": "answered", "reply": "Showed Naren explaining duplicate candidate handling in the ats sync.", "scenario_key": "ats_integration_and_api_mapping", "pair_id": 133, "call_filename": "20230309_stonebridge_joveo_ats_sync.txt"}
+    ],
+    "message": "she came back and said actually the bigger issue is candidates are landing in the wrong req entirely, like applying to accounting but showing up under sales",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "\"she came back and said\" introduces a different, more specific problem (wrong req mapping, not duplicates)"
+  },
+  {
+    "thread": [
+      {"message": "client wants to know how naren typically pitches adding a new publisher to the mix, account is glenview retail", "outcome": "answered", "reply": "Showed Naren pitching a new publisher addition.", "scenario_key": "publisher_management_and_exclusions", "pair_id": 134, "call_filename": "20230214_glenview_joveo_publisher_pitch.txt"}
+    ],
+    "message": "unrelated question - in general how does naren explain the difference between cpc and cpa pricing to a client who's never used programmatic before",
+    "expect_situation": "opens",
+    "new_client_words": false,
+    "note": "explicit pivot to a general pricing question, no client-specific new facts"
+  },
+  {
+    "thread": [],
+    "message": "client says their apply button isnt working on mobile only, desktop is fine, this is urgent for solace dental group, campaign launches tomorrow",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "fresh thread, specific new client and urgent technical complaint"
+  },
+  {
+    "thread": [
+      {"message": "client asked what the actual process looks like for migrating off their old feed vendor onto joveo's native feed, account is ember hospitality", "outcome": "rendered", "reply": "Showed the steps Naren runs for a feed vendor migration.", "scenario_key": "vendor_transition_and_partnership_evaluation", "pair_id": null, "call_filename": ""}
+    ],
+    "message": "i told them: \"we'll run both feeds in parallel for two weeks before fully cutting over to avoid any job posting gaps\" - is that in line with what naren actually commits to, and also they mentioned their old vendor charges an early termination fee, does that ever come up",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "CSM's drafted reply plus a brand new fact (early termination fee) not previously mentioned"
+  },
+  {
+    "thread": [
+      {"message": "does the tool know anything about seasonal hiring spikes in general", "outcome": "declined", "reply": "", "scenario_key": "", "pair_id": null, "call_filename": ""}
+    ],
+    "message": "ok nvm that, real question - client northgate manufacturing says their cost per hire is fine but their time to fill ballooned from 2 weeks to 6, what would naren check",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "brand new specific client and situation following an unrelated declined tangent"
+  },
+  {
+    "thread": [
+      {"message": "client wants dashboard access changed", "outcome": "clarify", "reply": "Asked what specifically needed to change about the access.", "scenario_key": "", "pair_id": null, "call_filename": ""}
+    ],
+    "message": "sorry, its oakmont dental, their office manager left and the new person needs admin rights but the old login still shows as the account owner on file",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "answering the clarify introduces the actual client and a new offboarding/ownership situation"
+  },
+  {
+    "thread": [
+      {"message": "client asked about rotating creative seasonally for better ctr, account is maplewood senior living", "outcome": "answered", "reply": "Showed Naren setting up seasonal creative rotation.", "scenario_key": "creative_and_media_plan_review", "pair_id": 135, "call_filename": "20230122_maplewood_joveo_creative_rotation.txt"}
+    ],
+    "message": "this one's actually a totally different client, briarcliff logistics, their creative got rejected by indeed for policy violation and they dont know why",
+    "expect_situation": "opens",
+    "new_client_words": true,
+    "note": "\"this one's\" sounds like a continuation but names a different client and a different problem (ad rejection, not rotation)"
+  }
+]

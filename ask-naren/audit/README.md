@@ -38,3 +38,23 @@ Both are recorded properly in `../docs/adr/0004-answer-quality-is-measured-by-bl
 20 of 24 answers judged right — **83%, 95% CI [64%, 93%]** — with the gate passing 6/6 known-wrong and 6/6 known-right. All four failures came from retrieval whose primary scenario differed from the situation's. Full account in issue #7's comments.
 
 Not established: n is 24, the reader was a model rather than a CSM, and the situations were verbatim client turns rather than the paraphrases a CSM would actually type.
+
+## Carried situations: the #55 gate, 2026-10-05
+
+`measure_intake_accuracy.py` decides whether carried situations (ADR 0013, #51 to #54) ship. Model `gemini-3.6-flash`, reasoning `low`, every set run three times.
+
+**Existing sets: no set dropped.** The old prompt is `8905756`, measured in a checkout of that commit on the same day and model. Best of three per set, old → new: fitted 12 → 12/12, heldout 10 → 10/11, threaded 10 → 10/11, procedure 7 → 7/7, rendered 8 → 8/8, playbook 8 → 8/8, contrast 9 → 9/9, whereelse 7 → 7/7, composite 8 → 8/8. That is `artifacts/intake_accuracy_55_existing_sets_old_vs_new.json`, with every run beside it as `intake_accuracy_55_{new,old}_<set>_run<n>.json`.
+
+**The new held-out set (`--set carried`, `cases/carried_vs_opens_heldout.json`, 44 cases): both bars pass, identically in all three runs (42/44).**
+- New client words read as carried: **0 of 20**. The bar is 0.
+- Real carried messages recognised: **20 of 22, 91%**. The bar is 80%.
+- Opens recognised as opens: 22 of 22.
+
+The two misses:
+- "back to meridian, what should I tell them" was read as `reply_to_client`. That intent always searches fresh, which is the safe direction.
+- A wording question that named its topic was read as opening a new situation.
+
+The prompt this was measured on is in `artifacts/intake_accuracy_55_carried_prompt.diff`. It is byte-identical with no thread; with a thread, the only change is the situation rule.
+
+**How the set was written, and what that does not prove.** A separate model agent wrote the cases blind. It was forbidden from opening the prompt, this harness, the tests, the ADRs or the issues, and was given only a plain description of the tool and the thread shapes. The echo check flags 2 of 44 cases. One is an everyday phrase ("what do i do first"). The other repeats its own thread's text, which is allowed. The labels were checked against ADR 0013's definition. One of them, a CSM restating their own question after a clarify, is ambiguous and is labelled carried; it can only cost recall. **The cases are synthetic, not real CSM traffic.** The stored threads in `ask_naren.turns` are the better source once there is enough real use, and re-running this set on real follow-on messages is the honest next check.
+

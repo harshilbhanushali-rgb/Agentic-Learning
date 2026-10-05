@@ -142,7 +142,7 @@ A `pair_id`, a `scenario_key` or a call filename passed forward from an earlier 
 _Avoid_: context id, session key, sticky scenario.
 
 **Carried situation**:
-**Built** for the scenario intents (#53) and the exchange intents (#54); unmeasured until #55. Intake returns it as `situation`: `carried` or `opens`. A message is ON a carried situation when it is about the situation the thread has already established -- "what's the play here", "show me the actual exchange", "what happened after that" -- rather than describing one of its own. The opposite is a message that OPENS a situation. Which one a message is, is a judgement about the message; which situation is carried is not a judgement at all, it is whatever the last answer rested on. A message carrying new client words always opens a situation, however much it sounds like a continuation.
+**Built** for the scenario intents (#53) and the exchange intents (#54); measured in #55 (0 false carries out of 20, 91% of real continuations recognised). Intake returns it as `situation`: `carried` or `opens`. A message is ON a carried situation when it is about the situation the thread has already established -- "what's the play here", "show me the actual exchange", "what happened after that" -- rather than describing one of its own. The opposite is a message that OPENS a situation. Which one a message is, is a judgement about the message; which situation is carried is not a judgement at all, it is whatever the last answer rested on. A message carrying new client words always opens a situation, however much it sounds like a continuation.
 _Avoid_: follow-up (one answer path, not this property), context, sticky scenario, same topic.
 
 **Anchor**:

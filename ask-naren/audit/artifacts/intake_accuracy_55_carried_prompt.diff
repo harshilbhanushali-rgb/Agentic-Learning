@@ -1,0 +1,16 @@
+# intake prompt: 8905756 -> working tree
+
+## NO THREAD: IDENTICAL
+
+## WITH A THREAD: CHANGED
+--- 8905756
++++ working tree
+@@ -102,4 +102,8 @@
+ 
+   - NEVER ask a question that already appears above. If the message still does not give you what you asked for, answer it as best you can with what is there rather than asking again.
+ 
++  - Set situation to "carried" when the message is about the situation the conversation above already established and describes none of its own: "what's the play here", "how does he word it", "what usually goes wrong", "how sure is that play", "show me the actual exchange", "what happened after that". Set it to "opens" when the message describes a situation itself.
++    ANY NEW CLIENT WORDS MAKE IT "opens", however much the message sounds like a continuation ("now they say the budget is frozen", "different client: they think our CPA is too high"). Answering new client words from the situation above is answering about the wrong client.
++    For "carried", choose the intent the message asks for and leave retrieval_query empty: what it is about comes from the conversation, not from a search. Do not "clarify" to ask which situation they mean -- the conversation above already says. A "follow_up" is always "carried".
++
+ When genuinely torn, prefer "reply_to_client". Answering and being slightly off is more useful to a CSM mid-call than being asked for something they thought they had already given.
