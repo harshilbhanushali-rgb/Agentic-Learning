@@ -387,7 +387,10 @@ export type AskNarenRendered =
        *  common" being read as a fact about clients rather than about this corpus. */
       basis: string }
   | { outcome: 'rendered'; kind: 'show_exchange'; intake?: AskNarenIntake;
-      exchange: AskNarenExchange; citation: AskNarenCitation; match: AskNarenMatch }
+      exchange: AskNarenExchange; citation: AskNarenCitation;
+      /** ABSENT WHEN THE EXCHANGE WAS CARRIED from the thread (issue #54): it is the one
+       *  the last answer rested on, so nothing was searched. `citation` still names it. */
+      match?: AskNarenMatch }
   | { outcome: 'rendered'; kind: 'what_happened_next'; intake?: AskNarenIntake;
       exchange: AskNarenExchange;
       following: (AskNarenExchange & { scenario_key: string })[];
@@ -395,8 +398,9 @@ export type AskNarenRendered =
        *  interpret; this is an answer. */
       is_last: boolean; citation: AskNarenCitation;
       /** The same block `show_exchange` carries (issue #45): this retrieves its exchange the
-       *  same way, so it reports the same cosine. */
-      match: AskNarenMatch }
+       *  same way, so it reports the same cosine -- and is absent the same way when the
+       *  exchange was carried (issue #54). */
+      match?: AskNarenMatch }
   /* The five a scenario's Layer C playbook answers by being rendered (issue #18).
      `scenario_key` is on every one of them because these answers show the PLAY, derived
      from many calls — so for three of the five there is no single call to point at, and the
@@ -536,7 +540,9 @@ export type AskNarenRendered =
          *  ADR 0005 rules out a real threshold here. The raw count sits beside it. */
         evidence: 'thin' | 'solid';
       };
-      citation: AskNarenCitation; match: AskNarenMatch };
+      citation: AskNarenCitation;
+      /** Absent when the exchange was carried (issue #54), as on `show_exchange`. */
+      match?: AskNarenMatch };
 
 /** Discriminated on `outcome`, NOT on a boolean. Two discriminators for one decision is how
  *  the answered and declined render paths eventually disagree about which one a response

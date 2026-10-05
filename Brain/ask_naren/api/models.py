@@ -192,7 +192,7 @@ class ShowExchange(_Rendered):
     kind: Literal["show_exchange"]
     exchange: Exchange
     citation: Citation
-    match: Match
+    match: Match | None = Field(default=None, description="Absent when carried (#54).")
 
 
 class Following(Exchange):
@@ -205,7 +205,7 @@ class WhatHappenedNext(_Rendered):
     following: list[Following]
     is_last: bool
     citation: Citation
-    match: Match
+    match: Match | None = Field(default=None, description="Absent when carried (#54).")
 
 
 class Sequence(_Rendered):
@@ -322,7 +322,7 @@ class CoverageCheck(_Rendered):
     asked_about: str
     nearest: Nearest
     citation: Citation
-    match: Match
+    match: Match | None = Field(default=None, description="Absent when carried (#54).")
 
 
 Rendered = Annotated[

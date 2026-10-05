@@ -1207,12 +1207,106 @@ def test_carrying_embeds_no_thread_text():
         assert embed.seen == [], intent
 
 
-@pytest.mark.parametrize("intent", ("show_exchange", "what_happened_next", "coverage_check"))
-def test_a_carried_exchange_question_is_answered_as_written_until_exchange_carrying_exists(
-        intent):
-    """Carrying an EXCHANGE is #54. Until it exists a carried exchange question takes the
-    existing fallback rather than an exchange chosen some other way."""
-    result, _, embed = _carried(intent, (_on_timeline(),), message="show me the exchange",
-                                pool=_pool(), payloads=(_answer_payload(),))
-    assert embed.seen == ["show me the exchange"]
-    assert result["intake"]["intent"] == "reply_to_client"
+# -- a carried exchange question answers from the exchange the last answer rested on (#54) --
+
+EXCHANGE_INTENTS = ("show_exchange", "what_happened_next", "coverage_check")
+
+
+def _carried_exchange(intent, thread, message="show me the actual exchange",
+                      following_for=lambda pair_id: [], pool=None, payloads=()):
+    gw = StubGateway(*payloads)
+    embed = RecordingEmbedder()
+    result = asyncio.run(responding.respond(
+        message, pool or _no_search_pool(), gw, embed_query=embed, thread=thread,
+        classify=_decides(intent, situation="carried"), scenarios_for=lambda: SCENARIOS,
+        following_for=following_for))
+    return result, gw, embed
+
+
+def test_a_carried_show_exchange_shows_the_exchange_the_last_answer_rested_on():
+    """Story 8. The thread's pair 22 is NOT the one a search would reach (pair 11), so
+    showing it can only have come from the thread -- and the pool fails on any search."""
+    result, gw, embed = _carried_exchange("show_exchange", (_on_timeline(),))
+    assert result["kind"] == "show_exchange"
+    assert result["citation"]["pair_id"] == 22
+    assert result["exchange"]["client_said"] == "when does the integration go live"
+    assert embed.seen == [] and gw.calls == []
+    assert "match" not in result
+
+
+def test_a_carried_what_happened_next_shows_what_followed_that_exchange():
+    """Story 9: what followed THAT exchange in its call."""
+    asked_after = []
+
+    def following_for(pair_id):
+        asked_after.append(pair_id)
+        return [{"trigger_text": "and after go-live?", "response_text": "We monitor it.",
+                 "scenario_key": "timeline_question"}]
+
+    result, _, embed = _carried_exchange("what_happened_next", (_on_timeline(),),
+                                         message="what happened after that",
+                                         following_for=following_for)
+    assert asked_after == [22]
+    assert result["following"][0]["client_said"] == "and after go-live?"
+    assert result["citation"]["pair_id"] == 22
+    assert embed.seen == []
+    assert "match" not in result
+
+
+def test_a_carried_coverage_check_reports_on_the_carried_pairs_situation():
+    """Story 10."""
+    result, _, embed = _carried_exchange("coverage_check", (_on_timeline(),),
+                                         message="do we have much on this")
+    assert result["nearest"]["scenario_key"] == CARRIED_SCENARIO
+    assert result["nearest"]["support_calls"] == 9          # from SCENARIOS
+    assert result["asked_about"] == "do we have much on this"
+    assert embed.seen == []
+    assert "match" not in result
+
+
+def test_a_carried_exchange_after_a_rendered_exchange_continues_from_it():
+    """Story 9's second half: "what happened after that" after an exchange view."""
+    shown = _on_timeline(outcome="rendered")
+    result, _, _ = _carried_exchange("what_happened_next", (shown,),
+                                     message="what happened after that")
+    assert result["citation"]["pair_id"] == 22
+
+
+@pytest.mark.parametrize("intent", EXCHANGE_INTENTS)
+def test_an_answer_resting_on_no_single_exchange_is_the_fixed_clarify(intent):
+    """Story 14. A playbook answer rests on a scenario, not an exchange, and a scenario never
+    picks one (CONTEXT.md **Anchor**). Ask Naren asks rather than showing one at random."""
+    played = _on_timeline(outcome="rendered", pair_id=None)
+    result, gw, embed = _carried_exchange(intent, (played,))
+    assert result["outcome"] == "clarify"
+    assert result["question"] == responding.NO_CARRIED_ANCHOR
+    assert embed.seen == [] and gw.calls == []
+    assert "match" not in result
+
+
+@pytest.mark.parametrize("intent", EXCHANGE_INTENTS)
+def test_a_carried_pair_gone_from_the_pool_is_the_fixed_clarify(intent):
+    """The pool is loaded once at startup, and a pipeline re-run can retire a pair. The
+    turn's scenario is still known -- and is still not an exchange."""
+    stale = _on_timeline(pair_id=9999)
+    result, _, embed = _carried_exchange(intent, (stale,))
+    assert result["question"] == responding.NO_CARRIED_ANCHOR
+    assert embed.seen == []
+
+
+def test_the_fixed_exchange_clarify_is_never_asked_twice_in_a_row():
+    asked = threads.ThreadTurn(message="show me the actual exchange", outcome="clarify",
+                               reply=responding.NO_CARRIED_ANCHOR)
+    played = _on_timeline(outcome="rendered", pair_id=None)     # holds no exchange
+    result, _, embed = _carried_exchange("show_exchange", (played, asked),
+                                         message="the one about go-live", pool=_pool(),
+                                         payloads=(_answer_payload(),))
+    assert result["outcome"] == "answered"
+    assert embed.seen == ["the one about go-live"]
+
+
+def test_an_exchange_question_that_opens_a_situation_still_searches_and_reports_its_match():
+    """Opening a situation is unchanged: search, and say how close the match was."""
+    result, _, _ = _ask_rendered("show_exchange")
+    assert result["citation"]["pair_id"] == 11
+    assert set(result["match"]) == {"cosine", "scenario_key", "rank"}

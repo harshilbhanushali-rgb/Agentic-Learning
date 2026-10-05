@@ -1,6 +1,6 @@
 # A carried situation is judged by intake and resolved by lookup
 
-**Status:** decided 2026-10-05 (issue #26). Built for the **scenario** intents (#51, #52, #53); carrying an **exchange** is #54. **Not yet measured**: #55 is the gate that decides whether it ships. Builds on ADR 0006, which permits it.
+**Status:** decided 2026-10-05 (issue #26). Built for the **scenario** intents (#51, #52, #53) and the **exchange** intents (#54). **Not yet measured**: #55 is the gate that decides whether it ships. Builds on ADR 0006, which permits it.
 
 A CSM asks about a situation, gets an answer, then asks "what's the play here". Today every answer path except `follow_up` finds its situation by searching on the words of the current message. "What's the play here" names no situation, so it has nothing to search on, and it falls back and retrieves noise. The thread already records what the last answer rested on, and nothing but `follow_up` reads it.
 

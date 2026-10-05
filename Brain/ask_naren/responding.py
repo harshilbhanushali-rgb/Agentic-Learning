@@ -85,16 +85,18 @@ def _carried_anchor(decision: intake.IntakeDecision, turns,
     nothing.
 
     A scenario need is met by the turn's scenario, or by its pair's: an exchange implies its
-    scenario. A carried pair the pool no longer holds is no anchor at all -- the pool is
-    loaded once at startup and a pipeline re-run can retire a pair mid-conversation.
-
-    Only SCENARIO needs reach here: `_guarded` rule 7 is the one place that keeps carried
-    exchange questions out until issue #54 builds them.
+    scenario. An EXCHANGE need is met only by the turn's pair (issue #54): a scenario never
+    picks an exchange, so a playbook answer -- which rests on no single exchange -- leaves an
+    exchange question nothing to show. A carried pair the pool no longer holds is no anchor
+    at all -- the pool is loaded once at startup and a pipeline re-run can retire a pair
+    mid-conversation.
     """
     turn = threads.last_answer(turns)
     if turn is None:
         return None
     pair = pool.by_pair_id(turn.pair_id) if turn.pair_id is not None else None
+    if intake.ANCHORS[decision.intent].kind == intake.EXCHANGE_ANCHOR:
+        return Anchor(scenario_key=pair["scenario_key"], pair=pair) if pair else None
     scenario_key = turn.scenario_key or (pair or {}).get("scenario_key") or ""
     return Anchor(scenario_key=scenario_key, pair=pair) if scenario_key else None
 
@@ -270,11 +272,13 @@ async def _rendered(message: str, decision: intake.IntakeDecision, pool: Retriev
     anchor = await _resolve_anchor(decision, pool, embed_query, carried=carried)
 
     if decision.intent == intake.SHOW_EXCHANGE:
-        return rendering.show_exchange(anchor.match, label_for=label_for)
+        return _matched(rendering.show_exchange(anchor.pair, label_for=label_for), anchor)
 
     if decision.intent == intake.WHAT_HAPPENED_NEXT:
         following = following_for(anchor.pair["pair_id"]) if following_for else []
-        return rendering.what_happened_next(anchor.match, following, label_for=label_for)
+        return _matched(
+            rendering.what_happened_next(anchor.pair, following, label_for=label_for),
+            anchor)
 
     if decision.intent == intake.IMPROVE_AT_MOVE:
         # THE SCENARIO COMES FROM THE ANCHOR, as on every playbook path, and never from the
@@ -296,7 +300,8 @@ async def _rendered(message: str, decision: intake.IntakeDecision, pool: Retriev
     if scenarios_for:
         scenario = next((s for s in scenarios_for()
                          if s["scenario_key"] == anchor.scenario_key), None)
-    return rendering.coverage_check(message, anchor.match, scenario, label_for=label_for)
+    return _matched(
+        rendering.coverage_check(message, anchor.pair, scenario, label_for=label_for), anchor)
 
 
 async def _procedure(message: str, decision: intake.IntakeDecision,
@@ -528,11 +533,7 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
 
     6. NOTHING IS CARRIED INTO A FIRST MESSAGE (issue #53, ADR 0013 point 5). There is no
        thread to carry from; `intake.classify` forces this too, and this is what holds it
-       for any other classifier.
-
-    7. AN EXCHANGE IS NOT CARRIED YET. That is issue #54; until it ships, a carried
-       exchange question is answered as written, as it was before carrying existed.
-    """
+       for any other classifier.    """
     if decision.intent == intake.CLARIFY and (
             threads.awaiting_clarify(turns)
             or threads.clarify_already_asked(turns, decision.question)):
@@ -550,11 +551,6 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
         #    already forces this; an injected classify, or a future caller, may not. A
         #    carried decision has no query left, so "behaves as opens" is the fallback.
         if not turns:
-            return intake.fallback_decision(message)
-        # 7. CARRYING AN EXCHANGE IS NOT BUILT YET (issue #54). Until it is, a carried
-        #    exchange question takes the fallback rather than an exchange found any other
-        #    way -- the same answer it would have got before carrying existed.
-        if intake.ANCHORS[decision.intent].kind == intake.EXCHANGE_ANCHOR:
             return intake.fallback_decision(message)
 
     # Rule 4 binds a decision that OPENS a situation: a carried one embeds nothing, so there

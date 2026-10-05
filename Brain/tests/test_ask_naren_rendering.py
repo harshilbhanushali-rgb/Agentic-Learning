@@ -116,7 +116,7 @@ def test_a_scenario_with_no_recorded_support_ranks_last_rather_than_crashing():
 def test_show_exchange_returns_the_stored_text_untouched():
     """A CSM asking to SEE the exchange wants to judge the fit themselves. A paraphrase
     would defeat the entire intent."""
-    result = rendering.show_exchange(_match(), label_for=lambda f: "Uber - 3 May 2023")
+    result = rendering.show_exchange(_match().pair, label_for=lambda f: "Uber - 3 May 2023")
     assert result["kind"] == "show_exchange"
     assert result["exchange"]["client_said"] == TRIGGER
     assert result["exchange"]["naren_replied"] == RESPONSE
@@ -125,7 +125,7 @@ def test_show_exchange_returns_the_stored_text_untouched():
 
 def test_show_exchange_carries_no_generated_prose_at_all():
     """Nothing in this response may be model-written, because no model ran."""
-    result = rendering.show_exchange(_match())
+    result = rendering.show_exchange(_match().pair)
     assert "answer" not in result and "quote" not in result
 
 
@@ -138,7 +138,7 @@ def test_what_happened_next_returns_the_following_exchanges_in_order():
         {"trigger_text": "and the timeline", "response_text": "Two weeks.",
          "scenario_key": "timeline_question"},
     ]
-    result = rendering.what_happened_next(_match(), following)
+    result = rendering.what_happened_next(_match().pair, following)
     assert result["kind"] == "what_happened_next"
     assert [f["client_said"] for f in result["following"]] == [
         "so what do we do about it", "and the timeline"]
@@ -148,20 +148,20 @@ def test_what_happened_next_returns_the_following_exchanges_in_order():
 def test_the_last_exchange_in_a_call_says_so_rather_than_returning_an_empty_list():
     """An empty list is something a CSM has to interpret. "There was nothing after this" is
     an answer."""
-    result = rendering.what_happened_next(_match(), [])
+    result = rendering.what_happened_next(_match().pair, [])
     assert result["is_last"] is True
     assert result["following"] == []
 
 
-def test_what_happened_next_reports_the_match_it_retrieved_like_show_exchange():
-    """Issue #45: it retrieves its exchange exactly as `show_exchange` does, so it reports
-    the same block -- otherwise a stored turn records NULL for a cosine that was computed."""
-    match = _match()
-    result = rendering.what_happened_next(match, [])
-    assert result["match"] == rendering.show_exchange(match)["match"]
-    assert result["match"] == {"cosine": match.cosine,
-                               "scenario_key": "performance_pushback", "rank": 1}
-    assert isinstance(result["match"]["cosine"], float)
+def test_an_exchange_renders_the_same_whether_it_was_searched_for_or_carried():
+    """Issue #54: the renderers are handed the EXCHANGE, so they report no `match` of their
+    own. Whether a search ran is a fact about the request, and `responding._matched`
+    attaches it when one did -- tested through the seam in test_ask_naren_responding.py."""
+    pair = _match().pair
+    for result in (rendering.show_exchange(pair), rendering.what_happened_next(pair, []),
+                   rendering.coverage_check("renewals", pair, None)):
+        assert "match" not in result
+        assert result["citation"]["pair_id"] == pair["pair_id"]
 
 
 # -- coverage_check (issue #20) -------------------------------------------------------------
@@ -170,7 +170,7 @@ def test_coverage_check_is_an_answer_not_a_decline():
     """The whole point of the intent. Today a CSM cannot tell "Ask Naren has nothing on
     this" from "I asked it the wrong way" because both look like a decline -- so the intent
     that separates them must never itself decline."""
-    result = rendering.coverage_check("renewals", _match(),
+    result = rendering.coverage_check("renewals", _match().pair,
                                       _scenario("performance_pushback", desc="Client "
                                                 "challenges performance against the pitch.",
                                                 calls=12))
@@ -183,7 +183,7 @@ def test_coverage_check_is_an_answer_not_a_decline():
 def test_coverage_check_survives_a_scenario_the_taxonomy_no_longer_has():
     """The pool is a startup snapshot and Layer A can move under it. A missing row must
     degrade to a thinner answer rather than raise."""
-    result = rendering.coverage_check("renewals", _match(), None)
+    result = rendering.coverage_check("renewals", _match().pair, None)
     assert result["nearest"]["description"] == ""
     assert result["nearest"]["support_calls"] == 0
 
@@ -193,16 +193,16 @@ def test_coverage_check_flags_thin_evidence_rather_than_implying_coverage():
     thing we cover is X" reads as a yes even when the topic is absent. It cannot say "we do
     not cover that" either -- ADR 0005 rules out a cosine threshold -- so it reports how
     much evidence sits behind the nearest thing and lets the CSM judge."""
-    thin = rendering.coverage_check("quantum widgets", _match(), _scenario("x", calls=1))
+    thin = rendering.coverage_check("quantum widgets", _match().pair, _scenario("x", calls=1))
     assert thin["nearest"]["evidence"] == "thin"
-    solid = rendering.coverage_check("cost per hire", _match(), _scenario("x", calls=40))
+    solid = rendering.coverage_check("cost per hire", _match().pair, _scenario("x", calls=40))
     assert solid["nearest"]["evidence"] == "solid"
 
 
 def test_coverage_check_quotes_the_csm_not_the_extracted_query():
     """The page renders `asked_about` back in quote marks. Quoting a model-authored span as
     though the CSM wrote it is a small lie that gets believed."""
-    result = rendering.coverage_check("do you have anything on renewals?", _match(), None)
+    result = rendering.coverage_check("do you have anything on renewals?", _match().pair, None)
     assert result["asked_about"] == "do you have anything on renewals?"
 
 

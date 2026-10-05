@@ -130,24 +130,27 @@ def frequency(scenarios: list[dict], top_n: int = FREQUENCY_TOP_N) -> dict:
     }
 
 
-def show_exchange(match, label_for=citations.resolve_label) -> dict:
+def show_exchange(pair: dict, label_for=citations.resolve_label) -> dict:
     """The real exchange behind a situation, verbatim (issue #20).
 
     NOT A PARAPHRASE, which is the entire point -- a CSM asking to see the exchange wants to
     judge the fit themselves rather than read our summary of it. So the client's words and
     Naren's reply are the stored strings, untouched.
+
+    Handed the EXCHANGE, not a retrieval match (issue #54): it may have come from a search
+    or from the thread, and rendering it is the same either way. The `match` block is
+    attached by the layer that ran the search, when one ran -- as on the playbook kinds.
     """
-    pair = match.pair
     return {
         "outcome": RENDERED,
         "kind": SHOW_EXCHANGE,
         "exchange": {"client_said": pair["trigger_text"], "naren_replied": pair["response_text"]},
         "citation": _citation(pair, label_for),
-        "match": {"cosine": match.cosine, "scenario_key": pair["scenario_key"], "rank": 1},
     }
 
 
-def what_happened_next(match, following: list[dict], label_for=citations.resolve_label) -> dict:
+def what_happened_next(pair: dict, following: list[dict],
+                       label_for=citations.resolve_label) -> dict:
     """How the conversation actually continued after that moment (issue #20).
 
     `following` is the exchanges after this one IN THE SAME CALL, in turn order, supplied by
@@ -160,11 +163,8 @@ def what_happened_next(match, following: list[dict], label_for=citations.resolve
     to cover". `is_last` says plainly when there was nothing after it, rather than rendering
     an empty list a CSM has to interpret.
 
-    `match` IS THE SAME BLOCK `show_exchange` CARRIES (issue #45). This path retrieves its
-    exchange exactly as that one does and already had the cosine in hand; leaving it off
-    meant a stored turn recorded NULL for a number that was computed and thrown away.
+    Handed the exchange rather than a match, for the reason `show_exchange` gives.
     """
-    pair = match.pair
     return {
         "outcome": RENDERED,
         "kind": WHAT_HAPPENED_NEXT,
@@ -174,11 +174,10 @@ def what_happened_next(match, following: list[dict], label_for=citations.resolve
                       for f in following],
         "is_last": not following,
         "citation": _citation(pair, label_for),
-        "match": {"cosine": match.cosine, "scenario_key": pair["scenario_key"], "rank": 1},
     }
 
 
-def coverage_check(asked: str, match, scenario: dict | None,
+def coverage_check(asked: str, pair: dict, scenario: dict | None,
                    label_for=citations.resolve_label) -> dict:
     """Does Ask Naren cover this kind of situation at all (issue #20)?
 
@@ -192,8 +191,9 @@ def coverage_check(asked: str, match, scenario: dict | None,
     written it is a small lie that gets believed -- the extracted query is already visible
     in the `intake` echo for anyone debugging.
 
-    `scenario` is the Layer A row for what retrieval reached, or None if the taxonomy no
-    longer has it. Its `business_description` is what makes the answer useful: naming the
+    `pair` is the exchange the question is about -- the nearest one, or the one carried from
+    the thread (issue #54). `scenario` is the Layer A row for its scenario, or None if the
+    taxonomy no longer has it. Its `business_description` is what makes the answer useful: naming the
     scenario alone tells a CSM nothing if the key is opaque.
 
     IT REPORTS THE NEAREST THING, AND REFUSES TO CLAIM THAT IS THE SAME AS COVERAGE. There
@@ -209,7 +209,6 @@ def coverage_check(asked: str, match, scenario: dict | None,
     it. `evidence` is that last part in words rather than a bare count, because "9 calls" is
     only meaningful against a distribution a CSM has never seen.
     """
-    pair = match.pair
     support = (scenario or {}).get("support_calls") or 0
     return {
         "outcome": RENDERED,
@@ -222,7 +221,6 @@ def coverage_check(asked: str, match, scenario: dict | None,
             "evidence": _evidence_band(support),
         },
         "citation": _citation(pair, label_for),
-        "match": {"cosine": match.cosine, "scenario_key": pair["scenario_key"], "rank": 1},
     }
 
 
