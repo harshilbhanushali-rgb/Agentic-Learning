@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import contextvars
 import math
 import os
 
@@ -91,6 +92,31 @@ ANSWER_DEADLINE_SECONDS = float(
 #: caller is still held to 30s either way, and the deadline is enforced rather than
 #: estimated. See the module docstring on where to re-measure.
 ANSWER_COST_SECONDS = float(os.environ.get("ASK_NAREN_ANSWER_COST_SECONDS", "12.5"))
+
+#: When this request's deadline falls, in event-loop time; set by `answer_flow` for the
+#: duration of one answer. A context variable because the deadline is a property of the
+#: request, and each request is its own task with its own context.
+_DEADLINE_AT: contextvars.ContextVar[float | None] = contextvars.ContextVar(
+    "ask_naren_deadline_at", default=None)
+
+
+def seconds_left() -> float | None:
+    """Seconds left of the current request's deadline, or None outside a request (issue
+    #25). What lets the answer path decide whether a second generation can still finish."""
+    deadline_at = _DEADLINE_AT.get()
+    if deadline_at is None:
+        return None
+    return deadline_at - asyncio.get_running_loop().time()
+
+
+@contextlib.contextmanager
+def deadline_at(when: float | None):
+    """Make `when` the deadline `seconds_left` reads, for the duration of the block."""
+    token = _DEADLINE_AT.set(when)
+    try:
+        yield
+    finally:
+        _DEADLINE_AT.reset(token)
 
 
 def gateway_in_flight_limit() -> int:

@@ -216,7 +216,16 @@ export interface AskNarenIntake {
    *  the last answer, so `retrieval_query` is empty and nothing was searched. Optional
    *  because a response stored before this field existed has none. */
   situation?: 'carried' | 'opens';
+  /** The search written from the conversation (issue #25), or "" when none ran. Every word
+   *  of it was typed by the CSM, checked server-side. Present only while the service's
+   *  THREAD_AWARE switch is on. */
+  search_query?: string;
 }
+
+/** How a response was reached when the first attempt did not do it (issue #25): `searched`
+ *  is a follow-up the carried exchange could not answer, searched instead; `wide` is a "no
+ *  close match" retried with the nearest 20. Absent when neither ran. */
+export type AskNarenRetry = 'searched' | 'wide';
 
 export interface AskNarenAnswer {
   outcome: 'answered';
@@ -246,6 +255,7 @@ export interface AskNarenAnswer {
    *  discriminator beside `outcome`: nothing about the guarantee differs here, so a fifth
    *  outcome would say something untrue about trust. */
   my_reply?: string;
+  retries?: AskNarenRetry[];
 }
 
 /** Where each one comes from, because they must stay distinguishable to whoever is
@@ -319,6 +329,7 @@ export interface AskNarenDecline {
    *  anything that wants to act on it (a retry, a countdown) does not have to parse prose.
    */
   retry_after_seconds?: number;
+  retries?: AskNarenRetry[];
 }
 
 /** Ask Naren asking for something back instead of answering — decided BEFORE retrieval, so

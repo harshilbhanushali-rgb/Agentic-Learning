@@ -12,6 +12,8 @@ module embeds only the incoming situation, generates, and applies the grounding 
 """
 from __future__ import annotations
 
+from typing import NamedTuple
+
 from ask_naren import citations, grounding, threads
 from ask_naren.retrieval import Match, RetrievalPool
 
@@ -152,6 +154,82 @@ def build_candidates_prompt(situation: str, candidates: list[dict]) -> str:
         'chose (empty string if declined),',
         '  "cited_call": the call identifier of the ONE exchange you chose, copied exactly '
         '(empty string if declined).',
+    ]
+    return "\n".join(lines)
+
+
+class Conversation(NamedTuple):
+    """What the CSM typed and the thread it was typed in (issue #25), for the answer prompt
+    that sees both. None everywhere means the frozen prompts above, unchanged."""
+    message: str
+    turns: tuple
+
+
+def build_conversation_prompt(conversation: Conversation, candidates: list[dict]) -> str:
+    """The answer prompt that sees the conversation and the CSM's whole message (#25).
+
+    A NEW VARIANT, NOT AN EDIT, exactly as the follow-up, playbook and shortlist variants
+    are: `build_prompt` is what ADR 0001 measured and is what runs with the switch off.
+
+    The other prompts are told only the words intake picked out of THIS message. On "the
+    ats one" that is three words, and a model told the situation is "the ats one" cannot
+    judge whether an exchange about an integration sync fits it.
+
+    THE CONVERSATION IS FOR UNDERSTANDING, NOT FOR QUOTING. It holds Ask Naren's earlier
+    answers, which are paraphrases of other exchanges; the gate checks the quote against the
+    exchanges shown HERE and nothing else, so a quote lifted from the conversation fails.
+
+    One exchange or several (the wide retry), with the same JSON contract either way.
+    """
+    many = len(candidates) > 1
+    lines = [
+        'You are "Ask Naren", an internal Joveo tool that helps a CSM handle a live client '
+        "situation by grounding the answer in Naren's closest real historical response.",
+        "",
+    ]
+    if conversation.turns:
+        lines += ["The conversation so far, oldest first:", "",
+                  threads.render(conversation.turns), ""]
+    lines += [f"The CSM's message now: {conversation.message}", ""]
+    if many:
+        lines.append(f"The {len(candidates)} closest matching real exchanges from Naren's "
+                     "own calls, closest first:")
+        for n, candidate in enumerate(candidates, 1):
+            lines += ["",
+                      f"  [{n}] Client said: {candidate['trigger_text']}",
+                      f"      Naren replied: {candidate['response_text']}",
+                      f"      (call: {candidate['call_filename']})"]
+    else:
+        lines += ["Closest matching real exchange from Naren's own calls:",
+                  f"  Client said: {candidates[0]['trigger_text']}",
+                  f"  Naren replied: {candidates[0]['response_text']}",
+                  f"  (call: {candidates[0]['call_filename']})"]
+    lines += [
+        "",
+        "Use the conversation only to understand what the CSM means by their message now. "
+        "It is not something Naren said, so never draw on it as grounding.",
+        "",
+        ("Pick the ONE exchange that genuinely matches the CSM's situation and write the "
+         "answer a CSM should give, using ONLY that exchange as grounding. Being listed "
+         "first does not make an exchange the right one. Paraphrase Naren's real reply "
+         "rather than inventing a new answer. If NONE of them is actually a close match to "
+         "the CSM's situation, decline instead of answering ungrounded.") if many else
+        ("Using ONLY the exchange above as grounding, write the answer a CSM should give. "
+         "Paraphrase Naren's real reply rather than inventing a new answer. If the "
+         "retrieved exchange is not actually a close match to the CSM's situation, decline "
+         "instead of answering ungrounded."),
+        "",
+        "Respond as JSON with exactly these keys:",
+        '  "declined": boolean,',
+        '  "answer": the coaching answer for the CSM (empty string if declined),',
+        ('  "quote": a verbatim substring copied from the reply of the ONE exchange you '
+         'chose (empty string if declined),') if many else
+        ('  "quote": a verbatim substring copied from Naren\'s reply above that the answer '
+         'is based on (empty string if declined),'),
+        ('  "cited_call": the call identifier of the ONE exchange you chose, copied exactly '
+         '(empty string if declined).') if many else
+        ('  "cited_call": the call identifier given above, copied exactly (empty string if '
+         "declined)."),
     ]
     return "\n".join(lines)
 
@@ -590,7 +668,7 @@ def move_evidence(moves: list[dict]) -> list[dict]:
 
 async def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embed_query,
                      k: int = DEFAULT_K, label_for=citations.resolve_label,
-                     moves_for=None) -> dict:
+                     moves_for=None, conversation: Conversation | None = None) -> dict:
     """The one call the HTTP layer makes. Returns the response body itself.
 
     `embed_query` is passed in rather than imported so this module stays free of the
@@ -614,6 +692,11 @@ async def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embe
     `k` is how many retrieved exchanges the model is shown. It defaults to DEFAULT_K == 1,
     which is the shipped path and the arm issue #7's 83% was measured on; issue #8 A/Bs
     k=5 against it. With k == 1 every step below reduces to what that measurement ran on.
+
+    `conversation` (issue #25) shows the answer model the thread and the CSM's whole
+    message, through `build_conversation_prompt`, at any k. It takes precedence over
+    `moves_for` for the same reason the shortlist does: a combined prompt nobody has
+    evaluated is not invented at request time. None is every prompt above, unchanged.
     """
     if not (situation or "").strip():
         raise ValueError("situation is empty")
@@ -641,7 +724,9 @@ async def answer_situation(situation: str, pool: RetrievalPool, gateway, *, embe
     # inventing a third variant at request time. Both switches are off by default, so this
     # combination cannot arise in production.
     moves = moves_for(pairs[0]["scenario_key"]) if moves_for and len(pairs) == 1 else None
-    if len(pairs) > 1:
+    if conversation is not None:
+        prompt = build_conversation_prompt(conversation, pairs)
+    elif len(pairs) > 1:
         prompt = build_candidates_prompt(situation, pairs)
     elif moves:
         prompt = build_playbook_prompt(situation, pairs[0], moves)

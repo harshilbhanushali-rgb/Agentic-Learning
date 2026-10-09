@@ -63,7 +63,10 @@ async def admit_and_answer(answerer: Answerer, situation: str, thread: tuple,
         async with budget:
             try:
                 async with gate.slot():
-                    return await answerer(situation, thread)
+                    # The budget covers the slot wait too, so what is left is read from it
+                    # rather than restarted here (issue #25).
+                    with admission.deadline_at(budget.when()):
+                        return await answerer(situation, thread)
             except admission.Busy as busy:
                 print(f"[ask-naren] busy: refused a question with {gate.queued} queued "
                       f"and {gate.in_flight} in flight ({gate.refused} refused so far)",

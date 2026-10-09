@@ -25,6 +25,7 @@ Nothing here retrieves, generates an answer, or touches Postgres.
 """
 from __future__ import annotations
 
+import re
 from typing import Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -116,6 +117,13 @@ CORPUS_INTENTS = (DISCOVERY, FREQUENCY)
 RETRIEVING_INTENTS = (REPLY_TO_CLIENT, PROCEDURE, SHOW_EXCHANGE, WHAT_HAPPENED_NEXT,
                       COVERAGE_CHECK, *PLAYBOOK_INTENTS, CONTRAST_MY_REPLY,
                       WHERE_ELSE_SEEN, CALL_PREP, IMPROVE_AT_MOVE)
+
+#: The intents that may carry a conversation-aware `search_query` (issue #25): every one that
+#: searches on a situation, plus a follow-up, which is searched when the exchange it carries
+#: cannot answer it. NOT a contrast: it searches on the client's words quoted in this
+#: message, and its own reply is set against exactly those.
+REWRITABLE_INTENTS = tuple(i for i in RETRIEVING_INTENTS if i != CONTRAST_MY_REPLY) + (
+    FOLLOW_UP,)
 
 #: The kinds of ANCHOR an answer path can consume (`ask-naren/CONTEXT.md`). An exchange
 #: implies its scenario; a scenario does not pick an exchange.
@@ -227,6 +235,12 @@ class IntakeDecision(BaseModel):
     #: gateway schema, so the model always says; defaulted here only so an absent value
     #: lands on `opens`, the behaviour every message had before this field existed.
     situation: Literal["carried", "opens"] = OPENS
+    #: THE SEARCH WRITTEN FROM THE CONVERSATION (issue #25), when this message leans on what
+    #: the CSM said earlier ("the ats one"). Empty when the message stands on its own, which
+    #: means: search `retrieval_query` as before. Asked for only when the switch is on and
+    #: there is a thread; `responding._guarded` checks every word was typed by the CSM. May
+    #: sit on a CARRIED decision: it is searched only when there is nothing to carry.
+    search_query: str = ""
 
     @model_validator(mode="before")
     @classmethod
@@ -237,7 +251,7 @@ class IntakeDecision(BaseModel):
         Cleared rather than rejected: a model that helpfully fills the field is not making
         an unusable decision, it is making a misleading one. Every response echoes
         `retrieval_query` so a bad extraction is visible in production
-        (`responding._with_intake`), and on this path echoing a query that was never
+        (`responding._echo_intake`), and on this path echoing a query that was never
         embedded would report a search that did not happen.
         """
         if not isinstance(data, dict):
@@ -268,9 +282,16 @@ class IntakeDecision(BaseModel):
         # misleading rather than unusable, which is why it is cleared and not rejected.
         if cleaned.get("intent") != CONTRAST_MY_REPLY:
             cleaned["my_reply"] = ""
+        # SAME RULE, THIRD FIELD (issue #25). A search on a message that searches nothing
+        # would be echoed as a search that never ran. KEPT ON A CARRIED MESSAGE: whether it
+        # is used is `responding`'s call -- carrying wins when there is an anchor, and the
+        # search is what runs when there is none, or when the exchange a follow-up carries
+        # cannot answer it. Live, intake calls "the ats one" carried.
+        if intent not in REWRITABLE_INTENTS:
+            cleaned["search_query"] = ""
         return cleaned
 
-    @field_validator("retrieval_query", "question", "my_reply")
+    @field_validator("retrieval_query", "question", "my_reply", "search_query")
     @classmethod
     def _stripped(cls, v: str) -> str:
         return (v or "").strip()
@@ -295,15 +316,20 @@ class IntakeDecision(BaseModel):
         return self
 
 
-def response_schema() -> dict:
+def response_schema(rewrite: bool = False) -> dict:
     """The JSON Schema sent to the gateway, derived from the model so the two cannot drift.
 
     Pydantic emits `additionalProperties: false` from `extra="forbid"` and the enum from the
     Literal, so adding an intent to IntakeDecision updates what the gateway will accept
     without a second edit here.
+
+    `search_query` is offered only when `rewrite` is on (issue #25), so with the switch off
+    the gateway is sent the schema intake's accuracy was measured on.
     """
-    return {"name": "intake_decision", "strict": True,
-            "schema": IntakeDecision.model_json_schema()}
+    schema = IntakeDecision.model_json_schema()
+    if not rewrite:
+        schema["properties"].pop("search_query", None)
+    return {"name": "intake_decision", "strict": True, "schema": schema}
 
 
 def _require(schema: dict, field: str) -> None:
@@ -318,7 +344,7 @@ def _require(schema: dict, field: str) -> None:
         required.append(field)
 
 
-def build_prompt(message: str, thread=()) -> str:
+def build_prompt(message: str, thread=(), rewrite: bool = False) -> str:
     """Intake's prompt. NOT frozen -- unlike the answering prompts (ADR 0001), no measured
     number rests on its wording, and routing accuracy is measured against labelled messages
     rather than asserted in a test. Improve it, then re-measure.
@@ -571,6 +597,7 @@ def build_prompt(message: str, thread=()) -> str:
         "at all.",
         "",
         *_thread_rules(thread),
+        *(_search_rules() if rewrite and thread else []),
         f'When genuinely torn, prefer "{REPLY_TO_CLIENT}". Answering and being slightly off '
         "is more useful to a CSM mid-call than being asked for something they thought they "
         "had already given.",
@@ -649,8 +676,39 @@ def _thread_rules(thread) -> list[str]:
     ]
 
 
+def _search_rules() -> list[str]:
+    """How to write `search_query` (issue #25). Only when the switch is on AND there is a
+    conversation, so a first message -- and every message with the switch off -- is
+    classified by exactly the text that was measured.
+
+    retrieval_query keeps its meaning (copied from THIS message); this is a second field
+    rather than a loosened first one, so the copy rule and its guard are untouched.
+    """
+    return [
+        "  - search_query is the search this message needs, written so it would make sense "
+        "with no conversation around it.",
+        "    FILL IT ONLY WHEN THIS MESSAGE LEANS ON SOMETHING THE CSM SAID EARLIER and is "
+        "too vague to search on alone (\"the second one\", \"ok but what if they blame the "
+        "vendor for it\", \"anyone else run into that\"). Then write the "
+        "situation by joining the specific words of this message with the specific words "
+        "the CSM typed in earlier messages.",
+        "    USE ONLY WORDS THE CSM TYPED. Never take words from Ask Naren's replies, never "
+        "add words of your own, and do not change who is being talked about (\"their\" "
+        "stays \"their\").",
+        "    LEAVE IT EMPTY when the message already says what it is about, or when it "
+        "brings up a new client or a new problem (search on its own words, never on the "
+        "earlier client's).",
+        "    WRITING IT CHANGES NOTHING ELSE. Choose the intent and situation exactly as the "
+        "rules above say, as if this field did not exist; then, separately, write "
+        f'search_query for any message that leans on earlier words -- a "{FOLLOW_UP}" '
+        "included. Whether it is used is decided after you.",
+        "",
+    ]
+
+
 async def classify(message: str, gateway, *, thread=(), model: str = CHAT_MODEL,
-             reasoning_effort: str | None = REASONING_EFFORT) -> tuple[IntakeDecision, dict]:
+             reasoning_effort: str | None = REASONING_EFFORT,
+             rewrite: bool = False) -> tuple[IntakeDecision, dict]:
     """Decide what happens to `message`. Returns (decision, meta).
 
     `thread` is the conversation so far (issues #15, #16). It is shown to the model for the
@@ -671,6 +729,9 @@ async def classify(message: str, gateway, *, thread=(), model: str = CHAT_MODEL,
     `reasoning_effort=None` sends no reasoning budget at all, which is how intake shipped
     first and what the flash-lite A/B was originally run at.
 
+    `rewrite` is issue #25's switch: ask for a conversation-aware `search_query` too. Off,
+    the prompt and schema are exactly what they were, and a stray one is dropped.
+
     NEVER RAISES for a model or gateway problem. Two unusable replies, a malformed reply, or
     a gateway that is down all fall through to answering the message as written -- the
     behaviour the tool had before intake existed. Intake improves the query; it must not be
@@ -683,11 +744,11 @@ async def classify(message: str, gateway, *, thread=(), model: str = CHAT_MODEL,
     for _ in range(MAX_ATTEMPTS):
         try:
             payload, meta = await gateway.chat_json(
-                build_prompt(message, thread),
+                build_prompt(message, thread, rewrite=rewrite),
                 model=model,
                 temperature=TEMPERATURE,
                 max_tokens=MAX_TOKENS,
-                schema=response_schema(),
+                schema=response_schema(rewrite=rewrite and bool(thread)),
                 reasoning_effort=reasoning_effort,
                 # Same reason as the answering path: two CSMs asking similar questions must
                 # never be served each other's decision.
@@ -698,11 +759,18 @@ async def classify(message: str, gateway, *, thread=(), model: str = CHAT_MODEL,
                 # point 5) -- there is nothing above it to carry. Forced BEFORE validation,
                 # so the query the model also copied survives rather than being cleared.
                 payload = {**payload, "situation": OPENS}
+            if not (rewrite and thread) and isinstance(payload, dict):
+                payload = {k: v for k, v in payload.items() if k != "search_query"}
             if _carried_with_nothing_to_search(payload):
                 # The prompt says to leave the query empty when carried; on an intent that
                 # always searches, that leaves nothing to search on. Not a malformed reply
-                # worth a second model call -- the existing fallback, at once (ADR 0013).
-                return fallback_decision(message), meta
+                # worth a second model call -- the existing fallback, at once (ADR 0013) --
+                # unless the model wrote a search from the conversation (issue #25), which
+                # is exactly what "where else has this come up" needs to be searched on.
+                if not str(payload.get("search_query") or "").strip():
+                    return fallback_decision(message), meta
+                payload = {**payload, "situation": OPENS,
+                           "retrieval_query": message.strip()}
             return IntakeDecision.model_validate(payload), meta
         except Exception:                       # noqa: BLE001 -- see the docstring
             continue
@@ -739,6 +807,40 @@ def is_verbatim_span(query: str, message: str) -> bool:
     admit exactly that.
     """
     return _normalize(query) in _normalize(message)
+
+
+#: Joining words a search written from several turns needs and that carry no meaning a
+#: search could flip. NO PRONOUNS: "our" for "their" is the flip `is_verbatim_span` exists
+#: to catch, so a pronoun must have been typed by the CSM like any other word.
+_JOINING_WORDS = frozenset(
+    "a an the and or of to in on for with about after before at by from as is are was "
+    "were".split())
+
+
+def uses_only_csm_words(search: str, message: str, turns) -> bool:
+    """Is every word of `search` one the CSM typed -- now or earlier in the thread (#25)?
+
+    THE CHECK THAT MAKES A CONVERSATION-AWARE SEARCH CHECKABLE. ADR 0006 refused to let a
+    rewrite reach the vector because a bad one is invisible; this is what a rewrite has to
+    pass before it is searched on, and the plain words are searched instead if it fails.
+
+    ONLY THE CSM'S OWN MESSAGES COUNT, never Ask Naren's replies. Those are paraphrases of
+    the exchange already shown, and searching on them reaches that exchange again -- the
+    shared-text pull ADR 0006 measured.
+
+    Word by word rather than a span, because the point of a rewrite is to join words from
+    different turns ("the ats one" + what the CSM said two turns ago). Exact words, no
+    stemming, for the same reason `is_verbatim_span` takes no fuzzy ratio.
+    """
+    typed = set(_words(message))
+    for turn in turns:
+        typed.update(_words(turn.message))
+    words = _words(search)
+    return bool(words) and all(w in typed or w in _JOINING_WORDS for w in words)
+
+
+def _words(text: str | None) -> list[str]:
+    return re.findall(r"[a-z0-9]+", (text or "").lower().replace("'", "").replace("’", ""))
 
 
 def _normalize(text: str) -> str:

@@ -1069,3 +1069,25 @@ def test_a_trailing_slash_is_the_same_route_not_a_redirect(serve_with):
     assert r.status_code == 200
     assert r.json() == ANSWER
     assert httpx.get(f"{base}/health/").json() == {"status": "ok"}
+
+
+def test_an_answer_can_see_how_much_of_its_deadline_is_left():
+    """Issue #25: a second generation (the wide retry) is started only if it can still
+    finish, so the answer path has to be able to ask how long it has left. The slot wait
+    counts against the same budget, so it is read from the request's own deadline."""
+    gate = _tiny_gate(deadline=25.0)
+    seen = []
+
+    async def answers(situation, thread=()):
+        seen.append(admission.seconds_left())
+        return ANSWER
+
+    app = api.build_app(answers, gate=gate)
+
+    async def body():
+        async with _drive(app) as c:
+            return await c.post("/ask", json={"situation": "x"})
+
+    assert asyncio.run(body()).status_code == 200
+    assert 20.0 < seen[0] <= 25.0
+    assert admission.seconds_left() is None         # outside a request there is no deadline

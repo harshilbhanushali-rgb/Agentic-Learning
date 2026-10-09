@@ -112,7 +112,7 @@ def parse(raw) -> tuple[ThreadTurn, ...]:
     REJECTS RATHER THAN IGNORES. A thread that fails to parse means our own frontend and
     this service disagree about the shape -- a version skew after a deploy. Silently
     dropping it would answer every follow-up as a brand new question while looking entirely
-    healthy, which is the exact failure `responding._with_intake` exists to make visible.
+    healthy, which is the exact failure `responding._echo_intake` exists to make visible.
     The frontend validates what it reads out of `localStorage` and starts a fresh thread
     when it does not match, so this 400 is unreachable from our own client and is a genuine
     bug signal from anything else.

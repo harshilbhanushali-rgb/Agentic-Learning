@@ -47,6 +47,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ask_naren import (api, citations, rendering, responding, retrieval,  # noqa: E402
                        vector_store)
+from ask_naren.api import admission                    # noqa: E402
 from config import load_config                        # noqa: E402
 from preprocessing import embedder                    # noqa: E402
 from shared import storage                            # noqa: E402
@@ -83,6 +84,31 @@ SIDECAR_DIRS = ("recordings", "csm_recordings", "recordings_pull_keep", "recordi
 # prompts are byte-identical to the prototype ADR 0001 actually measured, so a re-measure
 # compares against the recorded number instead of a drifted prompt.
 PLAYBOOK_AUGMENTED = False
+
+# ISSUE #25's THREE SWITCHES. Code edits for the reason PLAYBOOK_AUGMENTED is one. Separate
+# so a measurement can tell which one moved an answer; turning one off restores exactly the
+# pre-#25 behaviour of its part.
+#
+# ALL ON SINCE 2026-10-10, on the measurement in ask-naren/audit/README.md ("Issue #25"):
+# intake sets unchanged (threaded 10/11, carried 42/44, zero false carries), #49's six
+# questions 6/18 -> 12/18 right, the 36-situation audit rescued 4 right for 1 wrong, and the
+# live conversation test was 6 turns better and 1 worse with no timeouts. Known cost: a
+# question the corpus cannot answer can now get a wrong answer instead of a decline.
+#
+# SEARCH_FROM_CONVERSATION: a message that leans on the conversation ("the ats one") is
+# searched with a search intake writes from the CSM's own earlier words, and a follow-up the
+# carried exchange cannot answer is searched instead of declined. It relaxes ADR 0006 under
+# a check (responding._guarded 7).
+#
+# ANSWER_SEES_CONVERSATION: the answer model sees the conversation and the whole message,
+# not only the words searched on.
+#
+# WIDE_RETRY: a "no close match" from the nearest exchange is retried once with the nearest
+# 20, when at least 15s of the deadline are left, and abandoned for the first decline if it
+# is still running 2s before the deadline. Never touches a first answer.
+SEARCH_FROM_CONVERSATION = True
+ANSWER_SEES_CONVERSATION = True
+WIDE_RETRY = True
 
 # THE VECTOR STORE, and the rollback switch for ADR 0008. "pinecone" ships; "memory"
 # restores the pre-0008 behaviour exactly -- embed the whole pool at startup and search a
@@ -525,7 +551,10 @@ async def _run(args) -> int:
                 playbook_for=playbooks_by_scenario.get,
                 scenarios_for=lambda: coachable_scenarios,
                 following_for=lambda pair_id: following_by_pair.get(pair_id, []),
-                account_for=account_for)
+                account_for=account_for,
+                search_from_conversation=SEARCH_FROM_CONVERSATION,
+                answer_sees_conversation=ANSWER_SEES_CONVERSATION,
+                wide_retry=WIDE_RETRY, time_left=admission.seconds_left)
 
         if args.ask:
             # One message, no thread. `--ask` is a single-shot check of the whole path.

@@ -375,3 +375,116 @@ def test_intake_never_serves_one_csm_another_csms_cached_decision():
     gw = StubGateway(_reply())
     asyncio.run(intake.classify(SITUATION, gw))
     assert gw.calls[0]["no_cache"] is True
+
+
+# -- the conversation-aware search (issue #25) --------------------------------------------
+
+def _csm_turn(message, reply="Ask Naren's reply, which is never a source of search words"):
+    return threads.ThreadTurn(message=message, reply=reply, outcome="answered",
+                              pair_id=None, scenario_key="")
+
+
+def test_a_search_built_from_the_csms_earlier_words_is_allowed():
+    """'the ats one' means nothing on its own; the CSM said what it was two turns ago."""
+    turns = (_csm_turn("client is unhappy about the ats thing"),
+             _csm_turn("they said the integration was supposed to be live 3 weeks ago and "
+                       "nothing is syncing"))
+    assert intake.uses_only_csm_words(
+        "the ATS integration was supposed to be live 3 weeks ago, nothing is syncing",
+        "the ats one", turns)
+
+
+def test_a_search_that_borrows_ask_narens_own_words_is_refused():
+    """Ask Naren's replies are made of the exchange already shown. Searching on them finds
+    that exchange again -- ADR 0006's mechanism -- so only what the CSM typed may be used."""
+    turns = (_csm_turn("client says feed is dropping jobs",
+                       reply="pull the import log and compare it with their xml"),)
+    assert not intake.uses_only_csm_words("pull the import log for dropped jobs",
+                                          "what next", turns)
+
+
+def test_a_search_with_a_word_nobody_typed_is_refused():
+    """A composed word is where meaning flips ('their side' -> 'our side')."""
+    assert not intake.uses_only_csm_words("client blames our parser",
+                                          "they say it is the parser", ())
+
+
+ATS_THREAD = (_csm_turn("they said the integration was supposed to be live 3 weeks ago and "
+                        "nothing is syncing"),)
+ATS_SEARCH = "integration was supposed to be live 3 weeks ago and nothing is syncing"
+
+
+def test_with_the_switch_off_intake_is_asked_exactly_what_it_was_before():
+    """Off means off: the prompt and the schema are today's, so the measured routing still
+    describes what runs."""
+    off, on = StubGateway(_reply()), StubGateway(_reply())
+    asyncio.run(intake.classify(SITUATION, off, thread=ATS_THREAD))
+    asyncio.run(intake.classify(SITUATION, on, thread=ATS_THREAD, rewrite=False))
+    assert off.calls[0]["prompt"] == on.calls[0]["prompt"]
+    assert "search_query" not in off.calls[0]["schema"]["schema"]["properties"]
+    assert "search_query" not in off.calls[0]["prompt"]
+
+
+def test_with_the_switch_off_a_stray_search_is_dropped():
+    gw = StubGateway({**_reply(), "search_query": ATS_SEARCH})
+    decision, _ = asyncio.run(intake.classify(SITUATION, gw, thread=ATS_THREAD))
+    assert decision.search_query == ""
+
+
+def test_with_the_switch_on_intake_writes_a_search_from_the_conversation():
+    gw = StubGateway({**_reply(retrieval_query="the ats one"), "search_query": ATS_SEARCH})
+    decision, _ = asyncio.run(intake.classify("the ats one", gw, thread=ATS_THREAD,
+                                              rewrite=True))
+    assert decision.search_query == ATS_SEARCH
+    assert "search_query" in gw.calls[0]["schema"]["schema"]["properties"]
+    assert "search_query" in gw.calls[0]["prompt"]
+
+
+def test_a_first_message_is_never_asked_for_a_rewrite():
+    """Nothing came before it, so there is nothing to write a search from."""
+    gw = StubGateway(_reply())
+    asyncio.run(intake.classify(SITUATION, gw, rewrite=True))
+    assert "search_query" not in gw.calls[0]["prompt"]
+
+
+def test_a_carried_message_keeps_its_search_for_when_there_is_nothing_to_carry():
+    """Live, intake calls 'the ats one' and 'where else has this come up' CARRIED. Whether
+    the search is used is decided later (`responding`): carrying wins when there is an
+    anchor, and the search is what runs when there is none."""
+    decision = intake.IntakeDecision(intent="sequence", situation="carried",
+                                     search_query=ATS_SEARCH)
+    assert decision.search_query == ATS_SEARCH
+
+
+def test_a_carried_message_on_an_intent_that_cannot_carry_is_searched_on_its_rewrite():
+    """'where else has this come up' cannot carry (a neighbourhood is always searched). It
+    used to fall back to searching that literal sentence, throwing the rewrite away."""
+    gw = StubGateway({"intent": "where_else_seen", "situation": "carried",
+                      "search_query": ATS_SEARCH})
+    decision, _ = asyncio.run(intake.classify("where else has this come up", gw,
+                                              thread=ATS_THREAD, rewrite=True))
+    assert decision.intent == "where_else_seen"
+    assert decision.situation == "opens"
+    assert decision.search_query == ATS_SEARCH
+    assert decision.retrieval_query == "where else has this come up"
+
+
+def test_with_the_switch_off_that_message_still_falls_back_as_before():
+    gw = StubGateway({"intent": "where_else_seen", "situation": "carried",
+                      "search_query": ATS_SEARCH})
+    decision, _ = asyncio.run(intake.classify("where else has this come up", gw,
+                                              thread=ATS_THREAD))
+    assert decision == intake.fallback_decision("where else has this come up")
+
+
+def test_a_follow_up_keeps_its_search_for_when_it_cannot_be_answered():
+    """A follow-up that the carried exchange cannot answer is searched instead (A9)."""
+    decision = intake.IntakeDecision(intent="follow_up", search_query=ATS_SEARCH)
+    assert decision.search_query == ATS_SEARCH
+
+
+def test_a_message_that_searches_nothing_has_no_search():
+    for intent in ("clarify", "out_of_scope", "discovery", "frequency"):
+        decision = intake.IntakeDecision(intent=intent, question="which one?",
+                                         search_query=ATS_SEARCH)
+        assert decision.search_query == "", intent

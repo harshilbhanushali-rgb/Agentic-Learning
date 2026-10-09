@@ -16,6 +16,9 @@ routing accuracy is measured separately against labelled messages.
 from __future__ import annotations
 
 import asyncio
+import functools
+import sys
+import traceback
 from dataclasses import dataclass
 
 from ask_naren import answering, citations, intake, rendering, threads
@@ -38,6 +41,23 @@ class Anchor:
     @classmethod
     def searched(cls, match: Match) -> "Anchor":
         return cls(scenario_key=match.pair["scenario_key"], pair=match.pair, match=match)
+
+
+#: How many exchanges the wide retry shows the answer model (issue #25, from #49: the
+#: exchange that answers sat at ranks 5-22, and k=20 on decline was the best arm measured).
+WIDE_K = 20
+
+#: Seconds that must be left of the request's deadline before a SECOND generation is
+#: started (issue #25). One answer has taken 25.8s live and the wide retry took 9-20s in
+#: #49, so with less than this left a retry is likelier to become a timeout than an answer
+#: -- and a clean decline is better than a timeout.
+RETRY_NEEDS_SECONDS = 15.0
+
+#: How long before the deadline a second generation that is still running is ABANDONED for
+#: the answer already in hand (issue #25). The start rule above is a guess about how long a
+#: retry takes; live, three retries that started inside it still ran past 30s. This is what
+#: makes "a clean decline beats a timeout" a guarantee rather than an estimate.
+RETRY_MARGIN_SECONDS = 2.0
 
 
 #: What Ask Naren asks when a message is on a carried situation but the last answer holds
@@ -66,8 +86,15 @@ async def _resolve_anchor(decision: intake.IntakeDecision, pool: RetrievalPool,
         raise ValueError(f"{decision.intent} consumes no scenario or exchange anchor")
     if carried is not None:
         return carried
-    query_vec = (await embed_query([decision.retrieval_query]))[0]
+    query_vec = (await embed_query([_search_text(decision)]))[0]
     return Anchor.searched(await pool.top1(query_vec))
+
+
+def _search_text(decision: intake.IntakeDecision) -> str:
+    """What a searching path embeds: the conversation-aware search when intake wrote one
+    that passed `_guarded` (issue #25), else the client's words copied from this message.
+    With the switch off `search_query` is always empty, so this is `retrieval_query`."""
+    return decision.search_query or decision.retrieval_query
 
 
 def _carried_anchor(decision: intake.IntakeDecision, turns,
@@ -105,7 +132,10 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
                   classify=intake.classify, k: int = answering.DEFAULT_K,
                   label_for=citations.resolve_label, moves_for=None,
                   playbook_for=None, scenarios_for=None, following_for=None,
-                  account_for=citations.account_for) -> dict:
+                  account_for=citations.account_for,
+                  search_from_conversation: bool = False,
+                  answer_sees_conversation: bool = False,
+                  wide_retry: bool = False, time_left=None) -> dict:
     """Answer one message, ask the CSM something, or decline.
 
     `message` is what the CSM typed, framing and all. What reaches RETRIEVAL is intake's
@@ -124,6 +154,24 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
     the message as written when the model or gateway misbehaves; the try here covers the
     remaining case of classify itself raising (an injected one in a test, or a future bug).
     Both land on the pre-intake behaviour, which is a working tool.
+
+    Issue #25 adds three switches, all OFF by default. With all three off, none of what
+    follows happens, whatever a classifier returns.
+
+    `search_from_conversation` RELAXES THE ADR 0006 LINE ABOVE under a check: intake may
+    write a `search_query` from the conversation, searched when every word of it is one the
+    CSM typed (`_guarded` rule 7) and echoed in the response. A message on a carried
+    situation still carries when there is something to carry; the search is what runs when
+    there is not. A follow-up the carried exchange cannot answer is searched on it (A9).
+
+    `answer_sees_conversation`: the answer model is shown the conversation and the whole
+    message (`answering.build_conversation_prompt`) instead of the searched words alone.
+    Separate from the search so a measurement can tell which of the two moved an answer.
+
+    `wide_retry` is #25's second switch, OFF by default: a "no close match" from the nearest
+    exchange is retried once with the nearest WIDE_K (`_answer_searched`). `time_left`
+    returns the seconds left of this request's deadline, or None when there is none (the
+    CLI, a harness); a retry starts only with RETRY_NEEDS_SECONDS left.
     """
     if not (message or "").strip():
         raise ValueError("message is empty")
@@ -134,13 +182,25 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
     turns = threads.trim(thread)
 
     try:
-        decision, _meta = await classify(message, gateway, thread=turns)
+        # The flag is passed only when on, so a classifier written before #25 still works.
+        decision, _meta = await classify(
+            message, gateway, thread=turns,
+            **({"rewrite": True} if search_from_conversation else {}))
     except Exception:                       # noqa: BLE001 -- see the docstring
         # ONE definition of the fallback, shared with intake's own retry exhaustion. Two
         # copies of a safety net is two places for them to stop agreeing.
         decision = intake.fallback_decision(message)
 
+    if not search_from_conversation and decision.search_query:
+        decision = decision.model_copy(update={"search_query": ""})
     decision = _guarded(decision, message, turns, pool)
+    _with_intake = functools.partial(_echo_intake, echo_search=search_from_conversation)
+    conversation = (answering.Conversation(message, turns) if answer_sees_conversation
+                    else None)
+    answer_searched = functools.partial(
+        _answer_searched, pool=pool, gateway=gateway, k=k, label_for=label_for,
+        moves_for=moves_for, conversation=conversation, wide_retry=wide_retry,
+        time_left=time_left)
 
     carried = None
     if decision.situation == intake.CARRIED and decision.intent != intake.FOLLOW_UP:
@@ -149,7 +209,17 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
         # this intent needs, Ask Naren asks -- it never searches the fragment and never
         # walks back to an older turn (ADR 0013 point 3).
         carried = _carried_anchor(decision, turns, pool)
-        if carried is None:
+        if carried is not None:
+            # Carrying wins: rewriting never cancels it. Nothing is searched, so nothing is
+            # echoed as searched.
+            decision = decision.model_copy(update={"search_query": ""})
+        elif decision.search_query:
+            # NOTHING TO CARRY, BUT THE CONVERSATION SAID WHAT IT IS (issue #25): "the ats
+            # one" after a clarify. Searched on the CSM's own earlier words, which `_guarded`
+            # has checked, rather than asking which conversation they mean.
+            decision = decision.model_copy(update={"situation": intake.OPENS,
+                                                   "retrieval_query": message.strip()})
+        else:
             if (threads.awaiting_clarify(turns)
                     or threads.clarify_already_asked(turns, NO_CARRIED_ANCHOR)):
                 # The same clarify is never asked twice (`_guarded` rule 1): the CSM is
@@ -163,9 +233,25 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
         # a carried source exists and is still in the pool, so this cannot be reached with
         # nothing to ground on.
         source = pool.by_pair_id(threads.carried_source(turns).pair_id)
+        followed = await answering.answer_follow_up(message, turns, source, gateway,
+                                                    label_for=label_for)
+        unsearched = decision.model_copy(update={"search_query": ""})
+        if not (search_from_conversation
+                and followed.get("reason") == answering.FOLLOW_UP_UNGROUNDED
+                and _time_for_another_generation(time_left)):
+            # Nothing was searched, so no search is echoed.
+            return _with_intake(followed, unsearched)
+        # THE CARRIED EXCHANGE CANNOT ANSWER IT (issue #25, A9). Declining tells the CSM to
+        # ask again as a fresh question; with the switch on that is done for them, on the
+        # conversation-aware search -- or on their own words, if intake wrote none.
+        searched = await _before_the_deadline(
+            lambda: answer_searched(decision.search_query or message.strip(),
+                                    embed_query=embed_query), time_left)
+        if searched is None:
+            return _with_intake({**followed, "retries": ["searched"]}, unsearched)
         return _with_intake(
-            await answering.answer_follow_up(message, turns, source, gateway,
-                                             label_for=label_for), decision)
+            {**searched, "retries": ["searched", *searched.get("retries", [])]},
+            decision)
 
     if decision.intent in intake.RENDERED_INTENTS:
         # NO MODEL CALL AT ALL (issues #19, #20). These answer from stored rows, so their
@@ -187,8 +273,8 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
         # that response a real cosine to report.
         return _with_intake(
             await _procedure(message, decision, pool, gateway, embed_query=embed_query,
-                             label_for=label_for, playbook_for=playbook_for, k=k,
-                             moves_for=moves_for, carried=carried),
+                             label_for=label_for, playbook_for=playbook_for,
+                             carried=carried, answer_searched=answer_searched),
             decision)
 
     if decision.intent == intake.CONTRAST_MY_REPLY:
@@ -213,10 +299,73 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
             answering.decline_without_search(answering.OUT_OF_SCOPE), decision)
 
     return _with_intake(
-        await answering.answer_situation(
-            decision.retrieval_query, pool, gateway, embed_query=embed_query, k=k,
-            label_for=label_for, moves_for=moves_for),
-        decision)
+        await answer_searched(_search_text(decision), embed_query=embed_query), decision)
+
+
+async def _answer_searched(text: str, *, pool: RetrievalPool, gateway, embed_query, k: int,
+                           label_for, moves_for, conversation, wide_retry: bool,
+                           time_left) -> dict:
+    """The Layer B answer to a searched situation, and its one retry (issue #25, half 2).
+
+    A RETRY, NEVER A GATE. Only a "no close match" from the first attempt is retried, so a
+    first answer is never touched and nothing here can turn an answer into a decline -- a
+    score used to decline is the relevance gate ADR 0005 refuted, under a new name. A
+    `grounding_unverified` is not retried either: the model answered and its quote failed,
+    which a longer shortlist does not cure.
+
+    THE FIRST DECLINE IS WHAT THE CSM GETS when the retry declines too, fails, or would not
+    fit in the deadline -- so the decline and the nearest match it records are exactly
+    today's. `retries` says a retry ran, because a rescued answer looks like any other.
+
+    The query is embedded once for both attempts (`_memoised`).
+    """
+    embed_once = _memoised(embed_query)
+    first = await answering.answer_situation(
+        text, pool, gateway, embed_query=embed_once, k=k, label_for=label_for,
+        moves_for=moves_for, conversation=conversation)
+    if not (wide_retry and first.get("reason") == answering.NO_CLOSE_MATCH
+            and _time_for_another_generation(time_left)):
+        return first
+    try:
+        wide = await _before_the_deadline(
+            lambda: answering.answer_situation(
+                text, pool, gateway, embed_query=embed_once, k=WIDE_K,
+                label_for=label_for, conversation=conversation), time_left)
+    except Exception:                       # noqa: BLE001 -- the first decline stands
+        traceback.print_exc(file=sys.stderr)
+        return {**first, "retries": ["wide"]}
+    if wide is not None and wide["outcome"] == answering.ANSWERED:
+        return {**wide, "retries": ["wide"]}
+    return {**first, "retries": ["wide"]}
+
+
+async def _before_the_deadline(start, time_left):
+    """`await start()`, or None if it is still running RETRY_MARGIN_SECONDS before this
+    request's deadline (issue #25). No deadline (the CLI, a harness) waits for it.
+
+    Only OUR stopwatch running out returns None; a timeout raised from underneath -- a
+    gateway socket, say -- is re-raised, so a fault is not reported as running out of time.
+    """
+    left = time_left() if time_left is not None else None
+    if left is None:
+        return await start()
+    stopwatch = asyncio.timeout(max(left - RETRY_MARGIN_SECONDS, 0.0))
+    try:
+        async with stopwatch:
+            return await start()
+    except TimeoutError:
+        if not stopwatch.expired():
+            raise
+        print("[ask-naren] a second generation was still running at the deadline -- "
+              "answered with the first attempt instead", file=sys.stderr, flush=True)
+        return None
+
+
+def _time_for_another_generation(time_left) -> bool:
+    """Is there RETRY_NEEDS_SECONDS left of this request's deadline? No deadline (the CLI, a
+    harness) always is."""
+    left = time_left() if time_left is not None else None
+    return left is None or left >= RETRY_NEEDS_SECONDS
 
 
 async def _rendered(message: str, decision: intake.IntakeDecision, pool: RetrievalPool,
@@ -248,7 +397,7 @@ async def _rendered(message: str, decision: intake.IntakeDecision, pool: Retriev
     if intake.ANCHORS[decision.intent].kind == intake.NEIGHBOURHOOD_ANCHOR:
         # The query is embedded exactly as on every other retrieving path -- the current
         # message alone (ADR 0006). A neighbourhood is always searched (ADR 0013 point 4).
-        neighbours = await pool.topk((await embed_query([decision.retrieval_query]))[0],
+        neighbours = await pool.topk((await embed_query([_search_text(decision)]))[0],
                                      rendering.NEIGHBOURS_SCANNED)
 
         if decision.intent == intake.CALL_PREP:
@@ -306,7 +455,7 @@ async def _rendered(message: str, decision: intake.IntakeDecision, pool: Retriev
 
 async def _procedure(message: str, decision: intake.IntakeDecision,
                      pool: RetrievalPool, gateway, *, embed_query, label_for,
-                     playbook_for, k: int, moves_for,
+                     playbook_for, answer_searched,
                      carried: Anchor | None = None) -> dict:
     """The Layer C `procedure` path (issue #17), and its degradation.
 
@@ -343,9 +492,7 @@ async def _procedure(message: str, decision: intake.IntakeDecision,
         if anchor.match is None:
             return _no_play(anchor)
 
-    return await answering.answer_situation(
-        decision.retrieval_query, pool, gateway, embed_query=embed_once, k=k,
-        label_for=label_for, moves_for=moves_for)
+    return await answer_searched(_search_text(decision), embed_query=embed_once)
 
 
 def _memoised(embed_query):
@@ -534,7 +681,17 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
     6. NOTHING IS CARRIED INTO A FIRST MESSAGE (issue #53, ADR 0013 point 5). There is no
        thread to carry from; `intake.classify` forces this too, and this is what holds it
        for any other classifier.
+
+    7. A CONVERSATION-AWARE SEARCH IS MADE OF THE CSM'S OWN WORDS (issue #25). Rule 4's
+       relaxation, and the check ADR 0006 said a rewrite would need: every word of
+       `search_query` must appear in this message or in one the CSM typed earlier -- never
+       only in Ask Naren's replies, which are the exchange already shown. Failing it clears
+       the search, NOT the decision: the plain words are searched, as before #25.
     """
+    if decision.search_query and not intake.uses_only_csm_words(
+            decision.search_query, message, turns):
+        decision = decision.model_copy(update={"search_query": ""})
+
     if decision.intent == intake.CLARIFY and (
             threads.awaiting_clarify(turns)
             or threads.clarify_already_asked(turns, decision.question)):
@@ -570,7 +727,8 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
     return decision
 
 
-def _with_intake(response: dict, decision: intake.IntakeDecision) -> dict:
+def _echo_intake(response: dict, decision: intake.IntakeDecision, *,
+                 echo_search: bool = False) -> dict:
     """Record what intake decided, on every response.
 
     Without this an intake that is silently failing every request is INDISTINGUISHABLE from
@@ -588,11 +746,18 @@ def _with_intake(response: dict, decision: intake.IntakeDecision) -> dict:
     an answer, a quote or anything drawn from Naren's calls, so it cannot carry ungrounded
     content into a declined response. That, not its provenance, is the property that decides
     whether a new response field is safe.
+
+    `search_query` is echoed when issue #25's switch is on -- the conversation-aware search
+    that ran, or "" when none did -- and is safe for the same reason: `_guarded` admits one
+    only if every word of it was typed by the CSM. Absent with the switch off, so the
+    response is exactly today's.
     """
-    return {**response,
-            "intake": {"intent": decision.intent,
-                       "retrieval_query": decision.retrieval_query,
-                       # Whether the answer was carried or searched for (issue #53): the one
-                       # thing that tells a carried answer from a searched one when the
-                       # answer itself looks the same.
-                       "situation": decision.situation}}
+    echoed = {"intent": decision.intent,
+              "retrieval_query": decision.retrieval_query,
+              # Whether the answer was carried or searched for (issue #53): the one thing
+              # that tells a carried answer from a searched one when the answer itself
+              # looks the same.
+              "situation": decision.situation}
+    if echo_search:
+        echoed["search_query"] = decision.search_query
+    return {**response, "intake": echoed}

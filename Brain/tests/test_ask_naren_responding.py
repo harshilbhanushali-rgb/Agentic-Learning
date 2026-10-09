@@ -56,7 +56,10 @@ class StubGateway:
         self.calls.append({"prompt": prompt, **kwargs})
         if not self.payloads:
             raise AssertionError("more generations than the contract allows")
-        return self.payloads.pop(0), {"served_model": kwargs.get("model")}
+        payload = self.payloads.pop(0)
+        if isinstance(payload, Exception):
+            raise payload
+        return payload, {"served_model": kwargs.get("model")}
 
 
 def _answer_payload():
@@ -1310,3 +1313,338 @@ def test_an_exchange_question_that_opens_a_situation_still_searches_and_reports_
     result, _, _ = _ask_rendered("show_exchange")
     assert result["citation"]["pair_id"] == 11
     assert set(result["match"]) == {"cosine", "scenario_key", "rank"}
+
+
+# -- the conversation-aware search (issue #25) --------------------------------------------
+
+ATS_EARLIER = ("they said the integration was supposed to be live 3 weeks ago and nothing "
+               "is syncing")
+ATS_SEARCH = "integration was supposed to be live 3 weeks ago and nothing is syncing"
+ATS_THREAD = (_prior(message=ATS_EARLIER, reply="Which exchange do you mean?",
+                     outcome="clarify", pair_id=None, scenario_key=""),)
+
+
+def _rewrites(intent, retrieval_query, search_query, situation="opens", seen=None):
+    """A stand-in intake that writes a conversation-aware search, and records whether it was
+    asked to (`seen` gets the `rewrite` flag it was called with)."""
+    async def _classify(message, gateway, *, thread=(), rewrite=False):
+        if seen is not None:
+            seen.append(rewrite)
+        return intake.IntakeDecision(intent=intent, retrieval_query=retrieval_query,
+                                     search_query=search_query, situation=situation), {}
+    return _classify
+
+
+def _respond_25(classify, *payloads, message="the ats one", thread=ATS_THREAD,
+                search=True, sees=True, **kwargs):
+    gw = StubGateway(*payloads)
+    embed = RecordingEmbedder()
+    result = asyncio.run(responding.respond(message, _pool(), gw, embed_query=embed,
+                                            thread=thread, classify=classify,
+                                            search_from_conversation=search,
+                                            answer_sees_conversation=sees, **kwargs))
+    return result, gw, embed
+
+
+def test_with_the_switch_on_a_vague_message_is_searched_with_the_conversation():
+    """B5 in the live run: 'the ats one' searched on its own three words reached an
+    unrelated roadmap answer. The CSM had already said what it was."""
+    asked = []
+    _, _, embed = _respond_25(_rewrites("reply_to_client", "the ats one", ATS_SEARCH,
+                                        seen=asked), _answer_payload())
+    assert asked == [True]
+    assert embed.seen == [ATS_SEARCH]
+
+
+def test_a_search_with_words_the_csm_never_typed_is_not_used():
+    """The check ADR 0006 asked for: a bad rewrite falls back to the plain words."""
+    _, _, embed = _respond_25(
+        _rewrites("reply_to_client", "the ats one", "ats sync failure our fault"),
+        _answer_payload())
+    assert embed.seen == ["the ats one"]
+
+
+def test_with_the_switch_off_nothing_changes():
+    """Even when a classifier hands back a search, off means today's behaviour exactly:
+    intake is not asked for one, the plain words are searched, and nothing new is echoed."""
+    asked = []
+    result, gw, embed = _respond_25(
+        _rewrites("reply_to_client", "the ats one", ATS_SEARCH, seen=asked),
+        _answer_payload(), search=False, sees=False)
+    assert asked == [False]
+    assert embed.seen == ["the ats one"]
+    assert "search_query" not in result["intake"]
+    assert "conversation so far" not in gw.calls[0]["prompt"]
+
+
+def test_the_search_that_ran_is_echoed():
+    """A rewrite must be checkable in production, not only offline."""
+    result, _, _ = _respond_25(_rewrites("reply_to_client", "the ats one", ATS_SEARCH),
+                               _answer_payload())
+    assert result["intake"]["search_query"] == ATS_SEARCH
+
+
+def test_a_rejected_search_is_echoed_as_empty():
+    result, _, _ = _respond_25(
+        _rewrites("reply_to_client", "the ats one", "ats sync failure our fault"),
+        _answer_payload())
+    assert result["intake"]["search_query"] == ""
+
+
+def test_the_answer_is_written_seeing_the_conversation_and_the_whole_message():
+    """Told only 'the ats one', the answer model cannot tell whether the exchange fits."""
+    _, gw, _ = _respond_25(_rewrites("reply_to_client", "the ats one", ATS_SEARCH),
+                           _answer_payload())
+    prompt = gw.calls[0]["prompt"]
+    assert ATS_EARLIER in prompt
+    assert "the ats one" in prompt
+    assert RESPONSE in prompt
+
+
+def test_a_carried_message_still_searches_nothing_with_the_switch_on():
+    """Rewriting must never cancel carrying (#53/#54)."""
+    thread = (_prior(),)
+    result, _, embed = _respond_25(
+        _rewrites("sequence", "", ATS_SEARCH, situation="carried"),
+        thread=thread, message="whats the play here", playbook_for=lambda key: None)
+    assert embed.seen == []
+    assert result["intake"]["search_query"] == ""      # nothing was searched
+
+
+def test_a_carried_message_with_nothing_to_carry_is_searched_on_its_rewrite():
+    """'the ats one' after a clarify: the last turn holds no answer to carry, so instead of
+    asking 'which conversation do you mean?' it is searched on what the CSM said earlier."""
+    _, _, embed = _respond_25(
+        _rewrites("show_exchange", "", ATS_SEARCH, situation="carried"))
+    assert embed.seen == [ATS_SEARCH]
+
+
+def test_where_else_with_no_words_of_its_own_searches_the_conversation():
+    """'where else has this come up' mid-thread used to search that literal sentence."""
+    feed = "half their reqs dont show up after the import"
+    thread = (_prior(message=f"one of my clients feed has been dropping jobs, {feed}"),)
+    _, _, embed = _respond_25(
+        _rewrites("where_else_seen", "where else has this come up",
+                  "feed has been dropping jobs, half their reqs dont show up after the import"),
+        thread=thread, message="where else has this come up")
+    assert embed.seen == ["feed has been dropping jobs, half their reqs dont show up after "
+                          "the import"]
+
+
+# -- the wide retry (issue #25, half 2) ---------------------------------------------------
+
+DECLINES = {"declined": True, "answer": "", "quote": "", "cited_call": ""}
+OTHER_QUOTE = "Let me check with the team"
+
+
+def _rescue_payload():
+    """An answer from the SECOND-nearest exchange, which only a wider look can reach."""
+    return {"declined": False, "answer": "Tell them you will check with the team today.",
+            "quote": OTHER_QUOTE, "cited_call": "other_call.txt"}
+
+
+def _respond_wide(*payloads, time_left=None, both=False, message=FRAMED,
+                  classify=None, thread=()):
+    gw = StubGateway(*payloads)
+    embed = RecordingEmbedder()
+    result = asyncio.run(responding.respond(
+        message, _pool(), gw, embed_query=embed, thread=thread,
+        classify=classify or _decides("reply_to_client", CLIENT_WORDS),
+        wide_retry=True, time_left=time_left, search_from_conversation=both,
+        answer_sees_conversation=both))
+    return result, gw, embed
+
+
+def test_a_no_close_match_is_retried_with_the_wider_shortlist():
+    """#49: the exchange that answers is often at rank 5-22, never shown at k=1."""
+    result, gw, embed = _respond_wide(DECLINES, _rescue_payload())
+    assert result["outcome"] == "answered"
+    assert result["citation"]["call_filename"] == "other_call.txt"
+    assert result["match"]["rank"] == 2
+    assert result["retries"] == ["wide"]
+    assert len(gw.calls) == 2
+    assert OTHER_QUOTE in gw.calls[1]["prompt"]        # the shortlist reached the model
+    assert embed.seen == [CLIENT_WORDS]                # embedded once, not twice
+
+
+def test_a_good_first_answer_is_never_touched():
+    result, gw, _ = _respond_wide(_answer_payload())
+    assert result["outcome"] == "answered"
+    assert "retries" not in result
+    assert len(gw.calls) == 1
+
+
+def test_an_unverified_quote_is_not_retried():
+    """The model DID answer; its quote did not check out. A wider shortlist is not the cure
+    for that, so only 'no close match' is retried."""
+    bad = {**_answer_payload(), "quote": "words Naren never said"}
+    result, gw, _ = _respond_wide(bad, bad)
+    assert result["reason"] == "grounding_unverified"
+    assert len(gw.calls) == 2                          # the gate's own two attempts only
+
+
+def test_no_retry_without_fifteen_seconds_left():
+    """A clean decline beats a timeout."""
+    result, gw, _ = _respond_wide(DECLINES, time_left=lambda: 14.0)
+    assert result["reason"] == "no_close_match"
+    assert len(gw.calls) == 1
+
+
+def test_a_retry_that_also_declines_returns_the_first_decline():
+    """The decline the CSM sees -- and the nearest match it records -- is today's."""
+    result, _, _ = _respond_wide(DECLINES, DECLINES, time_left=lambda: 20.0)
+    assert result["reason"] == "no_close_match"
+    assert result["match"]["rank"] == 1
+    assert result["retries"] == ["wide"]
+
+
+def test_a_retry_that_fails_returns_the_first_decline():
+    """A broken retry must not turn a decline into a service error."""
+    result, _, _ = _respond_wide(DECLINES, RuntimeError("gateway fell over"))
+    assert result["reason"] == "no_close_match"
+
+
+def test_with_the_switch_off_a_decline_is_not_retried():
+    result, gw, _ = _respond(_decides("reply_to_client", CLIENT_WORDS), DECLINES)
+    assert result["reason"] == "no_close_match"
+    assert len(gw.calls) == 1
+
+
+def test_the_retry_sees_the_conversation_when_both_switches_are_on():
+    result, gw, _ = _respond_wide(
+        DECLINES, _rescue_payload(), both=True, thread=ATS_THREAD,
+        message="the ats one",
+        classify=_rewrites("reply_to_client", "the ats one", ATS_SEARCH))
+    assert result["outcome"] == "answered"
+    assert ATS_EARLIER in gw.calls[1]["prompt"]
+    assert OTHER_QUOTE in gw.calls[1]["prompt"]
+
+
+# -- a follow-up the carried exchange cannot answer (issue #25, A9) -----------------------
+
+PUSHBACK = "and if they push back and say its our parser not their xml?"
+FEED_EARLIER = "client says their feed is dropping jobs after the import"
+FEED_THREAD = (_prior(message=FEED_EARLIER),)
+FEED_SEARCH = "push back and say its our parser not their xml feed dropping jobs"
+
+
+def _follow_up(search_query=FEED_SEARCH):
+    return _rewrites("follow_up", "", search_query)
+
+
+def test_a_follow_up_the_carried_exchange_cannot_answer_is_searched():
+    """A9 in the live run: declined, because the exchange it carried grounds no answer to
+    the pushback. The CSM gave enough to search on; with the switch on it is searched."""
+    result, gw, embed = _respond_25(_follow_up(), DECLINES, _answer_payload(),
+                                    message=PUSHBACK, thread=FEED_THREAD)
+    assert result["outcome"] == "answered"
+    assert result["retries"] == ["searched"]
+    assert embed.seen == [FEED_SEARCH]
+    assert result["intake"]["search_query"] == FEED_SEARCH
+    assert FEED_EARLIER in gw.calls[1]["prompt"]       # the search answer sees the thread
+
+
+def test_a_follow_up_with_no_search_of_its_own_searches_its_own_words():
+    _, _, embed = _respond_25(_follow_up(search_query=""), DECLINES, _answer_payload(),
+                              message=PUSHBACK, thread=FEED_THREAD)
+    assert embed.seen == [PUSHBACK]
+
+
+def test_a_follow_up_answered_from_the_carried_exchange_searches_nothing():
+    result, gw, embed = _respond_25(_follow_up(), _answer_payload(), message=PUSHBACK,
+                                    thread=FEED_THREAD)
+    assert result["outcome"] == "answered"
+    assert embed.seen == [] and len(gw.calls) == 1
+    assert "retries" not in result
+    assert result["intake"]["search_query"] == ""      # nothing was searched
+
+
+def test_a_follow_up_is_not_searched_without_fifteen_seconds_left():
+    result, gw, embed = _respond_25(_follow_up(), DECLINES, message=PUSHBACK,
+                                    thread=FEED_THREAD, time_left=lambda: 10.0)
+    assert result["reason"] == "follow_up_ungrounded"
+    assert embed.seen == []
+
+
+def test_with_the_switch_off_a_follow_up_decline_stays_a_decline():
+    result, _, embed = _respond_25(_follow_up(), DECLINES, message=PUSHBACK,
+                                   thread=FEED_THREAD, search=False, sees=False)
+    assert result["reason"] == "follow_up_ungrounded"
+    assert embed.seen == []
+
+
+def test_a_searched_follow_up_that_declines_gets_the_wide_retry_too():
+    result, _, _ = _respond_25(_follow_up(), DECLINES, DECLINES, _rescue_payload(),
+                               message=PUSHBACK, thread=FEED_THREAD, wide_retry=True)
+    assert result["outcome"] == "answered"
+    assert result["retries"] == ["searched", "wide"]
+
+
+# -- the two half-1 switches on their own (issue #25, Q14) -----------------------------
+
+def test_search_from_conversation_alone_leaves_the_answer_prompt_as_it_was():
+    _, gw, embed = _respond_25(_rewrites("reply_to_client", "the ats one", ATS_SEARCH),
+                               _answer_payload(), sees=False)
+    assert embed.seen == [ATS_SEARCH]
+    assert ATS_EARLIER not in gw.calls[0]["prompt"]
+    assert "CSM's situation: " + ATS_SEARCH in gw.calls[0]["prompt"]
+
+
+def test_answer_sees_conversation_alone_searches_the_plain_words():
+    asked = []
+    result, gw, embed = _respond_25(
+        _rewrites("reply_to_client", "the ats one", ATS_SEARCH, seen=asked),
+        _answer_payload(), search=False)
+    assert asked == [False]
+    assert embed.seen == ["the ats one"]
+    assert ATS_EARLIER in gw.calls[0]["prompt"]
+    assert "search_query" not in result["intake"]
+
+
+def test_a_follow_up_is_not_searched_without_search_from_conversation():
+    """A9's fall-through searches on the rewrite, so it belongs to that switch."""
+    result, _, embed = _respond_25(_follow_up(), DECLINES, message=PUSHBACK,
+                                   thread=FEED_THREAD, search=False)
+    assert result["reason"] == "follow_up_ungrounded"
+    assert embed.seen == []
+
+
+# -- the stopwatch on a second generation (issue #25, Q18) -----------------------------
+
+class SlowSecondGateway(StubGateway):
+    """Answers the first generation at once and stalls on every later one."""
+
+    async def chat_json(self, prompt, **kwargs):
+        if self.calls:
+            await asyncio.sleep(5)
+        return await super().chat_json(prompt, **kwargs)
+
+
+def _tight_clock(monkeypatch):
+    monkeypatch.setattr(responding, "RETRY_NEEDS_SECONDS", 0.1)
+    monkeypatch.setattr(responding, "RETRY_MARGIN_SECONDS", 0.0)
+    return lambda: 0.2
+
+
+def test_a_retry_still_running_at_the_deadline_is_dropped_for_the_first_decline(
+        monkeypatch):
+    """Live, three questions timed out: the retry started with 15s left and took longer.
+    A clean decline beats a timeout, so the retry gets a stopwatch, not just a start rule."""
+    gw = SlowSecondGateway(DECLINES, _rescue_payload())
+    result = asyncio.run(responding.respond(
+        FRAMED, _pool(), gw, embed_query=RecordingEmbedder(),
+        classify=_decides("reply_to_client", CLIENT_WORDS), wide_retry=True,
+        time_left=_tight_clock(monkeypatch)))
+    assert result["reason"] == "no_close_match"
+    assert result["retries"] == ["wide"]
+
+
+def test_a_follow_up_search_still_running_at_the_deadline_returns_the_follow_up_decline(
+        monkeypatch):
+    gw = SlowSecondGateway(DECLINES, _answer_payload())
+    result = asyncio.run(responding.respond(
+        PUSHBACK, _pool(), gw, embed_query=RecordingEmbedder(), thread=FEED_THREAD,
+        classify=_follow_up(), search_from_conversation=True,
+        time_left=_tight_clock(monkeypatch)))
+    assert result["reason"] == "follow_up_ungrounded"
+    assert result["retries"] == ["searched"]
