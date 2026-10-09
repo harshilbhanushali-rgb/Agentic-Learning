@@ -1,0 +1,17 @@
+# intake prompt: HEAD -> working tree
+
+## NO THREAD: IDENTICAL
+
+## WITH A THREAD: CHANGED
+--- HEAD
++++ working tree
+@@ -106,4 +106,9 @@
+     ANY NEW CLIENT WORDS MAKE IT "opens", however much the message sounds like a continuation ("now they say the budget is frozen", "different client: they think our CPA is too high"). Answering new client words from the situation above is answering about the wrong client.
+     For "carried", choose the intent the message asks for and leave retrieval_query empty: what it is about comes from the conversation, not from a search. Do not "clarify" to ask which situation they mean -- the conversation above already says. A "follow_up" is always "carried".
+ 
++  - search_query is the search this message needs, written so it would make sense with no conversation around it.
++    FILL IT ONLY WHEN THIS MESSAGE LEANS ON SOMETHING THE CSM SAID EARLIER and is too vague to search on alone ("the second one", "ok but what if they blame the vendor for it", "anyone else run into that"). Then write the situation by joining the specific words of this message with the specific words the CSM typed in earlier messages.
++    USE ONLY WORDS THE CSM TYPED. Never take words from Ask Naren's replies, never add words of your own, and do not change who is being talked about ("their" stays "their").
++    LEAVE IT EMPTY when the message already says what it is about, when it brings up a new client or a new problem (search on its own words, never on the earlier client's), and whenever situation is "carried" -- except a "follow_up", which gets one so it can be searched if the exchange above cannot answer it.
++
+ When genuinely torn, prefer "reply_to_client". Answering and being slightly off is more useful to a CSM mid-call than being asked for something they thought they had already given.

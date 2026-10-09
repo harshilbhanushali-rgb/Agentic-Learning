@@ -60,6 +60,7 @@ import argparse
 import asyncio
 import json
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -67,7 +68,7 @@ import numpy as np
 _ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_ROOT / "Brain"))
 
-from ask_naren import answering, retrieval          # noqa: E402
+from ask_naren import answering, citations, responding, retrieval  # noqa: E402
 from config import load_config                      # noqa: E402
 from preprocessing import embedder                  # noqa: E402
 from shared import storage                          # noqa: E402
@@ -102,11 +103,25 @@ ARTIFACTS = Path(__file__).resolve().parent / "artifacts"
 SELF_RETRIEVAL_MIN_COSINE = 0.999
 
 
-def _arm_path(name: str, k: int) -> Path:
+def _arm_path(name: str, k: int, wide: bool = False) -> Path:
     """Artifacts are named per ARM. k=1 keeps the original filenames, so the already-paid-for
     top-1 generations stay exactly where --from-raw looks for them, and a k=5 run cannot
-    overwrite the arm it is being compared against."""
+    overwrite the arm it is being compared against. The wide-retry arm (issue #25) is k=1
+    plus a retry, and gets its own name for the same reason."""
+    if wide:
+        return ARTIFACTS / f"{name}_wide.json"
     return ARTIFACTS / (f"{name}.json" if k == 1 else f"{name}_k{k}.json")
+
+
+async def _answer(text, pool, gw, k, wide):
+    """One answer, on the arm's path. The wide arm runs the SERVICE'S retry code
+    (`responding._answer_searched`), not a copy of it, so what is measured is what ships."""
+    if not wide:
+        return await answering.answer_situation(text, pool, gw, embed_query=_aembed, k=k)
+    return await responding._answer_searched(
+        text, pool=pool, gateway=gw, embed_query=_aembed, k=k,
+        label_for=citations.resolve_label, moves_for=None, conversation=None,
+        wide_retry=True, time_left=None)
 
 
 class MaskedPool:
@@ -212,19 +227,22 @@ def was_declined(result: dict) -> bool:
     return bool(result["declined"])
 
 
-async def _generate(items, pool, gw, out_path, k):
+async def _generate(items, pool, gw, out_path, k, wide=False):
     records = []
     for n, item in enumerate(items, 1):
         masked = MaskedPool(pool, item["call_filename"])
-        candidates = await masked.topk(
-            (await _aembed([item["trigger_text"]]))[0], k)
+        started = time.monotonic()
         try:
-            result = await answering.answer_situation(
-                item["trigger_text"], masked, gw,
-                embed_query=_aembed, k=k)
+            result = await _answer(item["trigger_text"], masked, gw, k, wide)
         except Exception as e:                        # noqa: BLE001 -- recorded, not fatal
             print(f"  [{n}/{len(items)}] FAILED: {e}", flush=True)
             continue
+        seconds = time.monotonic() - started
+        # The shortlist the answer was actually written from: the retry's, when one ran.
+        retried = "wide" in result.get("retries", [])
+        candidates = await masked.topk(
+            (await _aembed([item["trigger_text"]]))[0],
+            responding.WIDE_K if retried else k)
 
         # WHICH exchange the packet shows the blind reader. It has to be the one the answer
         # is GROUNDED in, not the nearest one -- under a shortlist those are frequently
@@ -256,13 +274,18 @@ async def _generate(items, pool, gw, out_path, k):
             "retrieved_response": shown.pair["response_text"],
             "cosine": shown.cosine,
             "same_scenario": item["scenario_key"] == shown.pair["scenario_key"],
+            # Issue #25: whether the first attempt declined and a retry ran, and what the
+            # whole answer cost in seconds (both attempts, when there were two).
+            "retried": retried,
+            "seconds": round(seconds, 2),
             "result": result,
         })
         out_path.write_text(json.dumps(records, indent=2), encoding="utf-8")
         state = "DECLINED" if was_declined(result) else "answered"
         print(f"  [{n}/{len(items)}] {state} cos={shown.cosine:.3f} "
               f"rank={records[-1]['grounded_rank']} "
-              f"same_scenario={records[-1]['same_scenario']}", flush=True)
+              f"same_scenario={records[-1]['same_scenario']} "
+              f"{'RETRIED ' if retried else ''}{seconds:.1f}s", flush=True)
     return records
 
 
@@ -312,6 +335,9 @@ async def main() -> int:
                          "1 is the shipped arm measured at 83%%; 5 is the arm under test. "
                          "Artifacts are named per arm, so a k=5 run cannot overwrite the "
                          "k=1 generations it is compared against.")
+    ap.add_argument("--wide-retry", action="store_true",
+                    help="issue #25's WIDE_RETRY arm: k=1, and a 'no close match' retried "
+                         "once with the nearest 20. Artifacts get a _wide suffix.")
     ap.add_argument("--from-raw", action="store_true",
                     help="reuse answer_audit_raw.json instead of regenerating "
                          "the real items -- for rebuilding the packet after a "
@@ -333,7 +359,7 @@ async def main() -> int:
           f"{len({i['scenario_key'] for i in items})} scenarios", flush=True)
 
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
-    raw_path = _arm_path("answer_audit_raw", args.k)
+    raw_path = _arm_path("answer_audit_raw", args.k, args.wide_retry)
     if args.from_raw:
         # Reuse the already-paid-for generations so a control-design fix does not re-roll
         # the real items under test. Changing the sample and the control in one step would
@@ -342,7 +368,7 @@ async def main() -> int:
         print(f"[reused] {len(records)} generations from {raw_path.name}", flush=True)
     else:
         async with AsyncGatewayClient() as gw:
-            records = await _generate(items, pool, gw, raw_path, args.k)
+            records = await _generate(items, pool, gw, raw_path, args.k, args.wide_retry)
 
     answered = [r for r in records if not was_declined(r["result"])]
     print(f"\n[generated] {len(records)} items, {len(answered)} answered, "
@@ -366,9 +392,7 @@ async def main() -> int:
     async with AsyncGatewayClient() as gw:
         for r in answered[:args.controls]:
             try:
-                res = await answering.answer_situation(
-                    r["situation"], pool, gw,
-                    embed_query=_aembed, k=args.k)
+                res = await _answer(r["situation"], pool, gw, args.k, args.wide_retry)
             except Exception as e:                    # noqa: BLE001
                 print(f"  positive FAILED: {e}", flush=True)
                 continue
@@ -393,9 +417,9 @@ async def main() -> int:
     print(f"[positives] {len(positives)} usable", flush=True)
 
     blind, answer_key = _assemble(answered, positives, args.controls, rng)
-    packet_path = _arm_path("answer_audit_packet", args.k)
+    packet_path = _arm_path("answer_audit_packet", args.k, args.wide_retry)
     packet_path.write_text(json.dumps(blind, indent=2), encoding="utf-8")
-    _arm_path("answer_audit_key", args.k).write_text(
+    _arm_path("answer_audit_key", args.k, args.wide_retry).write_text(
         json.dumps(answer_key, indent=2), encoding="utf-8")
     counts: dict[str, int] = {}
     for entry in answer_key:

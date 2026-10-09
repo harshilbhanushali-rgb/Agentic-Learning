@@ -1,0 +1,42 @@
+[
+  {"name": "A. feed problem, then everything carried on it",
+   "messages": [
+     "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+     "ok whats the play here",
+     "how would he actually say that to them",
+     "what usually goes wrong",
+     "how sure are we on this one",
+     "show me the actual convo",
+     "the feed one, where they said jobs were missing after import",
+     "ok and then what happened",
+     "and if they push back and say its our parser not their xml?",
+     "do we have much on this tho",
+     "where else has this come up",
+     "totally diff thing, another client just told me 'we're not paying for clicks that never turn into applies' what do i say",
+     "does that apply if theyre mid contract"
+   ]},
+  {"name": "B. vague clarify first, then the client's words, then carried",
+   "messages": [
+     "client is unhappy about the ats thing",
+     "they said the integration was supposed to be live 3 weeks ago and nothing is syncing",
+     "what do i do first",
+     "show me what naren actually said",
+     "the ats one",
+     "what happened after that"
+   ]},
+  {"name": "C. contrast, coaching, call prep, then carried",
+   "messages": [
+     "client said 'why are we paying for indeed when linkedin brings better people' and i told them we'd look at the source mix next week. was that ok?",
+     "how do i get better at that honestly, i always fumble the source mix convo",
+     "im on a renewal call w them thursday, what should i be ready for",
+     "whats the general approach here"
+   ]},
+  {"name": "D1. single: greeting", "messages": ["hey"]},
+  {"name": "D2. single: what can it do", "messages": ["what can u actually help with"]},
+  {"name": "D3. single: what comes up most", "messages": ["what comes up the most w clients"]},
+  {"name": "D4. single: product fact", "messages": ["whats our list price for a 12 month deal"]},
+  {"name": "D5. single: mood only", "messages": ["client is pissed about performance"]},
+  {"name": "D6. single: bare carried phrase with no thread", "messages": ["whats the play here"]},
+  {"name": "D7. single: general play", "messages": ["how do we usually handle a client who wants to redline the msa"]},
+  {"name": "D8. single: running-campaign problem", "messages": ["client says cost per hire doubled this month and nothing changed on their side, what do i tell them"]}
+]

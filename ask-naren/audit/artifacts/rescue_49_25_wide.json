@@ -1,0 +1,470 @@
+[
+ {
+  "arm": "wide",
+  "q": "Q1",
+  "run": 1,
+  "seconds": 25.2,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "RIGHT",
+  "answer": "An API integration typically takes about 2 to 5 weeks, depending on how quickly API access can be provided. However, since client technical and IT teams often have competing priorities and full queues, we can phase the implementation. We can start with a pixel-based implementation as Phase 1 to get baseline tracking set up quickly without a heavy IT lift, and then work on the full API integration in parallel whenever your IT team has bandwidth."
+ },
+ {
+  "arm": "wide",
+  "q": "Q1",
+  "run": 2,
+  "seconds": 26.0,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "RIGHT",
+  "answer": "An API integration for down-funnel tracking typically takes about 2 to 5 weeks. However, because client IT teams often have their own internal queues and roadmaps, we can phase the rollout. We can start Phase 1 immediately with a simple pixel-based implementation\u2014which requires minimal effort\u2014to get basic tracking live, and then build out the full API integration in parallel whenever your IT team has bandwidth."
+ },
+ {
+  "arm": "wide",
+  "q": "Q1",
+  "run": 3,
+  "seconds": 19.7,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "RIGHT",
+  "answer": "An API integration typically takes about 2 to 5 weeks, depending on how quickly we can obtain API access. However, because IT teams often have internal queues and competing priorities, we can phase the implementation. We can start with Phase 1 using a lightweight, pixel-based setup so you can get up and running right away, while working on the full API integration in parallel as your IT bandwidth allows."
+ },
+ {
+  "arm": "wide",
+  "q": "Q2",
+  "run": 1,
+  "seconds": 20.6,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "WRONG",
+  "answer": "Yes, absolutely! We are flexible and adapt to your tech stack. If your ATS can't export an XML feed or use an API, we can support file-based transfers\u2014such as accepting a CSV file via an SFTP drop\u2014and ingest that data in an automated fashion."
+ },
+ {
+  "arm": "wide",
+  "q": "Q2",
+  "run": 2,
+  "seconds": 16.7,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "WRONG",
+  "answer": "Yes, absolutely. We are flexible and can adapt to your ATS tech stack. For systems that don't support APIs or XML feeds, we can handle file-based transfers\u2014such as an automated CSV file drop via SFTP\u2014to ingest your data smoothly."
+ },
+ {
+  "arm": "wide",
+  "q": "Q2",
+  "run": 3,
+  "seconds": 21.0,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "WRONG",
+  "answer": "Yes, absolutely! If your ATS doesn't support XML feeds or APIs, we can do file-based transfers. For systems with these constraints, we can set up an automated ingestion process using a simple CSV file or an SFTP drop. We are flexible depending on your tech stack."
+ },
+ {
+  "arm": "wide",
+  "q": "Q3",
+  "run": 1,
+  "seconds": 20.2,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 11,
+  "verdict": "RIGHT",
+  "answer": "Once we receive the feed file, we can map and set it up on Joveo's end within a couple of days (usually within the same week). However, when the jobs actually go live for candidates depends on each specific job board's indexing timelines\u2014for instance, LinkedIn typically takes about 2 to 3 days to index jobs after setup."
+ },
+ {
+  "arm": "wide",
+  "q": "Q3",
+  "run": 2,
+  "seconds": 19.0,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 11,
+  "verdict": "RIGHT",
+  "answer": "Once we receive the feed file, we can typically get it mapped and set up on Joveo within the same week (usually within a couple of days). Beyond the setup on our platform, when jobs actually go live depends on how quickly each individual job board indexes them\u2014for instance, platforms like LinkedIn typically take about 2 to 3 days to index jobs."
+ },
+ {
+  "arm": "wide",
+  "q": "Q3",
+  "run": 3,
+  "seconds": 19.0,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 11,
+  "verdict": "RIGHT",
+  "answer": "Once we receive the feed file, we can map and set it up within Joveo within the same week (typically taking a couple of days). From there, how quickly the jobs actually appear on the job boards depends on each publisher's indexing timeline\u2014for instance, LinkedIn usually takes about 2 to 3 days to index jobs once set up."
+ },
+ {
+  "arm": "wide",
+  "q": "Q4",
+  "run": 1,
+  "seconds": 15.7,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Let the client know that you are completely aligned with their process. Suggest setting a placeholder launch date for now and offer to work through onboarding and technical setup items in parallel while the legal review takes place. That way, if the contract timeline shifts, you will still be in a great position with all setup tasks completed, making launch simply a matter of pushing the button once legal approval is in place."
+ },
+ {
+  "arm": "wide",
+  "q": "Q4",
+  "run": 2,
+  "seconds": 15.9,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Align completely with their approach regarding the legal review. Suggest setting a target launch date as a placeholder while working through some of the initial technical setup and onboarding items in parallel. Explain that completing the setup tasks now ensures that once the legal team finishes reviewing the MSA, all preparation will be done and launching will simply be a matter of pushing the button."
+ },
+ {
+  "arm": "wide",
+  "q": "Q4",
+  "run": 3,
+  "seconds": 12.7,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Acknowledge and align with the client on their legal review process. Suggest setting a placeholder launch date while working through initial setup and onboarding items in parallel. This way, even if the MSA review takes additional time, all setup tasks will be completed so you're ready to launch immediately once legal gives the approval."
+ },
+ {
+  "arm": "wide",
+  "q": "Q5",
+  "run": 1,
+  "seconds": 12.9,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Yes, we can easily provide that access. The dashboard is currently read-only, so you don't need to worry about them making any changes. We can set up access so they only see their specific client data rather than all accounts. While advanced customization (like limiting access to specific publishers or selected campaigns) is still on our roadmap, standard read-only access for a specific client is quick and easy for us to set up."
+ },
+ {
+  "arm": "wide",
+  "q": "Q5",
+  "run": 2,
+  "seconds": 10.6,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "You can let the client know that providing read-only access is super easy for us to set up. Since the dashboard is currently read-only, there is no risk of them making unauthorized changes. They will only see the data specific to their account rather than all clients. Furthermore, more granular access controls (such as limiting access to specific campaigns or publishers) are currently on our roadmap."
+ },
+ {
+  "arm": "wide",
+  "q": "Q5",
+  "run": 3,
+  "seconds": 9.4,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Yes, we can easily provide access for them. The Unified Analytics/Insights dashboard is currently read-only, so you don't have to worry about them taking any actions or making changes. We can set up their view so they only see their specific client data rather than seeing all of your clients in the dropdown. If you need granular access control (such as restricting specific campaigns or publishers), that level of customization is currently on our roadmap."
+ },
+ {
+  "arm": "wide",
+  "q": "Q6",
+  "run": 1,
+  "seconds": 10.5,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "WRONG",
+  "answer": "Advise the client that heavily restricting or narrowing the test to just a few markets will significantly reduce velocity and application throughput. Recommend keeping the scope broader across more geographies when running tests or optimizations, as limiting the reach too much will restrict traffic and introduce additional variables."
+ },
+ {
+  "arm": "wide",
+  "q": "Q6",
+  "run": 2,
+  "seconds": 13.1,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "WRONG",
+  "answer": "Advise the client against restricting the initial budget to just three markets during testing. Narrowing the scope to very few markets can severely impact velocity and throughput, potentially dropping application volume down to just a few per week. The recommendation is to keep the geographic targeting broader while running optimizations and tests so that you don't limit traffic, reach, and total applications."
+ },
+ {
+  "arm": "wide",
+  "q": "Q6",
+  "run": 3,
+  "seconds": 11.4,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "WRONG",
+  "answer": "Advise the client that heavily restricting targeting to just a few markets can significantly hurt application velocity and volume, potentially reducing throughput down to only a few applications a week. Recommend keeping the geographic scope broader during optimizations and tests so reach and traffic aren't overly limited, especially when testing other variables."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q1",
+  "run": 1,
+  "seconds": 40.2,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 18,
+  "verdict": "RIGHT",
+  "answer": "On your side, engineering effort typically takes only about one to two days because the API integration is super simple\u2014it involves authentication and configuring a simple payload. For similar setups, clients' dev teams have been able to get it up and running in just a single working session."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q1",
+  "run": 2,
+  "seconds": 24.3,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "RIGHT",
+  "answer": "An API integration for down-funnel tracking typically takes about 2 to 5 weeks, depending on how quickly API access is provided. However, because IT teams often have technical queues and competing priorities, we can phase the implementation. We can start immediately with a simple pixel-based setup as Phase 1 to get tracking in place, and then work on the full API integration in parallel whenever your IT team can fit it into their roadmap."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q1",
+  "run": 3,
+  "seconds": 22.2,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "RIGHT",
+  "answer": "An API integration for down-funnel tracking typically takes about 2 to 5 weeks, depending on how quickly access to APIs can be provided. However, because technical teams often have their own queues and roadmaps, we can easily phase the rollout. We can start with a quick, pixel-based implementation in Phase 1 to get basic tracking running right away, and then work on the full API integration in parallel whenever your IT bandwidth frees up."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q2",
+  "run": 1,
+  "seconds": 17.7,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "WRONG",
+  "answer": "Yes, absolutely. We can be flexible depending on your tech stack. If your ATS can't export XML or APIs, we can do file-based transfers using a simple CSV file or an automated SFTP drop to ingest your data."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q2",
+  "run": 2,
+  "seconds": 26.1,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "WRONG",
+  "answer": "Yes, absolutely! We can be very flexible depending on the tech stack you have. In addition to APIs and standard feeds, we can do file-based transfers\u2014such as ingesting a simple CSV file or setting up an SFTP drop\u2014to pull in your data in an automated fashion."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q2",
+  "run": 3,
+  "seconds": 17.3,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "WRONG",
+  "answer": "Yes, absolutely! We are flexible depending on your tech stack. Even if your ATS doesn't support an XML feed or direct API integration, we can support file-based transfers\u2014such as an automated ingest of a simple CSV file or an SFTP drop."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q3",
+  "run": 1,
+  "seconds": 19.5,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 11,
+  "verdict": "RIGHT",
+  "answer": "Once we receive your feed file, we can typically get it mapped and set up in Joveo within a couple of days (or within the same week). From there, when jobs actually go live on individual job boards depends on their specific indexing timelines\u2014for instance, platforms like LinkedIn usually take about 2 to 3 days to index."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q3",
+  "run": 2,
+  "seconds": 17.0,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 11,
+  "verdict": "RIGHT",
+  "answer": "Once we receive the feed file, we can typically map and set it up within Joveo within the same week (usually within a couple of days). However, how quickly the jobs actually go live on external job platforms will depend on each publisher's indexing timeline\u2014for instance, LinkedIn typically takes about 2 to 3 days to index jobs once they receive them."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q3",
+  "run": 3,
+  "seconds": 21.8,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 11,
+  "verdict": "RIGHT",
+  "answer": "Once you share the feed with us, we can typically have it mapped and set up in Joveo within the same week (usually within a couple of days). However, the overall timeline for jobs going fully live also depends on the individual job boards, as each publisher takes time to index the jobs\u2014for instance, platforms like LinkedIn typically take about 2 to 3 days to finish indexing."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q4",
+  "run": 1,
+  "seconds": 11.5,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Acknowledge the legal review process and align on using a placeholder launch date for now. Suggest working through parallel onboarding and technical setup tasks (such as setting up pixels or technical preparation) while waiting on the MSA review. That way, once legal approves the agreement, all setup items will already be complete and you can launch immediately."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q4",
+  "run": 2,
+  "seconds": 12.3,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Acknowledge that you are completely aligned on their approach. Suggest putting in a target launch date as a placeholder for now and working through some of the onboarding and setup items in parallel. Mention that if the contract review takes longer and pushes out the date, you can easily update the launch timeline, but staying proactive with the setup will put you in a great position to go live as soon as the agreement is finalized."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q4",
+  "run": 3,
+  "seconds": 15.6,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Acknowledge and align with their legal review process, and suggest setting a target launch date as a placeholder. In the meantime, propose working through onboarding and technical setup items in parallel while legal reviews the MSA. That way, once the contract is finalized, all setup items will already be complete and you can launch immediately."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q5",
+  "run": 1,
+  "seconds": 11.4,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Yes, we can easily provide access. Currently, the unified analytics dashboard is read-only, so you don't have to worry about external parties making unauthorized changes. We can replicate access so they only see their specific client data rather than all accounts. While custom granular access controls (like restricting view to specific campaigns or publishers) are still on our roadmap, setting up standard read-only access for their specific view is very straightforward for us to set up."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q5",
+  "run": 2,
+  "seconds": 10.0,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Yes, we can definitely provide read-only access to the dashboard for them. The unified analytics/insights dashboard is currently read-only, so there's no concern about them taking unapproved actions. We can replicate your dashboard view scoped specifically to that client, which is very straightforward for us to set up. Note that more granular access customization (such as restricting specific publishers or campaigns) is currently on our product roadmap."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q5",
+  "run": 3,
+  "seconds": 11.7,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "You can let the client know that providing read-only dashboard access is super straightforward for us to set up. The unified analytics dashboard is currently read-only, so you don't have to worry about them making any changes. They will only see data specific to their account rather than your full list of clients. Note that if they require granular access customization (such as restricting access to specific campaigns or hiding certain publishers), that feature is currently on our product roadmap."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q6",
+  "run": 1,
+  "seconds": 11.8,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "WRONG",
+  "answer": "Advise the client that narrowing the test down to just a few markets can significantly impact velocity and reduce application throughput down to only a few per week. Recommend keeping the scope broader across more geographies while testing and optimizing so that you don't overly limit traffic, reach, and total application volume."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q6",
+  "run": 2,
+  "seconds": 9.7,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "WRONG",
+  "answer": "If you restrict the initial budget to only three markets, keep in mind that limiting geography so heavily will impact application velocity and overall throughput. Restricting the location scope too much reduces reach and traffic, which can drop volume down to just a few applications a week. The recommendation is to keep targeting broader across more geographies during optimizations so that you maintain sufficient volume and don't introduce unnecessary constraints while testing."
+ },
+ {
+  "arm": "wide+thread",
+  "q": "Q6",
+  "run": 3,
+  "seconds": 12.6,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "WRONG",
+  "answer": "Caution the client that heavily restricting the scope to just a few markets will negatively impact velocity and application throughput. Recommend keeping the targeting broader across more geographies while testing and running optimizations, as narrowing it too much limits overall reach, traffic, and application volume."
+ }
+]

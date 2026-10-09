@@ -35,8 +35,16 @@ Which retrieved moments reach the prompt. Ask Naren ships top-1 — the single n
 _Avoid_: reranking, top-k tuning.
 
 **Candidate shortlist**:
-The k nearest `kb_pairs` retrieval hands the model for one situation, nearest first, when Ask Naren is run with `k > 1`. Measured against single-candidate selection in issue #8 and NOT adopted — `answering.DEFAULT_K` is 1, so in the shipped path the shortlist is one exchange long. See `docs/adr/0005-candidate-selection-and-retrieval-floor-measured-and-rejected.md`.
+The k nearest `kb_pairs` retrieval hands the model for one situation, nearest first, when Ask Naren is run with `k > 1`. Measured against single-candidate selection in issue #8 and NOT adopted as the first attempt — `answering.DEFAULT_K` is 1, so a first attempt is shown one exchange. A shortlist of 20 is shown only on the **wide retry**. See `docs/adr/0005-candidate-selection-and-retrieval-floor-measured-and-rejected.md`.
 _Avoid_: top-K, candidate set, the five, retrieval window.
+
+**Wide retry**:
+**Built** (#25, `docs/adr/0014-...`). When the first attempt says no close match, the same search is shown to the model again as a shortlist of the 20 nearest exchanges, once. It never touches an answer and never turns one into a decline -- which is what keeps it from being the refuted relevance gate -- and if it declines too, fails, or would not finish before the deadline, the CSM gets the first decline.
+_Avoid_: rescue, reranking, fallback search, second pass.
+
+**Conversation-aware search**:
+**Built** (#25, `docs/adr/0014-...`). A search intake writes for a message that leans on the conversation ("the ats one"), joining this message's words with what the CSM typed earlier. Every word must be one the CSM typed -- never Ask Naren's replies -- or the message's own words are searched instead. A message on a carried situation still carries when there is something to carry; this is what is searched when there is not.
+_Avoid_: rewrite (too broad: it is not free rewording), query expansion, standalone query.
 
 **Grounded candidate**:
 The one exchange from a candidate shortlist that an answer actually rests on — the one whose reply the model's quote verifies against. It is frequently not the nearest one, which is why a response's `citation`, `match.cosine` and `match.rank` all describe the grounded candidate rather than rank 1.

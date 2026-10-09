@@ -1,0 +1,437 @@
+{
+  "gate": {
+    "wrong_caught": 6,
+    "wrong_total": 6,
+    "right_kept": 6,
+    "right_total": 6,
+    "passed": true
+  },
+  "real": {
+    "n": 30,
+    "right": 22,
+    "wrong": 8,
+    "uncertain": 0
+  },
+  "items": [
+    {
+      "id": 1,
+      "kind": "control_wrong",
+      "verdict": "wrong",
+      "reason": "Answer pitches Joveo differentiators over vendor switch while the client is talking about checking the apply conversion window.",
+      "cosine": null,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 2,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer applies Naren's reply on passing existing source IDs as parameters and the reporting dashboard to a non-UTM source code.",
+      "cosine": 0.8364502787590027,
+      "same_scenario": false,
+      "held_out_scenario": "campaign_level_performance_tracking",
+      "retrieved_scenario": "ats_integration_and_api_mapping"
+    },
+    {
+      "id": 3,
+      "kind": "control_right",
+      "verdict": "right",
+      "reason": "Answer faithfully applies Naren's country-campaign and city-ID job group structure to the city-level cap question.",
+      "cosine": 0.9999998211860657,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 4,
+      "kind": "real",
+      "verdict": "wrong",
+      "reason": "Retrieved reply is about tier 3 CPL monitoring and says nothing on city-level caps, which is what the client raised.",
+      "cosine": 0.810137152671814,
+      "same_scenario": false,
+      "held_out_scenario": "job_board_budget_and_direct_agreements",
+      "retrieved_scenario": "downstream_activation_and_cost_metrics"
+    },
+    {
+      "id": 5,
+      "kind": "control_right",
+      "verdict": "right",
+      "reason": "Answer matches Naren's reply that the plan will include these reasons, passive reach and phasing.",
+      "cosine": 1.0,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 6,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer relays Naren's point that pixel placement and API integration run in parallel, fitting the implementation-plan discussion.",
+      "cosine": 0.8301488161087036,
+      "same_scenario": true,
+      "held_out_scenario": "contract_and_legal_review",
+      "retrieved_scenario": "contract_and_legal_review"
+    },
+    {
+      "id": 7,
+      "kind": "control_right",
+      "verdict": "right",
+      "reason": "Answer follows Naren's actual reply of acknowledging 10-20 days and confirming automatic LinkedIn wrapping.",
+      "cosine": 1.000000238418579,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 8,
+      "kind": "control_wrong",
+      "verdict": "wrong",
+      "reason": "Situation is about assessment ranking and review, but the answer is about tier 3 CPL monitoring.",
+      "cosine": null,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 9,
+      "kind": "real",
+      "verdict": "wrong",
+      "reason": "Client said job boards do not post back job details; answer talks about 80/20 candidate data and fields, a different question.",
+      "cosine": 0.8451821208000183,
+      "same_scenario": true,
+      "held_out_scenario": "ats_integration_and_api_mapping",
+      "retrieved_scenario": "ats_integration_and_api_mapping"
+    },
+    {
+      "id": 10,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer follows Naren's reply of acknowledging and asking about expected budgets and a media plan.",
+      "cosine": 0.7885903716087341,
+      "same_scenario": false,
+      "held_out_scenario": "pricing_and_fee_structures",
+      "retrieved_scenario": "campaign_level_performance_tracking"
+    },
+    {
+      "id": 11,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer matches Naren's template-based job-level ads and demo offer.",
+      "cosine": 0.8173540830612183,
+      "same_scenario": false,
+      "held_out_scenario": "advanced_targeting_and_differentiation",
+      "retrieved_scenario": "reliance_on_major_social_and_professional_networks"
+    },
+    {
+      "id": 12,
+      "kind": "real",
+      "verdict": "wrong",
+      "reason": "Answer implies social gig work succeeded via social channels, adding substance; retrieved reply is about Facebook generally and local agencies for Uber, not gig social experience.",
+      "cosine": 0.8238883018493652,
+      "same_scenario": false,
+      "held_out_scenario": "gig_economy_driver_supply_acquisition",
+      "retrieved_scenario": "reliance_on_major_social_and_professional_networks"
+    },
+    {
+      "id": 13,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer matches Naren's point on specific feedback from a small pilot of 10-12 applications.",
+      "cosine": 0.8433765172958374,
+      "same_scenario": false,
+      "held_out_scenario": "hiring_forecasts_and_volume_scoping",
+      "retrieved_scenario": "application_volume_and_prioritization"
+    },
+    {
+      "id": 14,
+      "kind": "real",
+      "verdict": "wrong",
+      "reason": "Retrieved reply is about Levels specifically and generalises to 'our supply team often monitors boards', which it does not say, for an unnamed sales board.",
+      "cosine": 0.8029957413673401,
+      "same_scenario": false,
+      "held_out_scenario": "specialty_and_niche_job_boards_integration",
+      "retrieved_scenario": "regional_talent_acquisition_and_brand_strategy"
+    },
+    {
+      "id": 15,
+      "kind": "control_right",
+      "verdict": "right",
+      "reason": "Answer accurately reflects Naren's reply that gig has run in social but did not scale, framed as passive channels.",
+      "cosine": 0.9999998211860657,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 16,
+      "kind": "control_wrong",
+      "verdict": "wrong",
+      "reason": "Client is about to share landing pages but the answer asks about WhatsApp channel angle, an unrelated exchange.",
+      "cosine": null,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 17,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer applies Naren's enabler framing and POC suggestion to the SmartRecruiters dependency.",
+      "cosine": 0.8168075084686279,
+      "same_scenario": false,
+      "held_out_scenario": "market_insights_and_competitive_intelligence",
+      "retrieved_scenario": "ats_integration_and_api_mapping"
+    },
+    {
+      "id": 18,
+      "kind": "control_right",
+      "verdict": "right",
+      "reason": "Answer matches Naren's confirmation of middleware-only integration and question on throttling limits.",
+      "cosine": 1.0,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 19,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer reflects Naren's reply to check and possible server-to-server setup for automated data delivery.",
+      "cosine": 0.7717559337615967,
+      "same_scenario": false,
+      "held_out_scenario": "dashboard_access_and_reporting",
+      "retrieved_scenario": "technical_integration_and_timeline_scoping"
+    },
+    {
+      "id": 20,
+      "kind": "control_right",
+      "verdict": "right",
+      "reason": "Answer matches Naren's reply on WhatsApp as acquisition and engagement.",
+      "cosine": 1.0,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 21,
+      "kind": "real",
+      "verdict": "wrong",
+      "reason": "Client states their rotation is already 10-20 days; answer explains rotation rule setup, which does not respond to that.",
+      "cosine": 0.803981363773346,
+      "same_scenario": false,
+      "held_out_scenario": "reliance_on_major_social_and_professional_networks",
+      "retrieved_scenario": "job_board_budget_and_direct_agreements"
+    },
+    {
+      "id": 22,
+      "kind": "real",
+      "verdict": "wrong",
+      "reason": "WhatsApp-for-acquisition question is answered with a clarifying question about job vs employer branding angle, not Naren's actual usage.",
+      "cosine": 0.7724458575248718,
+      "same_scenario": false,
+      "held_out_scenario": "chatbot_and_messaging_implementation",
+      "retrieved_scenario": "reliance_on_major_social_and_professional_networks"
+    },
+    {
+      "id": 23,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer follows Naren's reply of working with the team on integration design given Joveo's API-first setup.",
+      "cosine": 0.7588144540786743,
+      "same_scenario": true,
+      "held_out_scenario": "technical_integration_and_timeline_scoping",
+      "retrieved_scenario": "technical_integration_and_timeline_scoping"
+    },
+    {
+      "id": 24,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer states Naren's $15k minimum and why $5k is insufficient, addressing the spend question.",
+      "cosine": 0.8411383628845215,
+      "same_scenario": true,
+      "held_out_scenario": "budget_allocation_and_testing",
+      "retrieved_scenario": "budget_allocation_and_testing"
+    },
+    {
+      "id": 25,
+      "kind": "control_wrong",
+      "verdict": "wrong",
+      "reason": "Situation is about communicating with ops teams but answer is LinkedIn job rotation rules.",
+      "cosine": null,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 26,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer matches Naren's suggestion to start English approvals while Spanish is prepared.",
+      "cosine": 0.7984738945960999,
+      "same_scenario": true,
+      "held_out_scenario": "multi_language_copy_and_translation",
+      "retrieved_scenario": "multi_language_copy_and_translation"
+    },
+    {
+      "id": 27,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer follows Naren's reply of requesting access to the assessment data to monitor numbers.",
+      "cosine": 0.8089859485626221,
+      "same_scenario": true,
+      "held_out_scenario": "application_volume_and_prioritization",
+      "retrieved_scenario": "application_volume_and_prioritization"
+    },
+    {
+      "id": 28,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer matches Naren's reply that missing city values can be flagged by a rule.",
+      "cosine": 0.7363278865814209,
+      "same_scenario": false,
+      "held_out_scenario": "geographic_targeting_and_location_mapping",
+      "retrieved_scenario": "xml_feed_setup_and_ingestion"
+    },
+    {
+      "id": 29,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer faithfully applies Naren's one-account one-feed flexibility and keep-old-account advice.",
+      "cosine": 0.8578745722770691,
+      "same_scenario": false,
+      "held_out_scenario": "xml_feed_setup_and_ingestion",
+      "retrieved_scenario": "programmatic_advertising_scope_and_capability"
+    },
+    {
+      "id": 30,
+      "kind": "control_wrong",
+      "verdict": "wrong",
+      "reason": "Situation is about an unnamed sales job board but the answer discusses Azure API and Informatica integration.",
+      "cosine": null,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 31,
+      "kind": "real",
+      "verdict": "wrong",
+      "reason": "Client is about to share landing pages; answer about delivering a sample pixel is from a different exchange.",
+      "cosine": 0.826323390007019,
+      "same_scenario": false,
+      "held_out_scenario": "landing_page_and_conversion_setup",
+      "retrieved_scenario": "pixel_placement_and_tracking"
+    },
+    {
+      "id": 32,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer explains conversion window and the 30-day standard as Naren said.",
+      "cosine": 0.8555186986923218,
+      "same_scenario": false,
+      "held_out_scenario": "downstream_activation_and_cost_metrics",
+      "retrieved_scenario": "landing_page_and_conversion_setup"
+    },
+    {
+      "id": 33,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer matches Naren's reply that a dedicated CSM is introduced from day one.",
+      "cosine": 0.7203974723815918,
+      "same_scenario": true,
+      "held_out_scenario": "vendor_transition_and_partnership_evaluation",
+      "retrieved_scenario": "vendor_transition_and_partnership_evaluation"
+    },
+    {
+      "id": 34,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer reflects Naren's reply that backtracking historical data is being worked through, tied to source tag capture.",
+      "cosine": 0.7662505507469177,
+      "same_scenario": false,
+      "held_out_scenario": "testing_and_implementation_timeline",
+      "retrieved_scenario": "attribution_and_funnel_tracking"
+    },
+    {
+      "id": 35,
+      "kind": "real",
+      "verdict": "wrong",
+      "reason": "Question is whether more down-funnel attribution will be seen, but answer explains why down-funnel helps optimization.",
+      "cosine": 0.834164023399353,
+      "same_scenario": true,
+      "held_out_scenario": "attribution_and_funnel_tracking",
+      "retrieved_scenario": "attribution_and_funnel_tracking"
+    },
+    {
+      "id": 36,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer matches Naren's reply that a simple hosted page can collect data for unsupportive publishers.",
+      "cosine": 0.7504396438598633,
+      "same_scenario": true,
+      "held_out_scenario": "publisher_management_and_exclusions",
+      "retrieved_scenario": "publisher_management_and_exclusions"
+    },
+    {
+      "id": 37,
+      "kind": "control_wrong",
+      "verdict": "wrong",
+      "reason": "Situation is about an agency retainer and commission model, but the answer is about Facebook gig ads.",
+      "cosine": null,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 38,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer applies Naren's reply of reviving a simple shared tracker instead of adding people to channels.",
+      "cosine": 0.7795039415359497,
+      "same_scenario": true,
+      "held_out_scenario": "slack_communication_and_channel_setup",
+      "retrieved_scenario": "slack_communication_and_channel_setup"
+    },
+    {
+      "id": 39,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer faithfully summarizes Naren's three differentiators for the justification the client wants.",
+      "cosine": 0.7620668411254883,
+      "same_scenario": false,
+      "held_out_scenario": "vendor_transition_and_partnership_evaluation",
+      "retrieved_scenario": "programmatic_advertising_scope_and_capability"
+    },
+    {
+      "id": 40,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer matches Naren's reply on localized publishers and local-language content.",
+      "cosine": 0.8478808403015137,
+      "same_scenario": false,
+      "held_out_scenario": "programmatic_advertising_scope_and_capability",
+      "retrieved_scenario": "specialty_and_niche_job_boards_integration"
+    },
+    {
+      "id": 41,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer reflects Naren's reply about the file section and creating a shared folder.",
+      "cosine": 0.7987445592880249,
+      "same_scenario": true,
+      "held_out_scenario": "creative_and_media_plan_review",
+      "retrieved_scenario": "creative_and_media_plan_review"
+    },
+    {
+      "id": 42,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Answer matches Naren's reply that Joveo does testing, checks application ID, and involves client only if misplaced.",
+      "cosine": 0.8380677700042725,
+      "same_scenario": true,
+      "held_out_scenario": "pixel_placement_and_tracking",
+      "retrieved_scenario": "pixel_placement_and_tracking"
+    }
+  ]
+}

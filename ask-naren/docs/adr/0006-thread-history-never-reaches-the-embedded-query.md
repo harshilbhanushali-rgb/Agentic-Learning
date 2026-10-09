@@ -1,5 +1,7 @@
 # A thread's history never reaches the embedded query
 
+**Status:** partly superseded 2026-10-10 by ADR 0014 (`0014-the-conversation-reaches-the-search-under-a-check-and-a-decline-gets-one-wide-retry.md`), reopened by the route this ADR names in its last section: answers were measured under both. A search written from the conversation now reaches the embedded query, but only words the CSM typed, checked in code.
+
 Ask Naren is gaining multi-turn **threads**, so a follow-up can be answered in the light of what was already asked and answered. The obvious implementation is to search on the conversation: concatenate the thread, embed that, retrieve. A reader who finds that we did not do this will assume it was an oversight, so this records that it was a decision.
 
 We decided that **a thread's history never reaches the embedded query.** Retrieval always embeds the current message alone.

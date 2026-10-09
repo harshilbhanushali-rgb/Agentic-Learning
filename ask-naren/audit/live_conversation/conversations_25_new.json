@@ -1,0 +1,24 @@
+[
+ {"name": "E. new client mid-thread: must NOT borrow the old topic",
+  "messages": [
+   "client says their feed is dropping jobs after the import, about half their reqs never show up",
+   "totally different account now, they told me 'your invoices dont match our PO numbers' what do i say",
+   "ok and how does he word that"
+  ]},
+ {"name": "F. pointing back at an earlier client",
+  "messages": [
+   "client says the ats integration was supposed to be live 3 weeks ago and nothing is syncing",
+   "separately another client asked if their agency can get access to the dashboard",
+   "ok going back to the first one, what do i tell them"
+  ]},
+ {"name": "G. a follow-up the first answer cannot cover",
+  "messages": [
+   "client wants to pause all their campaigns over the holidays, what do i say",
+   "and what if they say theyll just move that budget to linkedin instead?"
+  ]},
+ {"name": "H. where else, mid-thread",
+  "messages": [
+   "client says cost per hire doubled after we changed the bidding, what do i tell them",
+   "where else has this come up"
+  ]}
+]

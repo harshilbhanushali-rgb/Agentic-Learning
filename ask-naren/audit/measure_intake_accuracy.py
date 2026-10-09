@@ -1288,11 +1288,14 @@ async def main() -> int:
                     help="also write <out>_prompt.diff: intake's prompt at git REF against "
                          "the working tree, with and without a thread -- the text these "
                          "scores were measured on")
+    ap.add_argument("--rewrite", action="store_true",
+                    help="issue #25's THREAD_AWARE switch: ask intake for a conversation-"
+                         "aware search_query too, and score false rewrites")
     args = ap.parse_args()
     if args.repeat < 1:
         raise SystemExit("--repeat must be at least 1")
     if args.prompt_diff_against:
-        _write_prompt_diff(args.prompt_diff_against, Path(args.out))
+        _write_prompt_diff(args.prompt_diff_against, Path(args.out), rewrite=args.rewrite)
 
     load_config()
     pool = {"fitted": CASES, "heldout": HELD_OUT, "threaded": THREADED,
@@ -1331,7 +1334,7 @@ def _score(rows) -> int:
     return sum(r["correct"] for r in rows)
 
 
-def _write_prompt_diff(ref: str, out: Path) -> None:
+def _write_prompt_diff(ref: str, out: Path, rewrite: bool = False) -> None:
     """Intake's prompt at `ref` against the working tree -- the text a score rests on.
 
     #55's rule: read the prompt diff before trusting any score. One missing space once moved
@@ -1351,7 +1354,7 @@ def _write_prompt_diff(ref: str, out: Path) -> None:
     parts = [f"# intake prompt: {ref} -> working tree\n"]
     for label, thread in (("NO THREAD", ()), ("WITH A THREAD", (turn,))):
         a = old["build_prompt"](_ECHO_PLACEHOLDER, thread)
-        b = intake.build_prompt(_ECHO_PLACEHOLDER, thread)
+        b = intake.build_prompt(_ECHO_PLACEHOLDER, thread, rewrite=rewrite)
         parts.append(f"\n## {label}: {'IDENTICAL' if a == b else 'CHANGED'}\n")
         parts.extend(line + "\n" for line in difflib.unified_diff(
             a.splitlines(), b.splitlines(), f"{ref}", "working tree", lineterm=""))
@@ -1371,7 +1374,17 @@ async def _run(cases, args) -> list[dict]:
             thread = threads.parse(case.get("thread"))
             decision, _ = await intake.classify(
                 case["message"], gw, thread=thread, model=args.model,
-                reasoning_effort=None if args.reasoning in (None, "none") else args.reasoning)
+                reasoning_effort=None if args.reasoning in (None, "none") else args.reasoning,
+                rewrite=args.rewrite)
+            # ISSUE #25. Words the conversation-aware search took from EARLIER turns rather
+            # than this message. On a message carrying new client words any such word is a
+            # FALSE REWRITE -- the new client's question searched on the old client's topic,
+            # the #55 hazard in the search instead of the carry. Bar: zero.
+            borrowed = sorted(set(intake._words(decision.search_query))
+                              - set(intake._words(case["message"]))
+                              - intake._JOINING_WORDS)
+            search_checked = (not decision.search_query or intake.uses_only_csm_words(
+                decision.search_query, case["message"], thread))
             leaked = [s for s in case.get("query_must_not_contain", [])
                       if s.lower() in decision.retrieval_query.lower()]
             # Tokens whose LOSS changes the meaning: a dropped "not", or a subject
@@ -1423,6 +1436,9 @@ async def _run(cases, args) -> list[dict]:
                 "got_situation": decision.situation,
                 "new_client_words": bool(case.get("new_client_words")),
                 "retrieval_query": decision.retrieval_query,
+                "search_query": decision.search_query,
+                "search_borrowed": borrowed,
+                "search_passes_check": search_checked,
                 "my_reply": decision.my_reply,
                 "my_reply_verbatim": reply_verbatim,
                 "question": decision.question,
@@ -1433,7 +1449,8 @@ async def _run(cases, args) -> list[dict]:
                 # The thread is kept, because a thread-shaped case IS classified against a
                 # prompt carrying the conversation and can legitimately echo it.
                 "prompt_echoes": prompt_echoes(
-                    case["message"], intake.build_prompt(_ECHO_PLACEHOLDER, thread)),
+                    case["message"], intake.build_prompt(_ECHO_PLACEHOLDER, thread,
+                                                         rewrite=args.rewrite)),
                 "verbatim_span": verbatim,
                 "meaning_dropped": dropped,
                 "note": case["note"],
@@ -1447,6 +1464,9 @@ async def _run(cases, args) -> list[dict]:
             else:
                 print(f"  [{n}/{len(cases)}] {mark} expect={case['expect']:<15} "
                       f"got={decision.intent:<15} {case['message'][:55]!r}", flush=True)
+            if decision.search_query:
+                print(f"          search: {decision.search_query!r}"
+                      + (f"  borrowed={borrowed}" if borrowed else ""), flush=True)
             if leaked:
                 print(f"          FRAMING LEAKED INTO THE QUERY: {leaked}", flush=True)
             if dropped:
@@ -1586,10 +1606,37 @@ def _report(rows, args) -> int:
         for r in leaks:
             print(f"    - {r['framing_leaked']} in {r['retrieval_query'][:60]!r}")
 
+    if args.rewrite:
+        gate_failed = _report_rewrites(rows) or gate_failed
+
     print(f"\n  -> {args.out}")
     print("\nNOTE: this measures ROUTING, not answer quality. Whether better queries produce "
           "better answers is issue #9 and needs the blind read.")
     return 1 if gate_failed else 0
+
+
+def _report_rewrites(rows) -> bool:
+    """Issue #25's bar on the conversation-aware search. Returns True when it fails.
+
+    A FALSE REWRITE is a message carrying new client words whose search borrowed words from
+    earlier turns: the new client's question searched on the previous client's topic. ZERO,
+    as for a false carry. Also reported, not gated: how many searches were written at all,
+    and how many the runtime check would refuse (those are searched on the plain words).
+    """
+    written = [r for r in rows if r["search_query"]]
+    refused = [r for r in written if not r["search_passes_check"]]
+    false_rewrites = [r for r in rows if r["new_client_words"] and r["search_borrowed"]]
+    print(f"\n  CONVERSATION-AWARE SEARCH (issue #25): written for {len(written)}/{len(rows)}, "
+          f"refused by the CSM-words check {len(refused)}")
+    for r in refused:
+        print(f"    - refused {r['search_query'][:60]!r}")
+    checked = [r for r in rows if r["new_client_words"]]
+    if checked:
+        print(f"  FALSE REWRITES -- new client words searched with an earlier topic: "
+              f"{len(false_rewrites)} of {len(checked)} (bar: 0)")
+        for r in false_rewrites:
+            print(f"    - {r['message'][:56]!r} borrowed {r['search_borrowed']}")
+    return bool(false_rewrites)
 
 
 def _report_situation(rows) -> bool:

@@ -58,3 +58,20 @@ The prompt this was measured on is in `artifacts/intake_accuracy_55_carried_prom
 
 **How the set was written, and what that does not prove.** A separate model agent wrote the cases blind. It was forbidden from opening the prompt, this harness, the tests, the ADRs or the issues, and was given only a plain description of the tool and the thread shapes. The echo check flags 2 of 44 cases. One is an everyday phrase ("what do i do first"). The other repeats its own thread's text, which is allowed. The labels were checked against ADR 0013's definition. One of them, a CSM restating their own question after a clarify, is ambiguous and is labelled carried; it can only cost recall. **The cases are synthetic, not real CSM traffic.** The stored threads in `ask_naren.turns` are the better source once there is enough real use, and re-running this set on real follow-on messages is the honest next check.
 
+
+## Issue #25: the conversation in the search, and the wide retry, 2026-10-10
+
+Three switches in `Brain/ops/serve_ask_naren.py`, all ON since this measurement: `SEARCH_FROM_CONVERSATION`, `ANSWER_SEES_CONVERSATION`, `WIDE_RETRY`. Decision and reasoning in ADR 0014.
+
+**Intake** (`measure_intake_accuracy.py --rewrite`, best of three). Only the two sets with a thread can move; every other set sends a byte-identical request. Three prompt generations are kept:
+- `intake_accuracy_25_*`: the first wording. Threaded 10/11, carried 42/44, no false carry. But live, the search was never written for messages intake calls carried, so it never fired.
+- `intake_accuracy_25b_*`: "fill it whether carried or not". Fixed that, but one new-client message (a CSM's own drafted reply) was read as carried 3/3. That fails the zero bar. Rejected.
+- `intake_accuracy_25c_*`: **shipped.** Threaded 10/11 ×3; carried 40, 42, 42 of 44; false carries 0 ×3. One search borrowed earlier words in one run, on a CSM answering Ask Naren's question about the same client (intended). The carried set was seen once during this prompt work, so it is no longer fully held out.
+
+**#49's six questions** (`live_conversation/rescue_49.py`, scored by `decline-rescue-oracle/`, three runs each): 6/18 right today, 12/18 with the wide retry, with or without the conversation prompt. The CSV-export question, which should decline, is answered wrongly 3/3. Results: `artifacts/rescue_49_25*.json`.
+
+**The 36-situation audit** (`build_answer_audit.py --wide-retry`, then `score_answer_audit.py --out ...`): 11 first-try declines, 5 rescued. The blind reader cleared both bars 6/6, judged the rescues 4 right and 1 wrong. Artifacts: `answer_audit_*_wide.json`.
+
+**The live messy-conversation test** (`live_conversation/`): `converse.py` drives the running service through whole conversations, rebuilding the thread as the web app does. `conversations.json` is the original 11; `conversations_25_new.json` adds four, one per new behaviour. Each switch was run on its own and then all three (`results/<config>.json`; `before*.json` is the switches-off baseline). All three on, against before: 6 turns better, 1 worse, 0 timeouts; median on searched turns about 15s to 23s; model calls +10 to 26% (`count_calls.py`, a lower bound). One run per configuration, and the answer model's decline on a single exchange flips between runs, so read ±1 or 2 turns as noise.
+
+`results/first_attempt_all_on.json` is the run that found two defects, both fixed before the matrix: the search was thrown away on carried messages, and three retries ran past the 30s deadline. Retries now stop 2s before it.

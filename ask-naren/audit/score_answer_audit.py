@@ -49,6 +49,9 @@ def main() -> int:
     ap.add_argument("--key", default=str(ARTIFACTS / "answer_audit_key.json"))
     ap.add_argument("--verdicts", default=str(ARTIFACTS / "answer_audit_verdicts.json"))
     ap.add_argument("--packet", default=str(ARTIFACTS / "answer_audit_packet.json"))
+    ap.add_argument("--out", default=str(ARTIFACTS / "answer_audit_scored.json"),
+                    help="where the scored items go; a new arm must not overwrite the "
+                         "committed read")
     args = ap.parse_args()
 
     key = {k["id"]: k for k in json.loads(Path(args.key).read_text(encoding="utf-8"))}
@@ -129,7 +132,7 @@ def main() -> int:
             print(f"      {(v.get('reason') or '')[:200]}")
             print(f"      situation: {packet[i]['situation'][:160]}")
 
-    out = ARTIFACTS / "answer_audit_scored.json"
+    out = Path(args.out)
     out.write_text(json.dumps({
         "gate": {"wrong_caught": caught, "wrong_total": len(wrong_plants),
                  "right_kept": kept, "right_total": len(right_plants), "passed": passed},

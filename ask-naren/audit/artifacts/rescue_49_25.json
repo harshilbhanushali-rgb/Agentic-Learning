@@ -1,0 +1,350 @@
+[
+ {
+  "arm": "k1",
+  "q": "Q1",
+  "run": 1,
+  "seconds": 8.2,
+  "outcome": "declined",
+  "reason": "no_close_match",
+  "retries": [],
+  "verdict": "declined"
+ },
+ {
+  "arm": "k1",
+  "q": "Q1",
+  "run": 2,
+  "seconds": 6.5,
+  "outcome": "declined",
+  "reason": "no_close_match",
+  "retries": [],
+  "verdict": "declined"
+ },
+ {
+  "arm": "k1",
+  "q": "Q1",
+  "run": 3,
+  "seconds": 7.1,
+  "outcome": "declined",
+  "reason": "no_close_match",
+  "retries": [],
+  "verdict": "declined"
+ },
+ {
+  "arm": "k1",
+  "q": "Q2",
+  "run": 1,
+  "seconds": 7.6,
+  "outcome": "declined",
+  "reason": "no_close_match",
+  "retries": [],
+  "verdict": "declined"
+ },
+ {
+  "arm": "k1",
+  "q": "Q2",
+  "run": 2,
+  "seconds": 6.5,
+  "outcome": "declined",
+  "reason": "no_close_match",
+  "retries": [],
+  "verdict": "declined"
+ },
+ {
+  "arm": "k1",
+  "q": "Q2",
+  "run": 3,
+  "seconds": 8.3,
+  "outcome": "declined",
+  "reason": "no_close_match",
+  "retries": [],
+  "verdict": "declined"
+ },
+ {
+  "arm": "k1",
+  "q": "Q3",
+  "run": 1,
+  "seconds": 7.1,
+  "outcome": "declined",
+  "reason": "no_close_match",
+  "retries": [],
+  "verdict": "declined"
+ },
+ {
+  "arm": "k1",
+  "q": "Q3",
+  "run": 2,
+  "seconds": 8.9,
+  "outcome": "declined",
+  "reason": "no_close_match",
+  "retries": [],
+  "verdict": "declined"
+ },
+ {
+  "arm": "k1",
+  "q": "Q3",
+  "run": 3,
+  "seconds": 7.5,
+  "outcome": "declined",
+  "reason": "no_close_match",
+  "retries": [],
+  "verdict": "declined"
+ },
+ {
+  "arm": "k1",
+  "q": "Q4",
+  "run": 1,
+  "seconds": 10.9,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Acknowledge and align with their legal review process. Suggest setting a tentative target launch date as a placeholder while working through parallel onboarding and technical setup items in the meantime. That way, once legal finishes reviewing the MSA, all the foundational setup work is already complete and you can simply push the button to go live."
+ },
+ {
+  "arm": "k1",
+  "q": "Q4",
+  "run": 2,
+  "seconds": 11.6,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "You can let the client know that you are completely aligned with their approach. Suggest setting a target launch date as a placeholder while working through the preliminary technical setup and onboarding items in parallel. That way, even if the contract review gets pushed out, you will still be in a great position with all setup completed, making it simple to launch as soon as legal approval is granted."
+ },
+ {
+  "arm": "k1",
+  "q": "Q4",
+  "run": 3,
+  "seconds": 13.2,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Acknowledge their legal review timeline and propose keeping momentum by setting a placeholder launch date while working through non-dependent onboarding tasks in the background. You can explain that by getting all the technical setup items and documentation prepped while legal completes the MSA review, you will be in a great position to simply push the button and launch as soon as the contract is finalized."
+ },
+ {
+  "arm": "k1",
+  "q": "Q5",
+  "run": 1,
+  "seconds": 12.1,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Yes, we can easily grant them access! The unified analytics dashboard is currently read-only, so you don't have to worry about them making any accidental changes. We can set up access so they only see their specific client data rather than the dropdown of all your customers. If you eventually need specific custom access levels (like restricting view to certain publishers or specific campaigns), that granular customization is currently on our roadmap, but setting up standard read-only client access is quick and easy for us to fulfill."
+ },
+ {
+  "arm": "k1",
+  "q": "Q5",
+  "run": 2,
+  "seconds": 9.5,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "You can let the client know that setting up dashboard access for them is very straightforward. Reassure them that the unified analytics dashboard is currently read-only, so there is no risk of accidental or unwanted changes being made. We can easily provide access filtered specifically to their client view (so they only see their own data rather than a dropdown of all clients). Additionally, if they are looking for more granular access controls\u2014such as hiding specific publishers or limiting access to certain campaigns\u2014you can mention that level of customization is on our roadmap and currently being worked on."
+ },
+ {
+  "arm": "k1",
+  "q": "Q5",
+  "run": 3,
+  "seconds": 12.5,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "You can inform the client that providing read-only dashboard access is very straightforward to set up. Because the dashboard is strictly read-only today, there is no risk of them making unauthorized operational changes. When granted access, they will only see data relevant to their specific client account rather than seeing all accounts. Additionally, if they need more granular access controls in the future (like restricting access to specific campaigns or publishers), you can mention that feature-level access customization is on the product roadmap."
+ },
+ {
+  "arm": "k1",
+  "q": "Q6",
+  "run": 1,
+  "seconds": 12.2,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "WRONG",
+  "answer": "You should advise the client that restricting the budget to only a few specific markets (like three) can severely impact application velocity and candidate throughput, potentially dropping output down to just a few applications a week. Recommend keeping the geographic targeting broader during initial tests and optimizations so you can gather data across more locations without introducing restricted reach as an extra limiting variable."
+ },
+ {
+  "arm": "k1",
+  "q": "Q6",
+  "run": 2,
+  "seconds": 9.5,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "WRONG",
+  "answer": "You should advise the client that narrowing the geographic scope to just a few markets during initial testing can significantly slow down velocity and lower overall application volume. Instead, recommend keeping the market scope broader across more geographies when testing or making optimizations. This ensures you maintain enough reach and application throughput without introducing overly restrictive variables into the test."
+ },
+ {
+  "arm": "k1",
+  "q": "Q6",
+  "run": 3,
+  "seconds": 9.7,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "WRONG",
+  "answer": "Our recommendation when running optimizations and tests is to keep the target scope broader across more geographies rather than restricting it to just a few markets. Restricting targeting to very few markets affects velocity\u2014significantly reducing application throughput and limiting overall reach and traffic\u2014which introduces an extra variable when trying to test effectively."
+ },
+ {
+  "arm": "wide",
+  "q": "Q1",
+  "run": 1,
+  "seconds": 20.3,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "RIGHT",
+  "answer": "Typically, an API integration (especially for down-funnel tracking) takes about 2 to 5 weeks, depending on how quickly we can get access to the APIs. \n\nHowever, because we know internal IT teams often have full queues and technical priorities, we can easily phase the rollout. We can kick off with a lightweight, pixel-based implementation as Phase 1 to get baseline tracking running right away, and then build out the full API integration in parallel whenever your IT bandwidth opens up."
+ },
+ {
+  "arm": "wide",
+  "q": "Q1",
+  "run": 2,
+  "seconds": 26.8,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "RIGHT",
+  "answer": "Typically, an API integration for down-funnel tracking takes about 2 to 5 weeks. However, since your IT team has bandwidth constraints and technical queues, we can easily phase this out. In Phase 1, we can launch quickly using a lightweight pixel-based implementation, while your IT team works on the full API integration in parallel whenever they have capacity."
+ },
+ {
+  "arm": "wide",
+  "q": "Q1",
+  "run": 3,
+  "seconds": 24.6,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "RIGHT",
+  "answer": "An API integration for down-funnel tracking typically takes about 2 to 5 weeks. However, we understand that client IT teams often have busy queues and limited bandwidth. To accommodate this, we can phase the implementation: start with a pixel-based implementation as Phase 1 to get tracking active right away, and work on the full ATS integration in parallel once your IT team's schedule opens up."
+ },
+ {
+  "arm": "wide",
+  "q": "Q2",
+  "run": 1,
+  "seconds": 19.2,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "WRONG",
+  "answer": "Yes, absolutely. We can be flexible depending on the tech stack you have. If your ATS doesn't support XML feeds or APIs, we can do file-based transfers such as a simple CSV file or an SFTP drop to ingest your data in an automated fashion."
+ },
+ {
+  "arm": "wide",
+  "q": "Q2",
+  "run": 2,
+  "seconds": 13.4,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "WRONG",
+  "answer": "Yes, absolutely. We can be flexible depending on your tech stack. We can do file-based transfers, so if your ATS can export a CSV file or set up an SFTP drop, we can ingest that in an automated fashion."
+ },
+ {
+  "arm": "wide",
+  "q": "Q2",
+  "run": 3,
+  "seconds": 23.5,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 16,
+  "verdict": "WRONG",
+  "answer": "Yes, absolutely! We can be very flexible depending on the tech stack you have. If your ATS doesn't support an XML feed or an API integration, we can set up file-based transfers\u2014such as a simple CSV file or an SFTP drop\u2014to ingest your jobs into our system in an automated fashion."
+ },
+ {
+  "arm": "wide",
+  "q": "Q3",
+  "run": 1,
+  "seconds": 17.5,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 11,
+  "verdict": "RIGHT",
+  "answer": "Once we receive the feed, Joveo can typically have it mapped and set up within the same week (usually within a couple of days). From there, when the jobs actually go live depends on the individual job boards' indexing timelines\u2014for instance, platforms like LinkedIn usually take about 2 to 3 days to index the jobs."
+ },
+ {
+  "arm": "wide",
+  "q": "Q3",
+  "run": 2,
+  "seconds": 21.8,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 11,
+  "verdict": "RIGHT",
+  "answer": "Once you send us the feed file, we can usually get everything mapped and set up on Joveo within the same week (typically within a couple of days). However, when the jobs actually go live and start showing up on specific job boards depends on each board's individual indexing timelines\u2014for example, LinkedIn usually takes around 2 to 3 days."
+ },
+ {
+  "arm": "wide",
+  "q": "Q3",
+  "run": 3,
+  "seconds": 20.0,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [
+   "wide"
+  ],
+  "rank": 11,
+  "verdict": "RIGHT",
+  "answer": "Once we receive the feed file, we can typically get it mapped and set up on Joveo's side within the same week\u2014usually within a couple of days. However, when the jobs actually go live on external platforms depends on how quickly each individual job board indexes them. For example, platforms like LinkedIn usually take about 2 to 3 days to index new jobs."
+ },
+ {
+  "arm": "wide",
+  "q": "Q4",
+  "run": 1,
+  "seconds": 13.8,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Acknowledge and align with their approach while legal completes their review. Suggest setting a target launch date as a placeholder for now and working through some of the non-data onboarding and setup items in parallel. That way, even if the contract review pushes the timeline out, all the setup items will be completed and you will be in a great position to launch as soon as legal approves\u2014it will just be a matter of pushing the button."
+ },
+ {
+  "arm": "wide",
+  "q": "Q4",
+  "run": 2,
+  "seconds": 15.0,
+  "outcome": "answered",
+  "reason": null,
+  "retries": [],
+  "rank": 1,
+  "verdict": "RIGHT",
+  "answer": "Align completely with their approach regarding the legal review. Suggest setting a target launch date as a temporary placeholder while you work through non-dependent onboarding and technical setup tasks in parallel. This ensures that if the contract review takes longer, the target date can easily be adjusted, but once legal approves the MSA, all setup tasks will already be completed and you will be ready to launch immediately."
+ }
+]
