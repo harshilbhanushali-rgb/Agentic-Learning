@@ -9,6 +9,7 @@ import { SituationForm } from '@/components/ask-naren/SituationForm';
 import { DeclineNotice } from '@/components/ask-naren/DeclineNotice';
 import { ThreadRail } from '@/components/ask-naren/ThreadRail';
 import { CoverageStarters } from '@/components/ask-naren/CoverageStarters';
+import { HelpCard, isHelpCommand } from '@/components/ask-naren/HelpCard';
 import { Asked, NotSavedNote, Outcome } from '@/components/ask-naren/Turn';
 import { relativeTime } from '@/components/ask-naren/threadTime';
 import { stashAndSignIn, takeStash } from '@/components/ask-naren/draftStash';
@@ -86,6 +87,8 @@ export function AskNaren({
   const [flash, setFlash] = useState<AskNarenDecline | null>(null);
   /** One line about what just happened to a thread (removed, would not open, ...). */
   const [note, setNote] = useState<string | null>(null);
+  /** The `/help` card is open. Not a turn: nothing was asked. */
+  const [help, setHelp] = useState(false);
   /** Null until mounted: relative times are in the reader's zone, unknown to the server. */
   const [now, setNow] = useState<Date | null>(null);
 
@@ -183,6 +186,14 @@ export function AskNaren({
   const ask = async () => {
     const asked = draft.trim();
     if (!asked || asking !== null) return;
+    if (isHelpCommand(asked)) {
+      // Answered here, never sent: no search, no turn, nothing for the next question to
+      // carry. The open thread is left exactly as it was.
+      setDraft('');
+      setHelp(true);
+      return;
+    }
+    setHelp(false);
     // After an unsaved answer, the next question starts a new thread (#40).
     const from = conversation.detached ? EMPTY : conversation;
     if (conversation.detached) setConversation(EMPTY);
@@ -356,7 +367,9 @@ export function AskNaren({
 
         {flash && <DeclineNotice result={flash} />}
 
-        {empty && <CoverageStarters />}
+        {help && <HelpCard onClose={() => setHelp(false)} />}
+
+        {empty && !help && <CoverageStarters />}
 
         {opening !== null ? (
           <p className="flex items-center gap-3 text-[13px] text-ink-2" role="status">

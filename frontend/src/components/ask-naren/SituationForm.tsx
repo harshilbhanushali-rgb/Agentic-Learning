@@ -54,7 +54,8 @@ export function SituationForm({
       <div className="flex items-center justify-between gap-4">
         <span className="text-[11px] text-ink-placeholder">
           Grounded in Naren&rsquo;s real calls. If nothing close exists, Ask Naren says so
-          rather than guessing.
+          rather than guessing. Type <span className="font-medium text-ink-2">/help</span> for
+          what to ask.
         </span>
         <button
           type="submit"
