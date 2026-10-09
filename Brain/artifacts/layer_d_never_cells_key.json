@@ -1,0 +1,14 @@
+[
+ {
+  "cell": 1,
+  "rater_id": "CSM_MADHUMITA",
+  "playbook_id": 429,
+  "move_id": "M1",
+  "scenario_key": "application_volume_and_prioritization",
+  "state": "uses it, rarely",
+  "csm_said_calls": 5,
+  "csm_calls": 53,
+  "calls_needed": 7,
+  "n_moments": 110
+ }
+]

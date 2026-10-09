@@ -27,7 +27,8 @@ from shared.prompts import PROMPT_GRADUATE_SINK_TOPIC
 from shared.tuning import load_tuning
 from v2.layer_c import run_layer_c_v2
 
-_LOG_PATH = Path(__file__).parent / "response_taxonomy_auto_pass.log"
+_LOG_PATH = Path(__file__).parent / "logs" / "response_taxonomy_auto_pass.log"
+_LOG_PATH.parent.mkdir(exist_ok=True)
 _GEMMA_CALL_DELAY = 5
 _NEAR_MISS_MARGIN = 0.05  # Decision 1: log (don't block) a second-best match within this band.
 

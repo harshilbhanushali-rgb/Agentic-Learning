@@ -1,0 +1,607 @@
+{
+  "rows": [
+    {
+      "resolved": true,
+      "pair_id": 37092,
+      "duplicate_matches": 1,
+      "declined": true,
+      "cosine": 0.7854628562927246,
+      "held_primary": "advanced_targeting_and_differentiation",
+      "held_labels": [
+        "advanced_targeting_and_differentiation",
+        "campaign_level_performance_tracking"
+      ],
+      "ret_primary": "campaign_level_performance_tracking",
+      "ret_labels": [
+        "advanced_targeting_and_differentiation",
+        "campaign_level_performance_tracking"
+      ],
+      "primary_match": false,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": true,
+      "held_call": "20240923_pink_squid_joveo_onboarding_kick_off_16503b13.txt",
+      "own_scenario_pairs": 199,
+      "own_scenario_calls": 153,
+      "own_scenario_pairs_after_mask": 198
+    },
+    {
+      "resolved": true,
+      "pair_id": 37154,
+      "duplicate_matches": 1,
+      "declined": false,
+      "cosine": 0.7631120681762695,
+      "held_primary": "application_volume_and_prioritization",
+      "held_labels": [
+        "application_volume_and_prioritization",
+        "testing_and_implementation_timeline",
+        "vendor_transition_and_partnership_evaluation"
+      ],
+      "ret_primary": "testing_and_implementation_timeline",
+      "ret_labels": [
+        "testing_and_implementation_timeline"
+      ],
+      "primary_match": false,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": false,
+      "held_call": "20241009_roadie_joveo_weekly_connect_c765c495.txt",
+      "own_scenario_pairs": 771,
+      "own_scenario_calls": 409,
+      "own_scenario_pairs_after_mask": 770
+    },
+    {
+      "resolved": true,
+      "pair_id": 38316,
+      "duplicate_matches": 1,
+      "declined": false,
+      "cosine": 0.8758080005645752,
+      "held_primary": "ats_integration_and_api_mapping",
+      "held_labels": [
+        "ats_integration_and_api_mapping",
+        "job_board_budget_and_direct_agreements",
+        "programmatic_advertising_scope_and_capability"
+      ],
+      "ret_primary": "campaign_level_performance_tracking",
+      "ret_labels": [
+        "campaign_level_performance_tracking",
+        "job_board_budget_and_direct_agreements",
+        "programmatic_advertising_scope_and_capability"
+      ],
+      "primary_match": false,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": false,
+      "held_primary_in_ret_labels": false,
+      "held_call": "20250321_new_story_joveo_weekly_onboarding_connec_9439bb79.txt",
+      "own_scenario_pairs": 385,
+      "own_scenario_calls": 235,
+      "own_scenario_pairs_after_mask": 382
+    },
+    {
+      "resolved": true,
+      "pair_id": 38020,
+      "duplicate_matches": 1,
+      "declined": false,
+      "cosine": 0.8595365285873413,
+      "held_primary": "attribution_and_funnel_tracking",
+      "held_labels": [
+        "ats_integration_and_api_mapping",
+        "attribution_and_funnel_tracking"
+      ],
+      "ret_primary": "ats_integration_and_api_mapping",
+      "ret_labels": [
+        "application_volume_and_prioritization",
+        "ats_integration_and_api_mapping",
+        "job_board_budget_and_direct_agreements"
+      ],
+      "primary_match": false,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": false,
+      "held_call": "20250226_vendor_demo_hope_leigh_marketing_group_8b5bf46b.txt",
+      "own_scenario_pairs": 112,
+      "own_scenario_calls": 88,
+      "own_scenario_pairs_after_mask": 111
+    },
+    {
+      "resolved": true,
+      "pair_id": 30923,
+      "duplicate_matches": 1,
+      "declined": false,
+      "cosine": 0.8249226808547974,
+      "held_primary": "budget_allocation_and_testing",
+      "held_labels": [
+        "budget_allocation_and_testing",
+        "job_board_budget_and_direct_agreements",
+        "reliance_on_major_social_and_professional_networks"
+      ],
+      "ret_primary": "programmatic_advertising_scope_and_capability",
+      "ret_labels": [
+        "craigslist_and_classifieds_strategy",
+        "job_board_budget_and_direct_agreements",
+        "programmatic_advertising_scope_and_capability"
+      ],
+      "primary_match": false,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": false,
+      "held_primary_in_ret_labels": false,
+      "held_call": "db20a991-f797-459b-a683-2a135b1915e1.txt",
+      "own_scenario_pairs": 342,
+      "own_scenario_calls": 219,
+      "own_scenario_pairs_after_mask": 340
+    },
+    {
+      "resolved": true,
+      "pair_id": 36078,
+      "duplicate_matches": 1,
+      "declined": true,
+      "cosine": 0.8547006249427795,
+      "held_primary": "craigslist_and_classifieds_strategy",
+      "held_labels": [
+        "craigslist_and_classifieds_strategy",
+        "creative_and_media_plan_review",
+        "xml_feed_setup_and_ingestion"
+      ],
+      "ret_primary": "craigslist_and_classifieds_strategy",
+      "ret_labels": [
+        "craigslist_and_classifieds_strategy"
+      ],
+      "primary_match": true,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": true,
+      "held_call": "20240723_joveo_for_angi_implementation_kick_off_ac71e12d.txt",
+      "own_scenario_pairs": 116,
+      "own_scenario_calls": 91,
+      "own_scenario_pairs_after_mask": 114
+    },
+    {
+      "resolved": true,
+      "pair_id": 36400,
+      "duplicate_matches": 1,
+      "declined": true,
+      "cosine": 0.8037116527557373,
+      "held_primary": "dashboard_access_and_reporting",
+      "held_labels": [
+        "campaign_level_performance_tracking",
+        "dashboard_access_and_reporting"
+      ],
+      "ret_primary": "campaign_level_performance_tracking",
+      "ret_labels": [
+        "campaign_level_performance_tracking",
+        "dashboard_access_and_reporting"
+      ],
+      "primary_match": false,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": true,
+      "held_call": "20240801_uber_corp_emea_joveo_connect_6240fae5.txt",
+      "own_scenario_pairs": 127,
+      "own_scenario_calls": 105,
+      "own_scenario_pairs_after_mask": 126
+    },
+    {
+      "resolved": true,
+      "pair_id": 27765,
+      "duplicate_matches": 1,
+      "declined": false,
+      "cosine": 0.8502426147460938,
+      "held_primary": "downstream_activation_and_cost_metrics",
+      "held_labels": [
+        "application_volume_and_prioritization",
+        "campaign_level_performance_tracking",
+        "downstream_activation_and_cost_metrics"
+      ],
+      "ret_primary": "application_volume_and_prioritization",
+      "ret_labels": [
+        "application_volume_and_prioritization",
+        "downstream_activation_and_cost_metrics",
+        "programmatic_advertising_scope_and_capability"
+      ],
+      "primary_match": false,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": true,
+      "held_call": "1280e21c-b6c6-4545-a01b-943607f70be3.txt",
+      "own_scenario_pairs": 233,
+      "own_scenario_calls": 155,
+      "own_scenario_pairs_after_mask": 230
+    },
+    {
+      "resolved": true,
+      "pair_id": 31266,
+      "duplicate_matches": 1,
+      "declined": false,
+      "cosine": 0.8258585929870605,
+      "held_primary": "geographic_targeting_and_location_mapping",
+      "held_labels": [
+        "geographic_targeting_and_location_mapping"
+      ],
+      "ret_primary": "geographic_targeting_and_location_mapping",
+      "ret_labels": [
+        "geographic_targeting_and_location_mapping",
+        "regional_talent_acquisition_and_brand_strategy"
+      ],
+      "primary_match": true,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": true,
+      "held_call": "ecbdbf14-3759-430d-aee1-072b929b8ae8.txt",
+      "own_scenario_pairs": 17,
+      "own_scenario_calls": 11,
+      "own_scenario_pairs_after_mask": 14
+    },
+    {
+      "resolved": true,
+      "pair_id": 38417,
+      "duplicate_matches": 1,
+      "declined": true,
+      "cosine": 0.8415915966033936,
+      "held_primary": "job_board_budget_and_direct_agreements",
+      "held_labels": [
+        "job_board_budget_and_direct_agreements",
+        "programmatic_advertising_scope_and_capability",
+        "specialty_and_niche_job_boards_integration"
+      ],
+      "ret_primary": "ats_integration_and_api_mapping",
+      "ret_labels": [
+        "ats_integration_and_api_mapping"
+      ],
+      "primary_match": false,
+      "any_label_overlap": false,
+      "ret_primary_in_held_labels": false,
+      "held_primary_in_ret_labels": false,
+      "held_call": "20250326_joveo_x_oracle_implementation_requiremen_e0fb21bc.txt",
+      "own_scenario_pairs": 576,
+      "own_scenario_calls": 341,
+      "own_scenario_pairs_after_mask": 575
+    },
+    {
+      "resolved": true,
+      "pair_id": 35727,
+      "duplicate_matches": 1,
+      "declined": true,
+      "cosine": 0.8089649677276611,
+      "held_primary": "job_role_taxonomy_and_scoping",
+      "held_labels": [
+        "job_role_taxonomy_and_scoping",
+        "regional_talent_acquisition_and_brand_strategy"
+      ],
+      "ret_primary": "regional_talent_acquisition_and_brand_strategy",
+      "ret_labels": [
+        "regional_talent_acquisition_and_brand_strategy"
+      ],
+      "primary_match": false,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": false,
+      "held_call": "20240710_uber_corp_apac_joveo_connect_9aeefe3f.txt",
+      "own_scenario_pairs": 101,
+      "own_scenario_calls": 85,
+      "own_scenario_pairs_after_mask": 100
+    },
+    {
+      "resolved": true,
+      "pair_id": 38766,
+      "duplicate_matches": 1,
+      "declined": true,
+      "cosine": 0.7360389232635498,
+      "held_primary": "landing_page_and_conversion_setup",
+      "held_labels": [
+        "landing_page_and_conversion_setup",
+        "pixel_placement_and_tracking",
+        "slack_communication_and_channel_setup"
+      ],
+      "ret_primary": "campaign_level_performance_tracking",
+      "ret_labels": [
+        "campaign_level_performance_tracking"
+      ],
+      "primary_match": false,
+      "any_label_overlap": false,
+      "ret_primary_in_held_labels": false,
+      "held_primary_in_ret_labels": false,
+      "held_call": "20250416_joveo_scale_ai_36018df7.txt",
+      "own_scenario_pairs": 146,
+      "own_scenario_calls": 102,
+      "own_scenario_pairs_after_mask": 145
+    },
+    {
+      "resolved": true,
+      "pair_id": 32726,
+      "duplicate_matches": 1,
+      "declined": false,
+      "cosine": 0.7984738945960999,
+      "held_primary": "multi_language_copy_and_translation",
+      "held_labels": [
+        "multi_language_copy_and_translation"
+      ],
+      "ret_primary": "multi_language_copy_and_translation",
+      "ret_labels": [
+        "multi_language_copy_and_translation"
+      ],
+      "primary_match": true,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": true,
+      "held_call": "20231130_uber_corporate_joveo_connect_na_latam_58528c6c.txt",
+      "own_scenario_pairs": 21,
+      "own_scenario_calls": 14,
+      "own_scenario_pairs_after_mask": 19
+    },
+    {
+      "resolved": true,
+      "pair_id": 33716,
+      "duplicate_matches": 1,
+      "declined": true,
+      "cosine": 0.8188221454620361,
+      "held_primary": "niche_talent_scarcity_and_budget_reallocation",
+      "held_labels": [
+        "gig_economy_driver_supply_acquisition",
+        "job_board_budget_and_direct_agreements",
+        "niche_talent_scarcity_and_budget_reallocation"
+      ],
+      "ret_primary": "regional_talent_acquisition_and_brand_strategy",
+      "ret_labels": [
+        "regional_talent_acquisition_and_brand_strategy"
+      ],
+      "primary_match": false,
+      "any_label_overlap": false,
+      "ret_primary_in_held_labels": false,
+      "held_primary_in_ret_labels": false,
+      "held_call": "20240208_cnb_joveo_product_requirements_f17633d7.txt",
+      "own_scenario_pairs": 104,
+      "own_scenario_calls": 83,
+      "own_scenario_pairs_after_mask": 103
+    },
+    {
+      "resolved": true,
+      "pair_id": 27610,
+      "duplicate_matches": 1,
+      "declined": true,
+      "cosine": 0.8156620860099792,
+      "held_primary": "non_technical_stakeholder_translation",
+      "held_labels": [
+        "non_technical_stakeholder_translation",
+        "programmatic_advertising_scope_and_capability",
+        "regional_talent_acquisition_and_brand_strategy"
+      ],
+      "ret_primary": "advanced_targeting_and_differentiation",
+      "ret_labels": [
+        "advanced_targeting_and_differentiation",
+        "programmatic_advertising_scope_and_capability",
+        "reliance_on_major_social_and_professional_networks"
+      ],
+      "primary_match": false,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": false,
+      "held_primary_in_ret_labels": false,
+      "held_call": "082374e7-211c-4d56-b86e-58d762e05775.txt",
+      "own_scenario_pairs": 16,
+      "own_scenario_calls": 15,
+      "own_scenario_pairs_after_mask": 14
+    },
+    {
+      "resolved": true,
+      "pair_id": 34463,
+      "duplicate_matches": 1,
+      "declined": false,
+      "cosine": 0.8005623817443848,
+      "held_primary": "pixel_placement_and_tracking",
+      "held_labels": [
+        "pixel_placement_and_tracking"
+      ],
+      "ret_primary": "pixel_placement_and_tracking",
+      "ret_labels": [
+        "pixel_placement_and_tracking"
+      ],
+      "primary_match": true,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": true,
+      "held_call": "20240417_joveo_appvault_weekly_touchbase_161cf9ac.txt",
+      "own_scenario_pairs": 233,
+      "own_scenario_calls": 140,
+      "own_scenario_pairs_after_mask": 232
+    },
+    {
+      "resolved": true,
+      "pair_id": 28496,
+      "duplicate_matches": 1,
+      "declined": false,
+      "cosine": 0.8011584281921387,
+      "held_primary": "pricing_and_fee_structures",
+      "held_labels": [
+        "craigslist_and_classifieds_strategy",
+        "downstream_activation_and_cost_metrics",
+        "pricing_and_fee_structures"
+      ],
+      "ret_primary": "pricing_and_fee_structures",
+      "ret_labels": [
+        "downstream_activation_and_cost_metrics",
+        "pricing_and_fee_structures"
+      ],
+      "primary_match": true,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": true,
+      "held_call": "40fc4d01-9a9e-4da2-855d-e26f549c418f.txt",
+      "own_scenario_pairs": 31,
+      "own_scenario_calls": 25,
+      "own_scenario_pairs_after_mask": 30
+    },
+    {
+      "resolved": true,
+      "pair_id": 37319,
+      "duplicate_matches": 1,
+      "declined": true,
+      "cosine": 0.8286195993423462,
+      "held_primary": "publisher_management_and_exclusions",
+      "held_labels": [
+        "publisher_management_and_exclusions"
+      ],
+      "ret_primary": "publisher_management_and_exclusions",
+      "ret_labels": [
+        "job_board_budget_and_direct_agreements",
+        "publisher_management_and_exclusions",
+        "vendor_transition_and_partnership_evaluation"
+      ],
+      "primary_match": true,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": true,
+      "held_call": "20241113_jet_courier_joveo_weekly_check_in_d0dccf8c.txt",
+      "own_scenario_pairs": 105,
+      "own_scenario_calls": 67,
+      "own_scenario_pairs_after_mask": 102
+    },
+    {
+      "resolved": true,
+      "pair_id": 37865,
+      "duplicate_matches": 1,
+      "declined": false,
+      "cosine": 0.8357101082801819,
+      "held_primary": "regional_talent_acquisition_and_brand_strategy",
+      "held_labels": [
+        "regional_talent_acquisition_and_brand_strategy"
+      ],
+      "ret_primary": "regional_talent_acquisition_and_brand_strategy",
+      "ret_labels": [
+        "craigslist_and_classifieds_strategy",
+        "job_board_budget_and_direct_agreements",
+        "regional_talent_acquisition_and_brand_strategy"
+      ],
+      "primary_match": true,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": true,
+      "held_call": "20250211_spring_health_joveo_onboarding_catchup_ba95e1e0.txt",
+      "own_scenario_pairs": 415,
+      "own_scenario_calls": 236,
+      "own_scenario_pairs_after_mask": 410
+    },
+    {
+      "resolved": true,
+      "pair_id": 36286,
+      "duplicate_matches": 1,
+      "declined": true,
+      "cosine": 0.8444710969924927,
+      "held_primary": "reliance_on_major_social_and_professional_networks",
+      "held_labels": [
+        "application_volume_and_prioritization",
+        "regional_talent_acquisition_and_brand_strategy",
+        "reliance_on_major_social_and_professional_networks"
+      ],
+      "ret_primary": "application_volume_and_prioritization",
+      "ret_labels": [
+        "application_volume_and_prioritization",
+        "campaign_level_performance_tracking",
+        "job_board_budget_and_direct_agreements"
+      ],
+      "primary_match": false,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": false,
+      "held_call": "20240729_uber_corp_latam_joveo_latam_plan_and_res_9724642d.txt",
+      "own_scenario_pairs": 341,
+      "own_scenario_calls": 235,
+      "own_scenario_pairs_after_mask": 340
+    },
+    {
+      "resolved": true,
+      "pair_id": 31047,
+      "duplicate_matches": 1,
+      "declined": false,
+      "cosine": 0.8242270350456238,
+      "held_primary": "slack_communication_and_channel_setup",
+      "held_labels": [
+        "slack_communication_and_channel_setup"
+      ],
+      "ret_primary": "slack_communication_and_channel_setup",
+      "ret_labels": [
+        "slack_communication_and_channel_setup"
+      ],
+      "primary_match": true,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": true,
+      "held_call": "e3d161a4-b2f5-4190-af6c-2c2dc78a27c4.txt",
+      "own_scenario_pairs": 31,
+      "own_scenario_calls": 27,
+      "own_scenario_pairs_after_mask": 29
+    },
+    {
+      "resolved": true,
+      "pair_id": 29351,
+      "duplicate_matches": 1,
+      "declined": true,
+      "cosine": 0.7980512976646423,
+      "held_primary": "specialty_and_niche_job_boards_integration",
+      "held_labels": [
+        "application_volume_and_prioritization",
+        "job_role_taxonomy_and_scoping",
+        "specialty_and_niche_job_boards_integration"
+      ],
+      "ret_primary": "programmatic_advertising_scope_and_capability",
+      "ret_labels": [
+        "job_board_budget_and_direct_agreements",
+        "programmatic_advertising_scope_and_capability",
+        "reliance_on_major_social_and_professional_networks"
+      ],
+      "primary_match": false,
+      "any_label_overlap": false,
+      "ret_primary_in_held_labels": false,
+      "held_primary_in_ret_labels": false,
+      "held_call": "76e5c022-83c9-49f4-8e74-3137aefbc237.txt",
+      "own_scenario_pairs": 86,
+      "own_scenario_calls": 76,
+      "own_scenario_pairs_after_mask": 85
+    },
+    {
+      "resolved": true,
+      "pair_id": 29028,
+      "duplicate_matches": 1,
+      "declined": true,
+      "cosine": 0.7801657915115356,
+      "held_primary": "technical_integration_and_timeline_scoping",
+      "held_labels": [
+        "technical_integration_and_timeline_scoping"
+      ],
+      "ret_primary": "technical_integration_and_timeline_scoping",
+      "ret_labels": [
+        "technical_integration_and_timeline_scoping"
+      ],
+      "primary_match": true,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": true,
+      "held_call": "5f72798f-cc20-4ecb-90b1-072c680c58c9.txt",
+      "own_scenario_pairs": 221,
+      "own_scenario_calls": 164,
+      "own_scenario_pairs_after_mask": 220
+    },
+    {
+      "resolved": true,
+      "pair_id": 34324,
+      "duplicate_matches": 1,
+      "declined": false,
+      "cosine": 0.8352446556091309,
+      "held_primary": "testing_and_implementation_timeline",
+      "held_labels": [
+        "testing_and_implementation_timeline"
+      ],
+      "ret_primary": "testing_and_implementation_timeline",
+      "ret_labels": [
+        "budget_allocation_and_testing",
+        "testing_and_implementation_timeline"
+      ],
+      "primary_match": true,
+      "any_label_overlap": true,
+      "ret_primary_in_held_labels": true,
+      "held_primary_in_ret_labels": true,
+      "held_call": "20240402_yoke_joveo_mha_weekly_project_call_b206048e.txt",
+      "own_scenario_pairs": 205,
+      "own_scenario_calls": 153,
+      "own_scenario_pairs_after_mask": 202
+    }
+  ]
+}

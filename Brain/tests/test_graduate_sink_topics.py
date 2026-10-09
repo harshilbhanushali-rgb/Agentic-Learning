@@ -1,10 +1,11 @@
-"""graduate_sink_topics.py's write path, verified against a mocked connection/cursor -- no
-real database, per this plan's Global Constraints (reads against prod are fine, writes are not
-during this pass). Asserts the exact SQL and bound parameters _graduate_one would send.
+"""calibration/graduate_sink_topics.py's write path, verified against a mocked
+connection/cursor -- no real database, per this plan's Global Constraints (reads against prod
+are fine, writes are not during this pass). Asserts the exact SQL and bound parameters
+_graduate_one would send.
 """
 from unittest.mock import MagicMock, call
 
-import graduate_sink_topics as gst
+from calibration import graduate_sink_topics as gst
 from shared import cluster_evidence
 
 
@@ -92,9 +93,18 @@ class TestGraduateOne:
         cur.execute.assert_not_called()
 
     def test_skips_when_reconciliation_gate_fails(self, monkeypatch):
+        # sim is DERIVED from the live threshold, not hardcoded. It used to be a literal 0.90,
+        # which only failed the gate because merge_cosine_threshold happened to be 0.85; when
+        # that moved to 0.97 for turn mode the fixture silently started PASSING the gate, and
+        # the test failed downstream on a None config instead of testing the skip. Same
+        # reasoning as test_layer_b_assignment's near-tie fixture: express the value as a
+        # relationship to the knob so retuning the knob cannot invert the test's meaning.
+        from shared.tuning import load_tuning
+        above_gate = load_tuning().layer_a.merge_cosine_threshold + 0.005
         conn, cur = _mock_conn()
         result = gst._graduate_one(
-            "cluster_5", _record(sim=0.90), _verdict(), config=None, conn=conn, dry_run=False,
+            "cluster_5", _record(sim=above_gate), _verdict(), config=None, conn=conn,
+            dry_run=False,
         )
         assert result is None
         cur.execute.assert_not_called()

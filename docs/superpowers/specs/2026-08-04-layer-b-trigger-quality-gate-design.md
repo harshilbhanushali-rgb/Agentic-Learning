@@ -203,3 +203,46 @@ signals don't separate well enough to build one at all) → build `filter_junk_p
 `compare_trigger_quality_gate.py` → read the dropped-pair samples → decide, separately, whether
 it's worth adopting into production. Each step can stop the effort if the data doesn't support
 continuing, matching the bar the sink-rescue and two-stage-matching experiments were held to.
+
+## Status update (2026-08-05): stopped at the second step — the data this design's own combining logic depends on doesn't separate, so `filter_junk_pairs` was never built
+
+The sequence above says to stop if `label_trigger_quality_sample.py`'s read doesn't support
+continuing. It doesn't. That script has now run twice against the same live `public` schema (see
+the sink-rescue design's Status updates 4-5 for the full run detail; this design consumes the same
+labeled sample rather than commissioning a second one, per "Relationship to the sink-rescue design"
+above), and every signal this design's own combining rule leans on has been measured, split by the
+same Gemma-judged coachable/not-coachable ground truth, using AUC (probability a random coachable
+pair scores higher than a random not-coachable pair; 0.5 = no signal, 1.0 = perfect separation):
+
+- **`concrete_content_density(response)`** — AUC 0.523. This is the field "Combining into a drop
+  decision" above calls out by name as "what the drop decision actually hinges on." It is
+  indistinguishable from chance.
+- **`concrete_content_density(trigger)`** — AUC 0.519. Also chance-level. This is one of the three
+  signals meant to decide whether "the trigger scores junky" in the same combining rule.
+- **`sink_real_margin`** — AUC 0.437 (i.e. the not-coachable group scores higher only ~56.3% of the
+  time). Points the direction this design's own docstring predicts, but far too weakly to gate on.
+- **`trigger_response_coupling`** — AUC 0.617. The best of the four, and explicitly scoped in this
+  design as only "a secondary cross-check... not a substitute for checking the response directly" —
+  it was never meant to carry the decision alone, and 0.617 isn't strong enough to let it.
+
+**Verdict: this design's combining rule cannot be built from these inputs, so `filter_junk_pairs`,
+`compare_trigger_quality_gate.py`, and the corresponding threshold in `tuning.yaml` are not built.**
+The rule requires the response-side check to reliably tell "carries content" from "doesn't" — that
+is the whole point of gating on the response at all, the same reasoning the sink-rescue design used
+to justify checking the response in the first place — and `concrete_content_density(response)` does
+not do that (confirmed independently by the sink-rescue design's own Status update 4, which found
+the identical failure). The trigger-side signals fare no better. `preceding_turn_is_question`'s own
+rate gap (17.5% coachable vs 5.7% not-coachable, per the sink-rescue design's Status update 5 report)
+is real but was only ever specified here as a tie-break inside a low-population borderline band, not
+load-bearing enough to rescue a combining rule whose primary term has failed.
+
+This closes the effort at the design's own second checkpoint, before any production code was
+written — `extract_pairs` and `assign_scenarios` remain exactly as they are today, and no new
+`shared/trigger_quality.py` consumer is added beyond the existing tests. Combined with the
+sink-rescue design's own exhaustion (four signal families measured, none usable), the two designs
+that shared this labeled sample have both concluded the same way: the underlying "is this trigger or
+response actually junk" question doesn't reduce cleanly to any embedding-relationship or
+text-structure signal tried so far. `response_word_count` remains the one measured exception (AUC
+0.853) — a real signal, but one that answers a different question (verbosity) than either design set
+out to answer (content specificity / conversational structure), and picking it up would need a new
+design of its own, not a patch to either of these two.

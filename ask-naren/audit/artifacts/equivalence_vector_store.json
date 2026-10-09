@@ -1,0 +1,1615 @@
+{
+  "index": "narens-brain-3072",
+  "k": 5,
+  "situations": 47,
+  "same_top1": 47,
+  "same_shortlist": 37,
+  "cosine_delta_max": 0.0016234512409972757,
+  "cosine_delta_mean": 0.00036670139579849645,
+  "margin_p50": 0.16518133878707886,
+  "margin_min": 0.0009044408798217773,
+  "margins_below_ann_error": 3,
+  "ann_error": 0.0015,
+  "memory_ms_median": 2.9997825622558594,
+  "pinecone_ms_median": 226.28021240234375,
+  "rows": [
+    {
+      "source": "answer_audit",
+      "situation": "We're just changing for the sake of changing, and David Weinstock from Blue Story said it was pretty good. You know what",
+      "memory_top5": [
+        "29150",
+        "29548",
+        "38779",
+        "33193",
+        "34738"
+      ],
+      "pinecone_top5": [
+        "29150",
+        "29548",
+        "38779",
+        "33193",
+        "34738"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.762067,
+        0.760284,
+        0.758017,
+        0.757829
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.762718,
+        0.760254,
+        0.758812,
+        0.757507
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "You know, we're hiring for sort of gig work, not, I guess, you know, you know, traditional sorta highly skilled jobs. So",
+      "memory_top5": [
+        "32777",
+        "33766",
+        "28598",
+        "29755",
+        "37389"
+      ],
+      "pinecone_top5": [
+        "32777",
+        "33766",
+        "28598",
+        "29755",
+        "37389"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.834818,
+        0.831113,
+        0.830109,
+        0.823888
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.834976,
+        0.831131,
+        0.830444,
+        0.824074
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Yeah. It's it's it's Informatica. CAI, which is more a cloud application integration. Informatica's product. Yeah. But y",
+      "memory_top5": [
+        "29100",
+        "33540",
+        "38633",
+        "30407",
+        "27738"
+      ],
+      "pinecone_top5": [
+        "29100",
+        "33540",
+        "38633",
+        "30407",
+        "27738"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.758814,
+        0.753274,
+        0.751554,
+        0.746946
+      ],
+      "pinecone_cosines": [
+        0.999962,
+        0.758583,
+        0.753403,
+        0.751442,
+        0.746948
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "In the campaigns, that is the ideal state. I'm only mentioning that because we don't wanna clog up the pipeline with peo",
+      "memory_top5": [
+        "38601",
+        "37869",
+        "31929",
+        "37383",
+        "32804"
+      ],
+      "pinecone_top5": [
+        "38601",
+        "37869",
+        "31929",
+        "37383",
+        "32804"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.840004,
+        0.833483,
+        0.825388,
+        0.815684
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.839653,
+        0.833794,
+        0.825371,
+        0.81601
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "You said I I actually, Harin, we have a good rotation. Right? Because I I saw the data without the DMP. I excluded the D",
+      "memory_top5": [
+        "28890",
+        "28891",
+        "28884",
+        "28892",
+        "28893"
+      ],
+      "pinecone_top5": [
+        "28890",
+        "28891",
+        "28884",
+        "28892",
+        "28893"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.893114,
+        0.891417,
+        0.823022,
+        0.807293
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.893883,
+        0.891785,
+        0.823608,
+        0.807144
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Alright. I'll work on this. Name quick question since I have you and we have two minutes here. Do you guys use Whatsapp ",
+      "memory_top5": [
+        "30247",
+        "32820",
+        "31788",
+        "29190",
+        "39853"
+      ],
+      "pinecone_top5": [
+        "30247",
+        "32820",
+        "31788",
+        "29190",
+        "39853"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.772446,
+        0.766345,
+        0.757082,
+        0.756814
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.77185,
+        0.766945,
+        0.756844,
+        0.756401
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "However, that was the only way that we had to cap on Costa, and indeed, that was not possible. So I think we never reall",
+      "memory_top5": [
+        "36030",
+        "36027",
+        "36031",
+        "37593",
+        "34418"
+      ],
+      "pinecone_top5": [
+        "36030",
+        "36027",
+        "36031",
+        "37593",
+        "34418"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.831451,
+        0.829334,
+        0.810137,
+        0.801801
+      ],
+      "pinecone_cosines": [
+        0.99971,
+        0.830689,
+        0.829033,
+        0.810432,
+        0.801102
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Yeah. So just to understand better. So because also with the new setups, I will share the feed that also you did see. I ",
+      "memory_top5": [
+        "35695",
+        "36784",
+        "35009",
+        "34420",
+        "35006"
+      ],
+      "pinecone_top5": [
+        "35695",
+        "36784",
+        "35009",
+        "34420",
+        "35022"
+      ],
+      "same_top1": true,
+      "same_shortlist": false,
+      "memory_cosines": [
+        1.0,
+        0.857875,
+        0.855331,
+        0.851306,
+        0.846212
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.857903,
+        0.856331,
+        0.852097,
+        0.846474
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Yeah. So, basically, your product is a little bit more wider than what Oracle plans to offer in the upcoming releases is",
+      "memory_top5": [
+        "38410",
+        "38024",
+        "29603",
+        "38409",
+        "29264"
+      ],
+      "pinecone_top5": [
+        "38410",
+        "38024",
+        "29603",
+        "38409",
+        "29264"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.847881,
+        0.839208,
+        0.838134,
+        0.833183
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.848083,
+        0.839249,
+        0.837936,
+        0.833855
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Bob lives at Cincinnati. Right? So that's fine. Yeah. Correct. I guess I'm just thinking if because whatever we're gonna",
+      "memory_top5": [
+        "29513",
+        "28992",
+        "37816",
+        "29000",
+        "39811"
+      ],
+      "pinecone_top5": [
+        "29513",
+        "28992",
+        "37816",
+        "29000",
+        "39811"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.816808,
+        0.807947,
+        0.803846,
+        0.80015
+      ],
+      "pinecone_cosines": [
+        0.999756,
+        0.816315,
+        0.808106,
+        0.803459,
+        0.799553
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "So we should be seeing, like, more down funnel attribution, you think?",
+      "memory_top5": [
+        "35362",
+        "35373",
+        "37371",
+        "33150",
+        "29395"
+      ],
+      "pinecone_top5": [
+        "35362",
+        "35373",
+        "37371",
+        "33150",
+        "29395"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.834164,
+        0.820211,
+        0.785665,
+        0.771083
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.834534,
+        0.820023,
+        0.786438,
+        0.771408
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Agreed, and that's also a project that we're about kick off internally, is just seeing, like, where we can flex if we wo",
+      "memory_top5": [
+        "35240",
+        "35319",
+        "35241",
+        "37029",
+        "31846"
+      ],
+      "pinecone_top5": [
+        "35240",
+        "35319",
+        "35241",
+        "37029",
+        "31846"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.843377,
+        0.838958,
+        0.83396,
+        0.827769
+      ],
+      "pinecone_cosines": [
+        0.999985,
+        0.843964,
+        0.839157,
+        0.833344,
+        0.827766
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Is there, like, a task under here around, the, like, sponsored brand campaigns? So, like, delivering to you, like, copy ",
+      "memory_top5": [
+        "28790",
+        "38606",
+        "36873",
+        "38435",
+        "38109"
+      ],
+      "pinecone_top5": [
+        "28790",
+        "38606",
+        "36873",
+        "38435",
+        "36872"
+      ],
+      "same_top1": true,
+      "same_shortlist": false,
+      "memory_cosines": [
+        1.0,
+        0.798745,
+        0.78927,
+        0.788976,
+        0.788438
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.798988,
+        0.789848,
+        0.789658,
+        0.78833
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Yeah. So then I guess, like, if you use this contract and I say I wanna do only $5,000 next month and then nothing at al",
+      "memory_top5": [
+        "28958",
+        "27966",
+        "36185",
+        "38730",
+        "28963"
+      ],
+      "pinecone_top5": [
+        "28958",
+        "27966",
+        "36185",
+        "38730",
+        "28963"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.841138,
+        0.826513,
+        0.822327,
+        0.821814
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.841568,
+        0.827332,
+        0.823021,
+        0.822838
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Yeah, and then you know, we can take things from there. That sounds great for me. Because I feel like if there's gonna b",
+      "memory_top5": [
+        "35462",
+        "30003",
+        "28313",
+        "35475",
+        "33291"
+      ],
+      "pinecone_top5": [
+        "35462",
+        "30003",
+        "28313",
+        "35475",
+        "33291"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.822458,
+        0.816823,
+        0.813594,
+        0.811783
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.82267,
+        0.816216,
+        0.813744,
+        0.812294
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "So it's not just copy and pasting job descriptions like we've been doing for years, and we're putting more visuals behin",
+      "memory_top5": [
+        "39504",
+        "39505",
+        "39220",
+        "39309",
+        "29710"
+      ],
+      "pinecone_top5": [
+        "39504",
+        "39505",
+        "39220",
+        "39309",
+        "29710"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.789359,
+        0.775263,
+        0.77337,
+        0.769888
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.789444,
+        0.775307,
+        0.773422,
+        0.770332
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "So I said I wanna use this starting June one. I have a dead how do we get things to give me data before June one?",
+      "memory_top5": [
+        "34530",
+        "34531",
+        "28972",
+        "28539",
+        "37160"
+      ],
+      "pinecone_top5": [
+        "34530",
+        "34531",
+        "28972",
+        "28539",
+        "37160"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.832186,
+        0.766251,
+        0.752785,
+        0.751786
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.833054,
+        0.76693,
+        0.752922,
+        0.75106
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "But we would still be getting. Oracle that we wouldn't otherwise from those publishers or in b morning. Right?",
+      "memory_top5": [
+        "38686",
+        "35572",
+        "35110",
+        "33994",
+        "32765"
+      ],
+      "pinecone_top5": [
+        "38686",
+        "35110",
+        "35572",
+        "33994",
+        "32765"
+      ],
+      "same_top1": true,
+      "same_shortlist": false,
+      "memory_cosines": [
+        1.0,
+        0.75044,
+        0.749924,
+        0.749404,
+        0.743564
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.750031,
+        0.749832,
+        0.748817,
+        0.744377
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "I'll follow up. I'm pinging her right now. Just I just wanna make sure that that's ready. Like, if we get the feed stuff",
+      "memory_top5": [
+        "32726",
+        "31031",
+        "31032",
+        "31092",
+        "32832"
+      ],
+      "pinecone_top5": [
+        "32726",
+        "31031",
+        "31032",
+        "31092",
+        "32832"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.798474,
+        0.795809,
+        0.794657,
+        0.785934
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.798103,
+        0.795998,
+        0.793938,
+        0.78582
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Maybe not the initial click. Yep. Yeah. It should be I'll I'll double check that data. We do have we we do tend to have ",
+      "memory_top5": [
+        "32994",
+        "32995",
+        "33161",
+        "37135",
+        "30316"
+      ],
+      "pinecone_top5": [
+        "32994",
+        "32995",
+        "33161",
+        "37135",
+        "30316"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.874608,
+        0.855519,
+        0.841295,
+        0.841255
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.874397,
+        0.856514,
+        0.842339,
+        0.842018
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "We did the media buying, the planning, campaign execution, give them the so what, anyone. So it's a full $3.60 solution ",
+      "memory_top5": [
+        "27637",
+        "27635",
+        "27636",
+        "34150",
+        "32868"
+      ],
+      "pinecone_top5": [
+        "27637",
+        "27635",
+        "27636",
+        "34150",
+        "32868"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.803456,
+        0.803161,
+        0.78859,
+        0.786712
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.803513,
+        0.802788,
+        0.789131,
+        0.786728
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "It was something that I just explored on my own. I was just curious if you guys had ever dealt with them and if it was a",
+      "memory_top5": [
+        "35476",
+        "35475",
+        "34958",
+        "32190",
+        "30363"
+      ],
+      "pinecone_top5": [
+        "35476",
+        "35475",
+        "34958",
+        "32190",
+        "30363"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.852331,
+        0.802996,
+        0.802503,
+        0.798921
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.85231,
+        0.802612,
+        0.80249,
+        0.798439
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "I actually don't talk to the ops teams. Okay. Like, I talk to somebody who talks to the ops teams. Got it. There's a lot",
+      "memory_top5": [
+        "28093",
+        "31049",
+        "28092",
+        "34979",
+        "36202"
+      ],
+      "pinecone_top5": [
+        "28093",
+        "31049",
+        "28092",
+        "34979",
+        "36202"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.779504,
+        0.7713,
+        0.769717,
+        0.768233
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.779892,
+        0.771446,
+        0.769791,
+        0.768265
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Specifically, Narayan, if they get and I'll share those. But it'll mainly be the two landing pages that they're directin",
+      "memory_top5": [
+        "38103",
+        "36187",
+        "29533",
+        "38446",
+        "35038"
+      ],
+      "pinecone_top5": [
+        "38103",
+        "36187",
+        "29533",
+        "38446",
+        "35038"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.826323,
+        0.809221,
+        0.807543,
+        0.805251
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.826569,
+        0.810631,
+        0.80809,
+        0.805534
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "So it's a combination of things. Like, we rank our assessments as, like, highly recommend, recommend, and perceive a cau",
+      "memory_top5": [
+        "37834",
+        "39207",
+        "28610",
+        "34979",
+        "27807"
+      ],
+      "pinecone_top5": [
+        "37834",
+        "39207",
+        "28610",
+        "27807",
+        "34979"
+      ],
+      "same_top1": true,
+      "same_shortlist": false,
+      "memory_cosines": [
+        1.0,
+        0.808986,
+        0.783363,
+        0.782393,
+        0.782078
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.809219,
+        0.7826,
+        0.782555,
+        0.78212
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "No. I don't I don't think so. If you just, if you just, send over the guide with the with the code, I can get that added",
+      "memory_top5": [
+        "36062",
+        "35350",
+        "31685",
+        "36970",
+        "34224"
+      ],
+      "pinecone_top5": [
+        "36062",
+        "31685",
+        "35350",
+        "36970",
+        "34224"
+      ],
+      "same_top1": true,
+      "same_shortlist": false,
+      "memory_cosines": [
+        1.0,
+        0.838068,
+        0.837982,
+        0.835854,
+        0.83525
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.839012,
+        0.838722,
+        0.83654,
+        0.83551
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Yeah. I think that's what you would, what you should expect that the person will get the signature and then the assessme",
+      "memory_top5": [
+        "34164",
+        "34550",
+        "34416",
+        "28218",
+        "35165"
+      ],
+      "pinecone_top5": [
+        "34164",
+        "34550",
+        "34416",
+        "28218",
+        "35165"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.830149,
+        0.789269,
+        0.78047,
+        0.776244
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.830864,
+        0.789597,
+        0.780685,
+        0.775726
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "I do have a question, more of a a request, I guess. When it comes to, like, the social media, like, promotion and displa",
+      "memory_top5": [
+        "30091",
+        "38384",
+        "29683",
+        "31083",
+        "36178"
+      ],
+      "pinecone_top5": [
+        "30091",
+        "38384",
+        "29683",
+        "31083",
+        "36178"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.817354,
+        0.809295,
+        0.802001,
+        0.796908
+      ],
+      "pinecone_cosines": [
+        0.998825,
+        0.816925,
+        0.808479,
+        0.8013,
+        0.795929
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Just so I understand. So the main issue here is when a city is missing?",
+      "memory_top5": [
+        "31272",
+        "38464",
+        "31266",
+        "27722",
+        "36032"
+      ],
+      "pinecone_top5": [
+        "31272",
+        "38464",
+        "31266",
+        "27722",
+        "36032"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.79067,
+        0.777853,
+        0.754742,
+        0.751026
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.790726,
+        0.778366,
+        0.755424,
+        0.750412
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Yeah. I think as you guys do have you guys already done onboarding with, like, our CS team on how to use the Craigslist ",
+      "memory_top5": [
+        "35881",
+        "31530",
+        "33759",
+        "36377",
+        "36078"
+      ],
+      "pinecone_top5": [
+        "35881",
+        "31530",
+        "33759",
+        "36377",
+        "36078"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.835527,
+        0.815636,
+        0.811379,
+        0.811267
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.836647,
+        0.816055,
+        0.812088,
+        0.81205
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "I guess the question I have then is, along with that is, is that information that is stored in the job posting itself, l",
+      "memory_top5": [
+        "37818",
+        "28033",
+        "28034",
+        "36583",
+        "31906"
+      ],
+      "pinecone_top5": [
+        "37818",
+        "28033",
+        "28034",
+        "36583",
+        "31906"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.845182,
+        0.842266,
+        0.841169,
+        0.840974
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.845589,
+        0.842079,
+        0.84095,
+        0.840736
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Is there automation on that where we can get it either fired to an inbox or embedded into, either in Sharepoint page or ",
+      "memory_top5": [
+        "35782",
+        "35838",
+        "34870",
+        "36359",
+        "37861"
+      ],
+      "pinecone_top5": [
+        "35782",
+        "35838",
+        "34870",
+        "36359",
+        "37861"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.771756,
+        0.770424,
+        0.766177,
+        0.764182
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.771957,
+        0.770462,
+        0.766106,
+        0.764893
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Right? Like, it's Vishy is not my resource. So I have to luckily, I have a good relationship with him. So he keeps helpi",
+      "memory_top5": [
+        "36822",
+        "31236",
+        "39821",
+        "33800",
+        "36821"
+      ],
+      "pinecone_top5": [
+        "36822",
+        "31236",
+        "39821",
+        "33800",
+        "36821"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.782165,
+        0.776514,
+        0.7755,
+        0.772371
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.783051,
+        0.777069,
+        0.775726,
+        0.772293
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "No. This one's not. This is a, the Google Analytics is UTM UTM based, Adverto's, analytics dashboard. This one, is a sou",
+      "memory_top5": [
+        "28665",
+        "35375",
+        "28668",
+        "38316",
+        "30416"
+      ],
+      "pinecone_top5": [
+        "28665",
+        "35375",
+        "28668",
+        "38316",
+        "30416"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.843918,
+        0.843876,
+        0.83645,
+        0.833334
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.845085,
+        0.844452,
+        0.838074,
+        0.834137
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Like, after transition? Like, who's gonna be our main account manager?",
+      "memory_top5": [
+        "31892",
+        "34407",
+        "37812",
+        "32309",
+        "31475"
+      ],
+      "pinecone_top5": [
+        "31892",
+        "34407",
+        "37812",
+        "32309",
+        "31475"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.73392,
+        0.724162,
+        0.723474,
+        0.723363
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.733757,
+        0.723572,
+        0.723404,
+        0.722961
+      ]
+    },
+    {
+      "source": "answer_audit",
+      "situation": "Like, 10 so I understood. Like, 10 Street is more than just an applicant tracking system because they are operating they",
+      "memory_top5": [
+        "37728",
+        "37729",
+        "30317",
+        "28771",
+        "37643"
+      ],
+      "pinecone_top5": [
+        "37728",
+        "37729",
+        "30317",
+        "28771",
+        "37643"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        1.0,
+        0.814152,
+        0.799423,
+        0.799231,
+        0.798691
+      ],
+      "pinecone_cosines": [
+        1.0,
+        0.814812,
+        0.800064,
+        0.799538,
+        0.798996
+      ]
+    },
+    {
+      "source": "intake_heldout",
+      "situation": "client asked me straight up what our list price is for a 12 month deal, how would Naren handle that",
+      "memory_top5": [
+        "34403",
+        "34929",
+        "36445",
+        "34647",
+        "37030"
+      ],
+      "pinecone_top5": [
+        "34403",
+        "34929",
+        "36445",
+        "34647",
+        "37030"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        0.74281,
+        0.738721,
+        0.732409,
+        0.725889,
+        0.725548
+      ],
+      "pinecone_cosines": [
+        0.742828,
+        0.738518,
+        0.732132,
+        0.726059,
+        0.724999
+      ]
+    },
+    {
+      "source": "intake_heldout",
+      "situation": "she said they had NOT approved the budget increase and were surprised to see it live",
+      "memory_top5": [
+        "38951",
+        "31068",
+        "33887",
+        "31483",
+        "33637"
+      ],
+      "pinecone_top5": [
+        "38951",
+        "33887",
+        "31068",
+        "31483",
+        "33637"
+      ],
+      "same_top1": true,
+      "same_shortlist": false,
+      "memory_cosines": [
+        0.595049,
+        0.583122,
+        0.583061,
+        0.578518,
+        0.575803
+      ],
+      "pinecone_cosines": [
+        0.595322,
+        0.583466,
+        0.583298,
+        0.578979,
+        0.577133
+      ]
+    },
+    {
+      "source": "intake_heldout",
+      "situation": "client wants to know whether we capped their city level spend or whether their own team did it",
+      "memory_top5": [
+        "32278",
+        "31428",
+        "33462",
+        "31943",
+        "36030"
+      ],
+      "pinecone_top5": [
+        "32278",
+        "31428",
+        "33462",
+        "31943",
+        "36030"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        0.745241,
+        0.742647,
+        0.741007,
+        0.740303,
+        0.737832
+      ],
+      "pinecone_cosines": [
+        0.745956,
+        0.742691,
+        0.740509,
+        0.739731,
+        0.738106
+      ]
+    },
+    {
+      "source": "intake_heldout",
+      "situation": "cliant said thier cpa is like 3x what we quotd, wht do i tell them",
+      "memory_top5": [
+        "28324",
+        "39534",
+        "36147",
+        "33500",
+        "33762"
+      ],
+      "pinecone_top5": [
+        "28324",
+        "36147",
+        "39534",
+        "33500",
+        "33762"
+      ],
+      "same_top1": true,
+      "same_shortlist": false,
+      "memory_cosines": [
+        0.776228,
+        0.768755,
+        0.768696,
+        0.768006,
+        0.76086
+      ],
+      "pinecone_cosines": [
+        0.77729,
+        0.769806,
+        0.769569,
+        0.768196,
+        0.76062
+      ]
+    },
+    {
+      "source": "intake_heldout",
+      "situation": "client mentioned CPA again",
+      "memory_top5": [
+        "33500",
+        "39534",
+        "28324",
+        "31974",
+        "33502"
+      ],
+      "pinecone_top5": [
+        "33500",
+        "39534",
+        "28324",
+        "31974",
+        "33502"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        0.774818,
+        0.772136,
+        0.770199,
+        0.752365,
+        0.748586
+      ],
+      "pinecone_cosines": [
+        0.775139,
+        0.77243,
+        0.770943,
+        0.752098,
+        0.748428
+      ]
+    },
+    {
+      "source": "intake_heldout",
+      "situation": "hey",
+      "memory_top5": [
+        "36798",
+        "28782",
+        "34095",
+        "34794",
+        "29723"
+      ],
+      "pinecone_top5": [
+        "36798",
+        "28782",
+        "34095",
+        "34794",
+        "27976"
+      ],
+      "same_top1": true,
+      "same_shortlist": false,
+      "memory_cosines": [
+        0.606329,
+        0.605425,
+        0.603608,
+        0.603437,
+        0.602164
+      ],
+      "pinecone_cosines": [
+        0.606796,
+        0.606171,
+        0.604813,
+        0.603569,
+        0.602142
+      ]
+    },
+    {
+      "source": "intake_heldout",
+      "situation": "client said the last campaign was the best they have run in two years and asked how we would scale it, what do i say",
+      "memory_top5": [
+        "28423",
+        "37695",
+        "30766",
+        "28326",
+        "27868"
+      ],
+      "pinecone_top5": [
+        "28423",
+        "37695",
+        "28326",
+        "30766",
+        "27868"
+      ],
+      "same_top1": true,
+      "same_shortlist": false,
+      "memory_cosines": [
+        0.748047,
+        0.739228,
+        0.725203,
+        0.724763,
+        0.724198
+      ],
+      "pinecone_cosines": [
+        0.746788,
+        0.739075,
+        0.724747,
+        0.724724,
+        0.724503
+      ]
+    },
+    {
+      "source": "intake_heldout",
+      "situation": "whats our standard payment terms for a new enterprise logo",
+      "memory_top5": [
+        "29746",
+        "28552",
+        "28557",
+        "39581",
+        "30328"
+      ],
+      "pinecone_top5": [
+        "29746",
+        "28552",
+        "28557",
+        "39581",
+        "30328"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        0.691628,
+        0.690325,
+        0.67708,
+        0.663372,
+        0.662945
+      ],
+      "pinecone_cosines": [
+        0.691483,
+        0.690758,
+        0.67704,
+        0.663475,
+        0.663269
+      ]
+    },
+    {
+      "source": "intake_heldout",
+      "situation": "we got on the call and honestly it went everywhere, they talked about hiring targets for a while and then the client sai",
+      "memory_top5": [
+        "36484",
+        "38995",
+        "31196",
+        "34243",
+        "34562"
+      ],
+      "pinecone_top5": [
+        "36484",
+        "38995",
+        "31196",
+        "34243",
+        "34357"
+      ],
+      "same_top1": true,
+      "same_shortlist": false,
+      "memory_cosines": [
+        0.739786,
+        0.730057,
+        0.729231,
+        0.728574,
+        0.727334
+      ],
+      "pinecone_cosines": [
+        0.73999,
+        0.729965,
+        0.729317,
+        0.728844,
+        0.727356
+      ]
+    },
+    {
+      "source": "intake_heldout",
+      "situation": "send me the Mercor case study pdf",
+      "memory_top5": [
+        "37714",
+        "36081",
+        "27602",
+        "28676",
+        "34579"
+      ],
+      "pinecone_top5": [
+        "37714",
+        "36081",
+        "27602",
+        "28676",
+        "34579"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        0.625736,
+        0.624633,
+        0.619036,
+        0.618847,
+        0.616149
+      ],
+      "pinecone_cosines": [
+        0.626114,
+        0.624611,
+        0.618813,
+        0.618248,
+        0.6166
+      ]
+    },
+    {
+      "source": "intake_heldout",
+      "situation": "a client like this one would want a case study, do we have something",
+      "memory_top5": [
+        "28676",
+        "34959",
+        "39315",
+        "34803",
+        "37926"
+      ],
+      "pinecone_top5": [
+        "28676",
+        "34959",
+        "39315",
+        "34803",
+        "37926"
+      ],
+      "same_top1": true,
+      "same_shortlist": true,
+      "memory_cosines": [
+        0.771622,
+        0.745139,
+        0.740764,
+        0.734666,
+        0.729675
+      ],
+      "pinecone_cosines": [
+        0.770615,
+        0.744415,
+        0.740456,
+        0.734474,
+        0.729507
+      ]
+    }
+  ]
+}

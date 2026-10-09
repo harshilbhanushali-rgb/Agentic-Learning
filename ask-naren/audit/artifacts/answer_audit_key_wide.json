@@ -1,0 +1,296 @@
+[
+  {
+    "id": 1,
+    "kind": "control_wrong"
+  },
+  {
+    "id": 2,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8364502787590027,
+    "held_out_scenario": "campaign_level_performance_tracking",
+    "retrieved_scenario": "ats_integration_and_api_mapping"
+  },
+  {
+    "id": 3,
+    "kind": "control_right",
+    "cosine": 0.9999998211860657
+  },
+  {
+    "id": 4,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.810137152671814,
+    "held_out_scenario": "job_board_budget_and_direct_agreements",
+    "retrieved_scenario": "downstream_activation_and_cost_metrics"
+  },
+  {
+    "id": 5,
+    "kind": "control_right",
+    "cosine": 1.0
+  },
+  {
+    "id": 6,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8301488161087036,
+    "held_out_scenario": "contract_and_legal_review",
+    "retrieved_scenario": "contract_and_legal_review"
+  },
+  {
+    "id": 7,
+    "kind": "control_right",
+    "cosine": 1.000000238418579
+  },
+  {
+    "id": 8,
+    "kind": "control_wrong"
+  },
+  {
+    "id": 9,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8451821208000183,
+    "held_out_scenario": "ats_integration_and_api_mapping",
+    "retrieved_scenario": "ats_integration_and_api_mapping"
+  },
+  {
+    "id": 10,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7885903716087341,
+    "held_out_scenario": "pricing_and_fee_structures",
+    "retrieved_scenario": "campaign_level_performance_tracking"
+  },
+  {
+    "id": 11,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8173540830612183,
+    "held_out_scenario": "advanced_targeting_and_differentiation",
+    "retrieved_scenario": "reliance_on_major_social_and_professional_networks"
+  },
+  {
+    "id": 12,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8238883018493652,
+    "held_out_scenario": "gig_economy_driver_supply_acquisition",
+    "retrieved_scenario": "reliance_on_major_social_and_professional_networks"
+  },
+  {
+    "id": 13,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8433765172958374,
+    "held_out_scenario": "hiring_forecasts_and_volume_scoping",
+    "retrieved_scenario": "application_volume_and_prioritization"
+  },
+  {
+    "id": 14,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8029957413673401,
+    "held_out_scenario": "specialty_and_niche_job_boards_integration",
+    "retrieved_scenario": "regional_talent_acquisition_and_brand_strategy"
+  },
+  {
+    "id": 15,
+    "kind": "control_right",
+    "cosine": 0.9999998211860657
+  },
+  {
+    "id": 16,
+    "kind": "control_wrong"
+  },
+  {
+    "id": 17,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8168075084686279,
+    "held_out_scenario": "market_insights_and_competitive_intelligence",
+    "retrieved_scenario": "ats_integration_and_api_mapping"
+  },
+  {
+    "id": 18,
+    "kind": "control_right",
+    "cosine": 1.0
+  },
+  {
+    "id": 19,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7717559337615967,
+    "held_out_scenario": "dashboard_access_and_reporting",
+    "retrieved_scenario": "technical_integration_and_timeline_scoping"
+  },
+  {
+    "id": 20,
+    "kind": "control_right",
+    "cosine": 1.0
+  },
+  {
+    "id": 21,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.803981363773346,
+    "held_out_scenario": "reliance_on_major_social_and_professional_networks",
+    "retrieved_scenario": "job_board_budget_and_direct_agreements"
+  },
+  {
+    "id": 22,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7724458575248718,
+    "held_out_scenario": "chatbot_and_messaging_implementation",
+    "retrieved_scenario": "reliance_on_major_social_and_professional_networks"
+  },
+  {
+    "id": 23,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7588144540786743,
+    "held_out_scenario": "technical_integration_and_timeline_scoping",
+    "retrieved_scenario": "technical_integration_and_timeline_scoping"
+  },
+  {
+    "id": 24,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8411383628845215,
+    "held_out_scenario": "budget_allocation_and_testing",
+    "retrieved_scenario": "budget_allocation_and_testing"
+  },
+  {
+    "id": 25,
+    "kind": "control_wrong"
+  },
+  {
+    "id": 26,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7984738945960999,
+    "held_out_scenario": "multi_language_copy_and_translation",
+    "retrieved_scenario": "multi_language_copy_and_translation"
+  },
+  {
+    "id": 27,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8089859485626221,
+    "held_out_scenario": "application_volume_and_prioritization",
+    "retrieved_scenario": "application_volume_and_prioritization"
+  },
+  {
+    "id": 28,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7363278865814209,
+    "held_out_scenario": "geographic_targeting_and_location_mapping",
+    "retrieved_scenario": "xml_feed_setup_and_ingestion"
+  },
+  {
+    "id": 29,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8578745722770691,
+    "held_out_scenario": "xml_feed_setup_and_ingestion",
+    "retrieved_scenario": "programmatic_advertising_scope_and_capability"
+  },
+  {
+    "id": 30,
+    "kind": "control_wrong"
+  },
+  {
+    "id": 31,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.826323390007019,
+    "held_out_scenario": "landing_page_and_conversion_setup",
+    "retrieved_scenario": "pixel_placement_and_tracking"
+  },
+  {
+    "id": 32,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8555186986923218,
+    "held_out_scenario": "downstream_activation_and_cost_metrics",
+    "retrieved_scenario": "landing_page_and_conversion_setup"
+  },
+  {
+    "id": 33,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7203974723815918,
+    "held_out_scenario": "vendor_transition_and_partnership_evaluation",
+    "retrieved_scenario": "vendor_transition_and_partnership_evaluation"
+  },
+  {
+    "id": 34,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7662505507469177,
+    "held_out_scenario": "testing_and_implementation_timeline",
+    "retrieved_scenario": "attribution_and_funnel_tracking"
+  },
+  {
+    "id": 35,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.834164023399353,
+    "held_out_scenario": "attribution_and_funnel_tracking",
+    "retrieved_scenario": "attribution_and_funnel_tracking"
+  },
+  {
+    "id": 36,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7504396438598633,
+    "held_out_scenario": "publisher_management_and_exclusions",
+    "retrieved_scenario": "publisher_management_and_exclusions"
+  },
+  {
+    "id": 37,
+    "kind": "control_wrong"
+  },
+  {
+    "id": 38,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7795039415359497,
+    "held_out_scenario": "slack_communication_and_channel_setup",
+    "retrieved_scenario": "slack_communication_and_channel_setup"
+  },
+  {
+    "id": 39,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7620668411254883,
+    "held_out_scenario": "vendor_transition_and_partnership_evaluation",
+    "retrieved_scenario": "programmatic_advertising_scope_and_capability"
+  },
+  {
+    "id": 40,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8478808403015137,
+    "held_out_scenario": "programmatic_advertising_scope_and_capability",
+    "retrieved_scenario": "specialty_and_niche_job_boards_integration"
+  },
+  {
+    "id": 41,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7987445592880249,
+    "held_out_scenario": "creative_and_media_plan_review",
+    "retrieved_scenario": "creative_and_media_plan_review"
+  },
+  {
+    "id": 42,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8380677700042725,
+    "held_out_scenario": "pixel_placement_and_tracking",
+    "retrieved_scenario": "pixel_placement_and_tracking"
+  }
+]

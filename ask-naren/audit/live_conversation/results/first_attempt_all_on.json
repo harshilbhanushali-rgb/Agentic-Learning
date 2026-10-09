@@ -1,0 +1,1872 @@
+[
+  {
+    "conv": "A. feed problem, then everything carried on it",
+    "message": "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+    "thread_in": [],
+    "response": {
+      "outcome": "answered",
+      "answer": "You can let the client know that jobs should automatically pull into the system as long as the company name and classification in the XML feed are correct. Check the missing jobs in the feed to confirm whether their company name or classification attributes are misaligned, as incorrect taxonomy is usually what prevents them from pulling through.",
+      "quote": "Unless the company classification itself is incorrect. Right? Like, it should fall in automatically.",
+      "citation": {
+        "label": "Joveo Zapid Hire Post Go Live Check In \u00b7 24 November 2023",
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt",
+        "pair_id": 32674,
+        "scenario_key": "xml_feed_setup_and_ingestion"
+      },
+      "match": {
+        "cosine": 0.785644591,
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "rank": 1
+      },
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "feed has been dropping jobs on us, like half their reqs just dont show up after the import",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 20.1
+  },
+  {
+    "conv": "A. feed problem, then everything carried on it",
+    "message": "ok whats the play here",
+    "thread_in": [
+      {
+        "message": "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+        "outcome": "answered",
+        "reply": "You can let the client know that jobs should automatically pull into the system as long as the company name and classification in the XML feed are correct. Check the missing jobs in the feed to confirm whether their company name or classification attributes are misaligned, as incorrect taxonomy is usually what prevents them from pulling through.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      }
+    ],
+    "response": {
+      "outcome": "answered",
+      "answer": "Here is the general play for handling XML feed setup and ingestion scenarios, listed in the order Naren typically runs them:\n\n1. Validate Feed Field Mappings and Multi-Feed Technical Rules: Confirm field mapping requirements against platform boundaries and clarify technical parameters or financial impacts of operating multi-feed setups to prevent display errors or duplicate spending.\n\n2. Specify Feed Ingestion Mechanics, Refresh Cadence, and Indexing Timelines: Outline technical mechanisms for file transfer (e.g., FTP/SFTP or API), feed mapping turnaround times, job refresh frequencies, and external publisher lead times to set clear expectations.\n\n3. Propose Phased Feed Rollouts and Launch Prioritization: Recommend staging technical features or source feed cutovers into distinct phases and prioritizing immediate launch items over secondary configurations to eliminate downtime and keep campaigns live.",
+      "quote": "We also have an SFTP integration with Indeed, which means that Indeed actually indexes and updates our feed every one, hour.",
+      "citation": {
+        "label": "Migration To Joveo \u00b7 9 July 2024",
+        "call_filename": "20240709_migration_to_joveo_4bb6b4db",
+        "scenario_key": "xml_feed_setup_and_ingestion"
+      },
+      "intake": {
+        "intent": "procedure",
+        "retrieval_query": "",
+        "situation": "carried",
+        "search_query": ""
+      }
+    },
+    "seconds": 12.4
+  },
+  {
+    "conv": "A. feed problem, then everything carried on it",
+    "message": "how would he actually say that to them",
+    "thread_in": [
+      {
+        "message": "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+        "outcome": "answered",
+        "reply": "You can let the client know that jobs should automatically pull into the system as long as the company name and classification in the XML feed are correct. Check the missing jobs in the feed to confirm whether their company name or classification attributes are misaligned, as incorrect taxonomy is usually what prevents them from pulling through.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      },
+      {
+        "message": "ok whats the play here",
+        "outcome": "answered",
+        "reply": "Here is the general play for handling XML feed setup and ingestion scenarios, listed in the order Naren typically runs them:\n\n1. Validate Feed Field Mappings and Multi-Feed Technical Rules: Confirm field mapping requirements against platform boundaries and clarify technical parameters or financial impacts of operating multi-feed setups to prevent display errors or duplicate spending.\n\n2. Specify Feed Ingestion Mechanics, Refresh Cadence, and Indexing Timelines: Outline technical mechanisms for file transfer (e.g., FTP/SFTP or API), feed mapping turnaround times, job refresh frequencies, and external publisher lead times to set clear expectations.\n\n3. Propose Phased Feed Rollouts and Launch Prioritization: Recommend staging technical features or source feed cutovers into distinct phases and prioritizing immediate launch items over secondary configurations to eliminate downtime and keep campaigns live.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": "20240709_migration_to_joveo_4bb6b4db"
+      }
+    ],
+    "response": {
+      "outcome": "rendered",
+      "kind": "phrasing",
+      "scenario_key": "xml_feed_setup_and_ingestion",
+      "phrases": [
+        {
+          "phrase": "4 to 8 day 8 working days aggregation process",
+          "quote": "Because Indeed does have, what they call is a lead time when it comes to indexing the feed. So their search quality team needs to approve the XML feed. So typically, that's about, you know, in Indeed's, you know, world, it's about a a 4 to 8 day 8 working days aggregation process. Right?",
+          "call": "20240325_fusion_now_joveo_client_onboarding_85d7ca96",
+          "label": "Fusion Now \u00b7 Client Onboarding \u00b7 25 March 2024"
+        },
+        {
+          "phrase": "phase two item",
+          "quote": "But what what my recommendation would kind of be is but, like, while I check with my team, like, we could kind of take this as as, like, a A phase two item. Right?",
+          "call": "20240109_tal_ai_joveo_onboarding_plan_walkthrough_dde8aa30",
+          "label": "Tal AI \u00b7 Onboarding Plan Walkthrough \u00b7 9 January 2024"
+        },
+        {
+          "phrase": "indexes and updates our feed every one, hour",
+          "quote": "We also have an SFTP integration with Indeed, which means that Indeed actually indexes and updates our feed every one, hour.",
+          "call": "20240709_migration_to_joveo_4bb6b4db",
+          "label": "Migration To Joveo \u00b7 9 July 2024"
+        },
+        {
+          "phrase": "source of truth for now",
+          "quote": "Okay. Perfect, and that's what we use as the. Yeah. Source. Yeah. Source of truth for now. Yes.",
+          "call": "20241205_menulog_joveo_17878e57",
+          "label": "Menulog Joveo \u00b7 5 December 2024"
+        },
+        {
+          "phrase": "tracks performance end to end",
+          "quote": "Yep, and Jovio also tracks performance end to end as well because we have tracking pixels placed on Oracle, the applied process, that is, when somebody completes an applied way.",
+          "call": "fa7194f6-023a-4808-8142-4bdc1feb90df",
+          "label": "fa7194f6-023a-4808-8142-4bdc1feb90df"
+        }
+      ],
+      "intake": {
+        "intent": "phrasing",
+        "retrieval_query": "",
+        "situation": "carried",
+        "search_query": ""
+      }
+    },
+    "seconds": 4.6
+  },
+  {
+    "conv": "A. feed problem, then everything carried on it",
+    "message": "what usually goes wrong",
+    "thread_in": [
+      {
+        "message": "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+        "outcome": "answered",
+        "reply": "You can let the client know that jobs should automatically pull into the system as long as the company name and classification in the XML feed are correct. Check the missing jobs in the feed to confirm whether their company name or classification attributes are misaligned, as incorrect taxonomy is usually what prevents them from pulling through.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      },
+      {
+        "message": "ok whats the play here",
+        "outcome": "answered",
+        "reply": "Here is the general play for handling XML feed setup and ingestion scenarios, listed in the order Naren typically runs them:\n\n1. Validate Feed Field Mappings and Multi-Feed Technical Rules: Confirm field mapping requirements against platform boundaries and clarify technical parameters or financial impacts of operating multi-feed setups to prevent display errors or duplicate spending.\n\n2. Specify Feed Ingestion Mechanics, Refresh Cadence, and Indexing Timelines: Outline technical mechanisms for file transfer (e.g., FTP/SFTP or API), feed mapping turnaround times, job refresh frequencies, and external publisher lead times to set clear expectations.\n\n3. Propose Phased Feed Rollouts and Launch Prioritization: Recommend staging technical features or source feed cutovers into distinct phases and prioritizing immediate launch items over secondary configurations to eliminate downtime and keep campaigns live.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": "20240709_migration_to_joveo_4bb6b4db"
+      },
+      {
+        "message": "how would he actually say that to them",
+        "outcome": "rendered",
+        "reply": "Showed how Naren words it.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "rendered",
+      "kind": "pitfalls",
+      "scenario_key": "xml_feed_setup_and_ingestion",
+      "pitfalls": [
+        {
+          "text": "Failing to account for publisher review lead times can cause unexpected campaign delays or downtime if existing feeds are disconnected prior to approval.",
+          "evidence": [
+            {
+              "quote": "Because Indeed does have, what they call is a lead time when it comes to indexing the feed. So their search quality team needs to approve the XML feed. So typically, that's about, you know, in Indeed's, you know, world, it's about a a 4 to 8 day 8 working days aggregation process. Right?",
+              "call": "20240325_fusion_now_joveo_client_onboarding_85d7ca96",
+              "label": "Fusion Now \u00b7 Client Onboarding \u00b7 25 March 2024"
+            }
+          ]
+        },
+        {
+          "text": "Failing to warn clients about double spending or job duplication when running multiple active feeds simultaneously.",
+          "evidence": [
+            {
+              "quote": "Yeah. Yep. We we can do that as well. Is not having the same client active on both, both the fields. Yeah. Yeah. That is That's a cost duplication, but you can you can have both. That that's not a problem.",
+              "call": "20230831_joveo_career_now_brands_contract_and_imp_fcbbb4fc",
+              "label": "Joveo Career Now Brands Contract And Imp \u00b7 31 August 2023"
+            }
+          ]
+        }
+      ],
+      "intake": {
+        "intent": "pitfalls",
+        "retrieval_query": "",
+        "situation": "carried",
+        "search_query": ""
+      }
+    },
+    "seconds": 1.1
+  },
+  {
+    "conv": "A. feed problem, then everything carried on it",
+    "message": "how sure are we on this one",
+    "thread_in": [
+      {
+        "message": "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+        "outcome": "answered",
+        "reply": "You can let the client know that jobs should automatically pull into the system as long as the company name and classification in the XML feed are correct. Check the missing jobs in the feed to confirm whether their company name or classification attributes are misaligned, as incorrect taxonomy is usually what prevents them from pulling through.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      },
+      {
+        "message": "ok whats the play here",
+        "outcome": "answered",
+        "reply": "Here is the general play for handling XML feed setup and ingestion scenarios, listed in the order Naren typically runs them:\n\n1. Validate Feed Field Mappings and Multi-Feed Technical Rules: Confirm field mapping requirements against platform boundaries and clarify technical parameters or financial impacts of operating multi-feed setups to prevent display errors or duplicate spending.\n\n2. Specify Feed Ingestion Mechanics, Refresh Cadence, and Indexing Timelines: Outline technical mechanisms for file transfer (e.g., FTP/SFTP or API), feed mapping turnaround times, job refresh frequencies, and external publisher lead times to set clear expectations.\n\n3. Propose Phased Feed Rollouts and Launch Prioritization: Recommend staging technical features or source feed cutovers into distinct phases and prioritizing immediate launch items over secondary configurations to eliminate downtime and keep campaigns live.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": "20240709_migration_to_joveo_4bb6b4db"
+      },
+      {
+        "message": "how would he actually say that to them",
+        "outcome": "rendered",
+        "reply": "Showed how Naren words it.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "what usually goes wrong",
+        "outcome": "rendered",
+        "reply": "Showed what usually goes wrong.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "rendered",
+      "kind": "play_confidence",
+      "scenario_key": "xml_feed_setup_and_ingestion",
+      "moves": 3,
+      "quotes": 12,
+      "n_evidence": 50,
+      "n_evidence_capped": true,
+      "basis": "The moves and quotes are what this play actually rests on today. The evidence count is how many moments were considered when it was built, before the verbatim check dropped any -- so it says how much was looked at, not whether the play is right for your client.",
+      "intake": {
+        "intent": "play_confidence",
+        "retrieval_query": "",
+        "situation": "carried",
+        "search_query": ""
+      }
+    },
+    "seconds": 1.3
+  },
+  {
+    "conv": "A. feed problem, then everything carried on it",
+    "message": "show me the actual convo",
+    "thread_in": [
+      {
+        "message": "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+        "outcome": "answered",
+        "reply": "You can let the client know that jobs should automatically pull into the system as long as the company name and classification in the XML feed are correct. Check the missing jobs in the feed to confirm whether their company name or classification attributes are misaligned, as incorrect taxonomy is usually what prevents them from pulling through.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      },
+      {
+        "message": "ok whats the play here",
+        "outcome": "answered",
+        "reply": "Here is the general play for handling XML feed setup and ingestion scenarios, listed in the order Naren typically runs them:\n\n1. Validate Feed Field Mappings and Multi-Feed Technical Rules: Confirm field mapping requirements against platform boundaries and clarify technical parameters or financial impacts of operating multi-feed setups to prevent display errors or duplicate spending.\n\n2. Specify Feed Ingestion Mechanics, Refresh Cadence, and Indexing Timelines: Outline technical mechanisms for file transfer (e.g., FTP/SFTP or API), feed mapping turnaround times, job refresh frequencies, and external publisher lead times to set clear expectations.\n\n3. Propose Phased Feed Rollouts and Launch Prioritization: Recommend staging technical features or source feed cutovers into distinct phases and prioritizing immediate launch items over secondary configurations to eliminate downtime and keep campaigns live.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": "20240709_migration_to_joveo_4bb6b4db"
+      },
+      {
+        "message": "how would he actually say that to them",
+        "outcome": "rendered",
+        "reply": "Showed how Naren words it.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "what usually goes wrong",
+        "outcome": "rendered",
+        "reply": "Showed what usually goes wrong.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "how sure are we on this one",
+        "outcome": "rendered",
+        "reply": "Showed how well evidenced that play is.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "clarify",
+      "question": "Which conversation do you mean? Paste what the client said and Ask Naren will answer from the closest real exchange in Naren's calls.",
+      "intake": {
+        "intent": "show_exchange",
+        "retrieval_query": "",
+        "situation": "carried",
+        "search_query": ""
+      }
+    },
+    "seconds": 3.0
+  },
+  {
+    "conv": "A. feed problem, then everything carried on it",
+    "message": "the feed one, where they said jobs were missing after import",
+    "thread_in": [
+      {
+        "message": "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+        "outcome": "answered",
+        "reply": "You can let the client know that jobs should automatically pull into the system as long as the company name and classification in the XML feed are correct. Check the missing jobs in the feed to confirm whether their company name or classification attributes are misaligned, as incorrect taxonomy is usually what prevents them from pulling through.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      },
+      {
+        "message": "ok whats the play here",
+        "outcome": "answered",
+        "reply": "Here is the general play for handling XML feed setup and ingestion scenarios, listed in the order Naren typically runs them:\n\n1. Validate Feed Field Mappings and Multi-Feed Technical Rules: Confirm field mapping requirements against platform boundaries and clarify technical parameters or financial impacts of operating multi-feed setups to prevent display errors or duplicate spending.\n\n2. Specify Feed Ingestion Mechanics, Refresh Cadence, and Indexing Timelines: Outline technical mechanisms for file transfer (e.g., FTP/SFTP or API), feed mapping turnaround times, job refresh frequencies, and external publisher lead times to set clear expectations.\n\n3. Propose Phased Feed Rollouts and Launch Prioritization: Recommend staging technical features or source feed cutovers into distinct phases and prioritizing immediate launch items over secondary configurations to eliminate downtime and keep campaigns live.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": "20240709_migration_to_joveo_4bb6b4db"
+      },
+      {
+        "message": "how would he actually say that to them",
+        "outcome": "rendered",
+        "reply": "Showed how Naren words it.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "what usually goes wrong",
+        "outcome": "rendered",
+        "reply": "Showed what usually goes wrong.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "how sure are we on this one",
+        "outcome": "rendered",
+        "reply": "Showed how well evidenced that play is.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "show me the actual convo",
+        "outcome": "clarify",
+        "reply": "Which conversation do you mean? Paste what the client said and Ask Naren will answer from the closest real exchange in Naren's calls.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "rendered",
+      "kind": "show_exchange",
+      "exchange": {
+        "client_said": "Okay. So it needs a visible jobs page.",
+        "naren_replied": "And as a stop cap, Sean, in case if you already have some yeah. I know you'd meant She sent an earlier URL as well. Right? So."
+      },
+      "citation": {
+        "label": "Tal AI \u00b7 Weekly Connect \u00b7 29 January 2024",
+        "call_filename": "20240129_tal_ai_joveo_weekly_connect_f49ec114.txt",
+        "pair_id": 33481,
+        "scenario_key": "xml_feed_setup_and_ingestion"
+      },
+      "match": {
+        "cosine": 0.737716675,
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "rank": 1
+      },
+      "intake": {
+        "intent": "show_exchange",
+        "retrieval_query": "jobs were missing after import",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 10.3
+  },
+  {
+    "conv": "A. feed problem, then everything carried on it",
+    "message": "ok and then what happened",
+    "thread_in": [
+      {
+        "message": "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+        "outcome": "answered",
+        "reply": "You can let the client know that jobs should automatically pull into the system as long as the company name and classification in the XML feed are correct. Check the missing jobs in the feed to confirm whether their company name or classification attributes are misaligned, as incorrect taxonomy is usually what prevents them from pulling through.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      },
+      {
+        "message": "ok whats the play here",
+        "outcome": "answered",
+        "reply": "Here is the general play for handling XML feed setup and ingestion scenarios, listed in the order Naren typically runs them:\n\n1. Validate Feed Field Mappings and Multi-Feed Technical Rules: Confirm field mapping requirements against platform boundaries and clarify technical parameters or financial impacts of operating multi-feed setups to prevent display errors or duplicate spending.\n\n2. Specify Feed Ingestion Mechanics, Refresh Cadence, and Indexing Timelines: Outline technical mechanisms for file transfer (e.g., FTP/SFTP or API), feed mapping turnaround times, job refresh frequencies, and external publisher lead times to set clear expectations.\n\n3. Propose Phased Feed Rollouts and Launch Prioritization: Recommend staging technical features or source feed cutovers into distinct phases and prioritizing immediate launch items over secondary configurations to eliminate downtime and keep campaigns live.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": "20240709_migration_to_joveo_4bb6b4db"
+      },
+      {
+        "message": "how would he actually say that to them",
+        "outcome": "rendered",
+        "reply": "Showed how Naren words it.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "what usually goes wrong",
+        "outcome": "rendered",
+        "reply": "Showed what usually goes wrong.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "how sure are we on this one",
+        "outcome": "rendered",
+        "reply": "Showed how well evidenced that play is.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "show me the actual convo",
+        "outcome": "clarify",
+        "reply": "Which conversation do you mean? Paste what the client said and Ask Naren will answer from the closest real exchange in Naren's calls.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "the feed one, where they said jobs were missing after import",
+        "outcome": "rendered",
+        "reply": "Showed the real exchange.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 33481,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "rendered",
+      "kind": "what_happened_next",
+      "exchange": {
+        "client_said": "Okay. So it needs a visible jobs page.",
+        "naren_replied": "And as a stop cap, Sean, in case if you already have some yeah. I know you'd meant She sent an earlier URL as well. Right? So."
+      },
+      "following": [
+        {
+          "client_said": "Would that be enough for to pacify Indeed? Something really, really simple like that? Yep. That should be good. Does it need more information? Did they need it to look like it's a real company? I'm assuming they need privacy policy and things like that.",
+          "naren_replied": "So as for the information that we got, Sean, yeah. Privacy policy is probably what one thing that we might need. But but apart from that, even if it's a basic Simple landing page. That should be fine. Are these jobs gonna be branded as again, are you gonna have the end customer logos On on these jobs.",
+          "scenario_key": "landing_page_and_conversion_setup"
+        },
+        {
+          "client_said": "It's better. Yeah. Because we've we've we've got all the logos, and we're capturing all that information anyway in the feed. So all's I'll do is I'll just turn that feed. I'll I'll use the feed that we're that we've the XML feed that we've got set up. I'll use that to create jobs dynamically. I think that'd be. That's the simplest way of of doing things, and and just, you know, make it really quick. So yeah. Okay. Company name, company logo, job description, Apply button or link to an application form. It'd be a really basic form. It's not gonna yeah. I'll I'll do it very quickly.",
+          "naren_replied": "Okay. Got it. So just just so, for my understanding, Sean, because I know you're you're, referring to updating the current URL. Right?",
+          "scenario_key": "xml_feed_setup_and_ingestion"
+        }
+      ],
+      "is_last": false,
+      "citation": {
+        "label": "Tal AI \u00b7 Weekly Connect \u00b7 29 January 2024",
+        "call_filename": "20240129_tal_ai_joveo_weekly_connect_f49ec114.txt",
+        "pair_id": 33481,
+        "scenario_key": "xml_feed_setup_and_ingestion"
+      },
+      "intake": {
+        "intent": "what_happened_next",
+        "retrieval_query": "",
+        "situation": "carried",
+        "search_query": ""
+      }
+    },
+    "seconds": 4.4
+  },
+  {
+    "conv": "A. feed problem, then everything carried on it",
+    "message": "and if they push back and say its our parser not their xml?",
+    "thread_in": [
+      {
+        "message": "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+        "outcome": "answered",
+        "reply": "You can let the client know that jobs should automatically pull into the system as long as the company name and classification in the XML feed are correct. Check the missing jobs in the feed to confirm whether their company name or classification attributes are misaligned, as incorrect taxonomy is usually what prevents them from pulling through.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      },
+      {
+        "message": "ok whats the play here",
+        "outcome": "answered",
+        "reply": "Here is the general play for handling XML feed setup and ingestion scenarios, listed in the order Naren typically runs them:\n\n1. Validate Feed Field Mappings and Multi-Feed Technical Rules: Confirm field mapping requirements against platform boundaries and clarify technical parameters or financial impacts of operating multi-feed setups to prevent display errors or duplicate spending.\n\n2. Specify Feed Ingestion Mechanics, Refresh Cadence, and Indexing Timelines: Outline technical mechanisms for file transfer (e.g., FTP/SFTP or API), feed mapping turnaround times, job refresh frequencies, and external publisher lead times to set clear expectations.\n\n3. Propose Phased Feed Rollouts and Launch Prioritization: Recommend staging technical features or source feed cutovers into distinct phases and prioritizing immediate launch items over secondary configurations to eliminate downtime and keep campaigns live.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": "20240709_migration_to_joveo_4bb6b4db"
+      },
+      {
+        "message": "how would he actually say that to them",
+        "outcome": "rendered",
+        "reply": "Showed how Naren words it.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "what usually goes wrong",
+        "outcome": "rendered",
+        "reply": "Showed what usually goes wrong.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "how sure are we on this one",
+        "outcome": "rendered",
+        "reply": "Showed how well evidenced that play is.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "show me the actual convo",
+        "outcome": "clarify",
+        "reply": "Which conversation do you mean? Paste what the client said and Ask Naren will answer from the closest real exchange in Naren's calls.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "the feed one, where they said jobs were missing after import",
+        "outcome": "rendered",
+        "reply": "Showed the real exchange.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 33481,
+        "call_filename": ""
+      },
+      {
+        "message": "ok and then what happened",
+        "outcome": "rendered",
+        "reply": "Showed how that conversation continued.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 33481,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "answered",
+      "answer": "If they push back, you can explain that while having the client pass proper formatting and attributes in the feed is our standard best practice to prevent parsing issues, we can also make adjustments on our end. Let them know you can check with the technical team to see if we can update our parsing rules or handle the formatting on our side so their jobs pull through cleanly.",
+      "quote": "usually, it's like a best practice that we ask our customers to pass so that there are no, like, passing issues or anything. But we can actually make that change one, our end.",
+      "citation": {
+        "label": "Uber Corporate \u00b7 Connect \u00b7 18 July 2023",
+        "call_filename": "20230718_uber_corporate_joveo_connect_d23c2da6.txt",
+        "pair_id": 31853,
+        "scenario_key": "xml_feed_setup_and_ingestion"
+      },
+      "match": {
+        "cosine": 0.723854125,
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "rank": 7
+      },
+      "retries": [
+        "wide"
+      ],
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "and if they push back and say its our parser not their xml?",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 26.9
+  },
+  {
+    "conv": "A. feed problem, then everything carried on it",
+    "message": "do we have much on this tho",
+    "thread_in": [
+      {
+        "message": "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+        "outcome": "answered",
+        "reply": "You can let the client know that jobs should automatically pull into the system as long as the company name and classification in the XML feed are correct. Check the missing jobs in the feed to confirm whether their company name or classification attributes are misaligned, as incorrect taxonomy is usually what prevents them from pulling through.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      },
+      {
+        "message": "ok whats the play here",
+        "outcome": "answered",
+        "reply": "Here is the general play for handling XML feed setup and ingestion scenarios, listed in the order Naren typically runs them:\n\n1. Validate Feed Field Mappings and Multi-Feed Technical Rules: Confirm field mapping requirements against platform boundaries and clarify technical parameters or financial impacts of operating multi-feed setups to prevent display errors or duplicate spending.\n\n2. Specify Feed Ingestion Mechanics, Refresh Cadence, and Indexing Timelines: Outline technical mechanisms for file transfer (e.g., FTP/SFTP or API), feed mapping turnaround times, job refresh frequencies, and external publisher lead times to set clear expectations.\n\n3. Propose Phased Feed Rollouts and Launch Prioritization: Recommend staging technical features or source feed cutovers into distinct phases and prioritizing immediate launch items over secondary configurations to eliminate downtime and keep campaigns live.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": "20240709_migration_to_joveo_4bb6b4db"
+      },
+      {
+        "message": "how would he actually say that to them",
+        "outcome": "rendered",
+        "reply": "Showed how Naren words it.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "what usually goes wrong",
+        "outcome": "rendered",
+        "reply": "Showed what usually goes wrong.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "how sure are we on this one",
+        "outcome": "rendered",
+        "reply": "Showed how well evidenced that play is.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "show me the actual convo",
+        "outcome": "clarify",
+        "reply": "Which conversation do you mean? Paste what the client said and Ask Naren will answer from the closest real exchange in Naren's calls.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "the feed one, where they said jobs were missing after import",
+        "outcome": "rendered",
+        "reply": "Showed the real exchange.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 33481,
+        "call_filename": ""
+      },
+      {
+        "message": "ok and then what happened",
+        "outcome": "rendered",
+        "reply": "Showed how that conversation continued.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 33481,
+        "call_filename": ""
+      },
+      {
+        "message": "and if they push back and say its our parser not their xml?",
+        "outcome": "answered",
+        "reply": "If they push back, you can explain that while having the client pass proper formatting and attributes in the feed is our standard best practice to prevent parsing issues, we can also make adjustments on our end. Let them know you can check with the technical team to see if we can update our parsing rules or handle the formatting on our side so their jobs pull through cleanly.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 31853,
+        "call_filename": "20230718_uber_corporate_joveo_connect_d23c2da6.txt"
+      }
+    ],
+    "response": {
+      "outcome": "rendered",
+      "kind": "coverage_check",
+      "asked_about": "do we have much on this tho",
+      "nearest": {
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "description": "Managing client requirements, file formatting, and technical ingestion processes for XML job feeds.",
+        "support_calls": 90,
+        "evidence": "solid"
+      },
+      "citation": {
+        "label": "Uber Corporate \u00b7 Connect \u00b7 18 July 2023",
+        "call_filename": "20230718_uber_corporate_joveo_connect_d23c2da6.txt",
+        "pair_id": 31853,
+        "scenario_key": "xml_feed_setup_and_ingestion"
+      },
+      "intake": {
+        "intent": "coverage_check",
+        "retrieval_query": "",
+        "situation": "carried",
+        "search_query": ""
+      }
+    },
+    "seconds": 10.7
+  },
+  {
+    "conv": "A. feed problem, then everything carried on it",
+    "message": "where else has this come up",
+    "thread_in": [
+      {
+        "message": "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+        "outcome": "answered",
+        "reply": "You can let the client know that jobs should automatically pull into the system as long as the company name and classification in the XML feed are correct. Check the missing jobs in the feed to confirm whether their company name or classification attributes are misaligned, as incorrect taxonomy is usually what prevents them from pulling through.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      },
+      {
+        "message": "ok whats the play here",
+        "outcome": "answered",
+        "reply": "Here is the general play for handling XML feed setup and ingestion scenarios, listed in the order Naren typically runs them:\n\n1. Validate Feed Field Mappings and Multi-Feed Technical Rules: Confirm field mapping requirements against platform boundaries and clarify technical parameters or financial impacts of operating multi-feed setups to prevent display errors or duplicate spending.\n\n2. Specify Feed Ingestion Mechanics, Refresh Cadence, and Indexing Timelines: Outline technical mechanisms for file transfer (e.g., FTP/SFTP or API), feed mapping turnaround times, job refresh frequencies, and external publisher lead times to set clear expectations.\n\n3. Propose Phased Feed Rollouts and Launch Prioritization: Recommend staging technical features or source feed cutovers into distinct phases and prioritizing immediate launch items over secondary configurations to eliminate downtime and keep campaigns live.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": "20240709_migration_to_joveo_4bb6b4db"
+      },
+      {
+        "message": "how would he actually say that to them",
+        "outcome": "rendered",
+        "reply": "Showed how Naren words it.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "what usually goes wrong",
+        "outcome": "rendered",
+        "reply": "Showed what usually goes wrong.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "how sure are we on this one",
+        "outcome": "rendered",
+        "reply": "Showed how well evidenced that play is.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "show me the actual convo",
+        "outcome": "clarify",
+        "reply": "Which conversation do you mean? Paste what the client said and Ask Naren will answer from the closest real exchange in Naren's calls.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "the feed one, where they said jobs were missing after import",
+        "outcome": "rendered",
+        "reply": "Showed the real exchange.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 33481,
+        "call_filename": ""
+      },
+      {
+        "message": "ok and then what happened",
+        "outcome": "rendered",
+        "reply": "Showed how that conversation continued.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 33481,
+        "call_filename": ""
+      },
+      {
+        "message": "and if they push back and say its our parser not their xml?",
+        "outcome": "answered",
+        "reply": "If they push back, you can explain that while having the client pass proper formatting and attributes in the feed is our standard best practice to prevent parsing issues, we can also make adjustments on our end. Let them know you can check with the technical team to see if we can update our parsing rules or handle the formatting on our side so their jobs pull through cleanly.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 31853,
+        "call_filename": "20230718_uber_corporate_joveo_connect_d23c2da6.txt"
+      },
+      {
+        "message": "do we have much on this tho",
+        "outcome": "rendered",
+        "reply": "Reported what is covered near that situation.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "answered",
+      "answer": "You can explain that in past client integrations (such as with iCIMS), this wasn't an issue because previous customers maintained clean category mappings and standardized job templates. Complications typically arise when a client has messy setups with multiple duplicate versions of questions or templates, making mapping and integration much harder.",
+      "quote": "So the customers that we worked in the past, they have a very clean category mapping and job templates.",
+      "citation": {
+        "label": "Joveo Scg Weekly Touchbase \u00b7 9 May 2024",
+        "call_filename": "20240509_joveo_scg_weekly_touchbase_b136df32.txt",
+        "pair_id": 34679,
+        "scenario_key": "technical_integration_and_timeline_scoping"
+      },
+      "match": {
+        "cosine": 0.68358618,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "rank": 1
+      },
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "where else has this come up",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 19.6
+  },
+  {
+    "conv": "A. feed problem, then everything carried on it",
+    "message": "totally diff thing, another client just told me 'we're not paying for clicks that never turn into applies' what do i say",
+    "thread_in": [
+      {
+        "message": "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+        "outcome": "answered",
+        "reply": "You can let the client know that jobs should automatically pull into the system as long as the company name and classification in the XML feed are correct. Check the missing jobs in the feed to confirm whether their company name or classification attributes are misaligned, as incorrect taxonomy is usually what prevents them from pulling through.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      },
+      {
+        "message": "ok whats the play here",
+        "outcome": "answered",
+        "reply": "Here is the general play for handling XML feed setup and ingestion scenarios, listed in the order Naren typically runs them:\n\n1. Validate Feed Field Mappings and Multi-Feed Technical Rules: Confirm field mapping requirements against platform boundaries and clarify technical parameters or financial impacts of operating multi-feed setups to prevent display errors or duplicate spending.\n\n2. Specify Feed Ingestion Mechanics, Refresh Cadence, and Indexing Timelines: Outline technical mechanisms for file transfer (e.g., FTP/SFTP or API), feed mapping turnaround times, job refresh frequencies, and external publisher lead times to set clear expectations.\n\n3. Propose Phased Feed Rollouts and Launch Prioritization: Recommend staging technical features or source feed cutovers into distinct phases and prioritizing immediate launch items over secondary configurations to eliminate downtime and keep campaigns live.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": "20240709_migration_to_joveo_4bb6b4db"
+      },
+      {
+        "message": "how would he actually say that to them",
+        "outcome": "rendered",
+        "reply": "Showed how Naren words it.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "what usually goes wrong",
+        "outcome": "rendered",
+        "reply": "Showed what usually goes wrong.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "how sure are we on this one",
+        "outcome": "rendered",
+        "reply": "Showed how well evidenced that play is.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "show me the actual convo",
+        "outcome": "clarify",
+        "reply": "Which conversation do you mean? Paste what the client said and Ask Naren will answer from the closest real exchange in Naren's calls.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "the feed one, where they said jobs were missing after import",
+        "outcome": "rendered",
+        "reply": "Showed the real exchange.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 33481,
+        "call_filename": ""
+      },
+      {
+        "message": "ok and then what happened",
+        "outcome": "rendered",
+        "reply": "Showed how that conversation continued.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 33481,
+        "call_filename": ""
+      },
+      {
+        "message": "and if they push back and say its our parser not their xml?",
+        "outcome": "answered",
+        "reply": "If they push back, you can explain that while having the client pass proper formatting and attributes in the feed is our standard best practice to prevent parsing issues, we can also make adjustments on our end. Let them know you can check with the technical team to see if we can update our parsing rules or handle the formatting on our side so their jobs pull through cleanly.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 31853,
+        "call_filename": "20230718_uber_corporate_joveo_connect_d23c2da6.txt"
+      },
+      {
+        "message": "do we have much on this tho",
+        "outcome": "rendered",
+        "reply": "Reported what is covered near that situation.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "where else has this come up",
+        "outcome": "answered",
+        "reply": "You can explain that in past client integrations (such as with iCIMS), this wasn't an issue because previous customers maintained clean category mappings and standardized job templates. Complications typically arise when a client has messy setups with multiple duplicate versions of questions or templates, making mapping and integration much harder.",
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "pair_id": 34679,
+        "call_filename": "20240509_joveo_scg_weekly_touchbase_b136df32.txt"
+      }
+    ],
+    "response": {
+      "outcome": "declined",
+      "reason": "deadline_exceeded",
+      "message": "Ask Naren did not finish this one in time, and stopped rather than leave you waiting on a spinner. Nothing you typed caused it -- ask again."
+    },
+    "seconds": 30.0
+  },
+  {
+    "conv": "A. feed problem, then everything carried on it",
+    "message": "does that apply if theyre mid contract",
+    "thread_in": [
+      {
+        "message": "hey so one of my clients feed has been dropping jobs on us, like half their reqs just dont show up after the import. theyre kinda annoyed",
+        "outcome": "answered",
+        "reply": "You can let the client know that jobs should automatically pull into the system as long as the company name and classification in the XML feed are correct. Check the missing jobs in the feed to confirm whether their company name or classification attributes are misaligned, as incorrect taxonomy is usually what prevents them from pulling through.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      },
+      {
+        "message": "ok whats the play here",
+        "outcome": "answered",
+        "reply": "Here is the general play for handling XML feed setup and ingestion scenarios, listed in the order Naren typically runs them:\n\n1. Validate Feed Field Mappings and Multi-Feed Technical Rules: Confirm field mapping requirements against platform boundaries and clarify technical parameters or financial impacts of operating multi-feed setups to prevent display errors or duplicate spending.\n\n2. Specify Feed Ingestion Mechanics, Refresh Cadence, and Indexing Timelines: Outline technical mechanisms for file transfer (e.g., FTP/SFTP or API), feed mapping turnaround times, job refresh frequencies, and external publisher lead times to set clear expectations.\n\n3. Propose Phased Feed Rollouts and Launch Prioritization: Recommend staging technical features or source feed cutovers into distinct phases and prioritizing immediate launch items over secondary configurations to eliminate downtime and keep campaigns live.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": "20240709_migration_to_joveo_4bb6b4db"
+      },
+      {
+        "message": "how would he actually say that to them",
+        "outcome": "rendered",
+        "reply": "Showed how Naren words it.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "what usually goes wrong",
+        "outcome": "rendered",
+        "reply": "Showed what usually goes wrong.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "how sure are we on this one",
+        "outcome": "rendered",
+        "reply": "Showed how well evidenced that play is.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "show me the actual convo",
+        "outcome": "clarify",
+        "reply": "Which conversation do you mean? Paste what the client said and Ask Naren will answer from the closest real exchange in Naren's calls.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "the feed one, where they said jobs were missing after import",
+        "outcome": "rendered",
+        "reply": "Showed the real exchange.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 33481,
+        "call_filename": ""
+      },
+      {
+        "message": "ok and then what happened",
+        "outcome": "rendered",
+        "reply": "Showed how that conversation continued.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 33481,
+        "call_filename": ""
+      },
+      {
+        "message": "and if they push back and say its our parser not their xml?",
+        "outcome": "answered",
+        "reply": "If they push back, you can explain that while having the client pass proper formatting and attributes in the feed is our standard best practice to prevent parsing issues, we can also make adjustments on our end. Let them know you can check with the technical team to see if we can update our parsing rules or handle the formatting on our side so their jobs pull through cleanly.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 31853,
+        "call_filename": "20230718_uber_corporate_joveo_connect_d23c2da6.txt"
+      },
+      {
+        "message": "do we have much on this tho",
+        "outcome": "rendered",
+        "reply": "Reported what is covered near that situation.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "where else has this come up",
+        "outcome": "answered",
+        "reply": "You can explain that in past client integrations (such as with iCIMS), this wasn't an issue because previous customers maintained clean category mappings and standardized job templates. Complications typically arise when a client has messy setups with multiple duplicate versions of questions or templates, making mapping and integration much harder.",
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "pair_id": 34679,
+        "call_filename": "20240509_joveo_scg_weekly_touchbase_b136df32.txt"
+      },
+      {
+        "message": "totally diff thing, another client just told me 'we're not paying for clicks that never turn into applies' what do i say",
+        "outcome": "declined",
+        "reply": "Ask Naren did not finish this one in time, and stopped rather than leave you waiting on a spinner. Nothing you typed caused it -- ask again.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "rendered",
+      "kind": "scenario_check",
+      "asked_about": "does that apply if theyre mid contract",
+      "scenario_key": "technical_integration_and_timeline_scoping",
+      "applies_when": "An account manager recognizes this scenario when clients ask detailed questions about API integration effort, developer resource requirements, or expected timelines for technical setup. The conversation typically centers around fetching API credentials, establishing server-to-server endpoints, pixel tracking guides, and clarifying developer workloads between client and vendor engineering teams. Recognizing these triggers enables the account manager to establish clear technical scope, provide concrete setup documentation, and align on phased implementation milestones.",
+      "intake": {
+        "intent": "scenario_check",
+        "retrieval_query": "",
+        "situation": "carried",
+        "search_query": ""
+      }
+    },
+    "seconds": 8.3
+  },
+  {
+    "conv": "B. vague clarify first, then the client's words, then carried",
+    "message": "client is unhappy about the ats thing",
+    "thread_in": [],
+    "response": {
+      "outcome": "clarify",
+      "question": "Could you share the client's actual words or specific details about their issue with the ATS?",
+      "intake": {
+        "intent": "clarify",
+        "retrieval_query": "",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 4.2
+  },
+  {
+    "conv": "B. vague clarify first, then the client's words, then carried",
+    "message": "they said the integration was supposed to be live 3 weeks ago and nothing is syncing",
+    "thread_in": [
+      {
+        "message": "client is unhappy about the ats thing",
+        "outcome": "clarify",
+        "reply": "Could you share the client's actual words or specific details about their issue with the ATS?",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "answered",
+      "answer": "Acknowledge the original timeline delay and reassure the client that our priority is making sure the integration works and is successful. You can let them know that since things have been paused or delayed past the initial two-week launch expectation, we are completely fine with pushing out the evaluation dates so they get the full value once it is live.",
+      "quote": "I know that we initially planned for, like, two week launch periods. I I know that we're kind of paused. So what will this will also mean is we we might have to push out our evaluation evaluation dates, like, which, you know, we're totally fine doing that as well. Right? So for us, we just want this to be successful.",
+      "citation": {
+        "label": "Roadie \u00b7 Workflow Tracking \u00b7 13 August 2024",
+        "call_filename": "20240813_roadie_joveo_workflow_tracking_29a67395.txt",
+        "pair_id": 36659,
+        "scenario_key": "technical_integration_and_timeline_scoping"
+      },
+      "match": {
+        "cosine": 0.775428832,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "rank": 1
+      },
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "the integration was supposed to be live 3 weeks ago and nothing is syncing",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 15.9
+  },
+  {
+    "conv": "B. vague clarify first, then the client's words, then carried",
+    "message": "what do i do first",
+    "thread_in": [
+      {
+        "message": "client is unhappy about the ats thing",
+        "outcome": "clarify",
+        "reply": "Could you share the client's actual words or specific details about their issue with the ATS?",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "they said the integration was supposed to be live 3 weeks ago and nothing is syncing",
+        "outcome": "answered",
+        "reply": "Acknowledge the original timeline delay and reassure the client that our priority is making sure the integration works and is successful. You can let them know that since things have been paused or delayed past the initial two-week launch expectation, we are completely fine with pushing out the evaluation dates so they get the full value once it is live.",
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "pair_id": 36659,
+        "call_filename": "20240813_roadie_joveo_workflow_tracking_29a67395.txt"
+      }
+    ],
+    "response": {
+      "outcome": "rendered",
+      "kind": "sequence",
+      "scenario_key": "technical_integration_and_timeline_scoping",
+      "steps": [
+        "Delineate Technical Responsibilities and Offer Phased Implementation",
+        "Provide System-Specific Documentation and Architectural Guidance",
+        "Mobilize Internal Engineering Specialists and Technical Resources",
+        "Establish Milestone-Driven Testing, Config Updates, and Turnaround Expectations"
+      ],
+      "intake": {
+        "intent": "sequence",
+        "retrieval_query": "",
+        "situation": "carried",
+        "search_query": ""
+      }
+    },
+    "seconds": 6.4
+  },
+  {
+    "conv": "B. vague clarify first, then the client's words, then carried",
+    "message": "show me what naren actually said",
+    "thread_in": [
+      {
+        "message": "client is unhappy about the ats thing",
+        "outcome": "clarify",
+        "reply": "Could you share the client's actual words or specific details about their issue with the ATS?",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "they said the integration was supposed to be live 3 weeks ago and nothing is syncing",
+        "outcome": "answered",
+        "reply": "Acknowledge the original timeline delay and reassure the client that our priority is making sure the integration works and is successful. You can let them know that since things have been paused or delayed past the initial two-week launch expectation, we are completely fine with pushing out the evaluation dates so they get the full value once it is live.",
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "pair_id": 36659,
+        "call_filename": "20240813_roadie_joveo_workflow_tracking_29a67395.txt"
+      },
+      {
+        "message": "what do i do first",
+        "outcome": "rendered",
+        "reply": "Showed the order Naren runs it in.",
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "clarify",
+      "question": "Which conversation do you mean? Paste what the client said and Ask Naren will answer from the closest real exchange in Naren's calls.",
+      "intake": {
+        "intent": "show_exchange",
+        "retrieval_query": "",
+        "situation": "carried",
+        "search_query": ""
+      }
+    },
+    "seconds": 4.3
+  },
+  {
+    "conv": "B. vague clarify first, then the client's words, then carried",
+    "message": "the ats one",
+    "thread_in": [
+      {
+        "message": "client is unhappy about the ats thing",
+        "outcome": "clarify",
+        "reply": "Could you share the client's actual words or specific details about their issue with the ATS?",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "they said the integration was supposed to be live 3 weeks ago and nothing is syncing",
+        "outcome": "answered",
+        "reply": "Acknowledge the original timeline delay and reassure the client that our priority is making sure the integration works and is successful. You can let them know that since things have been paused or delayed past the initial two-week launch expectation, we are completely fine with pushing out the evaluation dates so they get the full value once it is live.",
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "pair_id": 36659,
+        "call_filename": "20240813_roadie_joveo_workflow_tracking_29a67395.txt"
+      },
+      {
+        "message": "what do i do first",
+        "outcome": "rendered",
+        "reply": "Showed the order Naren runs it in.",
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "show me what naren actually said",
+        "outcome": "clarify",
+        "reply": "Which conversation do you mean? Paste what the client said and Ask Naren will answer from the closest real exchange in Naren's calls.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "declined",
+      "reason": "no_close_match",
+      "message": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+      "match": {
+        "cosine": 0.634048462,
+        "scenario_key": "ats_integration_and_api_mapping",
+        "rank": 1
+      },
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "the ats one",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 15.9
+  },
+  {
+    "conv": "B. vague clarify first, then the client's words, then carried",
+    "message": "what happened after that",
+    "thread_in": [
+      {
+        "message": "client is unhappy about the ats thing",
+        "outcome": "clarify",
+        "reply": "Could you share the client's actual words or specific details about their issue with the ATS?",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "they said the integration was supposed to be live 3 weeks ago and nothing is syncing",
+        "outcome": "answered",
+        "reply": "Acknowledge the original timeline delay and reassure the client that our priority is making sure the integration works and is successful. You can let them know that since things have been paused or delayed past the initial two-week launch expectation, we are completely fine with pushing out the evaluation dates so they get the full value once it is live.",
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "pair_id": 36659,
+        "call_filename": "20240813_roadie_joveo_workflow_tracking_29a67395.txt"
+      },
+      {
+        "message": "what do i do first",
+        "outcome": "rendered",
+        "reply": "Showed the order Naren runs it in.",
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "show me what naren actually said",
+        "outcome": "clarify",
+        "reply": "Which conversation do you mean? Paste what the client said and Ask Naren will answer from the closest real exchange in Naren's calls.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "the ats one",
+        "outcome": "declined",
+        "reply": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "declined",
+      "reason": "no_close_match",
+      "message": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+      "match": {
+        "cosine": 0.655906677,
+        "scenario_key": "vendor_transition_and_partnership_evaluation",
+        "rank": 1
+      },
+      "retries": [
+        "wide"
+      ],
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "what happened after that",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 27.1
+  },
+  {
+    "conv": "C. contrast, coaching, call prep, then carried",
+    "message": "client said 'why are we paying for indeed when linkedin brings better people' and i told them we'd look at the source mix next week. was that ok?",
+    "thread_in": [],
+    "response": {
+      "outcome": "declined",
+      "reason": "no_close_match",
+      "message": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+      "match": {
+        "cosine": 0.774383605,
+        "scenario_key": "niche_talent_scarcity_and_budget_reallocation",
+        "rank": 1
+      },
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "client said 'why are we paying for indeed when linkedin brings better people' and i told them we'd look at the source mix next week. was that ok?",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 24.3
+  },
+  {
+    "conv": "C. contrast, coaching, call prep, then carried",
+    "message": "how do i get better at that honestly, i always fumble the source mix convo",
+    "thread_in": [
+      {
+        "message": "client said 'why are we paying for indeed when linkedin brings better people' and i told them we'd look at the source mix next week. was that ok?",
+        "outcome": "declined",
+        "reply": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "rendered",
+      "kind": "improve_at_move",
+      "asked_about": "how do i get better at that honestly, i always fumble the source mix convo",
+      "scenario_key": "downstream_activation_and_cost_metrics",
+      "focused": true,
+      "moves": [
+        {
+          "name": "Request aggregate source or UTM-level quality scores and benchmark data",
+          "criterion": "Ask the client to provide conversion benchmarks or quality scores aggregated at the source, sub-source, or UTM level rather than evaluating at the individual candidate level.",
+          "evidence": [
+            {
+              "quote": "even at the source level, if we could get, for example, an average quality score. Right? That would be super useful for us to optimize. Because that way, we can just start to maximize on, you know, like, quality like, sources that have given us higher quality scores and so on as well.",
+              "call": "db20a991-f797-459b-a683-2a135b1915e1",
+              "label": "db20a991-f797-459b-a683-2a135b1915e1"
+            },
+            {
+              "quote": "But what would really help is if we can get the average of the sub source level. Right? Like, once we pass the UTM. Right? Like, however you would want us to pass it. That way, it'll be more actionable on on our end versus individual, candidates.",
+              "call": "db20a991-f797-459b-a683-2a135b1915e1",
+              "label": "db20a991-f797-459b-a683-2a135b1915e1"
+            },
+            {
+              "quote": "So what we would recommend is is kind of comparing these with your benchmarks as well if if that's possible. Only for us to get a solid start. Also, in the case because we have, like, Indeed apply, for example. Right? Like, we know that CPLs across Indeed apply is gonna be very different from anything that's going through the normal courier page.",
+              "call": "20240722_placeholder_jet_courier_joveo_weekly_che_0f365266",
+              "label": "Placeholder Jet Courier \u00b7 Weekly Che \u00b7 22 July 2024"
+            }
+          ]
+        }
+      ],
+      "pitfalls": [
+        {
+          "text": "Applying static application count caps without time-frame constraints, which risks choking spend on high-performing requisitions and compromising campaign margins.",
+          "evidence": [
+            {
+              "quote": "Because we it would be counterproductive if we say that, okay, anything lesser than, like, you know, 10 apps or or something. Because we also wanna find a fine balance between this and ensuring that we're also putting dollars behind jobs that also perform well, right, to to ensure that your overall margins are not compromised.",
+              "call": "eed5d24c-91a0-4b75-94f9-2bbb0a4bf3a9",
+              "label": "eed5d24c-91a0-4b75-94f9-2bbb0a4bf3a9"
+            }
+          ]
+        },
+        {
+          "text": "Continuing to spend media budget at full pace when downstream conversions are underperforming or delayed without publisher clarification.",
+          "evidence": [
+            {
+              "quote": "just to make sure that we're not spending the dollars just for speak sake of spending dollars",
+              "call": "20241023_roadie_joveo_weekly_connect_81b1a089",
+              "label": "Roadie \u00b7 Weekly Connect \u00b7 23 October 2024"
+            }
+          ]
+        },
+        {
+          "text": "Deflecting client concern over declining downstream activations by stating that internal settings have remained unchanged instead of investigating lead quality or conversion drop-offs.",
+          "evidence": [
+            {
+              "quote": "Okay. I think, is it like an what I'm thinking is, Raj, because honestly, nothing has changed from our end.",
+              "call": "12e4267c-7b23-4691-9b05-84a5678a5cf0",
+              "label": "12e4267c-7b23-4691-9b05-84a5678a5cf0"
+            }
+          ]
+        },
+        {
+          "text": "Dismissing client ROI or fee-recoupment targets with brief verbal affirmations rather than agreeing on a specific follow-up agenda or quantitative model.",
+          "evidence": [
+            {
+              "quote": "Nope. Nope. Nope. I think we can come back on this. Yep. Sure.",
+              "call": "20250318_angi_joveo_connect_0af73b09",
+              "label": "Angi \u00b7 Connect \u00b7 18 March 2025"
+            }
+          ]
+        }
+      ],
+      "basis": "The recorded criterion for this move, what tends to go wrong around it, and Naren's own words doing it. All of it is on file rather than written for you.",
+      "match": {
+        "cosine": 0.536819458,
+        "scenario_key": "downstream_activation_and_cost_metrics",
+        "rank": 1
+      },
+      "intake": {
+        "intent": "improve_at_move",
+        "retrieval_query": "source mix convo",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 4.0
+  },
+  {
+    "conv": "C. contrast, coaching, call prep, then carried",
+    "message": "im on a renewal call w them thursday, what should i be ready for",
+    "thread_in": [
+      {
+        "message": "client said 'why are we paying for indeed when linkedin brings better people' and i told them we'd look at the source mix next week. was that ok?",
+        "outcome": "declined",
+        "reply": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "how do i get better at that honestly, i always fumble the source mix convo",
+        "outcome": "rendered",
+        "reply": "Showed the criterion, the pitfalls and Naren doing it.",
+        "scenario_key": "downstream_activation_and_cost_metrics",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "rendered",
+      "kind": "call_prep",
+      "asked_about": "im on a renewal call w them thursday, what should i be ready for",
+      "scenarios": [
+        {
+          "scenario_key": "testing_and_implementation_timeline",
+          "description": "Managing client expectations and schedules for UAT, staging, testing phases, and official go-live dates.",
+          "exchanges": 6,
+          "has_play": true,
+          "steps": [
+            "Define testing scope, integration timelines, and milestone feasibility",
+            "Coordinate technical stakeholders and staging access across teams",
+            "Prepare backend configurations and technical environments in advance",
+            "Adapt launch schedules flexibly while reassuring clients through change management"
+          ],
+          "example": {
+            "client_said": "So on and so forth. I wish they would've worked like that. Sometimes it's like, oh, they don't get the renewal in for a week or a week and a half, and it might be the 21st March. It's right. It's just custom. It's not a set 31 or 30 day run period. So it's custom. It's the different run dates.",
+            "naren_replied": "Yeah. Got it, and are you managing the budget as well across these 30 days, or or is it essentially managed or prorated saying that, hey. You have to spend x by the end of this month, and and then you know, have the remainder of the budget spent across the remaining days? So how how do you manage that currently With with probably the current platform that you use.",
+            "citation": {
+              "label": "Cnb \u00b7 Product Requirements \u00b7 8 February 2024",
+              "call_filename": "20240208_cnb_joveo_product_requirements_f17633d7.txt",
+              "pair_id": 33728,
+              "scenario_key": "testing_and_implementation_timeline"
+            }
+          }
+        },
+        {
+          "scenario_key": "job_board_budget_and_direct_agreements",
+          "description": "Managing budget allocation and navigating pre-existing direct contracts or caps with specific job boards alongside programmatic distribution.",
+          "exchanges": 5,
+          "has_play": true,
+          "steps": [
+            "Integrate direct agreements and offline channels into unified campaign management",
+            "Optimize budget allocation using publisher-agnostic performance and priority role alignment",
+            "Clarify job board operational mechanics, publisher constraints, and source attribution"
+          ],
+          "example": {
+            "client_said": "Yeah. Jobstreet, there is potential to not bother with renewing. Okay. So I don't know if there's any data that they can give us to help us decide on that or you know, brief their worth to us. Yeah. Instahire, I'm fairly confident that the team will want to renew. So We can probably start having those conversations to at least give us time to negotiate the best deal. Okay. Perfect, and and to ask them for whatever data. Yep. They can provide that helps, you know, with the negotiations.",
+            "naren_replied": "Yeah. Absolutely. So, typically, what what would be really helpful, I mean, in these kind of renewal situations is, of course, one, If there's any data from your end. Right? Like like, that you can provide the if the team can provide on on that, then then there's no if not, no no worries. Right? I'll double check, but let's, assume not. Okay. Okay. So that that's something that we use to just gauge The the usage. Right? Right now, and and then see, you know, how adopted is it? Like, do we need to start going for fewer seats? You know, do we need more seats and and so on. Right? So just just those aspects of it, that's number one. Number two is, you know, anything that The team sees as pain points today, right, that we can help bring up to the install team, and and say and and kind of make this happened at the renewal. Right? Of course, one thing on our mind is is just to to keep the tracking aspect of this. Right? But but I do foresee that not moving as planned because the Instahair is pretty rigid. Right? Their their model is is more resume intensive, and and they're gonna probably say that, hey. This is not something that we will support. But that's already an agenda that that we will drive forward. But if there is anything else from the team from a functionality standpoint or or from a usage standpoint that they wanted to flag, now would be a great time, to just do that.",
+            "citation": {
+              "label": "Uber Corporate \u00b7 Connect EMEA APAC \u00b7 18 January 2024",
+              "call_filename": "20240118_uber_corporate_joveo_connect_emea_apac_5c8e4840.txt",
+              "pair_id": 33232,
+              "scenario_key": "job_board_budget_and_direct_agreements"
+            }
+          }
+        },
+        {
+          "scenario_key": "programmatic_advertising_scope_and_capability",
+          "description": "Discussing current programmatic advertising maturity and scoping Joveo's programmatic functionality.",
+          "exchanges": 3,
+          "has_play": true,
+          "steps": [
+            "Defining Realistic Publisher Technical Limitations and Regional Scope",
+            "Validating ATS Ecosystem Integrations to Reduce Candidate Drop-off",
+            "Recommending a Phased Expansion Roadmap with Budget Baselines"
+          ],
+          "example": {
+            "client_said": "But their US division has grown so much in the last couple years. They're spinning off to their own entity, and they have trouble filling roles throughout the US in engineering and some of their trades. So they are we had a call with them on Tuesday to introduce them to programmatic. What was new to the team lead we talked to, they're very keen. We are hoping for a June 1st. June 1st start date to let them know on their side. Madhumita was great. She already provided the pixel. We let them know we need their their job feed from Successfactors, and then I'm not sure that I've said it the correct way in my email to them, but, basically, like, we could do an API. We we wanna track to hire, so let's let's make that work too. So that's kinda where where we're at.",
+            "naren_replied": "Nope. Makes makes perfect sense. Yeah. Hemanth is essentially the campaign manager, you know. Yeah. So yeah. I I think, you know, III can just extrapolate a little bit more on on on and and kind of what we were hoping to do on this was also walk you through our typical implementation process, and June one is is something that I see doable for sure, except I I don't mean except in a bad way, but but, you know, we typically, when we have an API integration with success factors, you know, like, there are API keys that we would need and then kind of have that integration built out. It's it's not gonna be, you know, that that's something that we could stop start start scoping out pretty early on as well. But but, yeah. That that's the only thing which I think which which we'll probably need a little double click into, and and but but outside of that, we we can essentially definitely target June one.",
+            "citation": {
+              "label": "Hire Value \u00b7 Implementation Kick Off \u00b7 2 May 2024",
+              "call_filename": "20240502_hire_value_joveo_implementation_kick_off_1d4bd603.txt",
+              "pair_id": 34559,
+              "scenario_key": "programmatic_advertising_scope_and_capability"
+            }
+          }
+        }
+      ],
+      "scenarios_found": 11,
+      "exchanges": 25,
+      "basis": "The situations that come up most in the exchanges nearest to what you described, each with its recorded play and one real moment to read. Nothing here is written for you -- it is what is on file, so the judgement about your client stays yours.",
+      "intake": {
+        "intent": "call_prep",
+        "retrieval_query": "renewal call w them thursday",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 4.6
+  },
+  {
+    "conv": "C. contrast, coaching, call prep, then carried",
+    "message": "whats the general approach here",
+    "thread_in": [
+      {
+        "message": "client said 'why are we paying for indeed when linkedin brings better people' and i told them we'd look at the source mix next week. was that ok?",
+        "outcome": "declined",
+        "reply": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "how do i get better at that honestly, i always fumble the source mix convo",
+        "outcome": "rendered",
+        "reply": "Showed the criterion, the pitfalls and Naren doing it.",
+        "scenario_key": "downstream_activation_and_cost_metrics",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "im on a renewal call w them thursday, what should i be ready for",
+        "outcome": "rendered",
+        "reply": "Laid out what is likely to come up on that call.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "clarify",
+      "question": "Which conversation do you mean? Paste what the client said and Ask Naren will answer from the closest real exchange in Naren's calls.",
+      "intake": {
+        "intent": "procedure",
+        "retrieval_query": "",
+        "situation": "carried",
+        "search_query": ""
+      }
+    },
+    "seconds": 1.4
+  },
+  {
+    "conv": "D1. single: greeting",
+    "message": "hey",
+    "thread_in": [],
+    "response": {
+      "outcome": "clarify",
+      "question": "Could you please share the actual words or text your client used, or the specific situation you need help with?",
+      "intake": {
+        "intent": "clarify",
+        "retrieval_query": "",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 3.3
+  },
+  {
+    "conv": "D2. single: what can it do",
+    "message": "what can u actually help with",
+    "thread_in": [],
+    "response": {
+      "outcome": "rendered",
+      "kind": "discovery",
+      "grouped": false,
+      "topics": [],
+      "scenarios": [
+        {
+          "scenario_key": "advanced_targeting_and_differentiation",
+          "description": "Explaining how specific platform targeting or retargeting strategies differ from past campaign setups."
+        },
+        {
+          "scenario_key": "application_volume_and_prioritization",
+          "description": "Helping clients manage, filter, and prioritize large volumes of candidate applications within their recruitment workflow."
+        },
+        {
+          "scenario_key": "ats_integration_and_api_mapping",
+          "description": "Navigating technical requirements for ATS integration, including custom fields, requisition status synchronization, and candidate tracking APIs."
+        },
+        {
+          "scenario_key": "attribution_and_funnel_tracking",
+          "description": "Addressing client inquiries and complexities surrounding multi-touch attribution, funnel tracking accuracy, and downstream conversion visibility."
+        },
+        {
+          "scenario_key": "budget_allocation_and_testing",
+          "description": "Navigating initial budget testing, splitting spend across channels, and determining financial commitments for campaigns"
+        },
+        {
+          "scenario_key": "campaign_level_performance_tracking",
+          "description": "Discussing and measuring performance metrics specifically at the individual campaign level."
+        },
+        {
+          "scenario_key": "chatbot_and_messaging_implementation",
+          "description": "Managing client requirements, testing, and technical setup for AI chatbots and mobile messaging integrations like SMS and WhatsApp."
+        },
+        {
+          "scenario_key": "contract_and_legal_review",
+          "description": "Navigating corporate legal and procurement processes for contract, MSA, and statement of work execution"
+        },
+        {
+          "scenario_key": "craigslist_and_classifieds_strategy",
+          "description": "Evaluating Craigslist integration, flat-fee versus CPA pricing models, and performance expectations relative to other job boards."
+        },
+        {
+          "scenario_key": "creative_and_media_plan_review",
+          "description": "Managing the review, feedback, approval, and asset delivery process for client ad creatives, messaging, and media plans."
+        },
+        {
+          "scenario_key": "dashboard_access_and_reporting",
+          "description": "Handling client requests for dashboard access, metric reviews, and sharing reporting data with stakeholders."
+        },
+        {
+          "scenario_key": "downstream_activation_and_cost_metrics",
+          "description": "Managing client discussions regarding downstream conversion metrics like cost per onboarding, OCP, and activations versus top-of-funnel application costs."
+        },
+        {
+          "scenario_key": "geographic_targeting_and_location_mapping",
+          "description": "Resolving discrepancies in campaign geographic targeting using city IDs, ZIP codes, and regional prefectures."
+        },
+        {
+          "scenario_key": "gig_economy_driver_supply_acquisition",
+          "description": "Navigating the unique recruitment challenges of gig economy driver and fleet supply, including high turnover, vehicle qualifications, and localized market profitability."
+        },
+        {
+          "scenario_key": "hiring_forecasts_and_volume_scoping",
+          "description": "Evaluating client hiring forecasts, seasonal volume, and internal recruiting bandwidth to right-size campaign scope."
+        },
+        {
+          "scenario_key": "job_board_budget_and_direct_agreements",
+          "description": "Managing budget allocation and navigating pre-existing direct contracts or caps with specific job boards alongside programmatic distribution."
+        },
+        {
+          "scenario_key": "job_role_taxonomy_and_scoping",
+          "description": "Clients defining, filtering, and structuring complex lists of open roles across departments and seniority levels for programmatic distribution."
+        },
+        {
+          "scenario_key": "landing_page_and_conversion_setup",
+          "description": "Managing client requirements, branding, and tracking implementation for custom landing pages and conversion confirmation flows."
+        },
+        {
+          "scenario_key": "market_insights_and_competitive_intelligence",
+          "description": "Clients seeking market insights, competitor job analysis, and compensation benchmarking data to enhance job posting competitiveness."
+        },
+        {
+          "scenario_key": "multi_language_copy_and_translation",
+          "description": "Managing client requirements, translations, and localized copy approvals for multi-language or regional campaigns."
+        },
+        {
+          "scenario_key": "niche_talent_scarcity_and_budget_reallocation",
+          "description": "Managing campaign spend allocation to prioritize hard-to-fill niche roles over easier-to-source positions."
+        },
+        {
+          "scenario_key": "non_technical_stakeholder_translation",
+          "description": "Guiding non-technical clients to articulate technical engineering requirements and constraints for campaign integration."
+        },
+        {
+          "scenario_key": "pixel_placement_and_tracking",
+          "description": "Validating existing tracking pixels, coordinating placement requirements, and troubleshooting technical integration."
+        },
+        {
+          "scenario_key": "pricing_and_fee_structures",
+          "description": "Navigating client inquiries regarding commission percentages, media spend markup models, management fees, and contract minimums."
+        },
+        {
+          "scenario_key": "programmatic_advertising_scope_and_capability",
+          "description": "Discussing current programmatic advertising maturity and scoping Joveo's programmatic functionality."
+        },
+        {
+          "scenario_key": "publisher_management_and_exclusions",
+          "description": "Managing publisher visibility, inclusion/exclusion lists, and custom publisher requests through the platform or API."
+        },
+        {
+          "scenario_key": "regional_talent_acquisition_and_brand_strategy",
+          "description": "Addressing international hiring bottlenecks, regional market expansion, and localized employer branding versus direct conversion strategies in specific markets like Latin America."
+        },
+        {
+          "scenario_key": "reliance_on_major_social_and_professional_networks",
+          "description": "Clients relying primarily on major platforms like LinkedIn and Facebook for recruitment and questioning the need for broader programmatic distribution."
+        },
+        {
+          "scenario_key": "slack_communication_and_channel_setup",
+          "description": "Setting up dedicated Slack channels for day-to-day project collaboration and reducing noise from main communication streams."
+        },
+        {
+          "scenario_key": "specialty_and_niche_job_boards_integration",
+          "description": "Clients inquiring about Joveo's ability to syndicate or distribute job posts to industry-specific specialty job boards and niche sites."
+        },
+        {
+          "scenario_key": "technical_integration_and_timeline_scoping",
+          "description": "Clients inquiring about API integration effort, developer resource requirements, and typical timelines for technical setup."
+        },
+        {
+          "scenario_key": "testing_and_implementation_timeline",
+          "description": "Managing client expectations and schedules for UAT, staging, testing phases, and official go-live dates."
+        },
+        {
+          "scenario_key": "vendor_transition_and_partnership_evaluation",
+          "description": "Evaluating the transition process, partnership SLAs, proactive support, and agency-of-record dynamics during vendor onboarding."
+        },
+        {
+          "scenario_key": "xml_feed_setup_and_ingestion",
+          "description": "Managing client requirements, file formatting, and technical ingestion processes for XML job feeds."
+        }
+      ],
+      "total": 34,
+      "intake": {
+        "intent": "discovery",
+        "retrieval_query": "",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 4.2
+  },
+  {
+    "conv": "D3. single: what comes up most",
+    "message": "what comes up the most w clients",
+    "thread_in": [],
+    "response": {
+      "outcome": "rendered",
+      "kind": "frequency",
+      "scenarios": [
+        {
+          "scenario_key": "contract_and_legal_review",
+          "description": "Navigating corporate legal and procurement processes for contract, MSA, and statement of work execution",
+          "support_calls": 102,
+          "call_coverage": 0.096317284
+        },
+        {
+          "scenario_key": "budget_allocation_and_testing",
+          "description": "Navigating initial budget testing, splitting spend across channels, and determining financial commitments for campaigns",
+          "support_calls": 101,
+          "call_coverage": 0.09537299
+        },
+        {
+          "scenario_key": "xml_feed_setup_and_ingestion",
+          "description": "Managing client requirements, file formatting, and technical ingestion processes for XML job feeds.",
+          "support_calls": 90,
+          "call_coverage": 0.08498584
+        },
+        {
+          "scenario_key": "ats_integration_and_api_mapping",
+          "description": "Navigating technical requirements for ATS integration, including custom fields, requisition status synchronization, and candidate tracking APIs.",
+          "support_calls": 88,
+          "call_coverage": 0.083097264
+        },
+        {
+          "scenario_key": "landing_page_and_conversion_setup",
+          "description": "Managing client requirements, branding, and tracking implementation for custom landing pages and conversion confirmation flows.",
+          "support_calls": 87,
+          "call_coverage": 0.08215298
+        },
+        {
+          "scenario_key": "dashboard_access_and_reporting",
+          "description": "Handling client requests for dashboard access, metric reviews, and sharing reporting data with stakeholders.",
+          "support_calls": 82,
+          "call_coverage": 0.07743154
+        },
+        {
+          "scenario_key": "job_board_budget_and_direct_agreements",
+          "description": "Managing budget allocation and navigating pre-existing direct contracts or caps with specific job boards alongside programmatic distribution.",
+          "support_calls": 69,
+          "call_coverage": 0.065155804
+        },
+        {
+          "scenario_key": "campaign_level_performance_tracking",
+          "description": "Discussing and measuring performance metrics specifically at the individual campaign level.",
+          "support_calls": 67,
+          "call_coverage": 0.06326723
+        },
+        {
+          "scenario_key": "creative_and_media_plan_review",
+          "description": "Managing the review, feedback, approval, and asset delivery process for client ad creatives, messaging, and media plans.",
+          "support_calls": 67,
+          "call_coverage": 0.06326723
+        },
+        {
+          "scenario_key": "publisher_management_and_exclusions",
+          "description": "Managing publisher visibility, inclusion/exclusion lists, and custom publisher requests through the platform or API.",
+          "support_calls": 60,
+          "call_coverage": 0.056657225
+        },
+        {
+          "scenario_key": "vendor_transition_and_partnership_evaluation",
+          "description": "Evaluating the transition process, partnership SLAs, proactive support, and agency-of-record dynamics during vendor onboarding.",
+          "support_calls": 58,
+          "call_coverage": 0.054768648
+        },
+        {
+          "scenario_key": "market_insights_and_competitive_intelligence",
+          "description": "Clients seeking market insights, competitor job analysis, and compensation benchmarking data to enhance job posting competitiveness.",
+          "support_calls": 48,
+          "call_coverage": 0.04532578
+        }
+      ],
+      "total": 34,
+      "basis": "Ranked by how many of Naren's recorded calls each situation was drawn from. That is a fact about this corpus, not about how often clients raise it.",
+      "intake": {
+        "intent": "frequency",
+        "retrieval_query": "",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 3.8
+  },
+  {
+    "conv": "D4. single: product fact",
+    "message": "whats our list price for a 12 month deal",
+    "thread_in": [],
+    "response": {
+      "outcome": "declined",
+      "reason": "out_of_scope",
+      "message": "Ask Naren answers from what Naren said on real client calls, so it cannot answer questions about Joveo's product, pricing or contract terms. Rewording this will not help -- the answer is not in his calls to find.",
+      "intake": {
+        "intent": "out_of_scope",
+        "retrieval_query": "",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 3.8
+  },
+  {
+    "conv": "D5. single: mood only",
+    "message": "client is pissed about performance",
+    "thread_in": [],
+    "response": {
+      "outcome": "clarify",
+      "question": "Could you share the client's actual words, or the specific details they mentioned about performance?",
+      "intake": {
+        "intent": "clarify",
+        "retrieval_query": "",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 4.2
+  },
+  {
+    "conv": "D6. single: bare carried phrase with no thread",
+    "message": "whats the play here",
+    "thread_in": [],
+    "response": {
+      "outcome": "clarify",
+      "question": "Could you share what situation you're dealing with or what the client actually said?",
+      "intake": {
+        "intent": "clarify",
+        "retrieval_query": "",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 4.4
+  },
+  {
+    "conv": "D7. single: general play",
+    "message": "how do we usually handle a client who wants to redline the msa",
+    "thread_in": [],
+    "response": {
+      "outcome": "declined",
+      "reason": "no_close_match",
+      "message": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+      "match": {
+        "cosine": 0.695465088,
+        "scenario_key": "contract_and_legal_review",
+        "rank": 1
+      },
+      "retries": [
+        "wide"
+      ],
+      "intake": {
+        "intent": "procedure",
+        "retrieval_query": "a client who wants to redline the msa",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 27.5
+  },
+  {
+    "conv": "D8. single: running-campaign problem",
+    "message": "client says cost per hire doubled this month and nothing changed on their side, what do i tell them",
+    "thread_in": [],
+    "response": {
+      "outcome": "declined",
+      "reason": "deadline_exceeded",
+      "message": "Ask Naren did not finish this one in time, and stopped rather than leave you waiting on a spinner. Nothing you typed caused it -- ask again."
+    },
+    "seconds": 30.0
+  }
+]

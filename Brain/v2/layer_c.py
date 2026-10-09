@@ -8,17 +8,28 @@ from preprocessing import segmenter, embedder
 from shared.gemma import call_gemma
 from shared.prompts import (
     PROMPT_LAYER_C_MILESTONE_DESCRIBE_BATCH,
+    PROMPT_LAYER_C_COVERAGE_AREAS,
+    PROMPT_LAYER_C_MILESTONE_DESCRIBE_SITUATED,
     PROMPT_LAYER_C_MILESTONE_TRIAGE_BATCH,
     PROMPT_LAYER_C_V2_ORDER,
     PROMPT_LAYER_C_V1,
 )
 from shared import storage, checkpoint, cluster_evidence, scenario_vectors
+from shared import coverage_areas as _coverage
 from shared.tuning import load_tuning
 
 _GEMMA_CALL_DELAY = 5  # seconds between calls -- free-tier quota is 16000 input tokens/minute
 _MAX_RUBRIC_RESPONSES = 12  # cap responses fed into one rubric prompt -- some scenarios match 50+ instances
 _TRIAGE_BATCH_SIZE = 5  # flagged milestones per PROMPT_LAYER_C_MILESTONE_TRIAGE_BATCH call
 _DESCRIBE_BATCH_SIZE = 5  # milestones per PROMPT_LAYER_C_MILESTONE_DESCRIBE_BATCH call
+
+# Optional model override for the describe step. None keeps call_gemma's default, so
+# production Layer C is unchanged. The trial passes the flash-lite chain because the
+# situated and coverage prompts pack a whole scenario and cannot fit gemma-4-31b-it's 16k
+# tokens-per-minute ceiling -- measured 2026-08-13, one call burned 8+ minutes of backoff
+# before making any progress. Same failure milestone_scoring documents for scoring.
+_FAST_DESCRIBE_MODEL = "gemini-3.5-flash-lite"
+_FAST_DESCRIBE_FALLBACKS = ("gemini-3.1-flash-lite", "gemma-4-31b-it")
 
 STATUS_GENERATED = "rubric_generated"
 STATUS_NOT_COACHABLE = "skipped_not_coachable"
@@ -28,8 +39,8 @@ STATUS_FAILED = "failed"
 
 def build_clause_pool(
     responses: list[dict],
-) -> tuple[list[str], list[float], list[str]]:
-    """Segment each response into clauses, keeping per-clause position and source call.
+) -> tuple[list[str], list[float], list[str], list]:
+    """Segment each response into clauses, keeping position, source call and source pair.
 
     Extracted from _pass1_cluster_scenario (unchanged behaviour) so an offline
     replay can build a byte-identical pool instead of reimplementing this loop.
@@ -43,12 +54,25 @@ def build_clause_pool(
     clauses of a single response, and min_cluster_size=2 accepted both. That was
     the 95-milestone bug.
 
+    clause_pairs (added 2026-08-12) is what lets a cluster reach the CLIENT TRIGGER
+    that prompted it. clause_calls cannot do that job: one call contributes many
+    pairs answering different client turns, so attributing a trigger by call would
+    hand a cluster the trigger of a moment that never produced it. Layer C's
+    describe step has always been blind to the trigger, which is why it cannot
+    state a move's precondition -- see the profile-rebuild design, section 3.
+
+    Defaults to None rather than raising when a caller's response dict has no
+    pair_id: calibration/replay_layer_c_admitted.py builds its own dicts, and its
+    whole validity rests on reproducing Pass 1 exactly, so a KeyError there would
+    break the harness that proves this function unchanged.
+
     n = max(len(clauses) - 1, 1) normalises position to [0, 1] and keeps a
     single-clause response at 0.0 rather than dividing by zero.
     """
     all_clauses: list[str] = []
     clause_positions: list[float] = []
     clause_calls: list[str] = []
+    clause_pairs: list = []
     for resp in responses:
         clauses = segmenter.segment_into_clauses(resp["response_text"])
         n = max(len(clauses) - 1, 1)
@@ -56,10 +80,11 @@ def build_clause_pool(
             all_clauses.append(clause)
             clause_positions.append(pos_idx / n)
             clause_calls.append(resp["call_filename"])
-    return all_clauses, clause_positions, clause_calls
+            clause_pairs.append(resp.get("pair_id"))
+    return all_clauses, clause_positions, clause_calls, clause_pairs
 
 
-def _relevance_filter(clauses, vecs, positions, calls, info, percentile):
+def _relevance_filter(clauses, vecs, positions, calls, pairs, info, percentile):
     """Drop response clauses that are not about the scenario they were filed under.
 
     A response to "how do we measure quality of hire" contains the strategic
@@ -87,6 +112,7 @@ def _relevance_filter(clauses, vecs, positions, calls, info, percentile):
         vecs[keep],
         [positions[i] for i in keep],
         [calls[i] for i in keep],
+        [pairs[i] for i in keep],
         {clauses[i]: float(relevance[i]) for i in keep},
     )
 
@@ -179,7 +205,7 @@ def _pass1_cluster_scenario(
         print(f"  ! Fewer than 2 responses -- will fall back to V1 Gemma approach.")
         return {"kind": "fallback", "info": info, "responses": responses}
 
-    all_clauses, clause_positions, clause_calls = build_clause_pool(responses)
+    all_clauses, clause_positions, clause_calls, clause_pairs = build_clause_pool(responses)
 
     if len(all_clauses) < 6:
         print(f"  ! Too few clauses ({len(all_clauses)}) -- will fall back to V1.")
@@ -189,8 +215,9 @@ def _pass1_cluster_scenario(
     vecs = embedder.embed_document_matrix(all_clauses)
 
     n_before = len(all_clauses)
-    all_clauses, vecs, clause_positions, clause_calls, relevance_by_clause = _relevance_filter(
-        all_clauses, vecs, clause_positions, clause_calls, info,
+    (all_clauses, vecs, clause_positions, clause_calls, clause_pairs,
+     relevance_by_clause) = _relevance_filter(
+        all_clauses, vecs, clause_positions, clause_calls, clause_pairs, info,
         tuning.milestone_relevance_percentile,
     )
     print(f"  Relevance filter (>{tuning.milestone_relevance_percentile}th pct): "
@@ -213,11 +240,13 @@ def _pass1_cluster_scenario(
         if label == -1:
             continue
         if label not in clusters:
-            clusters[label] = {"clauses": [], "positions": [], "calls": [], "vecs": []}
+            clusters[label] = {"clauses": [], "positions": [], "calls": [],
+                               "vecs": [], "pairs": []}
         clusters[label]["clauses"].append(all_clauses[i])
         clusters[label]["positions"].append(clause_positions[i])
         clusters[label]["calls"].append(clause_calls[i])
         clusters[label]["vecs"].append(vecs[i])
+        clusters[label]["pairs"].append(clause_pairs[i])
 
     if not clusters:
         print(f"  ! HDBSCAN found no clusters -- will fall back to V1.")
@@ -228,6 +257,9 @@ def _pass1_cluster_scenario(
             "cluster_id": label,
             "clauses": data["clauses"],
             "vecs": data["vecs"],
+            # The pairs this cluster's clauses came from, so the describe step can be
+            # shown the CLIENT TURNS that prompted the move. Deduped but order-stable.
+            "pair_ids": list(dict.fromkeys(p for p in data["pairs"] if p is not None)),
             "support_calls": len(set(data["calls"])),
             "median_position": float(np.median(data["positions"])),
             "position_variance": float(np.var(data["positions"])),
@@ -343,7 +375,193 @@ def _sequence_milestones(
     return sequencing_map
 
 
-def _describe_milestones_batch(items: list[dict], config: Config) -> dict[str, dict]:
+def _model_kwargs(model: str | None) -> dict:
+    """call_gemma kwargs for an optional model override; empty dict keeps the default."""
+    if not model:
+        return {}
+    return {"model": model, "fallback_models": _FAST_DESCRIBE_FALLBACKS}
+
+
+def group_describe_items_by_scenario(items: list[dict]) -> list[list[dict]]:
+    """One batch per scenario, preserving each scenario's own milestone order.
+
+    Replaces the old fixed-size grouping of _DESCRIBE_BATCH_SIZE milestones drawn across
+    ALL scenarios. That grouping is why the prompt had to say "write EACH independently
+    … do not let one item influence another": with unrelated scenarios in one call, any
+    cross-talk is contamination. Inside a single rubric the opposite is true -- a
+    criterion can only be written to be distinguishable from its siblings if it can see
+    them, and it could not.
+
+    Cost is unchanged, which is what makes this affordable: 405 milestones / 5 per call
+    = 81 calls before, ~82 with one call per scenario.
+
+    Insertion order is preserved for both the scenarios and the milestones within them.
+    Order within a scenario is load-bearing -- milestone_id is the array POSITION, so
+    reordering here would repoint existing milestone_performance rows at different
+    criteria. Determinism across calls matters too: a reshuffle would change which
+    criteria saw which siblings and confound any comparison between arms.
+    """
+    by_scenario: dict[str, list[dict]] = {}
+    for item in items:
+        by_scenario.setdefault(item["scenario_key"], []).append(item)
+    return list(by_scenario.values())
+
+
+def _nearest_other_scenarios(keys: list[str], scenario_map: dict[str, dict],
+                             k: int = 3) -> dict[str, list[dict]]:
+    """The k nearest OTHER coachable scenarios for each key, by scenario vector.
+
+    Used only by the situated describe path, so a criterion can be written to exclude
+    the situations it is most likely to be confused with. Measured 2026-08-11/12: the
+    expert scores 0.114 against his own rubrics and 0.090 against unrelated ones, so
+    "what this scenario is NOT" is exactly the information the criteria lack.
+
+    Returns empty lists rather than raising when there is nothing to compare against --
+    a corpus with one coachable scenario has no neighbours, and that is not an error.
+    """
+    coachable = {k2: v for k2, v in scenario_map.items()
+                 if v.get("is_coachable", True) and k2 in keys}
+    if len(coachable) < 2:
+        return {k2: [] for k2 in keys}
+    vec_keys, vecs = scenario_vectors.build_scenario_vecs(coachable)
+    arr = np.asarray(vecs, dtype=np.float32)
+    arr = arr / (np.linalg.norm(arr, axis=1, keepdims=True) + 1e-10)
+    sims = arr @ arr.T
+    np.fill_diagonal(sims, -1.0)          # never a scenario's own neighbour
+    out: dict[str, list[dict]] = {}
+    for i, key in enumerate(vec_keys):
+        top = np.argsort(-sims[i])[:k]
+        out[key] = [dict(scenario_map[vec_keys[j]], scenario_key=vec_keys[j])
+                    for j in top if sims[i][j] > 0]
+    return {k2: out.get(k2, []) for k2 in keys}
+
+
+def scenario_block(info: dict) -> str:
+    """What the scenario MEANS, not just its key string.
+
+    The legacy prompt passes `SCENARIO: <key>` and nothing else, so the model is asked to
+    write a criterion that identifies a situation it has only been given the name of.
+    """
+    parts = [f"key: {info.get('scenario_key', '')}",
+             f"description: {info.get('business_description', '') or '(none recorded)'}"]
+    kp = info.get("keyphrases") or []
+    if kp:
+        parts.append("keyphrases: " + ", ".join(str(k) for k in kp[:12]))
+    return "\n".join("  " + p for p in parts)
+
+
+def neighbours_block(neighbours: list[dict]) -> str:
+    """The nearest OTHER scenarios, so a criterion can be written to exclude them.
+
+    Precedent: PROMPT_LAYER_A_V2_TRIAGE already shows each cluster its nearest accepted
+    neighbours, for exactly this reason one level up the hierarchy.
+    """
+    if not neighbours:
+        return "  (none -- this scenario has no close neighbours)"
+    return "\n".join(
+        f"  - {n.get('scenario_key', '')}: "
+        f"{(n.get('business_description') or '')[:150]}" for n in neighbours)
+
+
+def moves_block(items: list[dict], triggers_by_id: dict[str, list[str]]) -> str:
+    """Every move of ONE rubric, each with the client turns that prompted it.
+
+    All of a scenario's moves appear together so each can be written to be
+    distinguishable from its siblings -- impossible under the legacy grouping, which
+    mixed unrelated scenarios and therefore had to forbid cross-talk outright.
+    """
+    out = []
+    for item in items:
+        trigs = triggers_by_id.get(item["id"], [])
+        lines = [f"- id: {item['id']}  (move {item['order']} of {item['total']})",
+                 "  CLIENT TURNS THAT PROMPTED THIS MOVE:"]
+        lines += [f"    - {t[:220]}" for t in trigs[:6]] or ["    - (none recorded)"]
+        lines.append("  THE EXPERT'S CLAUSES:")
+        lines += [f"    - {c}" for c in item["clauses"]]
+        out.append("\n".join(lines))
+    return "\n\n".join(out)
+
+
+def describe_coverage_areas(items: list[dict], config: Config,
+                            model: str | None = None) -> dict[str, list[dict]]:
+    """One Gemma call per scenario returning 3-4 COVERAGE AREAS instead of N criteria.
+
+    Option 4 of the profile-rebuild design. Returns {scenario_key: [area, ...]} with each
+    area's evidence rolled up from the moves it covers, so an area stays auditable back
+    to "this recurs in 22 calls".
+
+    Everything that did not line up is printed rather than absorbed -- uncovered moves,
+    invented ids, double claims, wide merges. A quiet parse here would repeat the
+    merge-blindness that inflated a whole Layer C A/B while its milestone count went up.
+    """
+    out: dict[str, list[dict]] = {}
+    for batch in group_describe_items_by_scenario(items):
+        first = batch[0]
+        scenario_key = first["scenario_key"]
+        prompt = PROMPT_LAYER_C_COVERAGE_AREAS.format(
+            scenario_block=scenario_block(first.get("info") or {}),
+            neighbours_block=neighbours_block(first.get("neighbours") or []),
+            moves_block=moves_block(
+                batch, {i["id"]: i.get("triggers") or [] for i in batch}),
+        )
+        raw = call_gemma(prompt, config.gemma_api_keys, **_model_kwargs(model))
+        time.sleep(_GEMMA_CALL_DELAY)
+
+        areas, report = _coverage.parse_areas(raw, [i["id"] for i in batch])
+        clusters_by_id = {i["id"]: i.get("cluster") or {} for i in batch}
+        out[scenario_key] = _coverage.attach_evidence(areas, clusters_by_id)
+
+        if report["uncovered_clusters"]:
+            print(f"  ! {scenario_key}: {len(report['uncovered_clusters'])} move(s) "
+                  f"claimed by NO area -- their evidence is dropped from the playbook.")
+        if report["double_claimed_clusters"]:
+            print(f"  ! {scenario_key}: {len(report['double_claimed_clusters'])} move(s) "
+                  f"claimed by two areas -- support is double counted.")
+        if report["unknown_clusters"]:
+            print(f"  ! {scenario_key}: invented move id(s) "
+                  f"{report['unknown_clusters'][:5]} -- coverage may be misattributed.")
+        wide = [a["id"] for a in out[scenario_key] if a.get("wide_merge")]
+        if wide:
+            print(f"  ! {scenario_key}: area(s) {wide} each fuse "
+                  f">={_coverage.WIDE_MERGE_MOVES} moves -- READ THEM before trusting "
+                  f"this playbook; distinct coaching moves may have been merged.")
+    return out
+
+
+def _describe_situated(items: list[dict], config: Config,
+                       model: str | None = None) -> dict[str, dict]:
+    """One Gemma call per scenario, with triggers, siblings and scenario meaning.
+
+    Selected by layer_c.describe_mode == 'situated'. Same call count as the legacy
+    path (~82 vs 81), because a scenario averages ~5 milestones.
+    """
+    descriptions: dict[str, dict] = {}
+    for batch in group_describe_items_by_scenario(items):
+        first = batch[0]
+        prompt = PROMPT_LAYER_C_MILESTONE_DESCRIBE_SITUATED.format(
+            scenario_block=scenario_block(first.get("info") or {}),
+            neighbours_block=neighbours_block(first.get("neighbours") or []),
+            moves_block=moves_block(
+                batch, {i["id"]: i.get("triggers") or [] for i in batch}),
+        )
+        raw = call_gemma(prompt, config.gemma_api_keys, **_model_kwargs(model))
+        time.sleep(_GEMMA_CALL_DELAY)
+        raw_list = raw if isinstance(raw, list) else raw.get("results", [])
+        returned = {r["id"] for r in raw_list if isinstance(r, dict) and "id" in r}
+        missing = {i["id"] for i in batch} - returned
+        if missing:
+            # A missing id silently becomes an undescribed milestone, so say so rather
+            # than absorb it -- the same reporting rule score_milestones_batch follows.
+            print(f"  ! describe returned {len(returned)}/{len(batch)} for "
+                  f"{first['scenario_key']}; {len(missing)} left undescribed.")
+        for r in raw_list:
+            if isinstance(r, dict) and "id" in r:
+                descriptions[r["id"]] = r
+    return descriptions
+
+
+def _describe_milestones_batch(items: list[dict], config: Config,
+                               model: str | None = None) -> dict[str, dict]:
     """Batched Gemma description for every surviving milestone candidate across
     ALL scenarios in this run. Replaces one PROMPT_LAYER_C_MILESTONE_DESCRIBE
     call per milestone (up to milestone_hard_cap per scenario, ~241-403 calls
@@ -366,7 +584,7 @@ def _describe_milestones_batch(items: list[dict], config: Config) -> dict[str, d
         )
         raw = call_gemma(
             PROMPT_LAYER_C_MILESTONE_DESCRIBE_BATCH.format(items_block=items_block),
-            config.gemma_api_keys,
+            config.gemma_api_keys, **_model_kwargs(model),
         )
         time.sleep(_GEMMA_CALL_DELAY)
         raw_list = raw if isinstance(raw, list) else raw.get("results", [])
@@ -399,6 +617,11 @@ def _finish_rubric(
             "label": desc.get("label", f"Milestone {order_idx+1}"),
             "description": desc.get("description", ""),
             "detection_hint": desc.get("detection_hint", ""),
+            # Only the situated describe path produces this. Absent under legacy, which
+            # is the honest state -- that prompt has never seen a client turn, so it has
+            # no basis on which to state a precondition. Distinct from sequencing_type,
+            # which is about ORDER variance and fires 0 of 226 times.
+            "precondition": desc.get("precondition") or None,
             "sequencing_type": sequencing_map.get(cluster["cluster_id"], "fixed"),
             "position_variance": cluster["position_variance"],
             # The evidence behind this milestone, stored so a reviewer can ask
@@ -553,18 +776,33 @@ def run_layer_c_v2(
 
     # Batch judge (whole run): describe every surviving milestone across every
     # scenario in groups of _DESCRIBE_BATCH_SIZE, instead of one call each.
-    describe_items = [
-        {
-            "id": f"{scenario_key}::{cluster['cluster_id']}",
-            "scenario_key": scenario_key,
-            "order": order_idx + 1,
-            "total": len(state["ordered"]),
-            "clauses": cluster["clauses"][:5],
-        }
-        for scenario_key, state in to_finish.items()
-        for order_idx, cluster in enumerate(state["ordered"])
-    ]
-    descriptions = _describe_milestones_batch(describe_items, config)
+    # info/neighbours/triggers are read only by the situated path; the legacy prompt
+    # ignores them, so building them unconditionally costs nothing and keeps one item
+    # shape rather than two that can drift.
+    neighbours_of = _nearest_other_scenarios(list(to_finish), scenario_map)
+    describe_items = []
+    for scenario_key, state in to_finish.items():
+        trigger_of = {r.get("pair_id"): (r.get("trigger_text") or "")
+                      for r in state["responses"]}
+        for order_idx, cluster in enumerate(state["ordered"]):
+            describe_items.append({
+                "id": f"{scenario_key}::{cluster['cluster_id']}",
+                "scenario_key": scenario_key,
+                "order": order_idx + 1,
+                "total": len(state["ordered"]),
+                "clauses": cluster["clauses"][:5],
+                "info": dict(state["info"], scenario_key=scenario_key),
+                "neighbours": neighbours_of.get(scenario_key, []),
+                "triggers": [trigger_of[pid] for pid in cluster.get("pair_ids", [])
+                             if trigger_of.get(pid)],
+                # The cluster itself, so coverage areas can roll their evidence up from
+                # the moves they cover. Ignored by both describe paths.
+                "cluster": cluster,
+            })
+    if tuning.describe_mode == "situated":
+        descriptions = _describe_situated(describe_items, config)
+    else:
+        descriptions = _describe_milestones_batch(describe_items, config)
     if describe_items:
         n_calls = math.ceil(len(describe_items) / _DESCRIBE_BATCH_SIZE)
         print(f"[V2 Layer C] {len(describe_items)} milestone(s) to describe "

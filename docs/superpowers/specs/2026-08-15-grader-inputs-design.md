@@ -1,0 +1,280 @@
+# The Layer D grader cannot see the situation it is grading (2026-08-15)
+
+Status: **COMPLETE. Hypothesis REFUTED; the control overturned the premise instead.**
+Everything above the "Result" heading was written before any result was seen.
+Read the Result and Confirmation sections at the bottom first.
+
+Harness `calibration/trial_grader_inputs.py`. Zero Postgres writes. ~80 chat calls.
+
+## The defect, read from source rather than inferred
+
+`ego_trap/milestone_scoring.py::score_milestones_batch` builds each exchange out of exactly
+three things:
+
+- Naren's benchmark response (unless `show_benchmark=False`)
+- the CSM response
+- per milestone, `description` + `detection_hint`
+
+`PROMPT_STEP3_MILESTONE_SCORE_BATCH` adds nothing else. **The client turn, the scenario, and
+the milestone's own `label` are all stored and all discarded at grading time.**
+
+`label` is the sharpest of the three. The 2026-08-10 criteria rewrite deliberately stripped
+subject matter out of `description` — *"List relevant software platforms to establish the
+scope…"* — while `label` kept it — *"Identifying ATS Options"*. The situational anchoring
+that the ceiling run later identified as missing is sitting in a field that has never been
+sent to the grader.
+
+This is the same **missing-INPUT** defect the Layer C profile rebuild found in the WRITER
+(`_describe_milestones_batch` has never seen a client turn, so it cannot state a
+precondition), one stage later and never diagnosed. It is recorded in CLAUDE.md as DEFECT 2
+of the 100-call Layer D run, with the note "cheap to test against the ceiling run's own
+null" — and never tested.
+
+## Why it could invalidate four verdicts rather than one prompt
+
+The ceiling run's control arm scores real responses against a **deliberately unrelated**
+scenario's rubric. A grader that cannot see which situation either belongs to has no way to
+notice the mismatch. Combine that with criteria the rewrite made scenario-agnostic, and a
+competent sales response satisfies generic criteria — *"explain the mechanism"*, *"ask an
+open question to establish scope"* — drawn from any scenario at all.
+
+**1.2:1 is what that arrangement predicts arithmetically, independent of what the rubrics
+are worth.**
+
+> **RETRACTED THE SAME DAY, BEFORE IMPLEMENTATION.** This section originally continued: *"the
+> circularity is concrete — `trial_layer_c_arms.py:261` scores its situated-writer arms with
+> this same blind scorer, so situating the writer was evaluated by an instrument that discards
+> situation."* **That was wrong twice over.**
+>
+> **(1) The criterion text carries the specificity, and the grader reads the criterion.** A
+> situated writer produces *"List relevant ATS platforms"* rather than *"List relevant
+> platforms"*; the extra information is in the sentence the grader is already handed, so it
+> does not need to know the scenario name to reward it. There was no circularity.
+>
+> **(2) Measured here: supplying the situation changes nothing** (blind 6.00 vs 5.84 with
+> scenario + client turn + label). A grader that cannot see the situation is not handicapped
+> in a way that affects this.
+>
+> That trial is also **population-symmetric**, unlike the ceiling — `matched` and `unrelated`
+> come from the same rows with only the rubric key swapped
+> (`trial_layer_c_arms.py:700-701`) — so it never had the flaw that invalidated the 1.2:1
+> either. **Its verdict stands. Do not re-run it on circularity grounds, and do not regenerate
+> criteria on them.** The claim is left visible rather than deleted because acting on it would
+> have cost ~250 calls.
+
+## What this is NOT
+
+- **Not a fourth wording pass.** Stopping condition #1 ruled those out. The verdict rules,
+  the three-way scale and the JSON contract are byte-identical; only the fields present in
+  each exchange change.
+- **Not the applicability question.** *"Did this moment call for this move"* has failed
+  twice — the standalone judge at 1.22:1 and the coverage judge at 64.9% matched vs 65.7%
+  unrelated. The question here is unchanged from production's: *did the response satisfy the
+  criterion*. Only the visibility of the situation changes.
+
+**The one confound, stated rather than hidden:** information cannot be supplied without a
+sentence telling the model the field exists, so the treatment is strictly *"situational
+inputs PLUS the minimal instruction to use them"*. There is no way to separate those and
+still deliver the information.
+
+## Design
+
+`situated_fields` on `score_milestones_batch`, defaulting to `None` — production is
+byte-identical, verified by asserting the blind prompt contains no `LABEL:`, `CLIENT TURN`,
+`SCENARIO:` or situation note. An unknown field name raises rather than silently no-opping.
+
+| condition | fields added |
+| --- | --- |
+| `blind` | none — production control |
+| `label` | milestone `label` |
+| `turn` | the client turn |
+| `full` | scenario + client turn + label |
+
+### Population symmetry, which the ceiling run did not have
+
+CLAUDE.md's own amendment records that the ceiling's cited 1.61:1 compares **A3 against B
+across different response populations** (A3 draws secondary-label rows, B draws A1's), that
+the gate is applied across that boundary, and that **no arm pair there is both leakage-clean
+and population-symmetric** — the arm that would give it, "B3", was never built.
+
+This trial sidesteps that entirely. Every condition scores **the same responses** against
+both their own rubric and a deranged partner's. Therefore:
+
+- matched and unrelated share one population exactly — no missing arm;
+- leakage inflates both conditions equally, because the treatment is the PROMPT and the data
+  is held fixed, so no holdout machinery is required;
+- the four conditions score identical items, so a difference between them cannot come from
+  sampling.
+
+**Consequence accepted up front: absolute W is NOT comparable to the ceiling run's W. Only
+ratios are.** The benchmark travels with the *rubric*, never the response's own scenario, or
+the unrelated arm would differ from matched in two ways instead of one.
+
+The partner mapping is a derangement rejecting any pair whose scenario-vector cosine is
+`>= layer_a.merge_cosine_threshold` — an already-calibrated knob, in bge, the space it was
+calibrated in. No new `tuning.yaml` key.
+
+## Pre-registration
+
+| | |
+| --- | --- |
+| metric | `W = (full_hit + 0.5*partial_hit)/attempts` — the definition `gap_output.milestone_miss_rate` and `measure_scoring_noise.py` already use |
+| primary | discrimination `D = W(matched) / W(unrelated)`, per condition |
+| **PASS** | any situated condition reaches **D >= 2.0** |
+| **FAIL** | no condition reaches 2.0 |
+| uncertainty | 95% CI for D by bootstrap over **items**, not milestones — milestones inside an item share a response and are not independent. Overlapping CIs between `blind` and a situated arm mean the move is not established, whatever the point estimates do |
+| sampling | seeded, **stratified** over posture (`client_*`) vs subject-matter. Never the first N — `--limit` once returned nothing but subject-matter scenarios because every posture key sorts after `budget` |
+| provenance | `judged_by` per verdict, model histogram per arm. Model pinned with `fallback_models=()` — an empty tuple, **not** `fallback_enabled=False`, which would also disable key rotation |
+
+**D >= 2.0 is not a new bar.** It is the inverse of `score_naren_ceiling._T_INSTRUMENT = 0.5`
+("W(B) >= 0.5 × W(A3) ⇒ the instrument is invalid, discard everything"), already
+pre-registered in the ceiling design and unmoved here.
+
+### What each outcome means
+
+- **PASS** — the grader's blindness was a binding constraint. Every verdict measured through
+  the blind scorer needs re-reading: the ceiling's 1.2:1, the criteria A/B, and the four-arm
+  rebuild. Wall 1 reopens.
+- **FAIL** — situational blindness is not the binding constraint. Wall 1 stands and this line
+  of attack closes alongside the other four. **A FAIL is a real result and must be reported
+  as one**, not softened into "inconclusive".
+
+### Evidence already on the record that argues AGAINST the hypothesis
+
+Recorded here so a PASS is not read as inevitable and a FAIL is not read as surprising:
+
+- the coverage judge **did** see the client turn and the response and still could not
+  separate matched from unrelated (64.9% vs 65.7%);
+- the head-to-head judge had full situational context and still failed self-consistency
+  under position swap (0.669 against a 0.75 bar).
+
+Both were asking a *different* question — applicability, and fine-grained preference between
+two good replies. The scoring question with the situation supplied has never been run. That
+is the whole of the case for spending these calls.
+
+## Cost and blast radius
+
+~80 chat calls. Zero Postgres writes; the live 161 scenarios, 84 rubrics and every
+`milestone_performance` row are untouched. `situated_fields` defaults to `None`, so no
+production path changes until someone deliberately passes it.
+
+---
+
+## Result (2026-08-15): hypothesis REFUTED, and the control overturned the premise
+
+`gemini-3.5-flash-lite` pinned, 20 scenarios x 3 responses, 120 items per condition, 546
+gradings each. Same items across all four conditions.
+
+| condition | W matched | W unrelated | D | 95% CI |
+| --- | --- | --- | --- | --- |
+| `blind` (control) | 0.176 | 0.029 | **6.00** | [3.12, 17.39] |
+| `label` | 0.172 | 0.038 | 4.48 | [2.69, 9.06] |
+| `turn` | 0.170 | 0.026 | 6.64 | [3.34, 21.54] |
+| `full` | 0.203 | 0.035 | 5.84 | [3.26, 15.75] |
+
+> CIs recomputed 2026-08-15 (F11/R3a+R3b) with the pooled estimator, so they now quantify the
+> `D` beside them. Every point estimate is unchanged; the intervals narrow (the old ones were
+> widened by unweighted per-item averaging). **The reading is unchanged: still no ordering,
+> still heavily overlapping.**
+>
+> `blind` also carries the only degenerate resample in any of the six artifacts: 1 of 2,000
+> had `W(unrelated) = 0` while matched scored, i.e. an UNBOUNDED `D`. The old bootstrap
+> discarded it — dropping the largest value in the distribution and truncating the interval
+> from the top. Kept as `+inf`, the upper bound moves 17.11 -> 17.39. Every other condition in
+> every artifact is bit-identical, so this is the entire footprint of R3b.
+
+**Situating the grader does nothing.** No ordering, CIs heavily overlapping. DEFECT 2 is a
+real code fact and is NOT the binding constraint. Do not spend on it again.
+
+### The pre-registration was mis-specified, and it is recorded rather than moved
+
+`D >= 2.0` was inherited from the ceiling's `_T_INSTRUMENT`, which was calibrated on the
+ceiling's ASYMMETRIC arms. Under this design the **control clears it unaided**, so the bar
+cannot separate treatment from control and a printed PASS says nothing about the hypothesis.
+The bar is left exactly as registered and the report prints a `PRE-REGISTRATION DEFECT` line;
+rewriting it after seeing the result is how a finding gets tuned into existence. The
+comparison that carries the hypothesis is treatment-vs-control, which is null.
+
+### The control is the finding: 1.2:1 was an arm-construction artifact
+
+| run | population | model | W matched | W unrelated | D |
+| --- | --- | --- | --- | --- | --- |
+| headline | leaked | 3.5-flash-lite | 0.176 | 0.029 | 6.00 |
+| model control | leaked | **3.1** (production) | 0.176 | 0.042 | 4.17 |
+| clean + symmetric | **leakage-clean** | 3.1 | 0.090 | 0.018 | 4.90 |
+
+The model accounts for part of the spread and nowhere near the gap to 1.27. The difference is
+**entirely in the control arm**: this trial's `W(unrelated)` is 0.018-0.042 against the
+ceiling's `W(B)=0.090`, while `W(matched)`=0.090 sits right beside the ceiling's
+`W(A3)=0.114`. Arm B scored `a1_sample` rows — PRIMARY-label responses, the strongest
+exemplars of their scenario — against a partner rubric, and a strong substantive response
+satisfies generic criteria from anywhere. **The null was inflated by how it was sampled.**
+This is the symmetric-filtering failure this codebase has hit five times, and the ceiling's
+own amendment already suspected it and named the missing arm "B3".
+
+## Confirmation (2026-08-15): replicated at scale, on the statistic that cannot be destabilised
+
+The pooled ratio D is fragile — its denominator is near zero, and it moved 4.90 -> 2.92 purely
+by going from 20 scenarios to 69. So the headline moved to a **per-scenario paired count**,
+pre-registered at `SIGN_BAR = 0.70` with p < 0.05 on BOTH independent response draws before
+either was launched. Pairing is on the RESPONSE's own scenario, and the harness **refuses** to
+run the test on records lacking `source_scenario` rather than pairing an unrelated item under
+its partner's name.
+
+69 scenarios (26 posture / 43 subject-matter), 345 responses, 690 items, 3,540 gradings per
+run, leakage-clean stratum, `gemini-3.1-flash-lite` pinned, ~230 calls total.
+
+| run | wins | losses | ties | win share | p | pooled D |
+| --- | --- | --- | --- | --- | --- | --- |
+| A (seed 42) | 48 | 14 | 7 | **77.4%** | 1.7e-05 | 2.92 [2.22, 3.99] |
+| B (seed 7) | 51 | 11 | 7 | **82.3%** | 2.8e-07 | 2.11 [1.67, 2.73] |
+
+**Both clear the pre-registered bar. Only 7 of 69 ties**, so the "everything scores zero on
+both sides" degenerate case did not occur and the test is genuinely informative.
+
+**CONCLUSION: the criteria scorer discriminates.** Wall 1's "the ruler cannot tell good from
+better" rests on the retracted 1.2:1 and falls with it. Wall 2 (no skills vocabulary) and the
+head-to-head failures (C1 0.669, C4 0.835 replicated) are untouched — neither depended on the
+ceiling.
+
+**WHAT DOES NOT CHANGE, and is now the binding constraint: `W(matched)` is 0.089-0.095.**
+Naren satisfies ~9% of criteria written from his own calls. The grader can tell which rubric
+it is holding and still fails almost everything. **The criteria are unpassable.** That is a
+different problem, and the instrument to test fixes against now exists.
+
+### Limits of this result, stated
+
+- It establishes that verdicts RESPOND to the right rubric. It does not establish that the
+  verdicts are CORRECT — a grader can discriminate and still be wrong about quality. Only
+  human labels settle that.
+- All of it is the OLD taxonomy and OLD rubrics. The turn-mode 38 have no rubrics, so nothing
+  here speaks to them.
+- ~~Known harness inconsistency, unfixed: printed `D` is pooled (total hits / total attempts)
+  while the bootstrap CI is over per-item means. Run B is 2.11 pooled vs 2.75 mean-of-items,
+  which is why its CI appears to exclude its own point estimate.~~ **FIXED 2026-08-15
+  (F11/R3a).** The bootstrap now recomputes `W` from the summed counts of the resampled
+  items, i.e. the same pooled estimator as the point estimate, so an item holding six
+  milestones weighs six times one holding a single milestone — which is what
+  `W = (full + 0.5*partial)/attempts` means. Run B's interval becomes **[1.67, 2.73]** and
+  contains its 2.11. Every `D` in this document is unchanged; only the intervals moved, and
+  the free recompute ran off the intact checkpoints. **The sign test never used the bootstrap
+  and is untouched, so the 77.4% / 82.3% headline does not depend on any of this.**
+  - **One reading DOES change, for run B only.** Its old interval [2.12, 3.64] sat entirely
+    above the pre-registered `D >= 2.0`; the corrected [1.67, 2.73] straddles it. B's PASS on
+    the pooled ratio is therefore marginal rather than clear. This costs nothing here, because
+    the section above already retired `D >= 2.0` as mis-specified and moved the headline to
+    the sign test for exactly the reason the correction illustrates — the pooled ratio is
+    fragile.
+  - The measured pooled-vs-per-item gap ran from **-1.51 to +1.87** across the six shipped
+    artifacts, so this was never a rounding-level inconsistency.
+
+### Harness bugs found and fixed during the run, all recoverable only because of checkpoints
+
+- `--tag` applied to the checkpoint but not the final write, so a control overwrote the
+  headline artifact. Recovered free from the intact checkpoint.
+- `out` (the artifact path) was shadowed by the batch result inside the scoring loop —
+  crashed after all 20 calls had been spent. Recovered free from the checkpoint.
+- The call estimate multiplied by all four conditions even when `--conditions` selected one,
+  advertising 4x the true cost.
+- The situation note announced fields that no exchange contained when a v1 rubric had no
+  `label`; it is now built from what was actually emitted.

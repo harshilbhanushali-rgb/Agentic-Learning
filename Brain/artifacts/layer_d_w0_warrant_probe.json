@@ -1,0 +1,795 @@
+{
+ "pre_registration": "docs/findings/layer-d-say-arm.md \u00a710 (2026-09-05)",
+ "run_id": "695837c37614",
+ "width": 3072,
+ "events_with_verdicts": 1001,
+ "cells_total": 87,
+ "cells_in_repertoire": 61,
+ "moments_dropped_no_reference": {
+  "primary": 0,
+  "loo": 0
+ },
+ "primary_leave_one_call_out": {
+  "n": 1840,
+  "base_rate": 0.15543478260869564,
+  "deciles": [
+   {
+    "decile": 10,
+    "n": 184,
+    "sim_min": 0.7999266982078552,
+    "sim_max": 1.0000001192092896,
+    "deployment_rate": 0.2826086956521739
+   },
+   {
+    "decile": 9,
+    "n": 184,
+    "sim_min": 0.7844330072402954,
+    "sim_max": 0.7997420430183411,
+    "deployment_rate": 0.21739130434782608
+   },
+   {
+    "decile": 8,
+    "n": 184,
+    "sim_min": 0.7738861441612244,
+    "sim_max": 0.7844323515892029,
+    "deployment_rate": 0.1956521739130435
+   },
+   {
+    "decile": 7,
+    "n": 184,
+    "sim_min": 0.7624996900558472,
+    "sim_max": 0.773885190486908,
+    "deployment_rate": 0.13043478260869565
+   },
+   {
+    "decile": 6,
+    "n": 184,
+    "sim_min": 0.7522751092910767,
+    "sim_max": 0.7624996900558472,
+    "deployment_rate": 0.16847826086956522
+   },
+   {
+    "decile": 5,
+    "n": 184,
+    "sim_min": 0.742620050907135,
+    "sim_max": 0.7522521018981934,
+    "deployment_rate": 0.11413043478260869
+   },
+   {
+    "decile": 4,
+    "n": 184,
+    "sim_min": 0.7311193346977234,
+    "sim_max": 0.7425343990325928,
+    "deployment_rate": 0.11956521739130435
+   },
+   {
+    "decile": 3,
+    "n": 184,
+    "sim_min": 0.7167656421661377,
+    "sim_max": 0.7310196161270142,
+    "deployment_rate": 0.11956521739130435
+   },
+   {
+    "decile": 2,
+    "n": 184,
+    "sim_min": 0.6974353790283203,
+    "sim_max": 0.716733992099762,
+    "deployment_rate": 0.09239130434782608
+   },
+   {
+    "decile": 1,
+    "n": 184,
+    "sim_min": 0.5914618968963623,
+    "sim_max": 0.6974319219589233,
+    "deployment_rate": 0.11413043478260869
+   }
+  ],
+  "top_decile_rate": 0.2826086956521739,
+  "top20_rate": 0.25
+ },
+ "diagnostic_leave_one_moment_out": {
+  "n": 1840,
+  "base_rate": 0.15543478260869564,
+  "deciles": [
+   {
+    "decile": 10,
+    "n": 184,
+    "sim_min": 0.8071794509887695,
+    "sim_max": 1.0000001192092896,
+    "deployment_rate": 0.30978260869565216
+   },
+   {
+    "decile": 9,
+    "n": 184,
+    "sim_min": 0.7884269952774048,
+    "sim_max": 0.8071794509887695,
+    "deployment_rate": 0.21195652173913043
+   },
+   {
+    "decile": 8,
+    "n": 184,
+    "sim_min": 0.778049886226654,
+    "sim_max": 0.7884269952774048,
+    "deployment_rate": 0.20108695652173914
+   },
+   {
+    "decile": 7,
+    "n": 184,
+    "sim_min": 0.7655086517333984,
+    "sim_max": 0.7779824137687683,
+    "deployment_rate": 0.1793478260869565
+   },
+   {
+    "decile": 6,
+    "n": 184,
+    "sim_min": 0.7542195320129395,
+    "sim_max": 0.765480637550354,
+    "deployment_rate": 0.14673913043478262
+   },
+   {
+    "decile": 5,
+    "n": 184,
+    "sim_min": 0.7450907230377197,
+    "sim_max": 0.7542166709899902,
+    "deployment_rate": 0.13043478260869565
+   },
+   {
+    "decile": 4,
+    "n": 184,
+    "sim_min": 0.7333574891090393,
+    "sim_max": 0.7450907230377197,
+    "deployment_rate": 0.07608695652173914
+   },
+   {
+    "decile": 3,
+    "n": 184,
+    "sim_min": 0.7192320227622986,
+    "sim_max": 0.7329946160316467,
+    "deployment_rate": 0.11413043478260869
+   },
+   {
+    "decile": 2,
+    "n": 184,
+    "sim_min": 0.7009245157241821,
+    "sim_max": 0.7190461158752441,
+    "deployment_rate": 0.07608695652173914
+   },
+   {
+    "decile": 1,
+    "n": 184,
+    "sim_min": 0.5914618968963623,
+    "sim_max": 0.7008753418922424,
+    "deployment_rate": 0.10869565217391304
+   }
+  ],
+  "top_decile_rate": 0.30978260869565216,
+  "top20_rate": 0.2608695652173913
+ },
+ "auc_primary": 0.6106202356202356,
+ "auc_loo": 0.6366111366111367,
+ "permutations": 500,
+ "seed": 20260905,
+ "null_top_decile_mean": 0.1673575671180803,
+ "null_top_decile_p95": 0.22282608695652173,
+ "p_top_decile": 0.0,
+ "p_top20": 0.0,
+ "same_call_nearest_share": 0.17832167832167833,
+ "rule": {
+  "enrichment_x": 3.0,
+  "absolute_floor": 0.5,
+  "alpha": 0.05
+ },
+ "verdict": "NOT LEGIBLE",
+ "per_move": [
+  {
+   "playbook_id": 161,
+   "move_id": "M3",
+   "moments": 31,
+   "deployed": 7,
+   "deployed_calls": 5,
+   "pairs_scored": 31,
+   "auc": 0.7023809523809523,
+   "top_decile_rate": 0.6666666666666666
+  },
+  {
+   "playbook_id": 162,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 9,
+   "deployed_calls": 6,
+   "pairs_scored": 30,
+   "auc": 0.5608465608465608,
+   "top_decile_rate": 0.6666666666666666
+  },
+  {
+   "playbook_id": 162,
+   "move_id": "M3",
+   "moments": 30,
+   "deployed": 6,
+   "deployed_calls": 6,
+   "pairs_scored": 30,
+   "auc": 0.6527777777777778,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 162,
+   "move_id": "M5",
+   "moments": 30,
+   "deployed": 2,
+   "deployed_calls": 2,
+   "pairs_scored": 30,
+   "auc": 0.8571428571428571,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 163,
+   "move_id": "M3",
+   "moments": 30,
+   "deployed": 12,
+   "deployed_calls": 11,
+   "pairs_scored": 30,
+   "auc": 0.5277777777777778,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 164,
+   "move_id": "M1",
+   "moments": 34,
+   "deployed": 3,
+   "deployed_calls": 3,
+   "pairs_scored": 34,
+   "auc": 0.4946236559139785,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 164,
+   "move_id": "M2",
+   "moments": 34,
+   "deployed": 5,
+   "deployed_calls": 4,
+   "pairs_scored": 34,
+   "auc": 0.8551724137931035,
+   "top_decile_rate": 1.0
+  },
+  {
+   "playbook_id": 165,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 8,
+   "deployed_calls": 7,
+   "pairs_scored": 30,
+   "auc": 0.7102272727272727,
+   "top_decile_rate": 0.3333333333333333
+  },
+  {
+   "playbook_id": 166,
+   "move_id": "M4",
+   "moments": 29,
+   "deployed": 2,
+   "deployed_calls": 2,
+   "pairs_scored": 29,
+   "auc": 0.037037037037037035,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 166,
+   "move_id": "M5",
+   "moments": 29,
+   "deployed": 5,
+   "deployed_calls": 4,
+   "pairs_scored": 29,
+   "auc": 0.49166666666666664,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 167,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 2,
+   "deployed_calls": 2,
+   "pairs_scored": 30,
+   "auc": 0.03571428571428571,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 168,
+   "move_id": "M2",
+   "moments": 30,
+   "deployed": 4,
+   "deployed_calls": 3,
+   "pairs_scored": 30,
+   "auc": 0.5384615384615384,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 168,
+   "move_id": "M3",
+   "moments": 30,
+   "deployed": 5,
+   "deployed_calls": 5,
+   "pairs_scored": 30,
+   "auc": 0.904,
+   "top_decile_rate": 0.6666666666666666
+  },
+  {
+   "playbook_id": 168,
+   "move_id": "M4",
+   "moments": 30,
+   "deployed": 7,
+   "deployed_calls": 6,
+   "pairs_scored": 30,
+   "auc": 0.6956521739130435,
+   "top_decile_rate": 0.6666666666666666
+  },
+  {
+   "playbook_id": 170,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 3,
+   "deployed_calls": 3,
+   "pairs_scored": 30,
+   "auc": 0.41975308641975306,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 170,
+   "move_id": "M2",
+   "moments": 30,
+   "deployed": 2,
+   "deployed_calls": 2,
+   "pairs_scored": 30,
+   "auc": 0.0,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 170,
+   "move_id": "M3",
+   "moments": 30,
+   "deployed": 3,
+   "deployed_calls": 3,
+   "pairs_scored": 30,
+   "auc": 0.6172839506172839,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 171,
+   "move_id": "M1",
+   "moments": 31,
+   "deployed": 9,
+   "deployed_calls": 6,
+   "pairs_scored": 31,
+   "auc": 0.5808080808080808,
+   "top_decile_rate": 0.3333333333333333
+  },
+  {
+   "playbook_id": 171,
+   "move_id": "M3",
+   "moments": 31,
+   "deployed": 5,
+   "deployed_calls": 4,
+   "pairs_scored": 31,
+   "auc": 0.16153846153846155,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 172,
+   "move_id": "M1",
+   "moments": 31,
+   "deployed": 5,
+   "deployed_calls": 3,
+   "pairs_scored": 31,
+   "auc": 0.5307692307692308,
+   "top_decile_rate": 0.3333333333333333
+  },
+  {
+   "playbook_id": 172,
+   "move_id": "M2",
+   "moments": 31,
+   "deployed": 3,
+   "deployed_calls": 2,
+   "pairs_scored": 31,
+   "auc": 0.09523809523809523,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 172,
+   "move_id": "M3",
+   "moments": 31,
+   "deployed": 2,
+   "deployed_calls": 2,
+   "pairs_scored": 31,
+   "auc": 0.4827586206896552,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 173,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 3,
+   "deployed_calls": 3,
+   "pairs_scored": 30,
+   "auc": 0.7407407407407407,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 173,
+   "move_id": "M2",
+   "moments": 30,
+   "deployed": 5,
+   "deployed_calls": 4,
+   "pairs_scored": 30,
+   "auc": 0.584,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 173,
+   "move_id": "M3",
+   "moments": 30,
+   "deployed": 5,
+   "deployed_calls": 5,
+   "pairs_scored": 30,
+   "auc": 0.576,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 174,
+   "move_id": "M1",
+   "moments": 32,
+   "deployed": 4,
+   "deployed_calls": 2,
+   "pairs_scored": 32,
+   "auc": 0.7767857142857143,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 175,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 7,
+   "deployed_calls": 6,
+   "pairs_scored": 30,
+   "auc": 0.6770186335403726,
+   "top_decile_rate": 0.3333333333333333
+  },
+  {
+   "playbook_id": 175,
+   "move_id": "M4",
+   "moments": 30,
+   "deployed": 5,
+   "deployed_calls": 4,
+   "pairs_scored": 30,
+   "auc": 0.512,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 176,
+   "move_id": "M1",
+   "moments": 19,
+   "deployed": 3,
+   "deployed_calls": 3,
+   "pairs_scored": 19,
+   "auc": 0.6666666666666666,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 177,
+   "move_id": "M1",
+   "moments": 31,
+   "deployed": 3,
+   "deployed_calls": 3,
+   "pairs_scored": 31,
+   "auc": 0.5595238095238095,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 177,
+   "move_id": "M2",
+   "moments": 31,
+   "deployed": 6,
+   "deployed_calls": 3,
+   "pairs_scored": 31,
+   "auc": 0.44666666666666666,
+   "top_decile_rate": 0.6666666666666666
+  },
+  {
+   "playbook_id": 177,
+   "move_id": "M3",
+   "moments": 31,
+   "deployed": 5,
+   "deployed_calls": 4,
+   "pairs_scored": 31,
+   "auc": 0.6615384615384615,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 177,
+   "move_id": "M4",
+   "moments": 31,
+   "deployed": 3,
+   "deployed_calls": 3,
+   "pairs_scored": 31,
+   "auc": 0.4166666666666667,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 180,
+   "move_id": "M2",
+   "moments": 30,
+   "deployed": 4,
+   "deployed_calls": 4,
+   "pairs_scored": 30,
+   "auc": 0.8653846153846154,
+   "top_decile_rate": 0.6666666666666666
+  },
+  {
+   "playbook_id": 181,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 4,
+   "deployed_calls": 3,
+   "pairs_scored": 30,
+   "auc": 0.41346153846153844,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 181,
+   "move_id": "M2",
+   "moments": 30,
+   "deployed": 5,
+   "deployed_calls": 5,
+   "pairs_scored": 30,
+   "auc": 0.504,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 181,
+   "move_id": "M3",
+   "moments": 30,
+   "deployed": 5,
+   "deployed_calls": 5,
+   "pairs_scored": 30,
+   "auc": 0.304,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 182,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 2,
+   "deployed_calls": 2,
+   "pairs_scored": 30,
+   "auc": 0.6428571428571429,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 183,
+   "move_id": "M3",
+   "moments": 31,
+   "deployed": 3,
+   "deployed_calls": 3,
+   "pairs_scored": 31,
+   "auc": 0.4523809523809524,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 184,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 4,
+   "deployed_calls": 3,
+   "pairs_scored": 30,
+   "auc": 0.5480769230769231,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 184,
+   "move_id": "M2",
+   "moments": 30,
+   "deployed": 2,
+   "deployed_calls": 2,
+   "pairs_scored": 30,
+   "auc": 0.0,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 184,
+   "move_id": "M4",
+   "moments": 30,
+   "deployed": 4,
+   "deployed_calls": 4,
+   "pairs_scored": 30,
+   "auc": 0.9807692307692307,
+   "top_decile_rate": 0.6666666666666666
+  },
+  {
+   "playbook_id": 184,
+   "move_id": "M5",
+   "moments": 30,
+   "deployed": 7,
+   "deployed_calls": 6,
+   "pairs_scored": 30,
+   "auc": 0.577639751552795,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 185,
+   "move_id": "M2",
+   "moments": 30,
+   "deployed": 12,
+   "deployed_calls": 9,
+   "pairs_scored": 30,
+   "auc": 0.7361111111111112,
+   "top_decile_rate": 0.6666666666666666
+  },
+  {
+   "playbook_id": 186,
+   "move_id": "M2",
+   "moments": 25,
+   "deployed": 4,
+   "deployed_calls": 3,
+   "pairs_scored": 25,
+   "auc": 0.9285714285714286,
+   "top_decile_rate": 0.5
+  },
+  {
+   "playbook_id": 187,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 6,
+   "deployed_calls": 5,
+   "pairs_scored": 30,
+   "auc": 0.3680555555555556,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 187,
+   "move_id": "M2",
+   "moments": 30,
+   "deployed": 3,
+   "deployed_calls": 3,
+   "pairs_scored": 30,
+   "auc": 0.8765432098765432,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 188,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 5,
+   "deployed_calls": 5,
+   "pairs_scored": 30,
+   "auc": 0.576,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 188,
+   "move_id": "M2",
+   "moments": 30,
+   "deployed": 4,
+   "deployed_calls": 4,
+   "pairs_scored": 30,
+   "auc": 0.8461538461538461,
+   "top_decile_rate": 0.3333333333333333
+  },
+  {
+   "playbook_id": 188,
+   "move_id": "M3",
+   "moments": 30,
+   "deployed": 2,
+   "deployed_calls": 2,
+   "pairs_scored": 30,
+   "auc": 0.14285714285714285,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 429,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 6,
+   "deployed_calls": 4,
+   "pairs_scored": 30,
+   "auc": 0.8125,
+   "top_decile_rate": 0.6666666666666666
+  },
+  {
+   "playbook_id": 430,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 2,
+   "deployed_calls": 2,
+   "pairs_scored": 30,
+   "auc": 0.32142857142857145,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 430,
+   "move_id": "M2",
+   "moments": 30,
+   "deployed": 3,
+   "deployed_calls": 3,
+   "pairs_scored": 30,
+   "auc": 0.38271604938271603,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 431,
+   "move_id": "M1",
+   "moments": 31,
+   "deployed": 9,
+   "deployed_calls": 8,
+   "pairs_scored": 31,
+   "auc": 0.23232323232323232,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 431,
+   "move_id": "M2",
+   "moments": 31,
+   "deployed": 2,
+   "deployed_calls": 2,
+   "pairs_scored": 31,
+   "auc": 0.4482758620689655,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 431,
+   "move_id": "M4",
+   "moments": 31,
+   "deployed": 3,
+   "deployed_calls": 3,
+   "pairs_scored": 31,
+   "auc": 0.5238095238095238,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 432,
+   "move_id": "M2",
+   "moments": 32,
+   "deployed": 5,
+   "deployed_calls": 3,
+   "pairs_scored": 32,
+   "auc": 0.9259259259259259,
+   "top_decile_rate": 0.6666666666666666
+  },
+  {
+   "playbook_id": 432,
+   "move_id": "M3",
+   "moments": 32,
+   "deployed": 9,
+   "deployed_calls": 6,
+   "pairs_scored": 32,
+   "auc": 0.7053140096618358,
+   "top_decile_rate": 0.6666666666666666
+  },
+  {
+   "playbook_id": 433,
+   "move_id": "M1",
+   "moments": 30,
+   "deployed": 7,
+   "deployed_calls": 6,
+   "pairs_scored": 30,
+   "auc": 0.577639751552795,
+   "top_decile_rate": 0.3333333333333333
+  },
+  {
+   "playbook_id": 433,
+   "move_id": "M2",
+   "moments": 30,
+   "deployed": 2,
+   "deployed_calls": 2,
+   "pairs_scored": 30,
+   "auc": 0.0,
+   "top_decile_rate": 0.0
+  },
+  {
+   "playbook_id": 433,
+   "move_id": "M3",
+   "moments": 30,
+   "deployed": 4,
+   "deployed_calls": 2,
+   "pairs_scored": 30,
+   "auc": 0.8076923076923077,
+   "top_decile_rate": 0.6666666666666666
+  }
+ ]
+}

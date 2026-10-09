@@ -176,9 +176,23 @@ CREATE TABLE IF NOT EXISTS csms (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- milestone_id is synthesized as f"M{order}" from rubrics.milestones (no stable id in that JSONB)
+-- milestone_id is the milestone's 1-BASED POSITION in rubrics.milestones, formatted
+-- f"M{i+1}" by ego_trap.milestone_scoring.milestone_ids. The array position is the only
+-- stable identity available: that JSONB has no id field, v1-fallback rubrics have no
+-- guaranteed 'order' key at all (Gemma's raw output is stored unvalidated), and two
+-- milestones sharing an 'order' value would merge into ONE row under this PK, silently
+-- fusing two distinct milestones' counters. v2's own 'order' is already dense 1-based
+-- over the same list, so positional ids match it exactly for every v2 rubric.
+--
+-- CAVEAT: upsert_rubric's ON CONFLICT (scenario_id) keeps rubric_id stable while
+-- replacing milestones, so a Layer C re-run can make "M2" mean a different milestone
+-- while rows here keep accumulating under it. Run ops/clear_ego_trap_data.py after any
+-- Layer C re-run.
+--
 -- hits = full_hit count only; partial_hits tracks partial_hit count separately.
 -- Weighted score is computed at query time: (hits + 0.5 * partial_hits) / attempts.
+-- Never stored -- it changes every time attempts increments. ego_trap.gap_output
+-- derives miss_rate as its exact complement, and severity from that.
 CREATE TABLE IF NOT EXISTS milestone_performance (
     csm_id         TEXT NOT NULL REFERENCES csms(csm_id),
     rubric_id      INTEGER NOT NULL REFERENCES rubrics(rubric_id),
@@ -220,3 +234,175 @@ CREATE TABLE IF NOT EXISTS gap_events (
     created_at             TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE gap_events ADD COLUMN IF NOT EXISTS milestones_partial_hit TEXT[] NOT NULL DEFAULT '{}';
+
+-- Layer C: scenario playbooks (added 2026-08-19).
+-- Spec: docs/superpowers/specs/2026-08-19-playbook-schema-design.md
+--
+-- This is what turns Layer C from *validated* into *shipped*. Before it existed,
+-- pbv_playbooks_snapped.json and the 22 routing-trial documents had nowhere to land.
+--
+-- WHY scenario_id IS A HARD FK (operator decision, 2026-08-19): a playbook is an output of
+-- ONE taxonomy and dies with it, exactly like rubrics. The JSON artifacts on disk are the
+-- archive. THE CONSEQUENCE IS LOAD-BEARING: every FK here is ON DELETE NO ACTION, so
+-- `playbooks` MUST appear in ops/ship_union_taxonomy.py's children-first delete chain or the
+-- NEXT taxonomy replacement is refused by Postgres partway through.
+--
+-- WHY JSONB AND NOT playbook_moves/playbook_citations: follows the `rubrics` precedent, which
+-- already survived Layer D wiring. move_id is the ARRAY POSITION (M1..Mn), assigned by the
+-- loader and never taken from the model -- the same rule as milestone_id (v2/layer_c.py) and
+-- coverage-area ids (shared/coverage_areas.py), for the same reason: a model-chosen id lets a
+-- re-run silently repoint a person's history at different criteria. key_moves ORDER IS
+-- LOAD-BEARING; do not reorder it in place.
+--
+--   arm      routing arm for rt_*/rte_* documents ('concat'/'r1'); 'real'/'placebo' for pbv_*.
+--   status   'live'      the validated production document (PB0 5/5, PB2 4/5 pooled 11-4)
+--            'placebo'   a placebo twin -- NEVER production content
+--            'trial'     a routing-A/B document; `r1` is UNRESOLVED and was not shipped
+--            'superseded' retired but kept for traceability
+--            PRODUCTION READS MUST FILTER status = 'live'. Placebo twins and UNRESOLVED trial
+--            documents live in this same table and are indistinguishable without it.
+--   identity the source artifact's provenance block (model, seed, corpus/taxonomy shas).
+--   snap_log per-citation verbatim-snap provenance; NULL for un-snapped documents. The snap
+--            step is what VALIDATED the method, so its record is kept, not discarded.
+--
+-- source_artifact is part of the uniqueness key on purpose: (scenario_key, arm) is
+-- collision-free across today's 32 documents ONLY because E1 used a disjoint topic set. An E2
+-- re-running `concat` over the original topics would collide.
+-- The block between the two markers below is extracted verbatim by ops/load_playbooks.py --
+-- DO NOT REMOVE THE MARKERS, and keep the block free of anything but playbooks DDL. The
+-- loader executes only those statements, over its own already-hostaddr-corrected connection,
+-- instead of running this whole file through db/init_db.py: that would open a second
+-- connection from the raw URL (which the system resolver refuses for *.neon.tech) and would
+-- take ACCESS EXCLUSIVE on five unrelated live tables for its dozen
+-- "ADD COLUMN IF NOT EXISTS" statements -- the lock is acquired BEFORE the IF NOT EXISTS is
+-- evaluated, so it blocks concurrent runs even when there is nothing to do. Keeping the text
+-- here rather than duplicating it in the loader means there is still exactly one definition.
+-- >>> PLAYBOOKS DDL BEGIN
+CREATE TABLE IF NOT EXISTS playbooks (
+    playbook_id           SERIAL PRIMARY KEY,
+    scenario_id           INTEGER NOT NULL REFERENCES scenarios(scenario_id),
+    scenario_key          TEXT NOT NULL,
+    arm                   TEXT NOT NULL,
+    status                TEXT NOT NULL CHECK (status IN ('live', 'trial', 'placebo', 'superseded')),
+    source_artifact       TEXT NOT NULL,
+    donor_scenario_key    TEXT,
+    n_evidence            INTEGER NOT NULL,
+    situation_signature   TEXT NOT NULL,
+    arc                   JSONB NOT NULL DEFAULT '[]',
+    key_moves             JSONB NOT NULL DEFAULT '[]',
+    signature_language    JSONB NOT NULL DEFAULT '[]',
+    pitfalls_and_variants JSONB NOT NULL DEFAULT '[]',
+    layer_d_checks        JSONB NOT NULL DEFAULT '[]',
+    snap_log              JSONB,
+    identity              JSONB NOT NULL DEFAULT '{}',
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (scenario_key, arm, source_artifact)
+);
+
+-- At most ONE live playbook per scenario, enforced by the DATABASE rather than by the loader.
+-- A partial unique index is the only way to say "unique among live rows" while still allowing
+-- the placebo twin and the trial documents to share the scenario_key.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_playbooks_one_live
+    ON playbooks (scenario_key) WHERE status = 'live';
+
+CREATE INDEX IF NOT EXISTS idx_playbooks_scenario_key ON playbooks (scenario_key);
+-- <<< PLAYBOOKS DDL END <<<
+
+-- ============================================================================
+-- Layer D redesign (2026-08-20): gap analysis against playbooks (Brain/layer_d/)
+--
+-- Replaces the rubric-era gap_events / milestone_performance / signal_recognition_gaps
+-- tables above, which are EMPTY (keyed to the pre-union taxonomy) and retire with
+-- ego_trap/. Design decisions, each one paid for by a measured defect:
+--
+--   * move_events carries a NATURAL UNIQUE KEY, so a re-run UPSERTS instead of
+--     duplicating. The old gap_events had a serial PK only, and a double run
+--     silently double-counted 28 signals ("two runs, one DB", layer-d-realignment.md).
+--   * move_performance is MATERIALIZED from move_events by full recompute
+--     (storage.refresh_move_performance), never incremented in place. The old
+--     `attempts = attempts + 1 ON CONFLICT` is what made re-runs destructive.
+--   * verdicts include 'unscored' (instrument failure: id missing from the response,
+--     quote failed verification, swap-inconsistent). Unscored NEVER counts as an
+--     attempt -- the old pipeline normalized parse failures to 'miss', so output
+--     truncation manufactured coaching failures.
+--   * playbook_id is a NOT NULL FK: a moment is scored against ONE playbook's moves
+--     (move_id = the array position M1..Mn -- see the playbooks DDL note above), and
+--     these rows die with the taxonomy like playbooks do. Both tables are in
+--     ops/ship_union_taxonomy.py's SNAPSHOT_TABLES and DELETE_ORDER.
+--   * rater_population/rater_id: the SAME instrument scores Naren's own routed
+--     moments (rater_id 'naren', source_ref 'pair:<pair_id>') and CSM moments
+--     (rater_id = csms.csm_id, source_ref 'turn:<index>'). A gap is a rate
+--     DIFFERENCE against the measured benchmark, never an absolute score. Derived
+--     numbers (rates, shrinkage, gap ranking, dead-check flags) are computed at
+--     report time by layer_d/aggregate.py and never stored.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS move_events (
+    move_event_id    SERIAL PRIMARY KEY,
+    rater_population TEXT NOT NULL CHECK (rater_population IN ('csm', 'naren')),
+    rater_id         TEXT NOT NULL,
+    call_id          TEXT NOT NULL,      -- transcript stem (csm) / calls.filename (naren)
+    source_ref       TEXT NOT NULL,      -- 'turn:<anchor_index>' or 'pair:<pair_id>'
+    scenario_key     TEXT NOT NULL,
+    playbook_id      INTEGER NOT NULL REFERENCES playbooks(playbook_id),
+    -- 'say' (added 2026-08-28): occurrence+specificity grading for speech-act
+    -- moves (docs/findings/layer-d-say-arm.md). Verdict semantics are PER ARM:
+    --   checks   hit=performed fully      partial=substantive start   miss=not attempted
+    --   pairwise hit=beat the exemplar    partial=judged equal        miss=lost
+    --   say      hit=stated SPECIFICALLY  partial=stated generically  miss=not stated
+    grader_arm       TEXT NOT NULL CHECK (grader_arm IN ('checks', 'pairwise', 'say')),
+    grader_model     TEXT NOT NULL DEFAULT '',  -- per-row provenance: which model graded
+    via              TEXT NOT NULL,      -- 'last_turn' | 'stitched' (segmentation arm e)
+    -- 'interjection' (added 2026-08-26): a "csm" reply too short/fragmentary to
+    -- grade (an interruption or backchannel caught by the response window) --
+    -- recorded like a deferral, never graded. Kept distinct from 'other_joveo'
+    -- so it doesn't silently change the already-reported deferral rate.
+    response_outcome TEXT NOT NULL CHECK (response_outcome IN
+        ('csm', 'other_joveo', 'none', 'interjection')),
+    trigger_text     TEXT NOT NULL,
+    response_text    TEXT NOT NULL,
+    verdicts         JSONB NOT NULL DEFAULT '[]',  -- [{move_id, verdict, quote, quote_score, reason}]
+    k_runs           INTEGER NOT NULL DEFAULT 1,
+    run_id           TEXT,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (rater_population, call_id, source_ref, playbook_id, grader_arm)
+);
+
+-- Postgres cannot ALTER a CHECK constraint's condition in place, so a live table
+-- created before 'interjection' existed needs a drop+add. Idempotent (safe to
+-- re-run): DROP IF EXISTS, then ADD. A no-op on a database created fresh from the
+-- CREATE TABLE above, which already has the widened list inline.
+ALTER TABLE move_events DROP CONSTRAINT IF EXISTS move_events_response_outcome_check;
+ALTER TABLE move_events ADD CONSTRAINT move_events_response_outcome_check
+    CHECK (response_outcome IN ('csm', 'other_joveo', 'none', 'interjection'));
+
+-- Same drop+add dance for grader_arm: 'say' (2026-08-28) widens the list.
+-- (move_performance gets its own drop+add below, AFTER its CREATE TABLE.)
+ALTER TABLE move_events DROP CONSTRAINT IF EXISTS move_events_grader_arm_check;
+ALTER TABLE move_events ADD CONSTRAINT move_events_grader_arm_check
+    CHECK (grader_arm IN ('checks', 'pairwise', 'say'));
+
+CREATE INDEX IF NOT EXISTS idx_move_events_rater ON move_events (rater_population, rater_id);
+CREATE INDEX IF NOT EXISTS idx_move_events_playbook ON move_events (playbook_id);
+
+CREATE TABLE IF NOT EXISTS move_performance (
+    rater_population TEXT NOT NULL CHECK (rater_population IN ('csm', 'naren')),
+    rater_id         TEXT NOT NULL,
+    playbook_id      INTEGER NOT NULL REFERENCES playbooks(playbook_id),
+    move_id          TEXT NOT NULL,      -- 'M1'..'Mn', positional (see playbooks DDL note)
+    grader_arm       TEXT NOT NULL CHECK (grader_arm IN ('checks', 'pairwise', 'say')),
+    -- attempts counts MOMENTS for checks/pairwise rows and CALLS for say rows:
+    -- the say arm rolls each (rater, call, playbook, move) up to its BEST verdict
+    -- across the call's scored moments before counting (a speech act is a per-call
+    -- event -- storage.refresh_move_performance, docs/findings/layer-d-say-arm.md).
+    attempts         INTEGER NOT NULL,   -- scored verdicts only; unscored excluded
+    hits             INTEGER NOT NULL,
+    partials         INTEGER NOT NULL,
+    unscored         INTEGER NOT NULL,   -- instrument-failure count, reported not scored
+    refreshed_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (rater_population, rater_id, playbook_id, move_id, grader_arm)
+);
+
+ALTER TABLE move_performance DROP CONSTRAINT IF EXISTS move_performance_grader_arm_check;
+ALTER TABLE move_performance ADD CONSTRAINT move_performance_grader_arm_check
+    CHECK (grader_arm IN ('checks', 'pairwise', 'say'));

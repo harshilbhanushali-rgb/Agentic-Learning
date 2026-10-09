@@ -1,0 +1,975 @@
+{
+ "Q1": {
+  "C1": {
+   "v": "PARTIAL",
+   "why": "Phase it around HRIS roadmap; no duration given"
+  },
+  "C2": {
+   "v": "NO"
+  },
+  "C3": {
+   "v": "NO"
+  },
+  "C4": {
+   "v": "NO"
+  },
+  "C5": {
+   "v": "PARTIAL",
+   "why": "Integration depends on access; reporting setup is few clicks"
+  },
+  "C6": {
+   "v": "NO"
+  },
+  "C7": {
+   "v": "NO"
+  },
+  "C8": {
+   "v": "PARTIAL",
+   "why": "Overall onboarding 2-8 weeks, not client-side effort"
+  },
+  "C9": {
+   "v": "NO"
+  },
+  "C10": {
+   "v": "PARTIAL",
+   "why": "Minimal HRIS lift, mostly API key; no time or bandwidth"
+  },
+  "C11": {
+   "v": "NO"
+  },
+  "C12": {
+   "v": "NO"
+  },
+  "C13": {
+   "v": "NO"
+  },
+  "C14": {
+   "v": "PARTIAL",
+   "why": "Brief: integration not a big lift on client side"
+  },
+  "C15": {
+   "v": "NO"
+  },
+  "C16": {
+   "v": "NO"
+  },
+  "C17": {
+   "v": "NO"
+  },
+  "C18": {
+   "v": "NO"
+  },
+  "C19": {
+   "v": "NO"
+  },
+  "C20": {
+   "v": "NO"
+  },
+  "C21": {
+   "v": "NO"
+  },
+  "C22": {
+   "v": "NO"
+  },
+  "C23": {
+   "v": "NO"
+  },
+  "C24": {
+   "v": "YES",
+   "why": "2-5 weeks; phase pixels first since client has own tech queues"
+  },
+  "C25": {
+   "v": "PARTIAL",
+   "why": "Workday integration took 3-5 weeks overall"
+  },
+  "C26": {
+   "v": "NO"
+  },
+  "C27": {
+   "v": "PARTIAL",
+   "why": "Onboarding incl. integration 2-4 weeks overall"
+  },
+  "C28": {
+   "v": "PARTIAL",
+   "why": "Integration-light pixel start avoids long IT process"
+  },
+  "C29": {
+   "v": "NO"
+  },
+  "C30": {
+   "v": "NO"
+  },
+  "C31": {
+   "v": "NO"
+  },
+  "C32": {
+   "v": "NO"
+  },
+  "C33": {
+   "v": "NO"
+  },
+  "C34": {
+   "v": "PARTIAL",
+   "why": "Dates can shift with client-side delays"
+  },
+  "C35": {
+   "v": "PARTIAL",
+   "why": "2-4 weeks; pixels and RaaS easy on Workday"
+  },
+  "C36": {
+   "v": "NO"
+  },
+  "C37": {
+   "v": "NO"
+  },
+  "C38": {
+   "v": "NO"
+  },
+  "C39": {
+   "v": "PARTIAL",
+   "why": "Integration touch points not hard for HRIS team"
+  },
+  "C40": {
+   "v": "NO"
+  },
+  "C41": {
+   "v": "NO"
+  },
+  "C42": {
+   "v": "PARTIAL",
+   "why": "Integration about two weeks, no client-side context"
+  },
+  "C43": {
+   "v": "YES",
+   "why": "Two-phase: ~2-week pixel phase, API later; fast start"
+  },
+  "C44": {
+   "v": "PARTIAL",
+   "why": "Workarounds for low IT bandwidth; no duration"
+  },
+  "C45": {
+   "v": "NO"
+  },
+  "C46": {
+   "v": "NO"
+  },
+  "C47": {
+   "v": "NO"
+  },
+  "C48": {
+   "v": "YES",
+   "why": "Client-side engineering: one to two days, one working session"
+  },
+  "C49": {
+   "v": "NO"
+  },
+  "C50": {
+   "v": "NO"
+  }
+ },
+ "Q2": {
+  "C1": {
+   "v": "NO"
+  },
+  "C2": {
+   "v": "NO"
+  },
+  "C3": {
+   "v": "NO"
+  },
+  "C4": {
+   "v": "NO"
+  },
+  "C5": {
+   "v": "NO"
+  },
+  "C6": {
+   "v": "NO"
+  },
+  "C7": {
+   "v": "NO"
+  },
+  "C8": {
+   "v": "NO"
+  },
+  "C9": {
+   "v": "NO"
+  },
+  "C10": {
+   "v": "NO"
+  },
+  "C11": {
+   "v": "NO"
+  },
+  "C12": {
+   "v": "NO"
+  },
+  "C13": {
+   "v": "NO"
+  },
+  "C14": {
+   "v": "NO"
+  },
+  "C15": {
+   "v": "NO"
+  },
+  "C16": {
+   "v": "NO"
+  },
+  "C17": {
+   "v": "NO"
+  },
+  "C18": {
+   "v": "NO"
+  },
+  "C19": {
+   "v": "NO"
+  },
+  "C20": {
+   "v": "NO"
+  },
+  "C21": {
+   "v": "NO"
+  },
+  "C22": {
+   "v": "NO"
+  },
+  "C23": {
+   "v": "NO"
+  },
+  "C24": {
+   "v": "NO"
+  },
+  "C25": {
+   "v": "NO"
+  },
+  "C26": {
+   "v": "NO"
+  },
+  "C27": {
+   "v": "NO"
+  },
+  "C28": {
+   "v": "PARTIAL",
+   "why": "Non-XML (JSON) format accepted"
+  },
+  "C29": {
+   "v": "PARTIAL",
+   "why": "Can transform client data into feed format"
+  },
+  "C30": {
+   "v": "NO"
+  },
+  "C31": {
+   "v": "NO"
+  },
+  "C32": {
+   "v": "NO"
+  },
+  "C33": {
+   "v": "NO"
+  },
+  "C34": {
+   "v": "PARTIAL",
+   "why": "Without XML: links or career-site scrape work"
+  },
+  "C35": {
+   "v": "NO"
+  },
+  "C36": {
+   "v": "NO"
+  },
+  "C37": {
+   "v": "NO"
+  },
+  "C38": {
+   "v": "NO"
+  },
+  "C39": {
+   "v": "NO"
+  },
+  "C40": {
+   "v": "NO"
+  },
+  "C41": {
+   "v": "NO"
+  },
+  "C42": {
+   "v": "NO"
+  },
+  "C43": {
+   "v": "NO"
+  },
+  "C44": {
+   "v": "NO"
+  },
+  "C45": {
+   "v": "NO"
+  },
+  "C46": {
+   "v": "NO"
+  },
+  "C47": {
+   "v": "NO"
+  },
+  "C48": {
+   "v": "NO"
+  },
+  "C49": {
+   "v": "PARTIAL",
+   "why": "Gives must-have fields for spreadsheet-style feed"
+  },
+  "C50": {
+   "v": "NO"
+  }
+ },
+ "Q3": {
+  "C1": {
+   "v": "NO"
+  },
+  "C2": {
+   "v": "NO"
+  },
+  "C3": {
+   "v": "NO"
+  },
+  "C4": {
+   "v": "PARTIAL",
+   "why": "Confirms 2.5-4 hours to post on job board"
+  },
+  "C5": {
+   "v": "NO"
+  },
+  "C6": {
+   "v": "YES",
+   "why": "Go-live about 8-10 days, call it two weeks"
+  },
+  "C7": {
+   "v": "YES",
+   "why": "Set up same week after file; boards index days after"
+  },
+  "C8": {
+   "v": "PARTIAL",
+   "why": "Indeed approval 4-8 working days; start other publishers"
+  },
+  "C9": {
+   "v": "NO"
+  },
+  "C10": {
+   "v": "NO"
+  },
+  "C11": {
+   "v": "NO"
+  },
+  "C12": {
+   "v": "NO"
+  },
+  "C13": {
+   "v": "YES",
+   "why": "First-time Indeed 2-2.5 weeks; others ~48 hours"
+  },
+  "C14": {
+   "v": "NO"
+  },
+  "C15": {
+   "v": "NO"
+  },
+  "C16": {
+   "v": "NO"
+  },
+  "C17": {
+   "v": "NO"
+  },
+  "C18": {
+   "v": "PARTIAL",
+   "why": "Indeed aggregation review 4-7 days"
+  },
+  "C19": {
+   "v": "YES",
+   "why": "First-time board config needs 24-48 hour buffer"
+  },
+  "C20": {
+   "v": "NO"
+  },
+  "C21": {
+   "v": "PARTIAL",
+   "why": "Ongoing API refresh near real time"
+  },
+  "C22": {
+   "v": "NO"
+  },
+  "C23": {
+   "v": "NO"
+  },
+  "C24": {
+   "v": "PARTIAL",
+   "why": "Indeed indexing 3-5 day SLA for organic"
+  },
+  "C25": {
+   "v": "NO"
+  },
+  "C26": {
+   "v": "NO"
+  },
+  "C27": {
+   "v": "PARTIAL",
+   "why": "Feed refreshed hourly; boards pull every 1-6 hours"
+  },
+  "C28": {
+   "v": "YES",
+   "why": "After feed and testing, live early next week"
+  },
+  "C29": {
+   "v": "PARTIAL",
+   "why": "Full traffic velocity from day 3-4"
+  },
+  "C30": {
+   "v": "NO"
+  },
+  "C31": {
+   "v": "PARTIAL",
+   "why": "Cutover process indexing ahead to avoid downtime"
+  },
+  "C32": {
+   "v": "NO"
+  },
+  "C33": {
+   "v": "NO"
+  },
+  "C34": {
+   "v": "NO"
+  },
+  "C35": {
+   "v": "YES",
+   "why": "Jobs start Monday; boards take 48-72 hours to ramp"
+  },
+  "C36": {
+   "v": "NO"
+  },
+  "C37": {
+   "v": "NO"
+  },
+  "C38": {
+   "v": "NO"
+  },
+  "C39": {
+   "v": "NO"
+  },
+  "C40": {
+   "v": "NO"
+  },
+  "C41": {
+   "v": "NO"
+  },
+  "C42": {
+   "v": "NO"
+  },
+  "C43": {
+   "v": "NO"
+  },
+  "C44": {
+   "v": "NO"
+  },
+  "C45": {
+   "v": "NO"
+  },
+  "C46": {
+   "v": "NO"
+  },
+  "C47": {
+   "v": "NO"
+  },
+  "C48": {
+   "v": "NO"
+  },
+  "C49": {
+   "v": "NO"
+  },
+  "C50": {
+   "v": "NO"
+  }
+ },
+ "Q4": {
+  "C1": {
+   "v": "PARTIAL",
+   "why": "Send data list, happy to sign NDA first"
+  },
+  "C2": {
+   "v": "NO"
+  },
+  "C3": {
+   "v": "PARTIAL",
+   "why": "Prep behind the scenes while legal finishes"
+  },
+  "C4": {
+   "v": "NO"
+  },
+  "C5": {
+   "v": "NO"
+  },
+  "C6": {
+   "v": "NO"
+  },
+  "C7": {
+   "v": "NO"
+  },
+  "C8": {
+   "v": "NO"
+  },
+  "C9": {
+   "v": "PARTIAL",
+   "why": "Start unblocked tasks, move dates after assessments"
+  },
+  "C10": {
+   "v": "NO"
+  },
+  "C11": {
+   "v": "NO"
+  },
+  "C12": {
+   "v": "NO"
+  },
+  "C13": {
+   "v": "NO"
+  },
+  "C14": {
+   "v": "NO"
+  },
+  "C15": {
+   "v": "NO"
+  },
+  "C16": {
+   "v": "NO"
+  },
+  "C17": {
+   "v": "NO"
+  },
+  "C18": {
+   "v": "NO"
+  },
+  "C19": {
+   "v": "PARTIAL",
+   "why": "Other items run in parallel with pending assessments"
+  },
+  "C20": {
+   "v": "YES",
+   "why": "Hold dates tentative until legal/security assessment; offer help"
+  },
+  "C21": {
+   "v": "PARTIAL",
+   "why": "Flexible to start despite contract delay"
+  },
+  "C22": {
+   "v": "NO"
+  },
+  "C23": {
+   "v": "NO"
+  },
+  "C24": {
+   "v": "NO"
+  },
+  "C25": {
+   "v": "NO"
+  },
+  "C26": {
+   "v": "NO"
+  },
+  "C27": {
+   "v": "NO"
+  },
+  "C28": {
+   "v": "NO"
+  },
+  "C29": {
+   "v": "NO"
+  },
+  "C30": {
+   "v": "NO"
+  },
+  "C31": {
+   "v": "NO"
+  },
+  "C32": {
+   "v": "NO"
+  },
+  "C33": {
+   "v": "NO"
+  },
+  "C34": {
+   "v": "NO"
+  },
+  "C35": {
+   "v": "NO"
+  },
+  "C36": {
+   "v": "NO"
+  },
+  "C37": {
+   "v": "NO"
+  },
+  "C38": {
+   "v": "NO"
+  },
+  "C39": {
+   "v": "YES",
+   "why": "Placeholder launch, do setup in parallel pending contract"
+  },
+  "C40": {
+   "v": "NO"
+  },
+  "C41": {
+   "v": "NO"
+  },
+  "C42": {
+   "v": "NO"
+  },
+  "C43": {
+   "v": "NO"
+  },
+  "C44": {
+   "v": "NO"
+  },
+  "C45": {
+   "v": "PARTIAL",
+   "why": "Onboarding timeline; kicking off in parallel helps"
+  },
+  "C46": {
+   "v": "PARTIAL",
+   "why": "During MSA review, avoid overwhelming with questions"
+  },
+  "C47": {
+   "v": "NO"
+  },
+  "C48": {
+   "v": "NO"
+  },
+  "C49": {
+   "v": "NO"
+  },
+  "C50": {
+   "v": "NO"
+  }
+ },
+ "Q5": {
+  "C1": {
+   "v": "NO"
+  },
+  "C2": {
+   "v": "YES",
+   "why": "Yes, can replicate read-only dashboard access for third parties"
+  },
+  "C3": {
+   "v": "NO"
+  },
+  "C4": {
+   "v": "NO"
+  },
+  "C5": {
+   "v": "NO"
+  },
+  "C6": {
+   "v": "NO"
+  },
+  "C7": {
+   "v": "NO"
+  },
+  "C8": {
+   "v": "NO"
+  },
+  "C9": {
+   "v": "NO"
+  },
+  "C10": {
+   "v": "PARTIAL",
+   "why": "Tell us users; we set up dashboard access"
+  },
+  "C11": {
+   "v": "PARTIAL",
+   "why": "Users log in to dashboard; SSO supported"
+  },
+  "C12": {
+   "v": "NO"
+  },
+  "C13": {
+   "v": "NO"
+  },
+  "C14": {
+   "v": "YES",
+   "why": "Agency user access, scoped by market via user management"
+  },
+  "C15": {
+   "v": "NO"
+  },
+  "C16": {
+   "v": "NO"
+  },
+  "C17": {
+   "v": "NO"
+  },
+  "C18": {
+   "v": "NO"
+  },
+  "C19": {
+   "v": "NO"
+  },
+  "C20": {
+   "v": "PARTIAL",
+   "why": "Additional users can get scoped access"
+  },
+  "C21": {
+   "v": "NO"
+  },
+  "C22": {
+   "v": "NO"
+  },
+  "C23": {
+   "v": "NO"
+  },
+  "C24": {
+   "v": "PARTIAL",
+   "why": "Each person needs own login"
+  },
+  "C25": {
+   "v": "PARTIAL",
+   "why": "Alternative: emailed reports without dashboard access"
+  },
+  "C26": {
+   "v": "NO"
+  },
+  "C27": {
+   "v": "NO"
+  },
+  "C28": {
+   "v": "NO"
+  },
+  "C29": {
+   "v": "NO"
+  },
+  "C30": {
+   "v": "YES",
+   "why": "Can add clients as dashboard users, limited customization"
+  },
+  "C31": {
+   "v": "NO"
+  },
+  "C32": {
+   "v": "NO"
+  },
+  "C33": {
+   "v": "NO"
+  },
+  "C34": {
+   "v": "NO"
+  },
+  "C35": {
+   "v": "NO"
+  },
+  "C36": {
+   "v": "NO"
+  },
+  "C37": {
+   "v": "NO"
+  },
+  "C38": {
+   "v": "NO"
+  },
+  "C39": {
+   "v": "NO"
+  },
+  "C40": {
+   "v": "NO"
+  },
+  "C41": {
+   "v": "PARTIAL",
+   "why": "Access can be tailored per user"
+  },
+  "C42": {
+   "v": "NO"
+  },
+  "C43": {
+   "v": "NO"
+  },
+  "C44": {
+   "v": "NO"
+  },
+  "C45": {
+   "v": "NO"
+  },
+  "C46": {
+   "v": "NO"
+  },
+  "C47": {
+   "v": "NO"
+  },
+  "C48": {
+   "v": "NO"
+  },
+  "C49": {
+   "v": "NO"
+  },
+  "C50": {
+   "v": "NO"
+  }
+ },
+ "Q6": {
+  "C1": {
+   "v": "NO"
+  },
+  "C2": {
+   "v": "NO"
+  },
+  "C3": {
+   "v": "NO"
+  },
+  "C4": {
+   "v": "PARTIAL",
+   "why": "Campaigns/job groups by region with separate budgets"
+  },
+  "C5": {
+   "v": "NO"
+  },
+  "C6": {
+   "v": "NO"
+  },
+  "C7": {
+   "v": "NO"
+  },
+  "C8": {
+   "v": "NO"
+  },
+  "C9": {
+   "v": "NO"
+  },
+  "C10": {
+   "v": "NO"
+  },
+  "C11": {
+   "v": "NO"
+  },
+  "C12": {
+   "v": "NO"
+  },
+  "C13": {
+   "v": "NO"
+  },
+  "C14": {
+   "v": "NO"
+  },
+  "C15": {
+   "v": "NO"
+  },
+  "C16": {
+   "v": "PARTIAL",
+   "why": "Budgets split by category or hybrid, not markets"
+  },
+  "C17": {
+   "v": "PARTIAL",
+   "why": "Cost depends on number of markets and cities"
+  },
+  "C18": {
+   "v": "NO"
+  },
+  "C19": {
+   "v": "YES",
+   "why": "Set per-market CPL ranges and caps, equal or priority"
+  },
+  "C20": {
+   "v": "NO"
+  },
+  "C21": {
+   "v": "NO"
+  },
+  "C22": {
+   "v": "NO"
+  },
+  "C23": {
+   "v": "NO"
+  },
+  "C24": {
+   "v": "YES",
+   "why": "Country-specific campaigns with dedicated, dynamic budgets"
+  },
+  "C25": {
+   "v": "NO"
+  },
+  "C26": {
+   "v": "NO"
+  },
+  "C27": {
+   "v": "NO"
+  },
+  "C28": {
+   "v": "YES",
+   "why": "Distribute monthly budget across states; more states needs more"
+  },
+  "C29": {
+   "v": "NO"
+  },
+  "C30": {
+   "v": "NO"
+  },
+  "C31": {
+   "v": "NO"
+  },
+  "C32": {
+   "v": "NO"
+  },
+  "C33": {
+   "v": "NO"
+  },
+  "C34": {
+   "v": "NO"
+  },
+  "C35": {
+   "v": "NO"
+  },
+  "C36": {
+   "v": "NO"
+  },
+  "C37": {
+   "v": "NO"
+  },
+  "C38": {
+   "v": "NO"
+  },
+  "C39": {
+   "v": "NO"
+  },
+  "C40": {
+   "v": "NO"
+  },
+  "C41": {
+   "v": "NO"
+  },
+  "C42": {
+   "v": "NO"
+  },
+  "C43": {
+   "v": "NO"
+  },
+  "C44": {
+   "v": "NO"
+  },
+  "C45": {
+   "v": "PARTIAL",
+   "why": "Create job groups per market for easy activation"
+  },
+  "C46": {
+   "v": "NO"
+  },
+  "C47": {
+   "v": "PARTIAL",
+   "why": "Segmented budgets can be managed dynamically"
+  },
+  "C48": {
+   "v": "NO"
+  },
+  "C49": {
+   "v": "PARTIAL",
+   "why": "Can resegment markets into job groups in a day"
+  },
+  "C50": {
+   "v": "NO"
+  }
+ }
+}

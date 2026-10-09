@@ -1,0 +1,920 @@
+{
+  "frames": {
+    "bare": "{turn}",
+    "operator": "A client said this: {turn} \u2014 can you help on how would Naren reply to this situation?",
+    "terse": "Client said: {turn} How should I respond?",
+    "verbose": "I'm on a call with a client and I need help. This is what the client just said to me: {turn} I need to know how Naren would have replied to this situation, and what I should say back to them right now."
+  },
+  "situations": [
+    "We're just changing for the sake of changing, and David Weinstock from Blue Story said it was pretty good. You know what I'm saying? I'd like to be able to say we're changing because our postings will be more efficient. We'll have more reach. Our ad dollars will be managed much better and more closely on each posting. That's the kind of stuff that I wanna understand so that if I say, hey. I wanna move forward. I can say these are the reasons I wanna move forward, not just us. Just a different vendor. You know?",
+    "You know, we're hiring for sort of gig work, not, I guess, you know, you know, traditional sorta highly skilled jobs. So I don't know if that will kinda, like, affect the social ads. Do you guys have much experience running the social ads for sorta gig work. Sort of, you know, those type of opportunities that are temporary contract in nature.",
+    "Yeah. It's it's it's Informatica. CAI, which is more a cloud application integration. Informatica's product. Yeah. But your front end is always Azure API, and so your request will only call the Azure API. So Informatica is the backend middleware.",
+    "In the campaigns, that is the ideal state. I'm only mentioning that because we don't wanna clog up the pipeline with people that will be vetted out, essentially, and at the end, our conversion rates would would look very, very small. So that that is that is something that, that is a request from me. But I'll send over the the jobs, and the budget for it, so we can also start, pushing those domains out, and in terms of Europe and other Asian locales and countries, I need to defer that to, the other team members because I don't have that visibility. But I will actually, let's put a thread in the channel right now. Otherwise.",
+    "You said I I actually, Harin, we have a good rotation. Right? Because I I saw the data without the DMP. I excluded the DMP. The the rotation is, below the 30 days, because they they move, frequently the job slot just to use all the job that they have, and in the meantime, if we are not full with the hashtag, Linkedin do the wrapping, and the wrapping wrapping rule by Linkedin is after 10 days, they change the job. So regarding the rotation frequency, excluded the DMP, we are more or less between 10 days and 20 days, more or less.",
+    "Alright. I'll work on this. Name quick question since I have you and we have two minutes here. Do you guys use Whatsapp for any of your, acquisition channels?",
+    "However, that was the only way that we had to cap on Costa, and indeed, that was not possible. So I think we never really looked in a comprehensive way at caps on a city level and we have more or less indications on our average cost per lead in a in a market.",
+    "Yeah. So just to understand better. So because also with the new setups, I will share the feed that also you did see. I think I shared the by bus. I will share it with the first Vinod if it includes countries where, for example, we're not gonna advertise via Indeed with that, and then you will take that feed because it will contain already the questions for, yeah, the countries where we will have the Indeed is apply, and then take that one as the final source feed.",
+    "Yeah. So, basically, your product is a little bit more wider than what Oracle plans to offer in the upcoming releases is what I understand, and does that cover do you have any limitations in in regions, or is it like, you have a solution which covers all job boards across the globe?",
+    "Bob lives at Cincinnati. Right? So that's fine. Yeah. Correct. I guess I'm just thinking if because whatever we're gonna be dependent on smart recruiters for, let's say, let's be really negative and say, well, none of it's gonna happen. But if we're positioning this back and saying, but okay. When you need report and then we'd have to discuss because this is CRM as a managed service. What does that look like for a data pull? Who's doing it? What are we charging for it, and not go all that. That's what I'm thinking. Right? So they because they use these market intels again when they bid for jobs and things like that. So.",
+    "So we should be seeing, like, more down funnel attribution, you think?",
+    "Agreed, and that's also a project that we're about kick off internally, is just seeing, like, where we can flex if we would do wanna hit these numbers, that, one of our PMs is gonna be leading. So I'll kind of keep you guys posted on, like, how that goes and like, if there's any updates there too. But I totally agree. Like, I think every recruiter is, like, kind of putting through different types of people. So I think it'd be good to have a little bit more standardization, and plus one, exactly what you said, like, about agent the agency one, we should, like, at least make sure that they're getting to, like, the final round. You know?",
+    "Is there, like, a task under here around, the, like, sponsored brand campaigns? So, like, delivering to you, like, copy and assets and like, letting us know, like, exact formats of things or like, you know, copy, you know, specs, things like that.",
+    "Yeah. So then I guess, like, if you use this contract and I say I wanna do only $5,000 next month and then nothing at all for the upcoming months, then is it just a $5,000 spend overall for the year?",
+    "Yeah, and then you know, we can take things from there. That sounds great for me. Because I feel like if there's gonna be couple open roles for, let's say, Miami, we would just send them to the Miami filtered sales list. Right, or do you recommend sending them to the direct job?",
+    "So it's not just copy and pasting job descriptions like we've been doing for years, and we're putting more visuals behind them and doing more marketing in terms of social media. But that's probably our hardest positions be behind nursing would be what we just classify as dining kind of recruitment.",
+    "So I said I wanna use this starting June one. I have a dead how do we get things to give me data before June one?",
+    "But we would still be getting. Oracle that we wouldn't otherwise from those publishers or in b morning. Right?",
+    "I'll follow up. I'm pinging her right now. Just I just wanna make sure that that's ready. Like, if we get the feed stuff ready, I wanna make sure the translations are done so we don't waste time. Okay.",
+    "Maybe not the initial click. Yep. Yeah. It should be I'll I'll double check that data. We do have we we do tend to have a longer apply conversion window than the average, but I'll double check what it is at the moment.",
+    "We did the media buying, the planning, campaign execution, give them the so what, anyone. So it's a full $3.60 solution at that point, which will be, again, an element of quite a significant retainer, monthly retainer plus us making money off the commission. So they're almost like the 3 buckets to rent just to give you an idea of, I guess, how we're approaching this, this point.",
+    "It was something that I just explored on my own. I was just curious if you guys had ever dealt with them and if it was any success. Because, obviously, Sisters one, Sales is also kind of a dud, but we kind of had a feeling that might happen since it was a smaller job board. But when I look for, like, general sales job boards, this one keeps popping up, and I was like, well, it's worth looking into maybe. So but I'd flag it to the team.",
+    "I actually don't talk to the ops teams. Okay. Like, I talk to somebody who talks to the ops teams. Got it. There's a lot of, like, middle communication, and I think that's the way they want it. Like, they don't want Sorry. Channels to directly communicate with ops because, like, to be honest, it can be a lot. So.",
+    "Specifically, Narayan, if they get and I'll share those. But it'll mainly be the two landing pages that they're directing all the traffic to for these. Okay.",
+    "So it's a combination of things. Like, we rank our assessments as, like, highly recommend, recommend, and perceive a caution. We use, like, a rec management system where they only look at the highly recommends first after, like, the first 7 days of the rec being posted, work through those applications before they move on to, like, the recommends, and so dependent on the volume of applications they receive, they may not review all of those and would not move forward, because they've already moved enough candidates forward from the highly recommend per se.",
+    "No. I don't I don't think so. If you just, if you just, send over the guide with the with the code, I can get that added into our Google Tag Manager containers and then just let you know once those pixels are placed, so that we can go ahead and start testing them and make sure that the events are coming through correctly.",
+    "Yeah. I think that's what you would, what you should expect that the person will get the signature and then the assessments, and then maybe also a question or note for you as a supplier. If you have also outlined, like, the implementation plan or some steps and if you see, okay, these things we can't proceed further before the those steps are done and all the assessments I signed off, please flag it to us because we can provide from our side. But, also looking at you here because this is also something that we got from our, procurement team that, it also depends on you where you are comfortable at this proceeding, and we'll totally understand that maybe some things cannot be done now. That's all all totally fine. But, yeah, please flag this to us.",
+    "I do have a question, more of a a request, I guess. When it comes to, like, the social media, like, promotion and display ads, do you have any sort of, like, examples or screenshots or anything that you could just send of, like, what that looks like or could look like?",
+    "Just so I understand. So the main issue here is when a city is missing?",
+    "Yeah. I think as you guys do have you guys already done onboarding with, like, our CS team on how to use the Craigslist tool? Like, how we're actually gonna be filling out campaign for ourselves and stuff?",
+    "I guess the question I have then is, along with that is, is that information that is stored in the job posting itself, like, on the Indeed side rather than having sort of, like, custom work, like, when they post back, do they also post back the details about the job? No. They don't. So they Okay. Typically, job boards consume.",
+    "Is there automation on that where we can get it either fired to an inbox or embedded into, either in Sharepoint page or something, or we have the ability to pull from?",
+    "Right? Like, it's Vishy is not my resource. So I have to luckily, I have a good relationship with him. So he keeps helping us out. But in the new world, how they're, like, structuring the engineering team, we have to work through Brendan. They have to put all of our work into a sprint, and you know, they'll basically do prioritization exercises every week to see if ours is priority or somebody else. But Brendan's gonna be the new Dodge per se. So any any technical issues, he's the one who needs to become involved.",
+    "No. This one's not. This is a, the Google Analytics is UTM UTM based, Adverto's, analytics dashboard. This one, is a source code that's passed to in for. It's based on their tracking. I I I don't know how it's appended to the apply URL, but I don't think it's it's UTM based, if I'm not mistaken.",
+    "Like, after transition? Like, who's gonna be our main account manager?",
+    "Like, 10 so I understood. Like, 10 Street is more than just an applicant tracking system because they are operating they're kind of on the cusp of both, almost like an RPO because they're prequalifying the drivers, and the drivers, kind of like a Smart Recruiters too, where you come into the Smart Recruiters world, and you fill in one profile, and you can apply to multiple carriers. Right? So. Appcast right now says, you know, we can do this free trial. Right? Where they're driving traffic back to 10th Street using Trimax brand, and I'm like, why would you wanna do that? Yep. Exactly. Once once those drivers are in the 10th Street community, they can apply to everyone. It's like being at a job fair with 30 other trucking companies."
+  ],
+  "results": {
+    "bare": [
+      {
+        "pair_id": 29548,
+        "cosine": 0.7620668411254883,
+        "scenario_key": "programmatic_advertising_scope_and_capability",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33766,
+        "cosine": 0.8348186016082764,
+        "scenario_key": "craigslist_and_classifieds_strategy",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33540,
+        "cosine": 0.7588144540786743,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 37869,
+        "cosine": 0.8400042057037354,
+        "scenario_key": "regional_talent_acquisition_and_brand_strategy",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 30795,
+        "cosine": 0.803981363773346,
+        "scenario_key": "job_board_budget_and_direct_agreements",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 32820,
+        "cosine": 0.7724458575248718,
+        "scenario_key": "reliance_on_major_social_and_professional_networks",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 37593,
+        "cosine": 0.810137152671814,
+        "scenario_key": "downstream_activation_and_cost_metrics",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 36784,
+        "cosine": 0.8578745722770691,
+        "scenario_key": "programmatic_advertising_scope_and_capability",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 38024,
+        "cosine": 0.8478808403015137,
+        "scenario_key": "specialty_and_niche_job_boards_integration",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 28992,
+        "cosine": 0.8168075084686279,
+        "scenario_key": "ats_integration_and_api_mapping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 35373,
+        "cosine": 0.834164023399353,
+        "scenario_key": "attribution_and_funnel_tracking",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 35319,
+        "cosine": 0.8433765172958374,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 38606,
+        "cosine": 0.7987445592880249,
+        "scenario_key": "creative_and_media_plan_review",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 27966,
+        "cosine": 0.8411383628845215,
+        "scenario_key": "budget_allocation_and_testing",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 30003,
+        "cosine": 0.8224579095840454,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 39220,
+        "cosine": 0.7752629518508911,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 28972,
+        "cosine": 0.7662505507469177,
+        "scenario_key": "attribution_and_funnel_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 35572,
+        "cosine": 0.7504396438598633,
+        "scenario_key": "publisher_management_and_exclusions",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 31031,
+        "cosine": 0.7984738945960999,
+        "scenario_key": "multi_language_copy_and_translation",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 33161,
+        "cosine": 0.8555186986923218,
+        "scenario_key": "landing_page_and_conversion_setup",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34150,
+        "cosine": 0.7885903716087341,
+        "scenario_key": "campaign_level_performance_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34958,
+        "cosine": 0.8029957413673401,
+        "scenario_key": "regional_talent_acquisition_and_brand_strategy",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 31049,
+        "cosine": 0.7795039415359497,
+        "scenario_key": "slack_communication_and_channel_setup",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 36187,
+        "cosine": 0.826323390007019,
+        "scenario_key": "pixel_placement_and_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 39207,
+        "cosine": 0.8089859485626221,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 35350,
+        "cosine": 0.8380677700042725,
+        "scenario_key": "pixel_placement_and_tracking",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 34550,
+        "cosine": 0.8301488161087036,
+        "scenario_key": "contract_and_legal_review",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 38384,
+        "cosine": 0.8173540830612183,
+        "scenario_key": "reliance_on_major_social_and_professional_networks",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 38464,
+        "cosine": 0.7906699180603027,
+        "scenario_key": "geographic_targeting_and_location_mapping",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 31530,
+        "cosine": 0.8355273008346558,
+        "scenario_key": "craigslist_and_classifieds_strategy",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 28033,
+        "cosine": 0.8451821208000183,
+        "scenario_key": "ats_integration_and_api_mapping",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 35838,
+        "cosine": 0.7717559337615967,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 31236,
+        "cosine": 0.7821645736694336,
+        "scenario_key": "testing_and_implementation_timeline",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 35375,
+        "cosine": 0.8439175486564636,
+        "scenario_key": "programmatic_advertising_scope_and_capability",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34407,
+        "cosine": 0.7339203357696533,
+        "scenario_key": "reliance_on_major_social_and_professional_networks",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 30317,
+        "cosine": 0.7994232177734375,
+        "scenario_key": "craigslist_and_classifieds_strategy",
+        "same_scenario": false
+      }
+    ],
+    "operator": [
+      {
+        "pair_id": 34929,
+        "cosine": 0.7500578761100769,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 30966,
+        "cosine": 0.7609975337982178,
+        "scenario_key": "reliance_on_major_social_and_professional_networks",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 38633,
+        "cosine": 0.7368598580360413,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 39787,
+        "cosine": 0.7646710872650146,
+        "scenario_key": "job_board_budget_and_direct_agreements",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 30795,
+        "cosine": 0.8088328242301941,
+        "scenario_key": "job_board_budget_and_direct_agreements",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.758665919303894,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 37520,
+        "cosine": 0.7528388500213623,
+        "scenario_key": "downstream_activation_and_cost_metrics",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 29879,
+        "cosine": 0.7725749611854553,
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7644387483596802,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 28992,
+        "cosine": 0.8134393692016602,
+        "scenario_key": "ats_integration_and_api_mapping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 35373,
+        "cosine": 0.7494072318077087,
+        "scenario_key": "attribution_and_funnel_tracking",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 34647,
+        "cosine": 0.7540783882141113,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 38108,
+        "cosine": 0.7513803243637085,
+        "scenario_key": "creative_and_media_plan_review",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 27966,
+        "cosine": 0.7821240425109863,
+        "scenario_key": "budget_allocation_and_testing",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 39765,
+        "cosine": 0.7581336498260498,
+        "scenario_key": "job_role_taxonomy_and_scoping",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 34647,
+        "cosine": 0.7563013434410095,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7793477773666382,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.751904308795929,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 31328,
+        "cosine": 0.7437164187431335,
+        "scenario_key": "pixel_placement_and_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33161,
+        "cosine": 0.7778211236000061,
+        "scenario_key": "landing_page_and_conversion_setup",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 35063,
+        "cosine": 0.7819968461990356,
+        "scenario_key": "pricing_and_fee_structures",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 30258,
+        "cosine": 0.751558780670166,
+        "scenario_key": "reliance_on_major_social_and_professional_networks",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33302,
+        "cosine": 0.7608169317245483,
+        "scenario_key": "attribution_and_funnel_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 36187,
+        "cosine": 0.7774578332901001,
+        "scenario_key": "pixel_placement_and_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 38381,
+        "cosine": 0.7609273195266724,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 36187,
+        "cosine": 0.7810916900634766,
+        "scenario_key": "pixel_placement_and_tracking",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 39128,
+        "cosine": 0.7511236667633057,
+        "scenario_key": "testing_and_implementation_timeline",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 36187,
+        "cosine": 0.7439965009689331,
+        "scenario_key": "pixel_placement_and_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7398841381072998,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7914116978645325,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34185,
+        "cosine": 0.7885292768478394,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7692921757698059,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33302,
+        "cosine": 0.7657222747802734,
+        "scenario_key": "attribution_and_funnel_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 35375,
+        "cosine": 0.7764467000961304,
+        "scenario_key": "programmatic_advertising_scope_and_capability",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7669494152069092,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33596,
+        "cosine": 0.7935277819633484,
+        "scenario_key": "reliance_on_major_social_and_professional_networks",
+        "same_scenario": false
+      }
+    ],
+    "terse": [
+      {
+        "pair_id": 33201,
+        "cosine": 0.7728071212768555,
+        "scenario_key": "attribution_and_funnel_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34801,
+        "cosine": 0.8010603189468384,
+        "scenario_key": "reliance_on_major_social_and_professional_networks",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33540,
+        "cosine": 0.7448679208755493,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 31929,
+        "cosine": 0.7985308170318604,
+        "scenario_key": "regional_talent_acquisition_and_brand_strategy",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 30795,
+        "cosine": 0.8098844885826111,
+        "scenario_key": "job_board_budget_and_direct_agreements",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 28385,
+        "cosine": 0.7584739923477173,
+        "scenario_key": "chatbot_and_messaging_implementation",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 37520,
+        "cosine": 0.7718289494514465,
+        "scenario_key": "downstream_activation_and_cost_metrics",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 29879,
+        "cosine": 0.8124642372131348,
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 38024,
+        "cosine": 0.8018215894699097,
+        "scenario_key": "specialty_and_niche_job_boards_integration",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 28992,
+        "cosine": 0.8140672445297241,
+        "scenario_key": "ats_integration_and_api_mapping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 35373,
+        "cosine": 0.7811749577522278,
+        "scenario_key": "attribution_and_funnel_tracking",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 37029,
+        "cosine": 0.7835992574691772,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 38435,
+        "cosine": 0.7551368474960327,
+        "scenario_key": "creative_and_media_plan_review",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 27966,
+        "cosine": 0.7914034128189087,
+        "scenario_key": "budget_allocation_and_testing",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 34185,
+        "cosine": 0.7953656911849976,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 29018,
+        "cosine": 0.7815655469894409,
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34560,
+        "cosine": 0.7859129905700684,
+        "scenario_key": "testing_and_implementation_timeline",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 33593,
+        "cosine": 0.7639376521110535,
+        "scenario_key": "publisher_management_and_exclusions",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 31328,
+        "cosine": 0.7884829044342041,
+        "scenario_key": "pixel_placement_and_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33161,
+        "cosine": 0.8321995735168457,
+        "scenario_key": "landing_page_and_conversion_setup",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 35063,
+        "cosine": 0.7878272533416748,
+        "scenario_key": "pricing_and_fee_structures",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 32188,
+        "cosine": 0.7956187725067139,
+        "scenario_key": "job_board_budget_and_direct_agreements",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 36155,
+        "cosine": 0.7781936526298523,
+        "scenario_key": "attribution_and_funnel_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33523,
+        "cosine": 0.7648650407791138,
+        "scenario_key": "landing_page_and_conversion_setup",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 32345,
+        "cosine": 0.7592421770095825,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 37026,
+        "cosine": 0.7987588047981262,
+        "scenario_key": "pixel_placement_and_tracking",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 34550,
+        "cosine": 0.7920619249343872,
+        "scenario_key": "contract_and_legal_review",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 35323,
+        "cosine": 0.7523965835571289,
+        "scenario_key": "creative_and_media_plan_review",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 38464,
+        "cosine": 0.7687422037124634,
+        "scenario_key": "geographic_targeting_and_location_mapping",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 36182,
+        "cosine": 0.7553732991218567,
+        "scenario_key": "craigslist_and_classifieds_strategy",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 34185,
+        "cosine": 0.8465557098388672,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34870,
+        "cosine": 0.7520298361778259,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33302,
+        "cosine": 0.7923926711082458,
+        "scenario_key": "attribution_and_funnel_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 35375,
+        "cosine": 0.8362499475479126,
+        "scenario_key": "programmatic_advertising_scope_and_capability",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 32309,
+        "cosine": 0.7637439370155334,
+        "scenario_key": "vendor_transition_and_partnership_evaluation",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 37529,
+        "cosine": 0.7946445345878601,
+        "scenario_key": "job_board_budget_and_direct_agreements",
+        "same_scenario": false
+      }
+    ],
+    "verbose": [
+      {
+        "pair_id": 28676,
+        "cosine": 0.7498998641967773,
+        "scenario_key": "budget_allocation_and_testing",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 30966,
+        "cosine": 0.7754778861999512,
+        "scenario_key": "reliance_on_major_social_and_professional_networks",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 29257,
+        "cosine": 0.7377293109893799,
+        "scenario_key": "chatbot_and_messaging_implementation",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 39787,
+        "cosine": 0.7698362469673157,
+        "scenario_key": "job_board_budget_and_direct_agreements",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 30795,
+        "cosine": 0.7781916856765747,
+        "scenario_key": "job_board_budget_and_direct_agreements",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7554707527160645,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 37520,
+        "cosine": 0.7831649780273438,
+        "scenario_key": "downstream_activation_and_cost_metrics",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 35006,
+        "cosine": 0.775020956993103,
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7860427498817444,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 28992,
+        "cosine": 0.7957228422164917,
+        "scenario_key": "ats_integration_and_api_mapping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 36148,
+        "cosine": 0.7468196749687195,
+        "scenario_key": "attribution_and_funnel_tracking",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 34647,
+        "cosine": 0.7589335441589355,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33302,
+        "cosine": 0.7468444108963013,
+        "scenario_key": "attribution_and_funnel_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34403,
+        "cosine": 0.7864303588867188,
+        "scenario_key": "pricing_and_fee_structures",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 30003,
+        "cosine": 0.7521145343780518,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34647,
+        "cosine": 0.7818301916122437,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7693346738815308,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7419452667236328,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33191,
+        "cosine": 0.746199369430542,
+        "scenario_key": "pixel_placement_and_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33161,
+        "cosine": 0.7738829851150513,
+        "scenario_key": "landing_page_and_conversion_setup",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 35063,
+        "cosine": 0.7723116874694824,
+        "scenario_key": "pricing_and_fee_structures",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 32666,
+        "cosine": 0.7719098329544067,
+        "scenario_key": "job_board_budget_and_direct_agreements",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 29676,
+        "cosine": 0.7424483299255371,
+        "scenario_key": "slack_communication_and_channel_setup",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 36187,
+        "cosine": 0.7630398869514465,
+        "scenario_key": "pixel_placement_and_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 35399,
+        "cosine": 0.7533594369888306,
+        "scenario_key": "application_volume_and_prioritization",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 36187,
+        "cosine": 0.7680560350418091,
+        "scenario_key": "pixel_placement_and_tracking",
+        "same_scenario": true
+      },
+      {
+        "pair_id": 39128,
+        "cosine": 0.7507656216621399,
+        "scenario_key": "testing_and_implementation_timeline",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 36187,
+        "cosine": 0.757942259311676,
+        "scenario_key": "pixel_placement_and_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7425845861434937,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7835633158683777,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 32666,
+        "cosine": 0.8045392036437988,
+        "scenario_key": "job_board_budget_and_direct_agreements",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7669963240623474,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33302,
+        "cosine": 0.7588047981262207,
+        "scenario_key": "attribution_and_funnel_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 30590,
+        "cosine": 0.7932292222976685,
+        "scenario_key": "attribution_and_funnel_tracking",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 34929,
+        "cosine": 0.7553845643997192,
+        "scenario_key": "technical_integration_and_timeline_scoping",
+        "same_scenario": false
+      },
+      {
+        "pair_id": 33596,
+        "cosine": 0.7809257507324219,
+        "scenario_key": "reliance_on_major_social_and_professional_networks",
+        "same_scenario": false
+      }
+    ]
+  }
+}

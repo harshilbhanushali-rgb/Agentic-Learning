@@ -1,0 +1,207 @@
+"""Tests for calibration/trial_grader_inputs.py's uncertainty on D.
+
+Pins F11: the point estimate D is pooled -- W = (full + 0.5*partial)/attempts over every
+milestone in the arm -- while its bootstrap CI averaged per-item W values UNWEIGHTED. Two
+different estimators reported as one number. On the shipped artifacts they disagree by -0.02
+to +1.9, and in `confirmB` the interval [2.116, 3.645] excluded its own point estimate of
+2.114.
+
+No network, no DB: bootstrap_d is pure given a seeded Generator.
+"""
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+from calibration import trial_grader_inputs as tg
+
+
+def _rec(verdict):
+    return {"verdict": verdict}
+
+
+def test_item_counts_returns_the_terms_w_is_built_from():
+    recs = [_rec("full_hit"), _rec("partial_hit"), _rec("partial_hit"), _rec("miss")]
+    assert tg.item_counts(recs) == (1, 2, 4)
+    assert tg.weighted(*tg.item_counts(recs)) == pytest.approx((1 + 0.5 * 2) / 4)
+
+
+def test_the_ci_brackets_the_pooled_d_and_not_the_per_item_mean():
+    """The decisive case: big low-scoring items vs small high-scoring ones.
+
+    matched   2 items x 10 milestones, no credit | 6 items x 1 milestone, a full hit
+      pooled     = 6 / 26                = 0.2308   <- what D reports
+      per-item   = (0+0+1*6) / 8         = 0.7500   <- what the old CI averaged
+    unrelated is deliberately uniform (every item 1 of 2), so its two estimators agree at
+    0.5 and the divergence is isolated to the matched arm.
+      D pooled   = 0.4615      D per-item = 1.5000
+
+    The interval must bracket 0.4615 and must NOT reach the per-item answer. A CI built the
+    old way sits around 1.5 and excludes the very number it claims to quantify -- which is
+    what `confirmB` shipped: [2.116, 3.645] around a point estimate of 2.114.
+    """
+    cm = {f"big{i}": (0, 0, 10) for i in range(2)}
+    cm.update({f"small{i}": (1, 0, 1) for i in range(6)})
+    cu = {k: (1, 0, 2) for k in cm}
+
+    d_pooled = tg.weighted(6, 0, 26) / tg.weighted(8, 0, 16)
+    d_per_item = (6 / 8) / 0.5
+    assert d_pooled == pytest.approx(0.4615, abs=1e-4)
+    assert d_per_item == pytest.approx(1.5)
+
+    lo, hi, _, _ = tg.bootstrap_d(cm, cu, np.random.default_rng(0))
+    assert lo <= d_pooled <= hi, "the interval must contain its own point estimate"
+    # `lo` is what discriminates. Resampling 8 items of which 2 are big is high-variance, so
+    # the UPPER end legitimately reaches ~2.0 under the correct estimator too and asserting
+    # on it would fail a right answer. The pre-fix bootstrap puts `lo` near 0.75, above the
+    # 0.4615 it claims to bracket; the pooled one puts it near 0.11.
+    assert lo < d_pooled, "the lower bound must sit below the point estimate, not above it"
+
+
+def test_a_single_item_repeated_gives_a_degenerate_but_finite_interval():
+    cm = {"A": (1, 0, 2)}
+    cu = {"A": (1, 0, 4)}
+    lo, hi, n_unb, n_und = tg.bootstrap_d(cm, cu, np.random.default_rng(1))
+    assert lo == pytest.approx(2.0) and hi == pytest.approx(2.0)
+    assert (n_unb, n_und) == (0, 0)
+
+
+def test_an_unbounded_resample_is_kept_as_inf_not_discarded():
+    """W(unrelated)=0 with W(matched)>0 means D is unbounded -- the LARGEST value in the
+    distribution. Discarding it truncates the interval from the top, which is what made the
+    old CI conditional on W(unrelated) > 0."""
+    cm = {"A": (1, 0, 1)}
+    cu = {"A": (0, 0, 1)}                       # unrelated never scores
+    lo, hi, n_unb, n_und = tg.bootstrap_d(cm, cu, np.random.default_rng(0))
+    assert n_unb == tg.BOOTSTRAP, "every resample of this pool is unbounded"
+    assert n_und == 0
+    assert lo == float("inf") and hi == float("inf")
+
+
+def test_a_zero_over_zero_resample_is_excluded_and_counted_not_called_infinite():
+    """Both arms scoring nothing is 0/0 -- no information about D. Calling it +inf would
+    bias the interval upward; dropping it silently is what F11 was."""
+    cm = {"A": (0, 0, 1)}
+    cu = {"A": (0, 0, 1)}
+    lo, hi, n_unb, n_und = tg.bootstrap_d(cm, cu, np.random.default_rng(0))
+    assert (n_unb, n_und) == (0, tg.BOOTSTRAP)
+    assert lo != lo and hi != hi, "no usable resample -> NaN, not a fabricated interval"
+
+
+def test_the_two_degenerate_cases_do_not_share_a_branch():
+    """One pool yields both kinds; they must be counted separately."""
+    cm = {"A": (1, 0, 1), "B": (0, 0, 1)}
+    cu = {"A": (0, 0, 1), "B": (0, 0, 1)}       # unrelated never scores, either item
+    _, _, n_unb, n_und = tg.bootstrap_d(cm, cu, np.random.default_rng(3))
+    assert n_unb > 0 and n_und > 0
+    assert n_unb + n_und == tg.BOOTSTRAP
+
+
+def test_bootstrap_needs_counts_not_pre_divided_w():
+    """The division must happen AFTER the resampled counts are summed. Handing bootstrap_d
+    per-item W floats is the pre-fix shape and must not silently work."""
+    with pytest.raises((TypeError, ValueError, IndexError)):
+        tg.bootstrap_d({"A": 0.5, "B": 0.25}, {"A": 0.5, "B": 0.25},
+                       np.random.default_rng(0))
+
+
+def test_no_overlapping_items_yields_nan_not_a_fabricated_interval():
+    lo, hi, _, _ = tg.bootstrap_d({"A": (1, 0, 2)}, {"B": (1, 0, 2)},
+                                  np.random.default_rng(0))
+    assert lo != lo and hi != hi
+
+
+def test_every_condition_records_which_estimator_made_its_interval():
+    """An artifact whose CI came from the pre-2026-08-15 per-item mean is not comparable to
+    one from the pooled bootstrap, and nothing in the file used to say which it was."""
+    assert tg.CI_ESTIMATOR == "pooled_w_over_resampled_items"
+
+
+def _scored(item, kind, source, verdicts):
+    return [{"item_id": f"{item}_{kind}", "kind": kind, "source_scenario": source,
+             "scenario_key": source, "verdict": v, "judged_by": "m"} for v in verdicts]
+
+
+def test_summarise_conditions_reports_the_pooled_d_and_stamps_its_estimator():
+    recs = (_scored("1", "matched", "s1", ["full_hit", "miss"])
+            + _scored("1", "unrelated", "s1", ["miss", "miss"])
+            + _scored("2", "matched", "s2", ["partial_hit", "miss"])
+            + _scored("2", "unrelated", "s2", ["partial_hit", "miss"]))
+    out = tg.summarise_conditions({"blind": recs}, np.random.default_rng(0))["blind"]
+    assert out["w_matched"] == pytest.approx((1 + 0.5) / 4)
+    assert out["w_unrelated"] == pytest.approx(0.5 / 4)
+    assert out["D"] == pytest.approx(3.0)
+    assert out["ci_estimator"] == tg.CI_ESTIMATOR
+    assert out["attempts"] == 8
+
+
+def test_summarise_conditions_refuses_to_fabricate_a_sign_test_without_source_scenario():
+    """Three pre-sign-test artifacts hold records with no `source_scenario`. Recomputing
+    them must yield an explicit 'unavailable' marker, never a pairing under the partner's
+    name -- which would compare two different responses."""
+    recs = _scored("1", "matched", "s1", ["full_hit"]) + _scored("1", "unrelated", "s1",
+                                                                 ["miss"])
+    for r in recs:
+        del r["source_scenario"]
+    out = tg.summarise_conditions({"blind": recs}, np.random.default_rng(0))["blind"]
+    assert "unavailable" in out["sign_test"]
+    assert out["sign_test"]["wins"] == 0 and out["sign_test"]["decided"] == 0
+
+
+def test_weighted_counts_a_partial_as_half():
+    assert tg.weighted(1, 1, 4) == pytest.approx(0.375)
+    assert tg.weighted(0, 0, 0) == 0.0
+
+
+# -- checkpoint identity (audit F8 / remediation R8a) ---------------------------------------
+
+class _Args:
+    """Minimal stand-in for argparse's namespace."""
+
+    def __init__(self, **kw):
+        defaults = dict(model="gemini-3.1-flash-lite", gateway=False, holdout=False,
+                        per_scenario=3, batch_size=6, seed=42, conditions="", tag="",
+                        sample=20)
+        defaults.update(kw)
+        for k, v in defaults.items():
+            setattr(self, k, v)
+
+
+def test_identity_records_everything_that_changes_what_a_record_MEANS():
+    ident = tg.checkpoint_identity(_Args(), 120)
+    assert ident["n_items"] == 120
+    for field in ("model", "transport", "holdout", "per_scenario", "batch_size", "seed"):
+        assert field in ident, f"{field} missing -- a resume could blend it invisibly"
+
+
+def test_holdout_changes_the_identity_even_though_n_items_is_IDENTICAL():
+    """The defect in one line: --holdout changes WHICH rows are drawn, not HOW MANY.
+
+    Under the old `n_items`-only key a leakage-clean run and a leaky one matched, so a
+    resume reused leaky records under a clean label -- silently.
+    """
+    leaky = tg.checkpoint_identity(_Args(holdout=False), 120)
+    clean = tg.checkpoint_identity(_Args(holdout=True), 120)
+    assert leaky["n_items"] == clean["n_items"] == 120, "same count, by construction"
+    assert leaky != clean, "the identity MUST separate them"
+
+
+def test_transport_and_model_separate_two_otherwise_identical_runs():
+    a = tg.checkpoint_identity(_Args(gateway=False), 120)
+    b = tg.checkpoint_identity(_Args(gateway=True), 120)
+    c = tg.checkpoint_identity(_Args(model="other-model"), 120)
+    assert a != b and a != c
+
+
+def test_conditions_and_tag_are_deliberately_NOT_in_the_identity():
+    """Records are stored per condition name, so a different subset adds or skips whole
+    entries rather than reinterpreting one; --tag already routes to a separate file."""
+    base = tg.checkpoint_identity(_Args(), 120)
+    assert base == tg.checkpoint_identity(_Args(conditions="blind"), 120)
+    assert base == tg.checkpoint_identity(_Args(tag="control"), 120)
+
+
+def test_the_mismatch_message_names_the_field_that_differs():
+    msg = tg._identity_mismatch(tg.checkpoint_identity(_Args(holdout=False), 120),
+                                 tg.checkpoint_identity(_Args(holdout=True), 120))
+    assert "holdout" in msg and "checkpoint=False" in msg and "run=True" in msg, msg

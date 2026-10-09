@@ -10,6 +10,8 @@ layer_a:
   ubiquity_ceiling: 0.4
   merge_cosine_threshold: 0.88
   min_content_words: 5
+  pool_unit: clause
+  scenario_vector_mode: concat
   grouping_method: post_hoc
   primary_topic_merge_threshold: 0.70
   response_taxonomy_purity_gate: 0.90
@@ -19,6 +21,7 @@ layer_a:
 layer_b:
   relative_margin: 0.85
   max_scenarios_per_pair: 3
+  sink_margin_delta: 0.0
   matching_strategy: flat
   primary_topic_relative_margin: 0.95
   max_primary_topics_per_pair: 2
@@ -41,9 +44,40 @@ layer_c:
   min_cluster_size_ceiling: 25
   umap_n_components: 5
   milestone_sink_similarity_percentile: 95
+  describe_mode: legacy
+layer_d:
+  signal_detection_mode: gemma
+  scoring_unit: moment
+  scenarios_per_request: 3
+  similarity_relative_margin: 0.95
+  max_scenarios_per_signal: 1
+  gemma_scenario_shortlist_k: 0
+  turn_match_mode: normalized
+  turn_match_min_ratio: 0.85
+  gap_events_enabled: true
+  skip_uncoachable_milestones: true
+  require_validated_milestones: false
+  score_soft_skills: true
+  gap_severity_critical_miss_rate: 0.60
+  gap_severity_high_miss_rate: 0.35
+  gap_severity_moderate_miss_rate: 0.15
+  segmentation_arm: e
+  grader_arm: checks
+  grader_model: gemini-3.6-flash
+  grader_reasoning_effort: medium
+  grader_k_runs: 1
+  pairwise_swap: true
+  quote_verify_min_overlap: 0.80
+  shrinkage_prior_strength: 5.0
+  dead_check_naren_floor: 0.50
+  min_attempts_to_rank: 8
 embedding:
   cache_enabled: true
   cache_path: embed_cache.db
+  backend: local
+  gemini_model: gemini-embedding-2
+  gemini_dimensions: 3072
+  gemini_batch_size: 100
 """
 
 
@@ -58,6 +92,8 @@ def test_loads_valid_file(tmp_path):
     assert t.layer_a.min_call_support_floor == 4
     assert t.layer_a.grouping_method == "post_hoc"
     assert t.layer_c.milestone_hard_cap == 10
+    assert t.layer_d.signal_detection_mode == "gemma"
+    assert t.layer_d.gemma_scenario_shortlist_k == 0
     assert t.embedding.cache_enabled is True
 
 
@@ -83,6 +119,35 @@ def test_shipped_tuning_yaml_is_valid():
     assert 0.0 < t.layer_b.sink_rescue_blend_alpha < 1.0
     assert 0.0 <= t.layer_b.sink_rescue_density_borderline_floor < t.layer_b.sink_rescue_density_threshold
     assert t.layer_b.sink_rescue_density_min_words >= 0
+    assert t.layer_c.describe_mode in ("legacy", "situated")
+    assert t.layer_d.signal_detection_mode in ("gemma", "similarity")
+    assert t.layer_d.turn_match_mode in ("exact", "normalized", "ratio")
+    assert 0.0 < t.layer_d.similarity_relative_margin <= 1.0
+    assert 0.0 < t.layer_d.turn_match_min_ratio <= 1.0
+    assert t.layer_d.max_scenarios_per_signal >= 1
+    assert t.layer_d.gemma_scenario_shortlist_k >= 0
+    assert t.layer_d.gap_events_enabled in (True, False)
+    assert t.layer_d.score_soft_skills in (True, False)
+    assert t.layer_d.skip_uncoachable_milestones in (True, False)
+    # Severity buckets must be strictly descending, or compute_severity's first-match
+    # loop silently makes the lower ones unreachable.
+    assert (
+        t.layer_d.gap_severity_critical_miss_rate
+        > t.layer_d.gap_severity_high_miss_rate
+        > t.layer_d.gap_severity_moderate_miss_rate
+        > 0.0
+    )
+    # Layer D redesign keys (Brain/layer_d/).
+    assert t.layer_d.segmentation_arm in ("today", "e")
+    assert t.layer_d.grader_arm in ("checks", "pairwise", "say")
+    assert t.layer_d.grader_model
+    assert t.layer_d.grader_reasoning_effort in ("none", "low", "medium", "high")
+    assert t.layer_d.grader_k_runs >= 1
+    assert t.layer_d.pairwise_swap in (True, False)
+    assert 0.0 < t.layer_d.quote_verify_min_overlap <= 1.0
+    assert t.layer_d.shrinkage_prior_strength >= 0.0
+    assert 0.0 < t.layer_d.dead_check_naren_floor <= 1.0
+    assert t.layer_d.min_attempts_to_rank >= 1
 
 
 def test_typo_in_key_raises_rather_than_defaulting(tmp_path):
@@ -95,6 +160,37 @@ def test_missing_key_raises(tmp_path):
     bad = _GOOD.replace("  min_content_words: 5\n", "")
     with pytest.raises(ValueError, match="missing key"):
         load_tuning(_write(tmp_path, bad))
+
+
+def test_pool_unit_ships_turn_and_merge_matches_the_live_taxonomy():
+    """The shipped unit and its cosine floor must together describe what is IN POSTGRES.
+
+    This tripwire did its job on 2026-08-19: it was pinned to "clause" and failed the moment
+    the value moved, which is exactly what it exists for. It is re-pinned rather than
+    deleted, because the reason for pinning has not changed -- flipping the unit silently
+    changes what the whole taxonomy is built from AND invalidates merge_cosine_threshold,
+    since turn-level cosines sit in a different band from clause-level ones.
+
+    What changed is which value is correct. The live 259-scenario `union_base` taxonomy was
+    clustered in TURN mode at merge 0.97 (recorded in the adjudication artifact's
+    identity.merge), while this file still said clause/0.85 -- so main.py would have rebuilt
+    Layer A on a different unit at a floor calibrated for the other unit, and Layer A upserts
+    scenarios. The two are asserted TOGETHER because shipping one without the other is the
+    incoherent state, not either value on its own.
+    """
+    t = load_tuning()
+    assert t.layer_a.pool_unit == "turn"
+    assert t.layer_a.merge_cosine_threshold == 0.97
+
+
+def test_pool_unit_only_accepts_the_two_known_units(tmp_path):
+    """load_tuning validates keys, not values, so the guard lives in
+    build_client_pool -- this pins that a typo cannot reach the clustering.
+    """
+    from v2.layer_a import build_client_pool
+
+    with pytest.raises(ValueError, match="pool_unit"):
+        build_client_pool([], unit="sentences")
 
 
 def test_unknown_section_raises(tmp_path):

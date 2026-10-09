@@ -1,0 +1,11 @@
+[{"cell": 1, "moments": [
+  {"m": 1, "judgement": "OK", "reason": "client explicitly hands off to a funnel-tracking/analytics-platform overview and CSM gives a real substantive explanation"},
+  {"m": 2, "judgement": "NOT_HER", "reason": "CSM text is only a backchannel (\"Sounds good. Sounds good. Okay.\"), no substantive content"},
+  {"m": 3, "judgement": "OK", "reason": "client is root-causing a tracking discrepancy from client-ID mapping and CSM gives a real substantive follow-up question"},
+  {"m": 4, "judgement": "OK", "reason": "client describes tracking scope (source-to-screen) and CSM asks a real substantive clarifying question about funnel stages"},
+  {"m": 5, "judgement": "OK", "reason": "client turn is genuinely about funnel-stage confirmation and CSM gives a real substantive (if topically drifting) reply"},
+  {"m": 6, "judgement": "OK", "reason": "client discusses source-attribute mapping for funnel tracking and CSM gives a real substantive reply"},
+  {"m": 7, "judgement": "OK", "reason": "client raises Workday/Phenom funnel-tracking setup questions and CSM gives a real, detailed substantive reply"},
+  {"m": 8, "judgement": "OK", "reason": "client asks about end-of-funnel/source tracking and CSM gives a real substantive reply about pixel/source-tracking trackers"},
+  {"m": 9, "judgement": "OK", "reason": "client asks about funnel-stage scope across entities and CSM (after a brief mixed-speaker preamble) gives a real substantive explanation"}
+]}]

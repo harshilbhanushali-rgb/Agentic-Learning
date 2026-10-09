@@ -1,0 +1,450 @@
+[
+  {
+    "conv": "E. new client mid-thread: must NOT borrow the old topic",
+    "message": "client says their feed is dropping jobs after the import, about half their reqs never show up",
+    "thread_in": [],
+    "response": {
+      "outcome": "answered",
+      "answer": "Explain to the client that as long as the company name and classification in the XML feed are correct, the jobs should automatically pull through into the dashboard. Missing jobs are typically caused by an incorrect company classification in the feed. Offer to take a look at the feed on your end to investigate if there are specific examples flagged.",
+      "quote": "Unless the company classification itself is incorrect. Right? Like, it should fall in automatically.",
+      "citation": {
+        "label": "Joveo Zapid Hire Post Go Live Check In \u00b7 24 November 2023",
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt",
+        "pair_id": 32674,
+        "scenario_key": "xml_feed_setup_and_ingestion"
+      },
+      "match": {
+        "cosine": 0.777107239,
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "rank": 1
+      },
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "feed is dropping jobs after the import, about half their reqs never show up",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 15.8
+  },
+  {
+    "conv": "E. new client mid-thread: must NOT borrow the old topic",
+    "message": "totally different account now, they told me 'your invoices dont match our PO numbers' what do i say",
+    "thread_in": [
+      {
+        "message": "client says their feed is dropping jobs after the import, about half their reqs never show up",
+        "outcome": "answered",
+        "reply": "Explain to the client that as long as the company name and classification in the XML feed are correct, the jobs should automatically pull through into the dashboard. Missing jobs are typically caused by an incorrect company classification in the feed. Offer to take a look at the feed on your end to investigate if there are specific examples flagged.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      }
+    ],
+    "response": {
+      "outcome": "declined",
+      "reason": "no_close_match",
+      "message": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+      "match": {
+        "cosine": 0.692253113,
+        "scenario_key": "ats_integration_and_api_mapping",
+        "rank": 1
+      },
+      "retries": [
+        "wide"
+      ],
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "your invoices dont match our PO numbers",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 22.3
+  },
+  {
+    "conv": "E. new client mid-thread: must NOT borrow the old topic",
+    "message": "ok and how does he word that",
+    "thread_in": [
+      {
+        "message": "client says their feed is dropping jobs after the import, about half their reqs never show up",
+        "outcome": "answered",
+        "reply": "Explain to the client that as long as the company name and classification in the XML feed are correct, the jobs should automatically pull through into the dashboard. Missing jobs are typically caused by an incorrect company classification in the feed. Offer to take a look at the feed on your end to investigate if there are specific examples flagged.",
+        "scenario_key": "xml_feed_setup_and_ingestion",
+        "pair_id": 32674,
+        "call_filename": "20231124_joveo_zapid_hire_post_go_live_check_in_e9b2109d.txt"
+      },
+      {
+        "message": "totally different account now, they told me 'your invoices dont match our PO numbers' what do i say",
+        "outcome": "declined",
+        "reply": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "rendered",
+      "kind": "phrasing",
+      "scenario_key": "xml_feed_setup_and_ingestion",
+      "phrases": [
+        {
+          "phrase": "4 to 8 day 8 working days aggregation process",
+          "quote": "Because Indeed does have, what they call is a lead time when it comes to indexing the feed. So their search quality team needs to approve the XML feed. So typically, that's about, you know, in Indeed's, you know, world, it's about a a 4 to 8 day 8 working days aggregation process. Right?",
+          "call": "20240325_fusion_now_joveo_client_onboarding_85d7ca96",
+          "label": "Fusion Now \u00b7 Client Onboarding \u00b7 25 March 2024"
+        },
+        {
+          "phrase": "phase two item",
+          "quote": "But what what my recommendation would kind of be is but, like, while I check with my team, like, we could kind of take this as as, like, a A phase two item. Right?",
+          "call": "20240109_tal_ai_joveo_onboarding_plan_walkthrough_dde8aa30",
+          "label": "Tal AI \u00b7 Onboarding Plan Walkthrough \u00b7 9 January 2024"
+        },
+        {
+          "phrase": "indexes and updates our feed every one, hour",
+          "quote": "We also have an SFTP integration with Indeed, which means that Indeed actually indexes and updates our feed every one, hour.",
+          "call": "20240709_migration_to_joveo_4bb6b4db",
+          "label": "Migration To Joveo \u00b7 9 July 2024"
+        },
+        {
+          "phrase": "source of truth for now",
+          "quote": "Okay. Perfect, and that's what we use as the. Yeah. Source. Yeah. Source of truth for now. Yes.",
+          "call": "20241205_menulog_joveo_17878e57",
+          "label": "Menulog Joveo \u00b7 5 December 2024"
+        },
+        {
+          "phrase": "tracks performance end to end",
+          "quote": "Yep, and Jovio also tracks performance end to end as well because we have tracking pixels placed on Oracle, the applied process, that is, when somebody completes an applied way.",
+          "call": "fa7194f6-023a-4808-8142-4bdc1feb90df",
+          "label": "fa7194f6-023a-4808-8142-4bdc1feb90df"
+        }
+      ],
+      "intake": {
+        "intent": "phrasing",
+        "retrieval_query": "",
+        "situation": "carried",
+        "search_query": ""
+      }
+    },
+    "seconds": 6.9
+  },
+  {
+    "conv": "F. pointing back at an earlier client",
+    "message": "client says the ats integration was supposed to be live 3 weeks ago and nothing is syncing",
+    "thread_in": [],
+    "response": {
+      "outcome": "declined",
+      "reason": "no_close_match",
+      "message": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+      "match": {
+        "cosine": 0.778701782,
+        "scenario_key": "pixel_placement_and_tracking",
+        "rank": 1
+      },
+      "retries": [
+        "wide"
+      ],
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "the ats integration was supposed to be live 3 weeks ago and nothing is syncing",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 27.0
+  },
+  {
+    "conv": "F. pointing back at an earlier client",
+    "message": "separately another client asked if their agency can get access to the dashboard",
+    "thread_in": [
+      {
+        "message": "client says the ats integration was supposed to be live 3 weeks ago and nothing is syncing",
+        "outcome": "declined",
+        "reply": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "declined",
+      "reason": "no_close_match",
+      "message": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+      "match": {
+        "cosine": 0.780845642,
+        "scenario_key": "dashboard_access_and_reporting",
+        "rank": 1
+      },
+      "retries": [
+        "wide"
+      ],
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "separately another client asked if their agency can get access to the dashboard",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 28.0
+  },
+  {
+    "conv": "F. pointing back at an earlier client",
+    "message": "ok going back to the first one, what do i tell them",
+    "thread_in": [
+      {
+        "message": "client says the ats integration was supposed to be live 3 weeks ago and nothing is syncing",
+        "outcome": "declined",
+        "reply": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      },
+      {
+        "message": "separately another client asked if their agency can get access to the dashboard",
+        "outcome": "declined",
+        "reply": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "declined",
+      "reason": "no_close_match",
+      "message": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+      "match": {
+        "cosine": 0.778114319,
+        "scenario_key": "ats_integration_and_api_mapping",
+        "rank": 1
+      },
+      "retries": [
+        "wide"
+      ],
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "ok going back to the first one, what do i tell them",
+        "situation": "opens",
+        "search_query": "ats integration was supposed to be live 3 weeks ago and nothing is syncing"
+      }
+    },
+    "seconds": 26.9
+  },
+  {
+    "conv": "G. a follow-up the first answer cannot cover",
+    "message": "client wants to pause all their campaigns over the holidays, what do i say",
+    "thread_in": [],
+    "response": {
+      "outcome": "declined",
+      "reason": "no_close_match",
+      "message": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+      "match": {
+        "cosine": 0.742019653,
+        "scenario_key": "budget_allocation_and_testing",
+        "rank": 1
+      },
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "pause all their campaigns over the holidays",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 18.0
+  },
+  {
+    "conv": "G. a follow-up the first answer cannot cover",
+    "message": "and what if they say theyll just move that budget to linkedin instead?",
+    "thread_in": [
+      {
+        "message": "client wants to pause all their campaigns over the holidays, what do i say",
+        "outcome": "declined",
+        "reply": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "declined",
+      "reason": "no_close_match",
+      "message": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+      "match": {
+        "cosine": 0.761306882,
+        "scenario_key": "budget_allocation_and_testing",
+        "rank": 1
+      },
+      "retries": [
+        "wide"
+      ],
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "theyll just move that budget to linkedin instead",
+        "situation": "opens",
+        "search_query": "pause all their campaigns over the holidays move that budget to linkedin instead"
+      }
+    },
+    "seconds": 23.4
+  },
+  {
+    "conv": "H. where else, mid-thread",
+    "message": "client says cost per hire doubled after we changed the bidding, what do i tell them",
+    "thread_in": [],
+    "response": {
+      "outcome": "declined",
+      "reason": "no_close_match",
+      "message": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+      "match": {
+        "cosine": 0.736457825,
+        "scenario_key": "downstream_activation_and_cost_metrics",
+        "rank": 1
+      },
+      "retries": [
+        "wide"
+      ],
+      "intake": {
+        "intent": "reply_to_client",
+        "retrieval_query": "cost per hire doubled after we changed the bidding",
+        "situation": "opens",
+        "search_query": ""
+      }
+    },
+    "seconds": 26.4
+  },
+  {
+    "conv": "H. where else, mid-thread",
+    "message": "where else has this come up",
+    "thread_in": [
+      {
+        "message": "client says cost per hire doubled after we changed the bidding, what do i tell them",
+        "outcome": "declined",
+        "reply": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing.",
+        "scenario_key": "",
+        "pair_id": null,
+        "call_filename": ""
+      }
+    ],
+    "response": {
+      "outcome": "rendered",
+      "kind": "where_else_seen",
+      "asked_about": "where else has this come up",
+      "scenario_key": "campaign_level_performance_tracking",
+      "same_scenario": 3,
+      "accounts": [
+        {
+          "account": "Uber",
+          "named": true,
+          "exchanges": 6,
+          "calls": 5
+        },
+        {
+          "account": "Linkedin",
+          "named": true,
+          "exchanges": 2,
+          "calls": 2
+        },
+        {
+          "account": "Mercor",
+          "named": true,
+          "exchanges": 2,
+          "calls": 2
+        },
+        {
+          "account": "Tal",
+          "named": true,
+          "exchanges": 2,
+          "calls": 1
+        },
+        {
+          "account": "Angi",
+          "named": true,
+          "exchanges": 1,
+          "calls": 1
+        },
+        {
+          "account": "Banfield",
+          "named": true,
+          "exchanges": 1,
+          "calls": 1
+        },
+        {
+          "account": "Egnow",
+          "named": true,
+          "exchanges": 1,
+          "calls": 1
+        },
+        {
+          "account": "Essity",
+          "named": true,
+          "exchanges": 1,
+          "calls": 1
+        },
+        {
+          "account": "Scale",
+          "named": true,
+          "exchanges": 1,
+          "calls": 1
+        },
+        {
+          "account": "Springhealth",
+          "named": true,
+          "exchanges": 1,
+          "calls": 1
+        },
+        {
+          "account": "Thecontractorconsultants",
+          "named": true,
+          "exchanges": 1,
+          "calls": 1
+        },
+        {
+          "account": "Thegersonagency",
+          "named": true,
+          "exchanges": 1,
+          "calls": 1
+        },
+        {
+          "account": "Touchmark",
+          "named": true,
+          "exchanges": 1,
+          "calls": 1
+        },
+        {
+          "account": "Tylin",
+          "named": true,
+          "exchanges": 1,
+          "calls": 1
+        },
+        {
+          "account": "Zapidhire",
+          "named": true,
+          "exchanges": 1,
+          "calls": 1
+        },
+        {
+          "account": "1fc37b04-965e-4c58-a33a-112cd4e89be0.txt",
+          "named": false,
+          "exchanges": 1,
+          "calls": 1
+        },
+        {
+          "account": "20230621_uber_joveo_weekly_performance_review_cfc09d28.txt",
+          "named": false,
+          "exchanges": 1,
+          "calls": 1
+        }
+      ],
+      "accounts_named": 15,
+      "accounts_at_least": 15,
+      "accounts_at_most": 17,
+      "unnamed_calls": 2,
+      "exchanges": 25,
+      "basis": "The nearest exchanges to what you asked, and which account each came from. Only the recorded call participants name an account, so calls without them are listed by filename rather than guessed -- which is why the number of accounts is a range, not a count. Not every nearby exchange is about the same situation; the count above says how many are.",
+      "intake": {
+        "intent": "where_else_seen",
+        "retrieval_query": "where else has this come up",
+        "situation": "opens",
+        "search_query": "where else has this come up cost per hire doubled after we changed the bidding"
+      }
+    },
+    "seconds": 7.7
+  }
+]

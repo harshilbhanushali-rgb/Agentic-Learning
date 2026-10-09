@@ -22,6 +22,8 @@ class LayerATuning:
     ubiquity_ceiling: float
     merge_cosine_threshold: float
     min_content_words: int
+    pool_unit: str
+    scenario_vector_mode: str
     grouping_method: str
     primary_topic_merge_threshold: float
     response_taxonomy_purity_gate: float
@@ -34,6 +36,7 @@ class LayerATuning:
 class LayerBTuning:
     relative_margin: float
     max_scenarios_per_pair: int
+    sink_margin_delta: float
     matching_strategy: str
     primary_topic_relative_margin: float
     max_primary_topics_per_pair: int
@@ -59,12 +62,63 @@ class LayerCTuning:
     min_cluster_size_ceiling: int
     umap_n_components: int
     milestone_sink_similarity_percentile: float
+    describe_mode: str
 
 
 @dataclass(frozen=True)
 class EmbeddingTuning:
     cache_enabled: bool
     cache_path: str
+    backend: str
+    gemini_model: str
+    gemini_dimensions: int
+    gemini_batch_size: int
+
+
+@dataclass(frozen=True)
+class LayerDTuning:
+    """Ego Trap / gap analysis. Replaces ego_trap/settings.py's os.environ reads.
+
+    signal_detection_mode and turn_match_mode are strategy selectors (precedent:
+    layer_b.matching_strategy); gap_events_enabled is a feature flag (precedent:
+    layer_a.response_taxonomy_auto_pass_enabled). Everything else is a fraction or a
+    cosine margin, i.e. a property of the data, per this file's own rule.
+
+    Deliberately absent: the Gemma batch size and the benchmark-example count. Both
+    are request/prompt packing rather than data properties, and the precedent for
+    those is a module constant (v2/layer_c._DESCRIBE_BATCH_SIZE,
+    _MAX_RUBRIC_RESPONSES), not a tuning key.
+    """
+    signal_detection_mode: str
+    scoring_unit: str
+    scenarios_per_request: int
+    similarity_relative_margin: float
+    max_scenarios_per_signal: int
+    gemma_scenario_shortlist_k: int
+    turn_match_mode: str
+    turn_match_min_ratio: float
+    gap_events_enabled: bool
+    skip_uncoachable_milestones: bool
+    require_validated_milestones: bool
+    score_soft_skills: bool
+    gap_severity_critical_miss_rate: float
+    gap_severity_high_miss_rate: float
+    gap_severity_moderate_miss_rate: float
+    # --- Layer D redesign (Brain/layer_d/, 2026-08-20). The keys above this line are
+    # the rubric-era ego_trap knobs, kept until that package retires (deleting them
+    # now would break its modules and tests while both generations coexist). The
+    # redesign reads ONLY the keys below plus similarity_relative_margin and
+    # max_scenarios_per_signal, whose meaning is identical in both generations.
+    segmentation_arm: str
+    grader_arm: str
+    grader_model: str
+    grader_reasoning_effort: str
+    grader_k_runs: int
+    pairwise_swap: bool
+    quote_verify_min_overlap: float
+    shrinkage_prior_strength: float
+    dead_check_naren_floor: float
+    min_attempts_to_rank: int
 
 
 @dataclass(frozen=True)
@@ -72,6 +126,7 @@ class Tuning:
     layer_a: LayerATuning
     layer_b: LayerBTuning
     layer_c: LayerCTuning
+    layer_d: LayerDTuning
     embedding: EmbeddingTuning
 
 
@@ -79,6 +134,7 @@ _SECTIONS = {
     "layer_a": LayerATuning,
     "layer_b": LayerBTuning,
     "layer_c": LayerCTuning,
+    "layer_d": LayerDTuning,
     "embedding": EmbeddingTuning,
 }
 

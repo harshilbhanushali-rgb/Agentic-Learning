@@ -1,0 +1,377 @@
+{
+  "gate": {
+    "wrong_caught": 6,
+    "wrong_total": 6,
+    "right_kept": 6,
+    "right_total": 6,
+    "passed": true
+  },
+  "real": {
+    "n": 24,
+    "right": 20,
+    "wrong": 4,
+    "uncertain": 0
+  },
+  "items": [
+    {
+      "id": 1,
+      "kind": "control_wrong",
+      "verdict": "wrong",
+      "reason": "Situation is about how the client's assessment-tier rec system (highly recommend/recommend) throttles which applications get reviewed, but the answer is about Indeed account/feed flexibility across countries -- an unrelated topic pulled from a mismatched retrieval.",
+      "cosine": null,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 2,
+      "kind": "control_right",
+      "verdict": "right",
+      "reason": "Situation asks about lack of comprehensive city-level CPL caps, and the answer's job-group/city-ID filtering and pure budget-cap explanation is directly supported by retrieved_naren_replied and answers exactly that concern.",
+      "cosine": 0.9999998211860657,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 3,
+      "kind": "real",
+      "verdict": "wrong",
+      "reason": "Situation is a direct yes/no question about whether the client uses WhatsApp for acquisition, but the retrieved context and answer pivot to a generic 'job-specific vs employer-branding' clarifying question instead of addressing WhatsApp use at all -- item 6 shows what the actually-relevant reply looks like.",
+      "cosine": 0.7724458575248718,
+      "same_scenario": false,
+      "held_out_scenario": "chatbot_and_messaging_implementation",
+      "retrieved_scenario": "reliance_on_major_social_and_professional_networks"
+    },
+    {
+      "id": 4,
+      "kind": "real",
+      "verdict": "wrong",
+      "reason": "Situation is the client reporting their existing 10-20 day LinkedIn rotation cadence, but the retrieved reply and answer treat it as a from-scratch question about rotation rules and push a generic 'rotate every 4 days' recommendation that doesn't engage with what was actually said.",
+      "cosine": 0.803981363773346,
+      "same_scenario": false,
+      "held_out_scenario": "reliance_on_major_social_and_professional_networks",
+      "retrieved_scenario": "job_board_budget_and_direct_agreements"
+    },
+    {
+      "id": 5,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation asks whether there's a task/mechanism for delivering sponsored-brand creative assets and specs, and the answer's file-section/shared-folder offer is directly supported by retrieved_naren_replied and addresses that.",
+      "cosine": 0.7987445592880249,
+      "same_scenario": true,
+      "held_out_scenario": "creative_and_media_plan_review",
+      "retrieved_scenario": "creative_and_media_plan_review"
+    },
+    {
+      "id": 6,
+      "kind": "control_right",
+      "verdict": "right",
+      "reason": "Situation and retrieved_client_said are identical (WhatsApp for acquisition), and the answer directly and accurately reports the two use cases (acquisition, engagement/re-engagement) stated in retrieved_naren_replied.",
+      "cosine": 1.0,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 7,
+      "kind": "control_right",
+      "verdict": "right",
+      "reason": "Situation and retrieved_client_said are identical (Informatica middleware/Azure API front end), and the answer's confirmation about routing through middleware plus the follow-up question on rate limits/throttling matches retrieved_naren_replied closely.",
+      "cosine": 1.0,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 8,
+      "kind": "control_wrong",
+      "verdict": "wrong",
+      "reason": "Situation is about a full-service retainer-plus-commission pricing structure ('3 buckets'), but the retrieved content and answer are about LinkedIn job-slot rotation frequency -- an entirely different topic.",
+      "cosine": null,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 9,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation asks whether more down-funnel attribution should be expected/valued, and the answer's explanation of how down-funnel data improves optimization is directly supported by retrieved_naren_replied and addresses the underlying concern.",
+      "cosine": 0.834164023399353,
+      "same_scenario": true,
+      "held_out_scenario": "attribution_and_funnel_tracking",
+      "retrieved_scenario": "attribution_and_funnel_tracking"
+    },
+    {
+      "id": 10,
+      "kind": "control_wrong",
+      "verdict": "wrong",
+      "reason": "Situation is about evaluating a niche sales job board the client found on their own, but the retrieved context and answer are about WhatsApp/Line as acquisition channels -- a different topic entirely.",
+      "cosine": null,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 11,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation describes sending pixel code for GTM placement and wanting to test events, and the answer's explanation that Joveo handles testing, verifies placement, and checks application ID capture is directly supported by retrieved_naren_replied.",
+      "cosine": 0.8380677700042725,
+      "same_scenario": true,
+      "held_out_scenario": "pixel_placement_and_tracking",
+      "retrieved_scenario": "pixel_placement_and_tracking"
+    },
+    {
+      "id": 12,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation is about how the non-UTM source code is appended/distinguished versus the UTM-based GA tracking, and the answer's explanation of publisher-level source-code configuration (e.g. Joveo_indeed) is supported by retrieved_naren_replied and addresses that concern.",
+      "cosine": 0.8439175486564636,
+      "same_scenario": false,
+      "held_out_scenario": "campaign_level_performance_tracking",
+      "retrieved_scenario": "programmatic_advertising_scope_and_capability"
+    },
+    {
+      "id": 13,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation discusses standardizing which candidates recruiters push through and ensuring quality control, and the answer's pilot-with-specific-feedback approach is supported by retrieved_naren_replied and is a reasonable continuation of that theme.",
+      "cosine": 0.8433765172958374,
+      "same_scenario": false,
+      "held_out_scenario": "hiring_forecasts_and_volume_scoping",
+      "retrieved_scenario": "application_volume_and_prioritization"
+    },
+    {
+      "id": 14,
+      "kind": "control_wrong",
+      "verdict": "wrong",
+      "reason": "Situation is about sending pixel code for GTM and testing event capture, but the retrieved content and answer are about international/APEC job-board localization support -- an unrelated topic.",
+      "cosine": null,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 15,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation asks whether boards 'post back' job/candidate details when applications come through, matching retrieved_client_said's question about what data is returned per board; the answer's 80/20-rule and Aperture field explanation is directly supported by retrieved_naren_replied.",
+      "cosine": 0.8451821208000183,
+      "same_scenario": true,
+      "held_out_scenario": "ats_integration_and_api_mapping",
+      "retrieved_scenario": "ats_integration_and_api_mapping"
+    },
+    {
+      "id": 16,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation is about not wasting time by ensuring translations are ready before the feed launches, and the answer's suggestion to run English approvals in parallel with Spanish translation work is directly supported by retrieved_naren_replied and addresses the timing concern.",
+      "cosine": 0.7984738945960999,
+      "same_scenario": true,
+      "held_out_scenario": "multi_language_copy_and_translation",
+      "retrieved_scenario": "multi_language_copy_and_translation"
+    },
+    {
+      "id": 17,
+      "kind": "control_wrong",
+      "verdict": "wrong",
+      "reason": "Situation is about double-checking the apply conversion window length, but the retrieved content and answer are about API integration design and repurposing campaign APIs -- an unrelated topic (in fact reusing wording from a different Informatica/Azure conversation).",
+      "cosine": null,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 18,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation asks about automating data delivery (inbox, SharePoint, or pull), and the answer's proposal of a server-to-server setup that could also cover lead events is directly supported by retrieved_naren_replied.",
+      "cosine": 0.7717559337615967,
+      "same_scenario": false,
+      "held_out_scenario": "dashboard_access_and_reporting",
+      "retrieved_scenario": "technical_integration_and_timeline_scoping"
+    },
+    {
+      "id": 19,
+      "kind": "control_right",
+      "verdict": "right",
+      "reason": "Situation and retrieved_client_said are identical (sharing the Indeed-apply feed with Vinod), and the answer's explanation of the hourly-scrape workaround and following up with Thomas is directly supported by retrieved_naren_replied.",
+      "cosine": 1.000000238418579,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 20,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation is about not having comprehensive city-level CPL caps and only average per-market CPL visibility, and the answer's explanation that CPL varies by market/tier (e.g. Germany tier-3) with a promise to monitor closely is supported by retrieved_naren_replied and stays on the CPL/market-variation theme.",
+      "cosine": 0.810137152671814,
+      "same_scenario": false,
+      "held_out_scenario": "job_board_budget_and_direct_agreements",
+      "retrieved_scenario": "downstream_activation_and_cost_metrics"
+    },
+    {
+      "id": 21,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation is about the apply conversion window being longer than average, and the answer's explanation of the click-to-apply day window and the 30-day standard is directly and accurately supported by retrieved_naren_replied.",
+      "cosine": 0.8555186986923218,
+      "same_scenario": false,
+      "held_out_scenario": "downstream_activation_and_cost_metrics",
+      "retrieved_scenario": "landing_page_and_conversion_setup"
+    },
+    {
+      "id": 22,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation asks whether extra data would be obtained from publishers that wouldn't otherwise be available, matching retrieved_client_said's question about which publishers support this; the answer's 70%-of-top-publishers-plus-Mojoplay-fallback explanation is directly supported by retrieved_naren_replied.",
+      "cosine": 0.7504396438598633,
+      "same_scenario": true,
+      "held_out_scenario": "publisher_management_and_exclusions",
+      "retrieved_scenario": "publisher_management_and_exclusions"
+    },
+    {
+      "id": 23,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation explains the client's internal assessment-tier review process, and the answer's request for shared access/reports to keep visibility into those assessment numbers is supported by retrieved_naren_replied and is a reasonable continuation given that context.",
+      "cosine": 0.8089859485626221,
+      "same_scenario": true,
+      "held_out_scenario": "application_volume_and_prioritization",
+      "retrieved_scenario": "application_volume_and_prioritization"
+    },
+    {
+      "id": 24,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation requests examples/screenshots of social/display ad formats, and the answer's offer of a demo glimpse plus explanation of template-based, auto-populated ads (title/description pulled programmatically) is directly supported by retrieved_naren_replied.",
+      "cosine": 0.8173540830612183,
+      "same_scenario": false,
+      "held_out_scenario": "advanced_targeting_and_differentiation",
+      "retrieved_scenario": "reliance_on_major_social_and_professional_networks"
+    },
+    {
+      "id": 25,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation describes a retainer-plus-commission pricing approach ('3 buckets'), and the answer's follow-up question about budget expectations and whether to prepare a media plan is supported by retrieved_naren_replied and is a natural next step in that pricing conversation.",
+      "cosine": 0.7885903716087341,
+      "same_scenario": false,
+      "held_out_scenario": "pricing_and_fee_structures",
+      "retrieved_scenario": "campaign_level_performance_tracking"
+    },
+    {
+      "id": 26,
+      "kind": "control_wrong",
+      "verdict": "wrong",
+      "reason": "Situation is about the client's internal communication structure (not talking directly to ops, middle-person preferred), but the retrieved content and answer are about CPL variation by market/tier -- an unrelated topic.",
+      "cosine": null,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 27,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation is about evaluating a niche job board the client found and flagging it to the team, and the answer's explanation of a small-scale test with low commitment (mirroring the 'Levels' example) is supported by retrieved_naren_replied and addresses the same general evaluate-a-new-board concern.",
+      "cosine": 0.8029957413673401,
+      "same_scenario": false,
+      "held_out_scenario": "specialty_and_niche_job_boards_integration",
+      "retrieved_scenario": "regional_talent_acquisition_and_brand_strategy"
+    },
+    {
+      "id": 28,
+      "kind": "control_right",
+      "verdict": "right",
+      "reason": "Situation and retrieved_client_said are identical (regional/global job-board coverage limitations), and the answer's clarification that coverage isn't a blanket 'all job boards' but depends on publisher sophistication/specific integrations is directly supported by retrieved_naren_replied.",
+      "cosine": 1.0000001192092896,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 29,
+      "kind": "control_right",
+      "verdict": "right",
+      "reason": "Situation and retrieved_client_said are identical (10-20 day LinkedIn rotation), and the answer's acknowledgment of that cadence plus follow-up question about automatic wrapping is directly supported by retrieved_naren_replied.",
+      "cosine": 1.000000238418579,
+      "same_scenario": null,
+      "held_out_scenario": null,
+      "retrieved_scenario": null
+    },
+    {
+      "id": 30,
+      "kind": "real",
+      "verdict": "wrong",
+      "reason": "Situation asks generally whether the product covers all job boards globally versus having regional limitations (same wording as item 28, where the correct answer is 'no, not all boards'), but here the retrieved content is about APEC/China-specific localized support and the answer instead asserts broad, largely unrestricted regional reach -- a different, less accurate framing of the same question.",
+      "cosine": 0.8478808403015137,
+      "same_scenario": false,
+      "held_out_scenario": "programmatic_advertising_scope_and_capability",
+      "retrieved_scenario": "specialty_and_niche_job_boards_integration"
+    },
+    {
+      "id": 31,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation asks whether a single $5,000 month would satisfy the contract, and the answer's explanation of the $15k minimum spend requirement (and that $5k/$7k wouldn't be viable) is directly supported by retrieved_naren_replied.",
+      "cosine": 0.8411383628845215,
+      "same_scenario": true,
+      "held_out_scenario": "budget_allocation_and_testing",
+      "retrieved_scenario": "budget_allocation_and_testing"
+    },
+    {
+      "id": 32,
+      "kind": "real",
+      "verdict": "wrong",
+      "reason": "Situation is about getting data prior to a June 1 start/deadline, but the retrieved content and answer are specifically about backtracking a narrow historical tracking bug (12-15% of applicants, fixed as of Jan 20) -- a different, more specific issue than what the situation is asking about.",
+      "cosine": 0.7662505507469177,
+      "same_scenario": false,
+      "held_out_scenario": "testing_and_implementation_timeline",
+      "retrieved_scenario": "attribution_and_funnel_tracking"
+    },
+    {
+      "id": 33,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation describes the client's preference to route communication through a middle person rather than direct ops-channel access, and the answer's proposal of a shared tracker/sheet as a workaround is directly supported by retrieved_naren_replied and fits that constraint.",
+      "cosine": 0.7795039415359497,
+      "same_scenario": true,
+      "held_out_scenario": "slack_communication_and_channel_setup",
+      "retrieved_scenario": "slack_communication_and_channel_setup"
+    },
+    {
+      "id": 34,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation is about flagging blockers around signatures/assessments and whether other implementation steps can proceed in parallel, and the answer's reassurance that pixel placement/API integration can run in parallel with contract finalization is directly supported by retrieved_naren_replied.",
+      "cosine": 0.8301488161087036,
+      "same_scenario": true,
+      "held_out_scenario": "contract_and_legal_review",
+      "retrieved_scenario": "contract_and_legal_review"
+    },
+    {
+      "id": 35,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation is about the Indeed-apply feed configuration across countries for Vinod, and the answer's explanation of single-account/feed flexibility and pausing countries as needed is directly supported by retrieved_naren_replied and stays on the same Indeed-feed topic.",
+      "cosine": 0.8578745722770691,
+      "same_scenario": false,
+      "held_out_scenario": "xml_feed_setup_and_ingestion",
+      "retrieved_scenario": "programmatic_advertising_scope_and_capability"
+    },
+    {
+      "id": 36,
+      "kind": "real",
+      "verdict": "right",
+      "reason": "Situation describes the Informatica/Azure API middleware setup, and the answer's offer to explore repurposing Joveo's own APIs and get more integration detail is directly supported by retrieved_naren_replied and engages with the actual architecture described.",
+      "cosine": 0.7588144540786743,
+      "same_scenario": true,
+      "held_out_scenario": "technical_integration_and_timeline_scoping",
+      "retrieved_scenario": "technical_integration_and_timeline_scoping"
+    }
+  ]
+}
