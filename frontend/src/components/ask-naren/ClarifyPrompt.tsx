@@ -20,7 +20,7 @@ import type { AskNarenClarify } from '@/types';
  */
 export function ClarifyPrompt({ result }: { result: AskNarenClarify }) {
   return (
-    <article className="flex flex-col gap-2 rounded-md border border-line bg-surface-raised p-6">
+    <article className="flex flex-col gap-2 rounded-2xl rounded-tl-md border border-line-subtle bg-bg shadow-sm p-6">
       <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-accent">
         One thing first
       </div>

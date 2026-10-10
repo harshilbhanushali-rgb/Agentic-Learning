@@ -121,25 +121,23 @@ describe('SituationForm', () => {
     expect(screen.getByRole('button', { name: 'Ask Naren' })).toBeDisabled();
 
     rerender(<SituationForm value="   " onChange={vi.fn()} onSubmit={onSubmit} busy={false} />);
-    await user.keyboard('{Control>}{Enter}{/Control}');
+    screen.getByLabelText('The situation').focus();
+    await user.keyboard('{Enter}');
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('submits on Ctrl+Enter but not on a bare Enter', async () => {
+  it('submits on Enter, like a chat, and Shift+Enter starts a new line', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(
       <SituationForm value="applies are flat" onChange={vi.fn()} onSubmit={onSubmit} busy={false} />,
     );
-    const box = screen.getByLabelText('The situation');
-    box.focus();
+    screen.getByLabelText('The situation').focus();
 
-    // A bare Enter must insert a newline: losing a half-typed situation to a stray
-    // keystroke is worse than requiring a modifier.
-    await user.keyboard('{Enter}');
+    await user.keyboard('{Shift>}{Enter}{/Shift}');
     expect(onSubmit).not.toHaveBeenCalled();
 
-    await user.keyboard('{Control>}{Enter}{/Control}');
+    await user.keyboard('{Enter}');
     expect(onSubmit).toHaveBeenCalledOnce();
   });
 

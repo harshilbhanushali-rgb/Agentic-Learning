@@ -23,25 +23,29 @@ const TIPS = [
   'Read the quote and the call it came from. If that call isn’t your situation, the answer isn’t either.',
 ] as const;
 
-export function HelpCard({ onClose }: { onClose: () => void }) {
+/** `onClose` absent: the card is part of an answer ("what do you cover"), not a panel the CSM
+ *  opened, so it has nothing to close. */
+export function HelpCard({ onClose }: { onClose?: () => void }) {
   return (
     <section
       aria-label="What Ask Naren can do"
-      className="flex flex-col gap-4 rounded-md border border-line-subtle bg-surface-raised px-6 py-5"
+      className="flex flex-col gap-4 rounded-2xl rounded-tl-md border border-line-subtle bg-bg shadow-sm px-6 py-5"
     >
       <div className="flex items-start justify-between gap-4">
         <p className="text-[13px] leading-relaxed text-ink-2">
           Ask Naren finds the closest moment in Naren&rsquo;s recorded calls and answers from what
           he actually said, with the quote and the call. If nothing is close, it says so.
         </p>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close help"
-          className="shrink-0 text-[13px] leading-none text-ink-placeholder transition-colors duration-fast ease-out-quart hover:text-ink"
-        >
-          &times;
-        </button>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close help"
+            className="shrink-0 text-[13px] leading-none text-ink-placeholder transition-colors duration-fast ease-out-quart hover:text-ink"
+          >
+            &times;
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">

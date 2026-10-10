@@ -549,6 +549,17 @@ describe('AskNaren back from a sign-in it sent someone to', () => {
   });
 });
 
+describe('AskNaren chat layout', () => {
+  it('puts the question box under the conversation, newest answer just above it', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await ask(user);
+    const answer = await screen.findByText('What Naren actually said');
+    const box = screen.getByLabelText('The situation');
+    expect(answer.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
 describe('AskNaren /help', () => {
   it('shows what Ask Naren can do, and sends nothing to the service', async () => {
     const user = userEvent.setup();

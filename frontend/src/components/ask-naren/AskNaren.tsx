@@ -291,6 +291,12 @@ export function AskNaren({
   };
 
   const { turns } = conversation;
+  // Bring the newest thing into view, as a chat does: an answer, the "searching" line, the help
+  // card or a notice. `scrollIntoView` is guarded because jsdom has none.
+  const bottom = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    bottom.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' });
+  }, [turns.length, asking, help, flash, opening]);
   const continuing =
     conversation.threadId !== null && !conversation.detached && turns.length > 0 && opening === null;
   const scenario = continuing ? carriedScenario(turns) : '';
@@ -298,27 +304,31 @@ export function AskNaren({
   const empty = threads.length === 0 && turns.length === 0 && asking === null && opening === null;
 
   return (
-    // min-h matches workspace/ and simulator/: the app shell's sidebar is viewport-tall,
-    // so a short page leaves it cut off above the fold.
-    <div className="mx-auto grid min-h-[calc(100vh-var(--topbar-height))] max-w-[1080px] grid-cols-1 content-start gap-8 px-8 py-10 md:grid-cols-[240px_minmax(0,1fr)]">
-      <ThreadRail
-        threads={threads}
-        activeId={opening ?? conversation.threadId}
-        now={now}
-        stale={railStale}
-        onOpen={id => void openThread(id)}
-        onNew={newThread}
-        onRename={rename}
-        onRemove={remove}
-      />
+    // CHAT LAYOUT (operator, 2026-10-10): the conversation reads top to bottom with the newest
+    // answer last, and the box is pinned under it -- the shape every chat tool has taught
+    // CSMs. The rail stays where it was. min-h keeps the box at the bottom of an empty page.
+    <div className="mx-auto grid min-h-[calc(100vh-var(--topbar-height))] max-w-[1180px] grid-cols-1 gap-8 px-6 md:grid-cols-[240px_minmax(0,1fr)]">
+      <div className="pt-6">
+        <ThreadRail
+          threads={threads}
+          activeId={opening ?? conversation.threadId}
+          now={now}
+          stale={railStale}
+          onOpen={id => void openThread(id)}
+          onNew={newThread}
+          onRename={rename}
+          onRemove={remove}
+        />
+      </div>
 
-      <div className="flex min-w-0 max-w-[720px] flex-col gap-8">
-        <header className="flex flex-col gap-2">
-          <h1 className="text-2xl font-bold tracking-[-0.01em] text-ink">Ask Naren</h1>
-          <p className="text-sm leading-relaxed text-ink-2">
-            Describe a live client situation. You get back the answer Naren gave when he faced
-            the closest thing to it, with the call it came from.
-          </p>
+      <div className="flex min-h-[calc(100vh-var(--topbar-height))] min-w-0 flex-col">
+        <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-line-subtle py-5">
+          <div className="flex items-baseline gap-3">
+            <h1 className="text-lg font-bold tracking-[-0.01em] text-ink">Ask Naren</h1>
+            <span className="hidden text-[12px] text-ink-placeholder sm:inline">
+              Answers from Naren&rsquo;s real calls, with the call they came from
+            </span>
+          </div>
           <div className="flex items-center gap-2 text-[11px] text-ink-placeholder">
             <span>Signed in as {user.name}</span>
             <span aria-hidden="true">·</span>
@@ -326,11 +336,58 @@ export function AskNaren({
           </div>
         </header>
 
-        <div className="flex flex-col gap-3">
+        <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col gap-6 py-6">
+          {empty && !help && <CoverageStarters />}
+
+          {opening !== null ? (
+            <p className="flex items-center gap-3 text-[13px] text-ink-2" role="status">
+              <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden="true" />
+              Opening thread&hellip;
+            </p>
+          ) : (
+            (turns.length > 0 || asking !== null) && (
+              <section className="flex flex-col gap-8" aria-live="polite" aria-busy={asking !== null}>
+                {turns.map(turn => (
+                  <div key={turn.key} className="flex flex-col gap-3">
+                    <Asked
+                      message={turn.question}
+                      when={now ? relativeTime(new Date(turn.askedAt), now) : undefined}
+                    />
+                    <Outcome result={turn.response} />
+                    {turn.notSaved && <NotSavedNote />}
+                  </div>
+                ))}
+
+                {asking !== null && (
+                  <div className="flex flex-col gap-3">
+                    <Asked message={asking} />
+                    <div className="flex w-fit items-center gap-3 rounded-2xl rounded-bl-md border border-line-subtle bg-bg px-5 py-3.5">
+                      <span
+                        className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent"
+                        aria-hidden="true"
+                      />
+                      <span className="text-[13px] text-ink-2">
+                        Searching Naren&rsquo;s calls for the closest exchange&hellip;
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )
+          )}
+
+          {help && <HelpCard onClose={() => setHelp(false)} />}
+
+          {flash && <DeclineNotice result={flash} />}
+
+          <div ref={bottom} aria-hidden="true" />
+        </div>
+
+        <div className="sticky bottom-0 mx-auto flex w-full max-w-[760px] flex-col gap-2 bg-surface pb-4 pt-2">
           {continuing && now && lastAsked && (
             // Visible on purpose (#39): a stale carried scenario is the known wrong-answer
             // risk, and only the CSM can tell that it is no longer their client's situation.
-            <p className="border-l-2 border-accent pl-3 text-[12px] leading-relaxed text-ink-2">
+            <p className="px-2 text-[12px] leading-relaxed text-ink-2">
               {scenario ? (
                 <>
                   Continuing: <span className="font-semibold text-ink">{scenarioLabel(scenario)}</span>
@@ -353,60 +410,17 @@ export function AskNaren({
             </p>
           )}
           {conversation.detached && (
-            <p className="border-l-2 border-line pl-3 text-[12px] leading-relaxed text-ink-2">
+            <p className="px-2 text-[12px] leading-relaxed text-ink-2">
               The last answer was not saved, so your next question starts a new thread.
             </p>
           )}
           {note && (
-            <p role="status" className="border-l-2 border-line pl-3 text-[12px] leading-relaxed text-ink-2">
+            <p role="status" className="px-2 text-[12px] leading-relaxed text-ink-2">
               {note}
             </p>
           )}
           <SituationForm value={draft} onChange={setDraft} onSubmit={ask} busy={asking !== null} />
         </div>
-
-        {flash && <DeclineNotice result={flash} />}
-
-        {help && <HelpCard onClose={() => setHelp(false)} />}
-
-        {empty && !help && <CoverageStarters />}
-
-        {opening !== null ? (
-          <p className="flex items-center gap-3 text-[13px] text-ink-2" role="status">
-            <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden="true" />
-            Opening thread&hellip;
-          </p>
-        ) : (
-          (turns.length > 0 || asking !== null) && (
-            <section className="flex flex-col gap-8" aria-live="polite" aria-busy={asking !== null}>
-              {turns.map(turn => (
-                <div key={turn.key} className="flex flex-col gap-4">
-                  <Asked
-                    message={turn.question}
-                    when={now ? relativeTime(new Date(turn.askedAt), now) : undefined}
-                  />
-                  <Outcome result={turn.response} />
-                  {turn.notSaved && <NotSavedNote />}
-                </div>
-              ))}
-
-              {asking !== null && (
-                <div className="flex flex-col gap-4">
-                  <Asked message={asking} />
-                  <div className="flex items-center gap-3 rounded-md border border-line-subtle bg-surface-raised px-6 py-5">
-                    <span
-                      className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent"
-                      aria-hidden="true"
-                    />
-                    <span className="text-[13px] text-ink-2">
-                      Searching Naren&rsquo;s calls for the closest exchange&hellip;
-                    </span>
-                  </div>
-                </div>
-              )}
-            </section>
-          )
-        )}
       </div>
     </div>
   );
