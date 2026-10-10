@@ -1,0 +1,194 @@
+[
+  {
+    "id": 1,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8030956983566284,
+    "held_out_scenario": "native_easy_apply_framework_integration",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture"
+  },
+  {
+    "id": 2,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7996744513511658,
+    "held_out_scenario": "audience_targeting_and_retargeting_capabilities",
+    "retrieved_scenario": "audience_targeting_and_retargeting_capabilities"
+  },
+  {
+    "id": 3,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7950899600982666,
+    "held_out_scenario": "candidate_landing_page_design_and_tracking_setup",
+    "retrieved_scenario": "application_conversion_event_definition"
+  },
+  {
+    "id": 4,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8000527024269104,
+    "held_out_scenario": "publisher_management_and_network_controls",
+    "retrieved_scenario": "publisher_management_and_network_controls"
+  },
+  {
+    "id": 5,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8003525733947754,
+    "held_out_scenario": "job_taxonomy_and_role_filtering_mapping",
+    "retrieved_scenario": "native_easy_apply_framework_integration"
+  },
+  {
+    "id": 6,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7830649614334106,
+    "held_out_scenario": "ats_integration_feasibility_and_architecture",
+    "retrieved_scenario": "multi_client_account_segmentation_and_exceptions"
+  },
+  {
+    "id": 7,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7672374248504639,
+    "held_out_scenario": "international_market_expansion_and_geo_granularity_strategy",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture"
+  },
+  {
+    "id": 8,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.797956109046936,
+    "held_out_scenario": "competitive_market_benchmarking_and_insights",
+    "retrieved_scenario": "native_easy_apply_framework_integration"
+  },
+  {
+    "id": 9,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.806862473487854,
+    "held_out_scenario": "sourcing_channel_diversification_and_roi_visibility",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture"
+  },
+  {
+    "id": 10,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8218499422073364,
+    "held_out_scenario": "multi_touch_and_funnel_attribution_modeling",
+    "retrieved_scenario": "multi_touch_and_funnel_attribution_modeling"
+  },
+  {
+    "id": 11,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7826120853424072,
+    "held_out_scenario": "communication_channel_and_slack_collaboration_setup",
+    "retrieved_scenario": "communication_channel_and_slack_collaboration_setup"
+  },
+  {
+    "id": 12,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8104084730148315,
+    "held_out_scenario": "multilingual_campaign_content_and_translation",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture"
+  },
+  {
+    "id": 13,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7419613599777222,
+    "held_out_scenario": "internal_resource_and_timeline_alignment",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture"
+  },
+  {
+    "id": 14,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8082895874977112,
+    "held_out_scenario": "budget_allocation_and_testing_strategy",
+    "retrieved_scenario": "budget_allocation_and_testing_strategy"
+  },
+  {
+    "id": 15,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8473278284072876,
+    "held_out_scenario": "job_board_budget_allocation_and_pacing_strategy",
+    "retrieved_scenario": "campaign_level_segmentation_and_tracking"
+  },
+  {
+    "id": 16,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7801156044006348,
+    "held_out_scenario": "procurement_po_and_invoicing_process_management",
+    "retrieved_scenario": "native_easy_apply_framework_integration"
+  },
+  {
+    "id": 17,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8065956830978394,
+    "held_out_scenario": "down_funnel_activation_and_onboarding_performance_benchmarking",
+    "retrieved_scenario": "down_funnel_activation_and_onboarding_performance_benchmarking"
+  },
+  {
+    "id": 18,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8015599250793457,
+    "held_out_scenario": "campaign_level_segmentation_and_tracking",
+    "retrieved_scenario": "multi_client_account_segmentation_and_exceptions"
+  },
+  {
+    "id": 19,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8391631841659546,
+    "held_out_scenario": "utm_and_url_parameter_attribution_setup",
+    "retrieved_scenario": "utm_and_url_parameter_attribution_setup"
+  },
+  {
+    "id": 20,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7031389474868774,
+    "held_out_scenario": "media_test_protocol_and_timeline_management",
+    "retrieved_scenario": "media_test_protocol_and_timeline_management"
+  },
+  {
+    "id": 21,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8201919198036194,
+    "held_out_scenario": "third_party_vendor_and_publisher_integration_coordination",
+    "retrieved_scenario": "native_easy_apply_framework_integration"
+  },
+  {
+    "id": 22,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8132953643798828,
+    "held_out_scenario": "multi_country_local_job_board_fragmentation",
+    "retrieved_scenario": "native_easy_apply_framework_integration"
+  },
+  {
+    "id": 23,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8071914911270142,
+    "held_out_scenario": "craigslist_and_flat_fee_channel_evaluation",
+    "retrieved_scenario": "craigslist_and_flat_fee_channel_evaluation"
+  },
+  {
+    "id": 24,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8234009742736816,
+    "held_out_scenario": "cpa_vs_cph_target_setting_and_funnel_economics",
+    "retrieved_scenario": "budget_allocation_and_testing_strategy"
+  }
+]

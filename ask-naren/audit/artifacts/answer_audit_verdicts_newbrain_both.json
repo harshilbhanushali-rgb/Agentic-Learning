@@ -1,0 +1,327 @@
+[
+ {
+  "id": 1,
+  "verdict": "wrong",
+  "reason": "closed attribution asked; reply is about default self-reported source"
+ },
+ {
+  "id": 2,
+  "verdict": "wrong",
+  "reason": "situation is a build statement; answer is about new publisher creation"
+ },
+ {
+  "id": 3,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 4,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 5,
+  "verdict": "wrong",
+  "reason": "asks for terms-and-conditions reference; reply/answer cover shared documentation, not T&Cs"
+ },
+ {
+  "id": 6,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 7,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 8,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 9,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 10,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 11,
+  "verdict": "wrong",
+  "reason": "situation is UTM/application ID tracking; reply is about location field mapping"
+ },
+ {
+  "id": 12,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 13,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 14,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 15,
+  "verdict": "wrong",
+  "reason": "comm ops on LinkedIn observation; reply is about tracker and Caliber"
+ },
+ {
+  "id": 16,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 17,
+  "verdict": "wrong",
+  "reason": "comm ops observation answered with location normalization"
+ },
+ {
+  "id": 18,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 19,
+  "verdict": "wrong",
+  "reason": "squished logo answered with non-Joveo UTM reporting"
+ },
+ {
+  "id": 20,
+  "verdict": "wrong",
+  "reason": "client offers to create a group; answer misreads as offering a Slack message"
+ },
+ {
+  "id": 21,
+  "verdict": "wrong",
+  "reason": "closed attribution asked; reply is about JobTeaser credits"
+ },
+ {
+  "id": 22,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 23,
+  "verdict": "wrong",
+  "reason": "UTM/application ID tracking answered with documentation for review"
+ },
+ {
+  "id": 24,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 25,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 26,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 27,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 28,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 29,
+  "verdict": "wrong",
+  "reason": "local boards automation asked; reply is about taking over LinkedIn contract distribution"
+ },
+ {
+  "id": 30,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 31,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 32,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 33,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 34,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 35,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 36,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 37,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 38,
+  "verdict": "wrong",
+  "reason": "white labeling asked; reply is about capturing applicant ID"
+ },
+ {
+  "id": 39,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 40,
+  "verdict": "wrong",
+  "reason": "create one and add us answered with form pixel advice"
+ },
+ {
+  "id": 41,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 42,
+  "verdict": "uncertain",
+  "reason": "situation is too fragmentary to tell whether the one-to-one Indeed rule is the topic"
+ },
+ {
+  "id": 43,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 44,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 45,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 46,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 47,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 48,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 49,
+  "verdict": "wrong",
+  "reason": "client offers to create group; answer misreads as Slack outreach"
+ },
+ {
+  "id": 50,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 51,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 52,
+  "verdict": "wrong",
+  "reason": "comm ops observation answered with JobTeaser contracts"
+ },
+ {
+  "id": 53,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 54,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 55,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 56,
+  "verdict": "wrong",
+  "reason": "create one and add us answered with form pixel advice"
+ },
+ {
+  "id": 57,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 58,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 59,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 60,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 61,
+  "verdict": "wrong",
+  "reason": "answer claims LinkedIn performs well for entry level, which reply does not say"
+ },
+ {
+  "id": 62,
+  "verdict": "wrong",
+  "reason": "closed attribution asked; reply is a demo walkthrough on local boards"
+ },
+ {
+  "id": 63,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ },
+ {
+  "id": 64,
+  "verdict": "wrong",
+  "reason": "white labeling asked; reply is about LinkedIn slot rotation"
+ },
+ {
+  "id": 65,
+  "verdict": "right",
+  "reason": "answer addresses the situation and is supported by Naren's reply"
+ }
+]

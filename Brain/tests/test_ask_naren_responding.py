@@ -1648,3 +1648,27 @@ def test_a_follow_up_search_still_running_at_the_deadline_returns_the_follow_up_
         time_left=_tight_clock(monkeypatch)))
     assert result["reason"] == "follow_up_ungrounded"
     assert result["retries"] == ["searched"]
+
+
+def test_a_follow_up_search_that_fails_returns_the_follow_up_decline():
+    """Before #25 a follow-up the carried exchange could not answer was a clean decline. The
+    search that replaces it must not turn that into a service error when it fails."""
+    gw = StubGateway(DECLINES, RuntimeError("gateway fell over"))
+    result = asyncio.run(responding.respond(
+        PUSHBACK, _pool(), gw, embed_query=RecordingEmbedder(), thread=FEED_THREAD,
+        classify=_follow_up(), search_from_conversation=True))
+    assert result["reason"] == "follow_up_ungrounded"
+    assert result["retries"] == ["searched"]
+
+
+def test_no_wide_retry_when_the_first_attempt_already_saw_the_wide_shortlist():
+    """Shown the top 20 from the start (2026-10-10, the new Brain), a decline has already
+    seen everything a retry would show it -- a second generation would only cost time."""
+    gw = StubGateway(DECLINES, _rescue_payload())
+    result = asyncio.run(responding.respond(
+        FRAMED, _pool(), gw, embed_query=RecordingEmbedder(),
+        classify=_decides("reply_to_client", CLIENT_WORDS), k=responding.WIDE_K,
+        wide_retry=True))
+    assert result["reason"] == "no_close_match"
+    assert len(gw.calls) == 1
+    assert "retries" not in result

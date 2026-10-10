@@ -94,7 +94,16 @@ async def _aembed(texts):
 SEED = 20260826
 MIN_TRIGGER_LEN = 40
 MIN_RESPONSE_LEN = 60
-HOSTADDR = "18.138.49.39"
+# EMPTY since the 2026-10-10 Brain adoption: Neon DNS resolves again, and the old pin
+# (18.138.49.39) is the PRE-rebuild database -- same change as ops/serve_ask_naren.py.
+# Pass --hostaddr <ip> if the resolver refuses *.neon.tech again.
+HOSTADDR = ""
+
+#: Set from the command line in main(): a suffix for every artifact this run writes, and
+#: whether the answer prompt sees the (empty) conversation, as the service does with
+#: ANSWER_SEES_CONVERSATION on. Module state because this is a one-run harness.
+TAG = ""
+SEES_CONVERSATION = False
 ARTIFACTS = Path(__file__).resolve().parent / "artifacts"
 
 # A positive control is generated with the pool UNMASKED, so the situation -- itself a
@@ -108,19 +117,22 @@ def _arm_path(name: str, k: int, wide: bool = False) -> Path:
     top-1 generations stay exactly where --from-raw looks for them, and a k=5 run cannot
     overwrite the arm it is being compared against. The wide-retry arm (issue #25) is k=1
     plus a retry, and gets its own name for the same reason."""
-    if wide:
-        return ARTIFACTS / f"{name}_wide.json"
-    return ARTIFACTS / (f"{name}.json" if k == 1 else f"{name}_k{k}.json")
+    # A tag is APPENDED to the arm's own name, so two runs sharing a tag but not an arm
+    # cannot overwrite each other (and --from-raw cannot read the other arm's file).
+    arm = "_wide" if wide else ("" if k == 1 else f"_k{k}")
+    return ARTIFACTS / f"{name}{arm}{'_' + TAG if TAG else ''}.json"
 
 
 async def _answer(text, pool, gw, k, wide):
     """One answer, on the arm's path. The wide arm runs the SERVICE'S retry code
     (`responding._answer_searched`), not a copy of it, so what is measured is what ships."""
+    conversation = answering.Conversation(text, ()) if SEES_CONVERSATION else None
     if not wide:
-        return await answering.answer_situation(text, pool, gw, embed_query=_aembed, k=k)
+        return await answering.answer_situation(text, pool, gw, embed_query=_aembed, k=k,
+                                                conversation=conversation)
     return await responding._answer_searched(
         text, pool=pool, gateway=gw, embed_query=_aembed, k=k,
-        label_for=citations.resolve_label, moves_for=None, conversation=None,
+        label_for=citations.resolve_label, moves_for=None, conversation=conversation,
         wide_retry=True, time_left=None)
 
 
@@ -167,7 +179,7 @@ def _connect_read_only(url: str):
     what made a Layer D regrade see the whole database as read-only, repeatedly,
     in a different process, with no write ever attempted on this connection.
     """
-    if "hostaddr=" not in url:
+    if HOSTADDR and "hostaddr=" not in url:
         url += ("&" if "?" in url else "?") + f"hostaddr={HOSTADDR}"
     conn = storage.get_connection(url)
     conn.execute("SET SESSION default_transaction_read_only = on")
@@ -227,9 +239,13 @@ def was_declined(result: dict) -> bool:
     return bool(result["declined"])
 
 
-async def _generate(items, pool, gw, out_path, k, wide=False):
-    records = []
+async def _generate(items, pool, gw, out_path, k, wide=False, records=None):
+    """`records` are generations already paid for (--resume): their situations are skipped."""
+    records = list(records or [])
+    done = {r["situation"] for r in records}
     for n, item in enumerate(items, 1):
+        if item["trigger_text"] in done:
+            continue
         masked = MaskedPool(pool, item["call_filename"])
         started = time.monotonic()
         try:
@@ -325,6 +341,7 @@ def _assemble(answered, positives, n_controls, rng):
 
 
 async def main() -> int:
+    global TAG, SEES_CONVERSATION, HOSTADDR
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--n", type=int, default=36)
@@ -338,11 +355,23 @@ async def main() -> int:
     ap.add_argument("--wide-retry", action="store_true",
                     help="issue #25's WIDE_RETRY arm: k=1, and a 'no close match' retried "
                          "once with the nearest 20. Artifacts get a _wide suffix.")
+    ap.add_argument("--tag", default="",
+                    help="suffix for this run's artifacts, so it cannot overwrite a committed "
+                         "arm (e.g. --tag newbrain)")
+    ap.add_argument("--sees-conversation", action="store_true",
+                    help="answer with the conversation prompt, as the service does with "
+                         "ANSWER_SEES_CONVERSATION on (issue #25)")
+    ap.add_argument("--hostaddr", default=HOSTADDR,
+                    help="pin the Neon IP; empty (the default) uses DNS")
+    ap.add_argument("--resume", action="store_true",
+                    help="keep the generations already in this arm's raw file and generate "
+                         "only the situations it is missing")
     ap.add_argument("--from-raw", action="store_true",
                     help="reuse answer_audit_raw.json instead of regenerating "
                          "the real items -- for rebuilding the packet after a "
                          "control-design fix without re-rolling the sample")
     args = ap.parse_args()
+    TAG, SEES_CONVERSATION, HOSTADDR = args.tag, args.sees_conversation, args.hostaddr
 
     conn = _connect_read_only(load_config().database_url)
     try:
@@ -367,8 +396,14 @@ async def main() -> int:
         records = json.loads(raw_path.read_text(encoding="utf-8"))
         print(f"[reused] {len(records)} generations from {raw_path.name}", flush=True)
     else:
+        earlier = []
+        if args.resume and raw_path.exists():
+            # An interrupted run: keep what was paid for, generate only the rest.
+            earlier = json.loads(raw_path.read_text(encoding="utf-8"))
+            print(f"[resume] {len(earlier)} generations kept from {raw_path.name}", flush=True)
         async with AsyncGatewayClient() as gw:
-            records = await _generate(items, pool, gw, raw_path, args.k, args.wide_retry)
+            records = await _generate(items, pool, gw, raw_path, args.k, args.wide_retry,
+                                      records=earlier)
 
     answered = [r for r in records if not was_declined(r["result"])]
     print(f"\n[generated] {len(records)} items, {len(answered)} answered, "

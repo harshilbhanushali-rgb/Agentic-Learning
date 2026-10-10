@@ -21,3 +21,10 @@ A message that leans on the conversation ("the ats one", "where else has this co
 - **A declining question can cost two generations**, so the admission queue's sizing (ADR 0010, `ASK_NAREN_ANSWER_COST_SECONDS`) is now optimistic for decline-heavy traffic. Re-measure before relying on its throughput figure.
 - **Not fixed:** a retrieved exchange that is on the right topic but answers a different question (issue #9) is still the main failure. "the ats one" now finds ATS exchanges, not the right one.
 - **Turning a switch off restores exactly the pre-#25 behaviour of its part**, including intake's prompt, byte for byte.
+
+## Update 2026-10-10: on the rebuilt Brain, the top 20 from the start
+
+The pipeline was re-run (6,863 exchanges in 49 scenarios, against 6,496 in 34), and on it the nearest exchange alone declines far more: 21 of 36 first attempts. Part 3 above is therefore replaced: the answer model is shown the **20 nearest from the start** (`ANSWER_SHORTLIST_K = 20`) and the wide retry is off. In one blind read of the same 36 questions: top 20 from the start was 23 right, 1 wrong, 12 declined, median 11.5s, about 36 calls. The nearest first, then 20 on a decline, was 25 right, 1 wrong, 10 declined, median 17.2s with one answer at 30.0s, about 60 calls. That is equal on rightness (the same reader moved 3 between two reads of the same answers), and faster, with no second generation racing the deadline. Only 6 of the 24 answers came from the nearest exchange; 8 came from ranks 11 to 20.
+
+This reverses issue #49's finding that 20 every time was worse. That finding was made on the old Brain with six questions, and was not reproduced here. What was not re-tested: whether a reliably right answer turns unstable across repeated runs, which is what #49 saw on the MSA question.
+
