@@ -2,6 +2,8 @@ import type { AskNarenRendered } from '@/types';
 
 import { scenarioLabel } from '@/lib/thread';
 
+import { HelpCard } from './HelpCard';
+
 /**
  * An answer built from stored rows, with no model call behind it (issues #19, #20).
  *
@@ -27,7 +29,7 @@ import { scenarioLabel } from '@/lib/thread';
  * a sixth rendered kind is a build failure here rather than a blank area on the page.
  */
 
-const SHELL = 'flex flex-col gap-5 rounded-md border border-line bg-surface p-6';
+const SHELL = 'flex flex-col gap-5 rounded-2xl rounded-tl-md border border-line-subtle bg-bg shadow-sm p-6';
 const EYEBROW =
   'text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-placeholder';
 
@@ -50,7 +52,7 @@ function Exchange({ clientSaid, narenReplied }: { clientSaid: string; narenRepli
 function ScenarioLine({ scenario }: { scenario: { scenario_key: string; description: string } }) {
   return (
     <li className="flex flex-col gap-0.5">
-      <span className="text-[13px] font-medium text-ink">
+      <span className="block text-[13px] font-medium text-ink first-letter:uppercase">
         {scenarioLabel(scenario.scenario_key)}
       </span>
       {scenario.description && (
@@ -110,8 +112,18 @@ function Source({ label }: { label: string }) {
 export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
   switch (result.kind) {
     case 'discovery':
+      // "WHO ARE YOU" LANDS HERE TOO, and a list of every situation is the wrong answer to it.
+      // So the short card leads -- what Ask Naren is and how to ask it -- and the full list is
+      // one click away rather than the whole reply (operator, 2026-10-10).
       return (
-        <article className={SHELL}>
+        <article className="flex flex-col gap-3">
+          <HelpCard />
+          <details className="group rounded-xl border border-line-subtle bg-bg px-5 py-3">
+            <summary className="cursor-pointer list-none text-[12px] font-medium text-primary marker:hidden">
+              <span className="group-open:hidden">See all {result.total} situations</span>
+              <span className="hidden group-open:inline">Hide the situations</span>
+            </summary>
+            <div className="mt-4 flex flex-col gap-5">
           <header className="flex flex-col gap-1">
             <span className={EYEBROW}>What Ask Naren covers</span>
             <p className="text-[13px] text-ink-2">
@@ -144,6 +156,8 @@ export function RenderedAnswer({ result }: { result: AskNarenRendered }) {
               ))}
             </ul>
           )}
+            </div>
+          </details>
         </article>
       );
 

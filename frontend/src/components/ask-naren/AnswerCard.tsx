@@ -32,7 +32,7 @@ import { boldSpans } from './boldSpans';
  */
 export function AnswerCard({ result }: { result: AskNarenAnswer }) {
   return (
-    <article className="flex flex-col gap-5 rounded-md border border-line bg-surface p-6">
+    <article className="flex flex-col gap-5 rounded-2xl rounded-tl-md border border-line-subtle bg-bg shadow-sm p-6">
       {result.my_reply && (
         <div className="flex flex-col gap-1">
           <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-placeholder">

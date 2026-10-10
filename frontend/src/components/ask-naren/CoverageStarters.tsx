@@ -22,7 +22,7 @@ const DEEPEST = [
 
 export function CoverageStarters() {
   return (
-    <section className="flex flex-col gap-3 rounded-md border border-line-subtle bg-surface-raised px-6 py-5">
+    <section className="flex flex-col gap-3 rounded-2xl border border-line-subtle bg-bg px-6 py-5 shadow-sm">
       <h2 className="text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-placeholder">
         Where Naren&rsquo;s calls go deepest
       </h2>
