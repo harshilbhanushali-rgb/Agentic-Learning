@@ -244,9 +244,15 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
         # THE CARRIED EXCHANGE CANNOT ANSWER IT (issue #25, A9). Declining tells the CSM to
         # ask again as a fresh question; with the switch on that is done for them, on the
         # conversation-aware search -- or on their own words, if intake wrote none.
-        searched = await _before_the_deadline(
-            lambda: answer_searched(decision.search_query or message.strip(),
-                                    embed_query=embed_query), time_left)
+        try:
+            searched = await _before_the_deadline(
+                lambda: answer_searched(decision.search_query or message.strip(),
+                                        embed_query=embed_query), time_left)
+        except Exception:                   # noqa: BLE001 -- the follow-up decline stands
+            # Before #25 this message got a clean decline; a failed search must not turn
+            # that into a service error.
+            traceback.print_exc(file=sys.stderr)
+            searched = None
         if searched is None:
             return _with_intake({**followed, "retries": ["searched"]}, unsearched)
         return _with_intake(
@@ -323,7 +329,9 @@ async def _answer_searched(text: str, *, pool: RetrievalPool, gateway, embed_que
     first = await answering.answer_situation(
         text, pool, gateway, embed_query=embed_once, k=k, label_for=label_for,
         moves_for=moves_for, conversation=conversation)
-    if not (wide_retry and first.get("reason") == answering.NO_CLOSE_MATCH
+    # Nothing to retry when the first attempt was already shown the wide shortlist (k=20,
+    # the new Brain's setting): a second generation would see the same exchanges again.
+    if not (wide_retry and k < WIDE_K and first.get("reason") == answering.NO_CLOSE_MATCH
             and _time_for_another_generation(time_left)):
         return first
     try:

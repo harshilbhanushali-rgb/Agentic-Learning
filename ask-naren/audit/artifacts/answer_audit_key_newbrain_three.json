@@ -1,0 +1,719 @@
+[
+  {
+    "id": 1,
+    "kind": "control_wrong",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 2,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7801156044006348,
+    "held_out_scenario": "procurement_po_and_invoicing_process_management",
+    "retrieved_scenario": "native_easy_apply_framework_integration",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 3,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8003525733947754,
+    "held_out_scenario": "job_taxonomy_and_role_filtering_mapping",
+    "retrieved_scenario": "native_easy_apply_framework_integration",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 4,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8218499422073364,
+    "held_out_scenario": "multi_touch_and_funnel_attribution_modeling",
+    "retrieved_scenario": "multi_touch_and_funnel_attribution_modeling",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 5,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7996744513511658,
+    "held_out_scenario": "audience_targeting_and_retargeting_capabilities",
+    "retrieved_scenario": "audience_targeting_and_retargeting_capabilities",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 6,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7370597124099731,
+    "held_out_scenario": "non_technical_stakeholder_communication",
+    "retrieved_scenario": "native_easy_apply_framework_integration",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 7,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8224532604217529,
+    "held_out_scenario": "tracking_pixel_and_tag_manager_implementation",
+    "retrieved_scenario": "tracking_pixel_and_tag_manager_implementation",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 8,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8201919198036194,
+    "held_out_scenario": "third_party_vendor_and_publisher_integration_coordination",
+    "retrieved_scenario": "native_easy_apply_framework_integration",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 9,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8224532604217529,
+    "held_out_scenario": "tracking_pixel_and_tag_manager_implementation",
+    "retrieved_scenario": "tracking_pixel_and_tag_manager_implementation",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 10,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8104084730148315,
+    "held_out_scenario": "multilingual_campaign_content_and_translation",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 11,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8082895874977112,
+    "held_out_scenario": "budget_allocation_and_testing_strategy",
+    "retrieved_scenario": "budget_allocation_and_testing_strategy",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 12,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8391631841659546,
+    "held_out_scenario": "utm_and_url_parameter_attribution_setup",
+    "retrieved_scenario": "utm_and_url_parameter_attribution_setup",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 13,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8030956983566284,
+    "held_out_scenario": "native_easy_apply_framework_integration",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 14,
+    "kind": "control_right",
+    "cosine": 0.9999999403953552,
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 15,
+    "kind": "control_wrong",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 16,
+    "kind": "control_wrong",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 17,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.806862473487854,
+    "held_out_scenario": "sourcing_channel_diversification_and_roi_visibility",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 18,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8401815295219421,
+    "held_out_scenario": "cpa_vs_cph_target_setting_and_funnel_economics",
+    "retrieved_scenario": "cpa_vs_cph_target_setting_and_funnel_economics",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 19,
+    "kind": "control_wrong",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 20,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8430612683296204,
+    "held_out_scenario": "multi_country_local_job_board_fragmentation",
+    "retrieved_scenario": "international_market_expansion_and_geo_granularity_strategy",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 21,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7853621244430542,
+    "held_out_scenario": "international_market_expansion_and_geo_granularity_strategy",
+    "retrieved_scenario": "international_market_expansion_and_geo_granularity_strategy",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 22,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7826120853424072,
+    "held_out_scenario": "communication_channel_and_slack_collaboration_setup",
+    "retrieved_scenario": "communication_channel_and_slack_collaboration_setup",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 23,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8430612683296204,
+    "held_out_scenario": "multi_country_local_job_board_fragmentation",
+    "retrieved_scenario": "international_market_expansion_and_geo_granularity_strategy",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 24,
+    "kind": "control_wrong",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 25,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8256815671920776,
+    "held_out_scenario": "ats_candidate_deduplication_and_id_resolution",
+    "retrieved_scenario": "ats_candidate_deduplication_and_id_resolution",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 26,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8082895874977112,
+    "held_out_scenario": "budget_allocation_and_testing_strategy",
+    "retrieved_scenario": "budget_allocation_and_testing_strategy",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 27,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7419613599777222,
+    "held_out_scenario": "internal_resource_and_timeline_alignment",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 28,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8218499422073364,
+    "held_out_scenario": "multi_touch_and_funnel_attribution_modeling",
+    "retrieved_scenario": "multi_touch_and_funnel_attribution_modeling",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 29,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7830649614334106,
+    "held_out_scenario": "ats_integration_feasibility_and_architecture",
+    "retrieved_scenario": "multi_client_account_segmentation_and_exceptions",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 30,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8015599250793457,
+    "held_out_scenario": "campaign_level_segmentation_and_tracking",
+    "retrieved_scenario": "multi_client_account_segmentation_and_exceptions",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 31,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8473278284072876,
+    "held_out_scenario": "job_board_budget_allocation_and_pacing_strategy",
+    "retrieved_scenario": "campaign_level_segmentation_and_tracking",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 32,
+    "kind": "control_right",
+    "cosine": 1.0,
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 33,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7853621244430542,
+    "held_out_scenario": "international_market_expansion_and_geo_granularity_strategy",
+    "retrieved_scenario": "international_market_expansion_and_geo_granularity_strategy",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 34,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7830649614334106,
+    "held_out_scenario": "ats_integration_feasibility_and_architecture",
+    "retrieved_scenario": "multi_client_account_segmentation_and_exceptions",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 35,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8068915009498596,
+    "held_out_scenario": "candidate_landing_page_design_and_tracking_setup",
+    "retrieved_scenario": "down_funnel_ats_tracking_and_attribution",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 36,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8000527024269104,
+    "held_out_scenario": "publisher_management_and_network_controls",
+    "retrieved_scenario": "publisher_management_and_network_controls",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 37,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7801156044006348,
+    "held_out_scenario": "procurement_po_and_invoicing_process_management",
+    "retrieved_scenario": "native_easy_apply_framework_integration",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 38,
+    "kind": "control_wrong",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 39,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7946381568908691,
+    "held_out_scenario": "geographic_targeting_and_location_mapping",
+    "retrieved_scenario": "geographic_targeting_and_location_mapping",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 40,
+    "kind": "control_right",
+    "cosine": 1.0000003576278687,
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 41,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8000527024269104,
+    "held_out_scenario": "publisher_management_and_network_controls",
+    "retrieved_scenario": "publisher_management_and_network_controls",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 42,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8104084730148315,
+    "held_out_scenario": "multilingual_campaign_content_and_translation",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 43,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7996744513511658,
+    "held_out_scenario": "audience_targeting_and_retargeting_capabilities",
+    "retrieved_scenario": "audience_targeting_and_retargeting_capabilities",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 44,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8003525733947754,
+    "held_out_scenario": "job_taxonomy_and_role_filtering_mapping",
+    "retrieved_scenario": "native_easy_apply_framework_integration",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 45,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8065956830978394,
+    "held_out_scenario": "down_funnel_activation_and_onboarding_performance_benchmarking",
+    "retrieved_scenario": "down_funnel_activation_and_onboarding_performance_benchmarking",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 46,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7114298343658447,
+    "held_out_scenario": "contract_sow_and_legal_review_coordination",
+    "retrieved_scenario": "tracking_pixel_and_tag_manager_implementation",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 47,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8391631841659546,
+    "held_out_scenario": "utm_and_url_parameter_attribution_setup",
+    "retrieved_scenario": "utm_and_url_parameter_attribution_setup",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 48,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8385732769966125,
+    "held_out_scenario": "multi_touch_and_funnel_attribution_modeling",
+    "retrieved_scenario": "application_conversion_event_definition",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 49,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8473278284072876,
+    "held_out_scenario": "job_board_budget_allocation_and_pacing_strategy",
+    "retrieved_scenario": "campaign_level_segmentation_and_tracking",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 50,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7950899600982666,
+    "held_out_scenario": "candidate_landing_page_design_and_tracking_setup",
+    "retrieved_scenario": "application_conversion_event_definition",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 51,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8071914911270142,
+    "held_out_scenario": "craigslist_and_flat_fee_channel_evaluation",
+    "retrieved_scenario": "craigslist_and_flat_fee_channel_evaluation",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 52,
+    "kind": "control_wrong",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 53,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8225918412208557,
+    "held_out_scenario": "job_taxonomy_and_role_filtering_mapping",
+    "retrieved_scenario": "competitive_market_benchmarking_and_insights",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 54,
+    "kind": "control_right",
+    "cosine": 1.0000003576278687,
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 55,
+    "kind": "control_wrong",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 56,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7935248017311096,
+    "held_out_scenario": "communication_channel_and_slack_collaboration_setup",
+    "retrieved_scenario": "communication_channel_and_slack_collaboration_setup",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 57,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8391631841659546,
+    "held_out_scenario": "utm_and_url_parameter_attribution_setup",
+    "retrieved_scenario": "utm_and_url_parameter_attribution_setup",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 58,
+    "kind": "control_wrong",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 59,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8201919198036194,
+    "held_out_scenario": "third_party_vendor_and_publisher_integration_coordination",
+    "retrieved_scenario": "native_easy_apply_framework_integration",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 60,
+    "kind": "control_right",
+    "cosine": 0.9999999403953552,
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 61,
+    "kind": "control_right",
+    "cosine": 1.0,
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 62,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8201919198036194,
+    "held_out_scenario": "third_party_vendor_and_publisher_integration_coordination",
+    "retrieved_scenario": "native_easy_apply_framework_integration",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 63,
+    "kind": "control_right",
+    "cosine": 1.0000001192092896,
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 64,
+    "kind": "control_right",
+    "cosine": 1.0,
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 65,
+    "kind": "control_right",
+    "cosine": 1.0,
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 66,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7672374248504639,
+    "held_out_scenario": "international_market_expansion_and_geo_granularity_strategy",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 67,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8234009742736816,
+    "held_out_scenario": "cpa_vs_cph_target_setting_and_funnel_economics",
+    "retrieved_scenario": "budget_allocation_and_testing_strategy",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 68,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7935248017311096,
+    "held_out_scenario": "communication_channel_and_slack_collaboration_setup",
+    "retrieved_scenario": "communication_channel_and_slack_collaboration_setup",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 69,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7419613599777222,
+    "held_out_scenario": "internal_resource_and_timeline_alignment",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 70,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7830649614334106,
+    "held_out_scenario": "ats_integration_feasibility_and_architecture",
+    "retrieved_scenario": "multi_client_account_segmentation_and_exceptions",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 71,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8065956830978394,
+    "held_out_scenario": "down_funnel_activation_and_onboarding_performance_benchmarking",
+    "retrieved_scenario": "down_funnel_activation_and_onboarding_performance_benchmarking",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 72,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.806862473487854,
+    "held_out_scenario": "sourcing_channel_diversification_and_roi_visibility",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 73,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8030956983566284,
+    "held_out_scenario": "native_easy_apply_framework_integration",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 74,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.797956109046936,
+    "held_out_scenario": "competitive_market_benchmarking_and_insights",
+    "retrieved_scenario": "native_easy_apply_framework_integration",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 75,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7031389474868774,
+    "held_out_scenario": "media_test_protocol_and_timeline_management",
+    "retrieved_scenario": "media_test_protocol_and_timeline_management",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 76,
+    "kind": "control_wrong",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 77,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8401815295219421,
+    "held_out_scenario": "cpa_vs_cph_target_setting_and_funnel_economics",
+    "retrieved_scenario": "cpa_vs_cph_target_setting_and_funnel_economics",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 78,
+    "kind": "control_right",
+    "cosine": 1.0000001192092896,
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 79,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7946381568908691,
+    "held_out_scenario": "geographic_targeting_and_location_mapping",
+    "retrieved_scenario": "geographic_targeting_and_location_mapping",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 80,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8132953643798828,
+    "held_out_scenario": "multi_country_local_job_board_fragmentation",
+    "retrieved_scenario": "native_easy_apply_framework_integration",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 81,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8030956983566284,
+    "held_out_scenario": "native_easy_apply_framework_integration",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 82,
+    "kind": "control_right",
+    "cosine": 1.0000001192092896,
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 83,
+    "kind": "control_wrong",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 84,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.7419613599777222,
+    "held_out_scenario": "internal_resource_and_timeline_alignment",
+    "retrieved_scenario": "ats_integration_feasibility_and_architecture",
+    "arm": "old_prompt_k1"
+  },
+  {
+    "id": 85,
+    "kind": "real",
+    "same_scenario": false,
+    "cosine": 0.8015599250793457,
+    "held_out_scenario": "campaign_level_segmentation_and_tracking",
+    "retrieved_scenario": "multi_client_account_segmentation_and_exceptions",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 86,
+    "kind": "control_right",
+    "cosine": 1.000000238418579,
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 87,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.7031389474868774,
+    "held_out_scenario": "media_test_protocol_and_timeline_management",
+    "retrieved_scenario": "media_test_protocol_and_timeline_management",
+    "arm": "k20_from_start"
+  },
+  {
+    "id": 88,
+    "kind": "control_wrong",
+    "arm": "new_prompt_wide"
+  },
+  {
+    "id": 89,
+    "kind": "real",
+    "same_scenario": true,
+    "cosine": 0.8000527024269104,
+    "held_out_scenario": "publisher_management_and_network_controls",
+    "retrieved_scenario": "publisher_management_and_network_controls",
+    "arm": "old_prompt_k1"
+  }
+]

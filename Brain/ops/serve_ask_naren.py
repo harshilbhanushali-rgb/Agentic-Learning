@@ -55,10 +55,11 @@ from shared.gateway import (AsyncGatewayClient, EMBED_DIMENSIONS,  # noqa: E402
                             EMBED_MODEL)
 from shared.tuning import get_tuning                 # noqa: E402
 
-# The local resolver refuses *.neon.tech; `host` stays in the URL for TLS SNI/SCRAM and
-# `hostaddr` only tells the driver which IP to open the socket on. Same default and same
-# reason as ops/ship_union_taxonomy.py and the Ask Naren prototype.
-DEFAULT_HOSTADDR = "18.138.49.39"
+# No pinned IP since the 2026-10-10 Brain adoption: Neon DNS resolves again (verified for both
+# databases), and the old pin 18.138.49.39 is the PRE-rebuild database's address -- pinned
+# against the new host it fails channel binding. If the resolver ever refuses *.neon.tech
+# again, pass --hostaddr <an IP of the live host>; `host` stays in the URL for SNI/SCRAM.
+DEFAULT_HOSTADDR = ""
 
 # Where the recorded participant sidecars live (`<stem>.speakers.json`, beside each
 # transcript). They are the ONLY source that names the account for the ~31% of citable pairs
@@ -105,10 +106,21 @@ PLAYBOOK_AUGMENTED = False
 #
 # WIDE_RETRY: a "no close match" from the nearest exchange is retried once with the nearest
 # 20, when at least 15s of the deadline are left, and abandoned for the first decline if it
-# is still running 2s before the deadline. Never touches a first answer.
+# is still running 2s before the deadline. Never touches a first answer. OFF since
+# ANSWER_SHORTLIST_K below shows 20 from the start, and a retry can add nothing then.
+#
+# ANSWER_SHORTLIST_K: how many of the nearest exchanges the answer model is shown at once.
+# 20 SINCE 2026-10-10, ON THE REBUILT BRAIN. Measured on 36 questions in one blind read
+# (ask-naren/audit/README.md, "The rebuilt Brain"): top 20 from the start 23 right, 1 wrong,
+# 12 declined, median 11.5s, ~36 calls -- against nearest 1 then 20 on a decline, 25 right,
+# 1 wrong, 10 declined, median 17.2s with one answer at 30.0s, ~60 calls. Equal on rightness
+# (the reader alone moved 3 between reads), faster, no second generation near the deadline.
+# On this Brain only 6 of 24 answers came from the nearest exchange, and 8 from ranks 11-20.
+# 1 restores the nearest-only first attempt (then turn WIDE_RETRY back on).
 SEARCH_FROM_CONVERSATION = True
 ANSWER_SEES_CONVERSATION = True
-WIDE_RETRY = True
+WIDE_RETRY = False
+ANSWER_SHORTLIST_K = 20
 
 # THE VECTOR STORE, and the rollback switch for ADR 0008. "pinecone" ships; "memory"
 # restores the pre-0008 behaviour exactly -- embed the whole pool at startup and search a
@@ -126,7 +138,10 @@ VECTOR_STORE = "pinecone"
 # 768 index would be a dimension error at best and a silently truncated match at worst.
 # Same constant, same value, as ops/ship_layer_b.py's INDEX_3072 -- the job that populates
 # it. Pinecone dimension is immutable, so this is a name to keep in step, not a config knob.
-VECTOR_INDEX_NAME = "narens-brain-3072"
+# ADOPTED 2026-10-10: the rebuilt Brain's index. It moves TOGETHER with DATABASE_URL -- vector
+# ids are the kb_pairs serials of the database that shipped them. `narens-brain-3072` is the
+# pre-rebuild Brain's (rollback: both back together).
+VECTOR_INDEX_NAME = "narens-brain-rebuild-3072"
 
 # How many pool identifiers the startup guard checks against the store. 1,000 of 6,496 --
 # about 15% of the pool -- costs ~1.7s because the check transfers no vectors. The sample is
@@ -554,7 +569,8 @@ async def _run(args) -> int:
                 account_for=account_for,
                 search_from_conversation=SEARCH_FROM_CONVERSATION,
                 answer_sees_conversation=ANSWER_SEES_CONVERSATION,
-                wide_retry=WIDE_RETRY, time_left=admission.seconds_left)
+                wide_retry=WIDE_RETRY, k=ANSWER_SHORTLIST_K,
+                time_left=admission.seconds_left)
 
         if args.ask:
             # One message, no thread. `--ask` is a single-shot check of the whole path.

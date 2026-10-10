@@ -75,3 +75,17 @@ Three switches in `Brain/ops/serve_ask_naren.py`, all ON since this measurement:
 **The live messy-conversation test** (`live_conversation/`): `converse.py` drives the running service through whole conversations, rebuilding the thread as the web app does. `conversations.json` is the original 11; `conversations_25_new.json` adds four, one per new behaviour. Each switch was run on its own and then all three (`results/<config>.json`; `before*.json` is the switches-off baseline). All three on, against before: 6 turns better, 1 worse, 0 timeouts; median on searched turns about 15s to 23s; model calls +10 to 26% (`count_calls.py`, a lower bound). One run per configuration, and the answer model's decline on a single exchange flips between runs, so read ±1 or 2 turns as noise.
 
 `results/first_attempt_all_on.json` is the run that found two defects, both fixed before the matrix: the search was thrown away on carried messages, and three retries ran past the 30s deadline. Retries now stop 2s before it.
+
+## The rebuilt Brain, 2026-10-10
+
+The pipeline was re-run: 6,863 coachable exchanges in 49 scenarios (6,496 in 34 before), index `narens-brain-rebuild-3072`, `ops/check_vector_coverage.py` 6863/6863. `build_answer_audit.py` no longer pins the old database's IP, and gained `--tag`, `--resume` and `--sees-conversation`. The sample is the same 36 situations, verified to be live rows, one per scenario, none able to retrieve its own call.
+
+Three setups, one blind packet, one read (`answer_audit_*_newbrain_three.json`). Controls: 12/12 wrong caught, 11/12 right kept.
+
+| Setup | Right | Wrong | Declined | Median | Slowest | Calls |
+|---|---|---|---|---|---|---|
+| Top 20 from the start, conversation prompt (**shipped**) | 23 | 1 | 12 | 11.5s | 28.2s | ~36 |
+| Nearest 1, then 20 on a decline, conversation prompt | 25 | 1 | 10 | 17.2s | 30.0s | ~60 |
+| Nearest 1, old prompt, no retry | 12 | 3 | 21 | 8.5s | 24.3s | ~36 |
+
+The first two are equal on rightness: an earlier read of the same second-row answers judged 22 right, not 25. Top 20 from the start ships because it is faster and has no second generation racing the 30s deadline (ADR 0014, update). The conversation prompt against the old one, on the 12 situations both answered first try: identical verdicts. The conversation prompt declined 3 more, 2 of which the old prompt had answered wrongly.

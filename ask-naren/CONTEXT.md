@@ -35,11 +35,11 @@ Which retrieved moments reach the prompt. Ask Naren ships top-1 — the single n
 _Avoid_: reranking, top-k tuning.
 
 **Candidate shortlist**:
-The k nearest `kb_pairs` retrieval hands the model for one situation, nearest first, when Ask Naren is run with `k > 1`. Measured against single-candidate selection in issue #8 and NOT adopted as the first attempt — `answering.DEFAULT_K` is 1, so a first attempt is shown one exchange. A shortlist of 20 is shown only on the **wide retry**. See `docs/adr/0005-candidate-selection-and-retrieval-floor-measured-and-rejected.md`.
+The k nearest `kb_pairs` retrieval hands the model for one situation, nearest first, when Ask Naren is run with `k > 1`. Measured against single-candidate selection in issue #8 and NOT adopted as the first attempt — `answering.DEFAULT_K` is 1, so a first attempt is shown one exchange. On the rebuilt Brain the first attempt is shown 20 (ADR 0014's update); before it, a shortlist of 20 was shown only on the **wide retry**. See `docs/adr/0005-candidate-selection-and-retrieval-floor-measured-and-rejected.md`.
 _Avoid_: top-K, candidate set, the five, retrieval window.
 
 **Wide retry**:
-**Built** (#25, `docs/adr/0014-...`). When the first attempt says no close match, the same search is shown to the model again as a shortlist of the 20 nearest exchanges, once. It never touches an answer and never turns one into a decline -- which is what keeps it from being the refuted relevance gate -- and if it declines too, fails, or would not finish before the deadline, the CSM gets the first decline.
+**Built** (#25, `docs/adr/0014-...`), and **switched off on the rebuilt Brain**, where the first attempt is shown the 20 nearest already. When the first attempt says no close match, the same search is shown to the model again as a shortlist of the 20 nearest exchanges, once. It never touches an answer and never turns one into a decline -- which is what keeps it from being the refuted relevance gate -- and if it declines too, fails, or would not finish before the deadline, the CSM gets the first decline.
 _Avoid_: rescue, reranking, fallback search, second pass.
 
 **Conversation-aware search**:

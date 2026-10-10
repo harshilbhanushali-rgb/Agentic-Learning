@@ -1,0 +1,447 @@
+[
+ {
+  "id": 1,
+  "verdict": "wrong",
+  "reason": "Answer is about sharing documentation for review, but the situation is about application IDs/UTM tracking and dashboards."
+ },
+ {
+  "id": 2,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 3,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 4,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 5,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 6,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 7,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 8,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 9,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 10,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 11,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 12,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 13,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 14,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 15,
+  "verdict": "wrong",
+  "reason": "Answer covers JobTeaser credits and contracts, but the situation is about comm ops performing well on LinkedIn."
+ },
+ {
+  "id": 16,
+  "verdict": "wrong",
+  "reason": "Answer is about a form vs landing page pixel, but the situation is agreeing to create a channel and add people."
+ },
+ {
+  "id": 17,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 18,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 19,
+  "verdict": "wrong",
+  "reason": "Answer explains location autocomplete, but the situation is about application IDs and UTM tracking."
+ },
+ {
+  "id": 20,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 21,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 22,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 23,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 24,
+  "verdict": "wrong",
+  "reason": "Answer explains location autocomplete, unrelated to comm ops top performing on LinkedIn."
+ },
+ {
+  "id": 25,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 26,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 27,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 28,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 29,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 30,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 31,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 32,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 33,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 34,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 35,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 36,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 37,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 38,
+  "verdict": "wrong",
+  "reason": "Answer covers JobTeaser credit-based publishers, not closed-loop attribution."
+ },
+ {
+  "id": 39,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 40,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 41,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 42,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 43,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 44,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 45,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 46,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 47,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 48,
+  "verdict": "wrong",
+  "reason": "Answer is about default source for a self-reported channel, not closed attribution of successful applies."
+ },
+ {
+  "id": 49,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 50,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 51,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 52,
+  "verdict": "wrong",
+  "reason": "Answer is about creating new publishers via the team, not the client building a service to send applies."
+ },
+ {
+  "id": 53,
+  "verdict": "wrong",
+  "reason": "Answer talks about adding to a tracker and vendors, not the comm ops/LinkedIn observation."
+ },
+ {
+  "id": 54,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 55,
+  "verdict": "wrong",
+  "reason": "Answer is about the form vs landing page pixel, but the situation is agreeing to create a channel and add us."
+ },
+ {
+  "id": 56,
+  "verdict": "wrong",
+  "reason": "Answer is about sending a Slack message for feedback, not the client offering to create a channel and add us."
+ },
+ {
+  "id": 57,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 58,
+  "verdict": "wrong",
+  "reason": "Answer is about non-Joveo report filtering, but the situation is a logo being squished in testing."
+ },
+ {
+  "id": 59,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 60,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 61,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 62,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 63,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 64,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 65,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 66,
+  "verdict": "wrong",
+  "reason": "Answer explains segmenting jobs into a LinkedIn rotation pool, not the global expansion/segmentation story the client describes."
+ },
+ {
+  "id": 67,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 68,
+  "verdict": "wrong",
+  "reason": "Answer offers a Slack message among the group, not responding to the client creating a channel and adding us."
+ },
+ {
+  "id": 69,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 70,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 71,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 72,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 73,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 74,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 75,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 76,
+  "verdict": "wrong",
+  "reason": "Answer is about capturing unique applicant IDs, but the situation asks about white labeling."
+ },
+ {
+  "id": 77,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 78,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 79,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 80,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 81,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 82,
+  "verdict": "wrong",
+  "reason": "Answer is about end-to-end visibility through the platform, not the client's goal of automated posting to local job boards."
+ },
+ {
+  "id": 83,
+  "verdict": "wrong",
+  "reason": "Answer is about automated local board posting, but the situation asks about closed attribution of successful applies."
+ },
+ {
+  "id": 84,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 85,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 86,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 87,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ },
+ {
+  "id": 88,
+  "verdict": "wrong",
+  "reason": "Answer is about LinkedIn slot rotation, but the situation asks about white labeling."
+ },
+ {
+  "id": 89,
+  "verdict": "right",
+  "reason": "Answer addresses the situation and is supported by what Naren said in the retrieved reply."
+ }
+]
