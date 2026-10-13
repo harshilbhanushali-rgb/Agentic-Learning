@@ -94,7 +94,7 @@ export function DeclineNotice({ result }: { result: AskNarenDecline }) {
   const { heading, hint } = COPY[result.reason];
 
   return (
-    <article className="flex flex-col gap-2 rounded-md border border-dashed border-line bg-surface-raised p-6">
+    <article className="flex flex-col gap-2 rounded-2xl rounded-tl-md border border-dashed border-line bg-surface-raised p-6">
       <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-placeholder">
         {heading}
       </div>

@@ -548,3 +548,61 @@ describe('AskNaren back from a sign-in it sent someone to', () => {
     expect(calls(u => u.startsWith('/api/ask-naren/threads/'))).toHaveLength(0);
   });
 });
+
+describe('AskNaren chat layout', () => {
+  it('puts the question box under the conversation, newest answer just above it', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await ask(user);
+    const answer = await screen.findByText('What Naren actually said');
+    const box = screen.getByLabelText('The situation');
+    expect(answer.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe('AskNaren /help', () => {
+  it('shows what Ask Naren can do, and sends nothing to the service', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await ask(user, '/help');
+    expect(await screen.findByRole('region', { name: 'What Ask Naren can do' })).toBeInTheDocument();
+    expect(askBodies()).toEqual([]);
+    expect(screen.getByLabelText('The situation')).toHaveValue('');
+  });
+
+  it('is not a turn: the thread is untouched and the next question continues it', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await ask(user, 'applies are flat');
+    await screen.findByText('What Naren actually said');
+    await ask(user, '/help');
+    await screen.findByRole('region', { name: 'What Ask Naren can do' });
+    expect(screen.getAllByText('You asked')).toHaveLength(1);
+    routes.ask = () => reply(answer(), 200, recorded(9, 2));
+    await ask(user, 'and if they push back');
+    await waitFor(() => expect(askBodies()).toHaveLength(2));
+    expect(askBodies()[1].thread_id).toBe(9);
+  });
+
+  it('closes', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await ask(user, '/help');
+    await user.click(await screen.findByRole('button', { name: 'Close help' }));
+    expect(screen.queryByRole('region', { name: 'What Ask Naren can do' })).not.toBeInTheDocument();
+  });
+
+  it('ignores case and surrounding spaces, but a question that starts with "help" is a question', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await ask(user, '  /HELP ');
+    expect(await screen.findByRole('region', { name: 'What Ask Naren can do' })).toBeInTheDocument();
+    await ask(user, 'help, the client says applies are flat');
+    await waitFor(() => expect(askBodies()).toHaveLength(1));
+  });
+
+  it('says it exists, next to the box', () => {
+    renderPage();
+    expect(screen.getByText(/\/help/)).toBeInTheDocument();
+  });
+});

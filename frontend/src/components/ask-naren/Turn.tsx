@@ -36,14 +36,16 @@ export function Outcome({ result }: { result: AskNarenResponse }) {
   }
 }
 
-/** What the CSM typed, above whatever came back. */
+/** What the CSM typed, above whatever came back: a bubble on the right, as in a chat. */
 export function Asked({ message, when }: { message: string; when?: string }) {
   return (
-    <div className="flex flex-col gap-1.5 border-l-2 border-line pl-4">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-placeholder">
+    <div className="flex flex-col items-end gap-1">
+      <span className="px-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-placeholder">
         You asked{when ? <span className="font-normal normal-case tracking-normal"> · {when}</span> : null}
       </span>
-      <p className="whitespace-pre-line text-[13px] leading-relaxed text-ink-2">{message}</p>
+      <p className="max-w-[85%] whitespace-pre-line rounded-2xl rounded-tr-md bg-primary-surface px-4 py-2.5 text-[14px] leading-relaxed text-ink">
+        {message}
+      </p>
     </div>
   );
 }
