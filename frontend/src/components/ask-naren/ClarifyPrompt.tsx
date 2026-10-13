@@ -19,6 +19,15 @@ import type { AskNarenClarify } from '@/types';
  * nothing here may look like an answer.
  */
 export function ClarifyPrompt({ result }: { result: AskNarenClarify }) {
+  if (result.conversational) {
+    // A reply to small talk, not a question Ask Naren needs answered: no "one thing first"
+    // and no promise about not asking again.
+    return (
+      <article className="rounded-md border border-line bg-surface p-6">
+        <p className="text-sm leading-relaxed text-ink">{result.question}</p>
+      </article>
+    );
+  }
   return (
     <article className="flex flex-col gap-2 rounded-md border border-line bg-surface-raised p-6">
       <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-accent">

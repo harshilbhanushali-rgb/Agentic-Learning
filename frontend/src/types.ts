@@ -244,6 +244,10 @@ export interface AskNarenAnswer {
    *  ALSO ABSENT ON A CARRIED `procedure` answer (issue #53), for the same reason: its
    *  scenario came from the thread, so nothing was searched. */
   match?: AskNarenMatch;
+  /** PRESENT ONLY ON A COMPOSED ANSWER (`Brain/ask_naren/composing.py`): the calls the writer
+   *  says it drew on, filtered server-side to calls it was actually shown. Not verified the
+   *  way `quote` is -- one quote per answer is checked, these are the wider material. */
+  drawn_from?: { label: string; call_filename: string }[];
   /** PRESENT ONLY ON A CONTRAST (issue #21): the CSM's own reply, which `answer` is a
    *  comparison against. Rendering the comparison without it would be half an answer.
    *
@@ -357,6 +361,11 @@ export interface AskNarenClarify {
    *  reaching a CSM; a cosine, a scenario key and a rank are a number and identifiers the
    *  service computed, not prose anyone is asked to believe. Recorded, never rendered. */
   match?: AskNarenMatch;
+  /** TRUE ON A CONVERSATIONAL REPLY (`Brain/ask_naren/composing.py`, kind `conversation`):
+   *  the message was talk with Ask Naren itself ("how are you", "thanks"), nothing was
+   *  searched, and `question` holds a short reply rather than a question to answer. It
+   *  carries no advice by instruction, and no quote or citation by shape. */
+  conversational?: boolean;
 }
 
 /** An answer built from STORED ROWS, with no model call at all (issues #19, #20).

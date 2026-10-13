@@ -21,7 +21,7 @@ import sys
 import traceback
 from dataclasses import dataclass
 
-from ask_naren import answering, citations, intake, rendering, threads
+from ask_naren import answering, citations, composing, intake, rendering, threads
 from ask_naren.retrieval import Match, RetrievalPool
 
 
@@ -135,7 +135,8 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
                   account_for=citations.account_for,
                   search_from_conversation: bool = False,
                   answer_sees_conversation: bool = False,
-                  wide_retry: bool = False, time_left=None) -> dict:
+                  wide_retry: bool = False, time_left=None,
+                  compose: bool = False) -> dict:
     """Answer one message, ask the CSM something, or decline.
 
     `message` is what the CSM typed, framing and all. What reaches RETRIEVAL is intake's
@@ -180,6 +181,13 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
     # `--ask`, a harness, and the service alike. A thread that has run all afternoon must
     # not quietly turn one question into a 60KB generation.
     turns = threads.trim(thread)
+
+    if compose:
+        # PLAN -> GATHER -> WRITE (`composing.py`) replaces everything below: the intent
+        # router, its per-intent paths and their switches. Off, nothing here changes.
+        return await composing.respond(
+            message, turns, pool, gateway, embed_query=embed_query, label_for=label_for,
+            playbook_for=playbook_for, scenarios_for=scenarios_for, time_left=time_left)
 
     try:
         # The flag is passed only when on, so a classifier written before #25 still works.

@@ -135,6 +135,8 @@ class Answered(_Open):
     match: Match | None = Field(
         default=None, description="Absent on a follow-up, and on a carried procedure (#53).")
     my_reply: str | None = Field(default=None, description="Present only on a contrast.")
+    drawn_from: list[dict] | None = Field(
+        default=None, description="Present only on a composed answer: the calls it drew on.")
 
 
 class Declined(_Open):
@@ -155,6 +157,8 @@ class Clarify(_Open):
     intake: Intake | None = None
     question: str
     match: Match | None = None
+    conversational: bool | None = Field(
+        default=None, description="True on a reply to small talk: nothing was searched.")
 
 
 class _Rendered(_Open):

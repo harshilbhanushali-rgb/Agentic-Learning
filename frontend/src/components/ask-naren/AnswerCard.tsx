@@ -2,7 +2,56 @@ import type { AskNarenAnswer } from '@/types';
 
 import { scenarioLabel } from '@/lib/thread';
 
+import { answerBlocks } from './answerBlocks';
 import { boldSpans } from './boldSpans';
+
+function Inline({ text }: { text: string }) {
+  return (
+    <>
+      {boldSpans(text).map((span, i) =>
+        span.bold ? <strong key={i} className="font-semibold">{span.text}</strong> : span.text,
+      )}
+    </>
+  );
+}
+
+/** The answer as headings, lists and paragraphs (`answerBlocks`), all rendered as escaped text. */
+function AnswerBody({ text }: { text: string }) {
+  return (
+    <div className="flex flex-col gap-3 text-[15px] leading-relaxed text-ink">
+      {answerBlocks(text).map((block, i) => {
+        switch (block.kind) {
+          case 'heading':
+            return (
+              <h3 key={i} className="mt-2 text-[15px] font-semibold text-ink first:mt-0">
+                <Inline text={block.text} />
+              </h3>
+            );
+          case 'bullets':
+            return (
+              <ul key={i} className="flex list-disc flex-col gap-1.5 pl-5 marker:text-ink-placeholder">
+                {block.items.map((item, j) => <li key={j}><Inline text={item} /></li>)}
+              </ul>
+            );
+          case 'numbered':
+            return (
+              <ol key={i} className="flex list-decimal flex-col gap-1.5 pl-5 marker:text-ink-placeholder">
+                {block.items.map((item, j) => <li key={j}><Inline text={item} /></li>)}
+              </ol>
+            );
+          case 'rule':
+            return <hr key={i} className="border-line-subtle" />;
+          default:
+            return (
+              <p key={i} className="whitespace-pre-line">
+                <Inline text={block.text} />
+              </p>
+            );
+        }
+      })}
+    </div>
+  );
+}
 
 /**
  * An answered response: the guidance, then the verbatim line of Naren's it rests on, then
@@ -42,11 +91,7 @@ export function AnswerCard({ result }: { result: AskNarenAnswer }) {
         </div>
       )}
 
-      <p className="text-[15px] leading-relaxed text-ink whitespace-pre-line">
-        {boldSpans(result.answer).map((span, i) =>
-          span.bold ? <strong key={i} className="font-semibold">{span.text}</strong> : span.text,
-        )}
-      </p>
+      <AnswerBody text={result.answer} />
 
       <blockquote className="border-l-2 border-accent pl-4">
         <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-placeholder">
@@ -70,6 +115,16 @@ export function AnswerCard({ result }: { result: AskNarenAnswer }) {
               renders whatever the service put in `label`, so that lands with no change here. */}
           <span className="break-all font-medium text-ink-2">{result.citation.label}</span>
         </div>
+        {result.drawn_from && result.drawn_from.length > 1 && (
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="font-semibold uppercase tracking-[0.06em]">
+              Drawn from {result.drawn_from.length} calls
+            </span>
+            <span className="font-medium text-ink-2">
+              {result.drawn_from.map((call) => call.label).join(' · ')}
+            </span>
+          </div>
+        )}
       </footer>
     </article>
   );

@@ -122,6 +122,13 @@ ANSWER_SEES_CONVERSATION = True
 WIDE_RETRY = False
 ANSWER_SHORTLIST_K = 20
 
+# PLAN -> GATHER -> WRITE (`ask_naren/composing.py`, 2026-10-10). On, every message is planned
+# into one to four searches, the nearest exchanges and the whole playbooks they land in are
+# gathered, and one writer answers from all of it -- the intent router and the four switches
+# above no longer run. NOT YET BLIND-READ against the router: turned on so the CSM-facing
+# rigidity can be judged live. False restores the router exactly.
+COMPOSE = True
+
 # THE VECTOR STORE, and the rollback switch for ADR 0008. "pinecone" ships; "memory"
 # restores the pre-0008 behaviour exactly -- embed the whole pool at startup and search a
 # numpy matrix in-process.
@@ -570,7 +577,7 @@ async def _run(args) -> int:
                 search_from_conversation=SEARCH_FROM_CONVERSATION,
                 answer_sees_conversation=ANSWER_SEES_CONVERSATION,
                 wide_retry=WIDE_RETRY, k=ANSWER_SHORTLIST_K,
-                time_left=admission.seconds_left)
+                time_left=admission.seconds_left, compose=COMPOSE)
 
         if args.ask:
             # One message, no thread. `--ask` is a single-shot check of the whole path.
