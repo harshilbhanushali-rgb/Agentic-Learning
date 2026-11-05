@@ -54,7 +54,7 @@ Long dry runs must be launched with `PYTHONUNBUFFERED=1` when redirecting to a l
 
 ### Brain Stack
 
-- **Python 3.11**, `uv` package manager, venv at `c:\PF\Joveo\CS-platform\.venv`
+- **Python 3.11**, `uv` package manager, venv at `.venv` in the repo root
 - **LLM:** `google-genai` → Gemma 4 31B via Google AI Studio (`GEMMA_API_KEY`)
 - **Embeddings:** LOCAL `sentence-transformers` running `BAAI/bge-base-en-v1.5` (768 dims, `normalize_embeddings=True`), CUDA if available — see `preprocessing/embedder.py`. Not a hosted embedding API.
 - **Vector store:** Pinecone, AWS us-east-1 — storage/retrieval only, it does no embedding. `narens-brain` is the 768-dim bge-era index (kept for rollback, and still what `config.pinecone_index_name`/`.env` point at); **`narens-brain-3072` is the live 3072-dim one**, and it is what Ask Naren queries at request time (ADR 0008). Dimension is immutable after creation, so these are two indexes rather than one migrated one.

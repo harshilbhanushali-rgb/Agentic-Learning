@@ -30,7 +30,7 @@ about -- is mostly unmet, and that has to be said rather than discovered.
 import sys
 from pathlib import Path
 
-BRAIN = Path(r"C:\PF\Joveo\CS-platform\Brain")
+BRAIN = Path(__file__).resolve().parents[2] / "Brain"
 sys.path.insert(0, str(BRAIN))
 sys.path.insert(0, str(BRAIN / "ops"))
 
