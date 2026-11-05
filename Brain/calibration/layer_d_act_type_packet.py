@@ -48,6 +48,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import random
 import re
@@ -80,8 +81,9 @@ def _connect():
     import psycopg
     from config import load_config
     url = load_config().database_url
-    if "hostaddr=" not in url:
-        url += ("&" if "?" in url else "?") + "hostaddr=18.138.49.39"
+    _ha = os.environ.get("BRAIN_HOSTADDR", "18.138.49.39")  # BRAIN_HOSTADDR="" for a non-live DB
+    if _ha and "hostaddr=" not in url:
+        url += ("&" if "?" in url else "?") + f"hostaddr={_ha}"
     return psycopg.connect(url, autocommit=True)
 
 

@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import random
 import re
 import sys
@@ -42,9 +43,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from calibration import ARTIFACTS_DIR  # noqa: E402
 
-PACKET = ARTIFACTS_DIR / "ld_moveclass_packet.txt"
-KEY = ARTIFACTS_DIR / "ld_moveclass_KEY.json"
-ARTIFACT = ARTIFACTS_DIR / "layer_d_move_classes.json"
+# BRAIN_MC_PREFIX keeps a rebuild's packet apart from production's (2026-10-10).
+_MC = os.environ.get("BRAIN_MC_PREFIX") or "ld_moveclass"
+PACKET = ARTIFACTS_DIR / f"{_MC}_packet.txt"
+KEY = ARTIFACTS_DIR / f"{_MC}_KEY.json"
+from layer_d.move_classes import ARTIFACT_PATH as ARTIFACT  # noqa: E402  (BRAIN_MOVE_CLASSES-aware)
 
 BUCKETS = ("SAY", "DO", "MIXED")
 _LINE = re.compile(r"^\s*(A\d{3})\s+(SAY|DO|MIXED)\b(.*)$")
@@ -65,8 +68,10 @@ def _connect():
     import psycopg
     from config import load_config
     url = load_config().database_url
-    if "hostaddr=" not in url:
-        url += ("&" if "?" in url else "?") + "hostaddr=18.138.49.39"
+    # BRAIN_HOSTADDR set (even empty) overrides the live DB's pinned IP (2026-10-10 rebuild).
+    hostaddr = os.environ.get("BRAIN_HOSTADDR", "18.138.49.39")
+    if hostaddr and "hostaddr=" not in url:
+        url += ("&" if "?" in url else "?") + f"hostaddr={hostaddr}"
     return psycopg.connect(url, autocommit=True)
 
 

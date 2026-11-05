@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -125,7 +126,8 @@ def main() -> None:
     import psycopg
 
     cfg = load_config()
-    url = cfg.database_url + ("&" if "?" in cfg.database_url else "?") + "hostaddr=18.138.49.39"
+    _ha = os.environ.get("BRAIN_HOSTADDR", "18.138.49.39")  # BRAIN_HOSTADDR="" for a non-live DB
+    url = cfg.database_url + ((("&" if "?" in cfg.database_url else "?") + f"hostaddr={_ha}") if _ha else "")
 
     print("loading CSM client turns...", flush=True)
     turns = csm_client_turns(cfg)

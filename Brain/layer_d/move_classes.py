@@ -21,9 +21,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
-ARTIFACT_PATH = Path(__file__).resolve().parent.parent / "artifacts" / "layer_d_move_classes.json"
+# BRAIN_MOVE_CLASSES points a rebuild at its own routing artifact; unset, the live one.
+ARTIFACT_PATH = Path(os.environ.get("BRAIN_MOVE_CLASSES") or
+                     Path(__file__).resolve().parent.parent / "artifacts" / "layer_d_move_classes.json")
 
 
 def criterion_hash(criterion: str) -> str:

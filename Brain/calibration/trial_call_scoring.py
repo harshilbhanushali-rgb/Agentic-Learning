@@ -56,6 +56,7 @@ Usage (from Brain/):
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import random
 import sys
@@ -359,7 +360,8 @@ def main() -> None:
     # AFTER spending the whole budget on it -- the guard must cost nothing to hit.
     guard_overwrite(out, n_calls, bool(a.smoke), a.force)
 
-    url = cfg.database_url + ("&" if "?" in cfg.database_url else "?") + "hostaddr=18.138.49.39"
+    _ha = os.environ.get("BRAIN_HOSTADDR", "18.138.49.39")  # BRAIN_HOSTADDR="" for a non-live DB
+    url = cfg.database_url + ((("&" if "?" in cfg.database_url else "?") + f"hostaddr={_ha}") if _ha else "")
     with psycopg.connect(url, autocommit=True, connect_timeout=20) as conn:
         with conn.cursor() as cur:
             cur.execute(

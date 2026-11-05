@@ -10,8 +10,8 @@
   "margin_min": 0.0009044408798217773,
   "margins_below_ann_error": 3,
   "ann_error": 0.0015,
-  "memory_ms_median": 2.9997825622558594,
-  "pinecone_ms_median": 226.28021240234375,
+  "memory_ms_median": 2.0117759704589844,
+  "pinecone_ms_median": 272.86696434020996,
   "rows": [
     {
       "source": "answer_audit",

@@ -126,7 +126,30 @@ Two namespaces in one Pinecone index: `"triggers"` (CLIENT utterances) and `"res
 
 SQLite `checkpoints.db` — item convention: `"ALL"` for Layer A, call stem (e.g. `"lumbertonisd_2026"`) for Layer B, `scenario_key` for Layer C.
 
-### PRODUCTION STATE AS OF 2026-08-19 — read this before touching Layer A/B/C
+### LIVE SINCE 2026-10-10: THE REBUILT BRAIN — read this first; the 2026-08-19 section below is the PREVIOUS Brain
+
+The operator adopted a full rebuild (spec `docs/superpowers/specs/2026-10-10-brain-rebuild-staged-design.md`,
+evidence `docs/findings/brain-rebuild-36flash.md`). What is live now:
+
+- **Database:** `DATABASE_URL` in `Brain/.env` is the rebuilt Neon database (`ep-solitary-bonus…`). The previous
+  Brain is `DATABASE_URL_PRE_REBUILD` — rollback, and the ONLY home of Layer D's run 137706da74c6 (Layer D was
+  NOT run on the rebuild; `ops/run_layer_d.py --report-combined` against the live database prints nothing).
+- **Taxonomy `union_base36`:** the SAME 307 clusters as `union_base` (no refit — clustering uses no LLM and the
+  corpus had not changed), re-adjudicated on `gemini-3.6-flash` @ medium → **279 scenarios, 49 coachable**
+  (was 259 / 34; 22 of the 49 are clusters the flash-lite run had merged into umbrella scenarios).
+- **Pinecone `narens-brain-rebuild-3072`** (6,863 coachable pairs retrievable). The index name moves TOGETHER with
+  `DATABASE_URL` — vector ids are that database's kb_pairs serials. `narens-brain-3072` is the previous Brain's.
+- **Playbooks: 49 live, one per coachable scenario,** regenerated on the current prompts (gradability rule in
+  every document), `pbf_rebuild_snapped.json`; 142 requests, 0 collapsed, PB0 all, single-account 8.6%.
+- **No pinned IP anywhere:** Neon DNS resolves again; `BRAIN_HOSTADDR=` (empty) in `.env`, and the ops scripts'
+  `--hostaddr` defaults are `""`. The old pin 18.138.49.39 is the PREVIOUS database's address.
+- **`ops/rebuild_brain.py` now refuses to run** (its rebuild database IS the live one) — that guard is what keeps
+  its `reset-db` from dropping the live Brain. Do not "fix" it.
+- **The production Ask Naren deployment (`joveo/coder-pets-tray`) has its own `DATABASE_URL` and its own copy of
+  `serve_ask_naren.py`** — switching this repo does not switch it. `ASK_NAREN_DATABASE_URL` (sign-in) is NOT the
+  Brain and stays on the old instance.
+
+### PRODUCTION STATE AS OF 2026-08-19 — the PREVIOUS Brain (superseded 2026-10-10, kept for its reasoning)
 
 **The live taxonomy is `union_base`: 259 scenarios (34 coachable + 225 sinks) in Postgres**,
 loaded by `ops/ship_union_taxonomy.py` from `artifacts/adjudication_ab_union_base.json`. The

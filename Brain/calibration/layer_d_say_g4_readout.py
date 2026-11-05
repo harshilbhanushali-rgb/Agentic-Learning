@@ -17,6 +17,7 @@ Usage (from Brain/):  python calibration/layer_d_say_g4_readout.py
 from __future__ import annotations
 
 import sys
+import os
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -33,8 +34,9 @@ def main() -> None:
     from shared.tuning import get_tuning
 
     url = load_config().database_url
-    if "hostaddr=" not in url:
-        url += ("&" if "?" in url else "?") + "hostaddr=18.138.49.39"
+    _ha = os.environ.get("BRAIN_HOSTADDR", "18.138.49.39")  # BRAIN_HOSTADDR="" for a non-live DB
+    if _ha and "hostaddr=" not in url:
+        url += ("&" if "?" in url else "?") + f"hostaddr={_ha}"
     conn = psycopg.connect(url, autocommit=True)
 
     tuning_d = get_tuning().layer_d

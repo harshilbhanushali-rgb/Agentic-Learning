@@ -21,6 +21,7 @@ Usage (from Brain/, VPN up):  python calibration/layer_d_never_cells_dump.py
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -38,8 +39,9 @@ def main() -> None:
     from shared import storage
 
     url = load_config().database_url
-    if "hostaddr=" not in url:
-        url += ("&" if "?" in url else "?") + "hostaddr=18.138.49.39"
+    _ha = os.environ.get("BRAIN_HOSTADDR", "18.138.49.39")  # BRAIN_HOSTADDR="" for a non-live DB
+    if _ha and "hostaddr=" not in url:
+        url += ("&" if "?" in url else "?") + f"hostaddr={_ha}"
     conn = psycopg.connect(url, autocommit=True)
 
     def to_rates(rows):

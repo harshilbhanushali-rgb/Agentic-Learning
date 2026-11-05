@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import re
 import sys
@@ -75,8 +76,10 @@ def _connect():
     import psycopg
     from config import load_config
     url = load_config().database_url
-    if "hostaddr=" not in url:
-        url += ("&" if "?" in url else "?") + "hostaddr=18.138.49.39"
+    # BRAIN_HOSTADDR set (even empty) overrides the live DB's pinned IP (2026-10-10 rebuild).
+    hostaddr = os.environ.get("BRAIN_HOSTADDR", "18.138.49.39")
+    if hostaddr and "hostaddr=" not in url:
+        url += ("&" if "?" in url else "?") + f"hostaddr={hostaddr}"
     return psycopg.connect(url, autocommit=True)
 
 

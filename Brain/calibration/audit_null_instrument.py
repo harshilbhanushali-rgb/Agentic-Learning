@@ -37,6 +37,7 @@ Usage (from Brain/):
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -71,7 +72,8 @@ def main() -> None:
 
     prior = json.loads(NULL_ARTIFACT.read_text(encoding="utf-8-sig"))
     cfg = load_config()
-    url = cfg.database_url + ("&" if "?" in cfg.database_url else "?") + "hostaddr=18.138.49.39"
+    _ha = os.environ.get("BRAIN_HOSTADDR", "18.138.49.39")  # BRAIN_HOSTADDR="" for a non-live DB
+    url = cfg.database_url + ((("&" if "?" in cfg.database_url else "?") + f"hostaddr={_ha}") if _ha else "")
     with psycopg.connect(url, autocommit=True, connect_timeout=20) as conn:
         old = load_old(conn)
     new = load_new()

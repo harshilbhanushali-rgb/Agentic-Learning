@@ -45,6 +45,7 @@ Usage (from Brain/):
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import sys
 from collections import defaultdict
@@ -105,7 +106,8 @@ def _fetch_rows() -> list[dict]:
     import psycopg
 
     cfg = load_config()
-    url = cfg.database_url + ("&" if "?" in cfg.database_url else "?") + "hostaddr=18.138.49.39"
+    _ha = os.environ.get("BRAIN_HOSTADDR", "18.138.49.39")  # BRAIN_HOSTADDR="" for a non-live DB
+    url = cfg.database_url + ((("&" if "?" in cfg.database_url else "?") + f"hostaddr={_ha}") if _ha else "")
     with psycopg.connect(url, autocommit=True, connect_timeout=20) as conn:
         with conn.cursor() as cur:
             cur.execute(

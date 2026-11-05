@@ -43,6 +43,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -103,8 +104,11 @@ def scenarios_without_live_playbook(exclude: list[str]) -> list[str]:
     from config import load_config
 
     url = load_config().database_url
-    if "hostaddr=" not in url:
-        url += ("&" if "?" in url else "?") + "hostaddr=18.138.49.39"
+    # BRAIN_HOSTADDR set (even empty) overrides the live DB's pinned IP -- an empty value
+    # is how the 2026-10-10 rebuild reaches a different Neon host.
+    hostaddr = os.environ.get("BRAIN_HOSTADDR", "18.138.49.39")
+    if hostaddr and "hostaddr=" not in url:
+        url += ("&" if "?" in url else "?") + f"hostaddr={hostaddr}"
     with psycopg.connect(url, connect_timeout=30, autocommit=True) as c, c.cursor() as cur:
         cur.execute("""
             SELECT s.scenario_key FROM scenarios s

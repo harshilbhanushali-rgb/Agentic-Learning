@@ -123,6 +123,8 @@ def main() -> None:
         cur.execute("SET SESSION default_transaction_read_only = on")
     scenario_map = {r["scenario_key"]: r for r in storage.get_scenarios(conn)}
     live_keys = {p["scenario_key"] for p in storage.get_playbooks(conn, "live")}
+    with conn.cursor() as cur:   # undo before close: Neon's pooler hands this session on (docs/GOTCHAS.md)
+        cur.execute("SET SESSION default_transaction_read_only = off")
     conn.close()
 
     from ego_trap import signal_check  # heavy import chain, deferred

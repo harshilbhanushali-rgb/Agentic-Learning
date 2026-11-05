@@ -90,6 +90,8 @@ def rebuild_moment_texts(cfg, wanted: list[str]) -> list[dict]:
     with conn.cursor() as cur:
         cur.execute("SET SESSION default_transaction_read_only = on")
     scenario_map = {r["scenario_key"]: r for r in storage.get_scenarios(conn)}
+    with conn.cursor() as cur:   # undo before close: Neon's pooler hands this session on (docs/GOTCHAS.md)
+        cur.execute("SET SESSION default_transaction_read_only = off")
     conn.close()
     scorer = signals.SignalScorer(scenario_map, margin=d.similarity_relative_margin,
                                   cap=d.max_scenarios_per_signal)
@@ -145,6 +147,8 @@ def main() -> None:
     playbooks = {p["scenario_key"]: p for p in live_playbooks_flat(conn)}
     keys = tuple(sorted({m["scenario_key"] for m in moments}))
     ex_index = exemplar_index(conn, keys)
+    with conn.cursor() as cur:   # undo before close: Neon's pooler hands this session on (docs/GOTCHAS.md)
+        cur.execute("SET SESSION default_transaction_read_only = off")
     conn.close()
 
     from preprocessing import embedder

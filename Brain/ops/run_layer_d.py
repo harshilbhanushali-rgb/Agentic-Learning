@@ -83,7 +83,18 @@ def main() -> None:
                              "the benchmark to (e.g. after specific playbooks were "
                              "remade). Validated against the live set so a typo fails "
                              "instead of silently benchmarking nothing.")
+    parser.add_argument("--grader-arm", default="", choices=("", "pairwise", "say", "checks"),
+                        help="override tuning.yaml layer_d.grader_arm for THIS process only "
+                             "(the say run without hand-editing the file)")
     args = parser.parse_args()
+
+    if args.grader_arm:
+        import dataclasses
+        from shared import tuning as _tuning
+        t = _tuning.get_tuning()
+        _tuning._cached = dataclasses.replace(
+            t, layer_d=dataclasses.replace(t.layer_d, grader_arm=args.grader_arm))
+        print(f"[tuning] layer_d.grader_arm := {args.grader_arm} (this process only)")
 
     print("\n=== Layer D (redesign) Batch Runner ===")
     config = load_config()

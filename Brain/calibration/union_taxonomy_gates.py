@@ -99,16 +99,19 @@ REPORT_OUT = ARTIFACTS_DIR / "union_gates_report.json"
 # artifact. `union_gates_base_members.json` (the clean2_base reference reconstruction)
 # is shared deliberately — the G-R1 reference side is arm-independent.
 MEMBERSHIP = "rescued"
+ARMS = ("rescued", "base", "base36")
 
 
 def set_arm(arm: str) -> None:
     global MEMBERSHIP, NEW_TAXONOMY, G1_OUT, G23_OUT, G4_PACKET, G4_KEY, \
         G4_JUDGMENTS_GLOB, G4_OUT, REPORT_OUT
-    if arm not in ("rescued", "base"):
-        raise SystemExit(f"--arm must be rescued|base, got {arm!r}")
-    MEMBERSHIP = arm
+    if arm not in ARMS:
+        raise SystemExit(f"--arm must be one of {'|'.join(ARMS)}, got {arm!r}")
+    # base36 (2026-10-10 rebuild): the SAME base memberships re-adjudicated with
+    # gemini-3.6-flash @ medium, so membership and taxonomy name come apart here.
+    MEMBERSHIP = "base" if arm == "base36" else arm
     NEW_TAXONOMY = f"union_{arm}"
-    pre = "" if arm == "rescued" else "fallback_"
+    pre = {"rescued": "", "base": "fallback_", "base36": "base36_"}[arm]
     G1_OUT = ARTIFACTS_DIR / f"union_gates_{pre}g1.json"
     G23_OUT = ARTIFACTS_DIR / f"union_gates_{pre}g2g3.json"
     G4_PACKET = ARTIFACTS_DIR / f"union_gates_{pre}read_packet.txt"
@@ -682,9 +685,11 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--stage", default="", choices=("", "base-members"))
-    p.add_argument("--arm", default="rescued", choices=("rescued", "base"),
+    p.add_argument("--arm", default="rescued", choices=ARMS,
                    help="which union arm's map to gate; 'base' is the operator-chosen "
-                        "fallback and writes union_gates_fallback_* artifacts")
+                        "fallback and writes union_gates_fallback_* artifacts; 'base36' is "
+                        "the base memberships re-adjudicated on gemini-3.6-flash "
+                        "(union_gates_base36_*)")
     p.add_argument("--g1", action="store_true")
     p.add_argument("--g2g3", action="store_true")
     p.add_argument("--g4-build", action="store_true")
