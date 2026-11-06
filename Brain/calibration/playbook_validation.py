@@ -72,7 +72,9 @@ from calibration.playbook_snap_trial import (  # noqa: E402
 # FAILED G-R4 (8/12, veto-audited) and the operator-chosen fallback arm PASSED all
 # four gates (G-R4 10/12, veto-audited) — §1 says PV runs on the map that cleared the
 # gates. The identity stamp in every pbv_* artifact records this value.
-TAXONOMY = "union_base"
+# BRAIN_TAXONOMY lets the 2026-10-10 rebuild point this at another arm (e.g. union_base36);
+# unset, it is the live map.
+TAXONOMY = os.environ.get("BRAIN_TAXONOMY") or "union_base"
 WIDTH = 3072
 
 EVIDENCE = ARTIFACTS_DIR / "pbv_evidence.json"

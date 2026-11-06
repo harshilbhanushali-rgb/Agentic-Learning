@@ -80,6 +80,7 @@ Usage (from Brain/):
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import random
 import sys
@@ -468,7 +469,8 @@ def main() -> None:
 
     # DB FIRST, CLOSED BEFORE ANY EMBEDDING. Holding a Neon connection across slow work is
     # the documented way this fails; validate_taxonomy_vs_layerd.py carries the same rule.
-    url = cfg.database_url + ("&" if "?" in cfg.database_url else "?") + "hostaddr=18.138.49.39"
+    _ha = os.environ.get("BRAIN_HOSTADDR", "18.138.49.39")  # BRAIN_HOSTADDR="" for a non-live DB
+    url = cfg.database_url + ((("&" if "?" in cfg.database_url else "?") + f"hostaddr={_ha}") if _ha else "")
     with psycopg.connect(url, autocommit=True, connect_timeout=20) as conn:
         old = load_old(conn)
     new = load_new()

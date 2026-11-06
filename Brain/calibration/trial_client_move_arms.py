@@ -191,6 +191,8 @@ def main() -> None:
     with conn.cursor() as cur:                      # belt and braces: no writes possible
         cur.execute("SET SESSION default_transaction_read_only = on")
     scenario_map = {r["scenario_key"]: r for r in storage.get_scenarios(conn)}
+    with conn.cursor() as cur:   # undo before close: Neon's pooler hands this session on (docs/GOTCHAS.md)
+        cur.execute("SET SESSION default_transaction_read_only = off")
     conn.close()
     print(f"[pool] {scenario_pool.pool_summary(scenario_map)}")
     print(f"[rule] margin={tuning.similarity_relative_margin} cap={tuning.max_scenarios_per_signal}")

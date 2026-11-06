@@ -418,16 +418,44 @@ def verify(conn, docs: list[dict], live_ids: dict[str, int]) -> None:
           f"status histogram {statuses}, enforced by idx_playbooks_one_live")
 
 
+def use_single_artifact_plan(filename: str) -> None:
+    """Swap the frozen 65-document plan for ONE snapped artifact, all of it live.
+
+    For a rebuild into an EMPTY database only: there is no incumbent to demote, so the
+    plan is the artifact. The expected counts come from the artifact (raw and post-collapse)
+    instead of being frozen here, which keeps what G-P3 is for -- every document that should
+    land does land, and nothing else does.
+    """
+    global ARTIFACT_PLAN, EXPECTED_COUNTS, EXPECTED_TOTAL, EXPECTED_LOADED, EXPECTED_STATUSES
+    art = json.loads((ARTIFACTS_DIR / filename).read_text(encoding="utf-8-sig"))
+    found = art["documents"]
+    loaded = sum(1 for d in found.values() if not d.get("snap_log", {}).get("schema_collapsed"))
+    ARTIFACT_PLAN = ((filename, {"real": "live"}),)
+    EXPECTED_COUNTS = {filename: len(found)}
+    EXPECTED_TOTAL = loaded
+    EXPECTED_LOADED = {filename: loaded}
+    EXPECTED_STATUSES = {"live": loaded}
+    print(f"[plan] single artifact {filename}: {len(found)} documents, {loaded} to load live")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--apply", action="store_true",
                    help="actually write. Without it this is a dry run plus G-P1/G-P3/G-P5.")
-    p.add_argument("--hostaddr", default="18.138.49.39",
-                   help="Neon DNS workaround; host stays in the URL for SNI/SCRAM")
+    p.add_argument("--hostaddr", default="",
+                   help="Neon DNS workaround, only if the resolver refuses *.neon.tech "
+                        "(no pin since 2026-10-10); host stays in the URL for SNI/SCRAM")
     p.add_argument("--skip-init", action="store_true",
                    help="do not run db/init_db.py first (assume `playbooks` already exists)")
+    p.add_argument("--plan-artifact", default="",
+                   help="load ONLY this snapped artifact, every 'real' document as live "
+                        "(the 2026-10-10 rebuild into an empty database). Counts are taken "
+                        "from the artifact itself; G-P1..P5 still verify the write.")
     args = p.parse_args()
+
+    if args.plan_artifact:
+        use_single_artifact_plan(args.plan_artifact)
 
     docs = build_documents()
     print(f"[artifacts] {len(docs)} documents from {len(ARTIFACT_PLAN)} artifacts")

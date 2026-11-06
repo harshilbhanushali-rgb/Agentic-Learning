@@ -40,6 +40,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from collections import Counter
 from pathlib import Path
@@ -54,11 +55,13 @@ from layer_d.pipeline import live_playbooks_flat, make_exemplar_picker, playbook
 from shared import storage  # noqa: E402
 
 READTHROUGH = ARTIFACTS_DIR / "layer_d_readthrough.md"
-SAY_PACKET = ARTIFACTS_DIR / "layer_d_oa_say_packet{n}.txt"
-SAY_MODEL = ARTIFACTS_DIR / "layer_d_oa_say_model_verdicts.json"
-AUDIT_PACKET = ARTIFACTS_DIR / "layer_d_oa_packet{n}.txt"
-AUDIT_KEY = ARTIFACTS_DIR / "layer_d_oa_KEY.json"
-AUDIT_MODEL = ARTIFACTS_DIR / "layer_d_oa_model_verdicts.json"
+# BRAIN_OA_PREFIX keeps a rebuild's audit files apart from production's (2026-10-10).
+_OA = os.environ.get("BRAIN_OA_PREFIX") or "layer_d_oa"
+SAY_PACKET = ARTIFACTS_DIR / f"{_OA}_say_packet{{n}}.txt"
+SAY_MODEL = ARTIFACTS_DIR / f"{_OA}_say_model_verdicts.json"
+AUDIT_PACKET = ARTIFACTS_DIR / f"{_OA}_packet{{n}}.txt"
+AUDIT_KEY = ARTIFACTS_DIR / f"{_OA}_KEY.json"
+AUDIT_MODEL = ARTIFACTS_DIR / f"{_OA}_model_verdicts.json"
 
 TOP_CELLS = 3            # priorities covered by the read-through
 AUDIT_N = 40             # blinded audit sample size
@@ -77,8 +80,10 @@ def connect_ro():
     """
     cfg = load_config()
     url = cfg.database_url
-    if "hostaddr=" not in url:
-        url += ("&" if "?" in url else "?") + "hostaddr=18.138.49.39"
+    # BRAIN_HOSTADDR set (even empty) overrides the live DB's pinned IP (2026-10-10 rebuild).
+    hostaddr = os.environ.get("BRAIN_HOSTADDR", "18.138.49.39")
+    if hostaddr and "hostaddr=" not in url:
+        url += ("&" if "?" in url else "?") + f"hostaddr={hostaddr}"
     import psycopg
     conn = psycopg.connect(url, connect_timeout=30)
     with conn.cursor() as cur:

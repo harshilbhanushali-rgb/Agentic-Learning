@@ -53,6 +53,7 @@ Usage (from Brain/):
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -61,7 +62,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 OLD_DIR = "recordings"
 NEW_DIR = "recordings_pull_keep"
 WIDTH = 3072
-INDEX_3072 = "narens-brain-3072"
+INDEX_3072 = "narens-brain-rebuild-3072"   # the live Brain's index since 2026-10-10
 FETCH_CEILING = 15_000          # halt-and-ask above this; the measured need is ~11.9k
 
 
@@ -81,8 +82,12 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--apply", action="store_true")
-    p.add_argument("--hostaddr", default="18.138.49.39")
+    p.add_argument("--hostaddr", default="")      # no pin since 2026-10-10 (DNS resolves)
     p.add_argument("--index", default=INDEX_3072)
+    p.add_argument("--sink-band", default="0.40,0.56",
+                   help="lo,hi refusal band for the routed sink share. The default is the "
+                        "live map's; a rebuild on another map passes that map's measured "
+                        "G-R2 share +/- a margin")
     p.add_argument("--resume-vectors", action="store_true", dest="resume_vectors",
                    help="THE RESUME PATH. Skips the calls/kb_pairs writes entirely and only "
                         "does vector work, reading each pair_id back from the DB. Use this "
@@ -115,7 +120,9 @@ def main() -> None:
     print(f"[corpus] {len(files)} calls, {len(pairs)} pairs")
 
     # ---- taxonomy, REBOUND to the live DB ids (TRAP 2) ----------------------------
-    art = json.loads(taxonomy_path("union_base").read_text(encoding="utf-8-sig"))
+    # BRAIN_TAXONOMY (2026-10-10 rebuild) selects another arm; unset, the live union_base.
+    art = json.loads(taxonomy_path(os.environ.get("BRAIN_TAXONOMY") or "union_base")
+                     .read_text(encoding="utf-8-sig"))
     scenario_map, _ = scenario_map_from_rows(art["rows"])
 
     with connect(a.hostaddr) as conn, conn.cursor() as cur:
@@ -200,11 +207,12 @@ def main() -> None:
     share = sunk / len(pairs)
     print("[1/5] routed. sink share {:.1%}  (G-R2 measured 47.3% new / 48.1% old)"
           .format(share))
-    if not 0.40 <= share <= 0.56:
+    lo, hi = (float(x) for x in a.sink_band.split(","))
+    if not lo <= share <= hi:
         raise SystemExit(
-            "SINK SHARE {:.1%} IS OUTSIDE THE MEASURED BAND (40-56%). The DB taxonomy, the "
-            "artifact and the cached vectors disagree about something; refusing to write "
-            "12,444 rows onto a substrate that cannot be vouched for.".format(share))
+            "SINK SHARE {:.1%} IS OUTSIDE THE MEASURED BAND ({:.0%}-{:.0%}). The DB taxonomy, "
+            "the artifact and the cached vectors disagree about something; refusing to write "
+            "pairs onto a substrate that cannot be vouched for.".format(share, lo, hi))
 
     # ---- calls, then pairs (SKIPPED on a vectors-only resume) --------------------
     if a.resume_vectors:

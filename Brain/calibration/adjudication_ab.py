@@ -83,7 +83,8 @@ from calibration import ARTIFACTS_DIR
 
 MERGE = 0.97
 MIN_CLUSTER_SIZE = 16
-CHAT_MODEL = "gemini-3.5-flash-lite"
+CHAT_MODEL = "gemini-3.5-flash-lite"      # default; --chat-model overrides per arm
+REASONING: str | None = None               # --reasoning-effort; None = param not sent
 NEAREST_SHOWN = 3
 REPRESENTATIVE_SHOWN = 6
 REPRESENTATIVE_RULE = "top_by_centroid_cosine"
@@ -115,13 +116,17 @@ def members_sha(clusters: list[dict]) -> str:
 
 def run_identity(clusters: list[dict], ta) -> dict:
     """Everything that must match for a resume to be the SAME run."""
-    return {"members_sha": members_sha(clusters), "n_clusters": len(clusters),
-            "min_cluster_size": MIN_CLUSTER_SIZE, "merge": MERGE, "chat_model": CHAT_MODEL,
-            "representatives": REPRESENTATIVE_RULE, "no_cache": True,
-            "rescue": RESCUE_MODE[0],
-            "min_call_support_fraction": ta.min_call_support_fraction,
-            "min_call_support_floor": ta.min_call_support_floor,
-            "ubiquity_ceiling": ta.ubiquity_ceiling}
+    ident = {"members_sha": members_sha(clusters), "n_clusters": len(clusters),
+             "min_cluster_size": MIN_CLUSTER_SIZE, "merge": MERGE, "chat_model": CHAT_MODEL,
+             "representatives": REPRESENTATIVE_RULE, "no_cache": True,
+             "rescue": RESCUE_MODE[0],
+             "min_call_support_fraction": ta.min_call_support_fraction,
+             "min_call_support_floor": ta.min_call_support_floor,
+             "ubiquity_ceiling": ta.ubiquity_ceiling}
+    # Only when set, so every identity written before the flag existed stays equal.
+    if REASONING:
+        ident["reasoning_effort"] = REASONING
+    return ident
 
 
 def save_checkpoint(path: Path, payload: dict) -> None:
@@ -599,8 +604,12 @@ def run_arm(a) -> None:
                                    "attempts": attempts})
             failed, served, parsed = False, "", {}
             try:
+                # Thinking tokens share max_tokens, so a reasoning arm gets the playbook
+                # harnesses' 65536; the no-reasoning path sends exactly what it always did.
+                extra = ({"reasoning_effort": REASONING, "max_tokens": 65536}
+                         if REASONING else {})
                 parsed, meta = gw.chat_json(prompt, model=CHAT_MODEL, temperature=0.2,
-                                            no_cache=True)
+                                            no_cache=True, **extra)
                 served = (meta or {}).get("served_model") or ""
             except Exception as e:                      # noqa: BLE001
                 print(f"  ! cluster {i} FAILED: {str(e)[:160]}", flush=True)
@@ -655,6 +664,7 @@ def run_arm(a) -> None:
          "membership": (a.membership if a.clusters_from else None),
          "identity": ident,
          "merge": MERGE, "min_cluster_size": MIN_CLUSTER_SIZE, "chat_model": CHAT_MODEL,
+         "reasoning_effort": REASONING,
          "representatives": REPRESENTATIVE_RULE, "embed": "gemini-embedding-2@3072",
          "total_calls": total_calls, "limit": a.limit or None,
          "incomplete": bool(stats["failed"] or a.limit),
@@ -762,6 +772,7 @@ def compare(names: list[str]) -> None:
 
 
 def main() -> None:
+    global CHAT_MODEL, REASONING
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arm", default="", help="arm name; required to run. Names its own files.")
@@ -786,7 +797,12 @@ def main() -> None:
     p.add_argument("--limit", type=int, default=0, help="PATH TEST only; marks artifact incomplete")
     p.add_argument("--fresh", action="store_true", help="ignore the checkpoint and restart")
     p.add_argument("--compare", default="", help="comma-separated arm names to compare")
+    p.add_argument("--chat-model", default=CHAT_MODEL,
+                   help="adjudicating model (recorded in the run identity)")
+    p.add_argument("--reasoning-effort", default="", choices=("", "low", "medium"),
+                   help="reasoning effort; empty = not sent (recorded in the run identity)")
     a = p.parse_args()
+    CHAT_MODEL, REASONING = a.chat_model, (a.reasoning_effort or None)
     if a.compare:
         compare([s.strip() for s in a.compare.split(",") if s.strip()])
     elif a.arm:

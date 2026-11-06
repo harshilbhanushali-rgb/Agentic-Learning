@@ -40,6 +40,7 @@ Usage (from Brain/, VPN up):
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import sys
 from collections import Counter
@@ -98,7 +99,7 @@ def main() -> None:
         import dataclasses
         cfg = dataclasses.replace(
             cfg, database_url=cfg.database_url
-            + ("&" if "?" in cfg.database_url else "?") + "hostaddr=18.138.49.39")
+            + ((("&" if "?" in cfg.database_url else "?") + f"hostaddr={_h}") if (_h := os.environ.get("BRAIN_HOSTADDR", "18.138.49.39")) else ""))
     d = get_tuning().layer_d
 
     roster_path = RECORDINGS / "client_speakers.txt"

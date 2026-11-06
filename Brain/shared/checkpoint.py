@@ -1,8 +1,11 @@
 ﻿from __future__ import annotations
+import os
 import sqlite3
 from pathlib import Path
 
-_DB = Path(__file__).parent.parent / "checkpoints.db"
+# BRAIN_CHECKPOINT_DB lets a rebuild into another database keep its own progress: the
+# run_id is derived from transcript stems, so the live file would mark everything done.
+_DB = Path(os.environ.get("BRAIN_CHECKPOINT_DB") or Path(__file__).parent.parent / "checkpoints.db")
 
 def init(run_id: str) -> None:
     with sqlite3.connect(_DB) as conn:

@@ -47,12 +47,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-TAXONOMY_ARTIFACT = "artifacts/adjudication_ab_union_base.json"
+# BRAIN_TAXONOMY (2026-10-10 rebuild) selects another arm; unset, the live union_base.
+TAXONOMY_ARTIFACT = f"artifacts/adjudication_ab_{os.environ.get('BRAIN_TAXONOMY') or 'union_base'}.json"
 SNAPSHOT_SCHEMA = "pre_union_20260819"
 
 # Every public table, snapshotted. Not just the ones being touched: a restore of a partial
@@ -181,8 +183,9 @@ def main() -> None:
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--apply", action="store_true",
                    help="actually write. Without this it is a dry run.")
-    p.add_argument("--hostaddr", default="18.138.49.39",
-                   help="IP for the Neon host; the system resolver REFUSES *.neon.tech")
+    p.add_argument("--hostaddr", default="",
+                   help="IP for the Neon host, only if the resolver refuses *.neon.tech "
+                        "(no pin since 2026-10-10: DNS resolves)")
     p.add_argument("--snapshot", default=SNAPSHOT_SCHEMA)
     a = p.parse_args()
 
