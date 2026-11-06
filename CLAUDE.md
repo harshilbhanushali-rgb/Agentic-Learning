@@ -13,6 +13,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Do not invoke the `superpowers:writing-plans` skill itself — the user considers it a waste of time. Writing a plan document is still fine (and often useful) after a design/spec is approved (e.g. via `superpowers:brainstorming`) — just write it directly rather than going through that skill's process.
 
+## Secrets — this repository is PUBLIC
+
+`harshilbhanushali-rgb/Agentic-Learning` is public on GitHub. On 2026-11-05 a Neon **owner** password was found in `.claude/settings.json`, committed since the initial commit (2026-07-24) and still live: approving "always allow" on a command that had the connection string typed into it saved the string into that tracked file. It had to be rotated. These rules exist so that never happens again:
+
+- **Secrets live only in git-ignored files:** `Brain/.env` and `frontend/.env.local`. Code reads them from there (`load_config()`, `python-dotenv`, `@next/env`). Never write a key, password or connection string into a tracked file — code, docs, ADRs, tests, fixtures, or `.claude/`.
+- **Never put a secret on a command line.** Load it inside the script from the env file instead. A command containing a secret, once approved with "always allow", is written into `.claude/settings.json`, which is tracked. If such a command is ever unavoidable, approve it once — never "always".
+- **`.claude/settings.json` is shared and tracked:** generic entries only (tool names, skills). Machine-specific paths and personal permissions go in `.claude/settings.local.json`, which is git-ignored.
+- **The pre-commit check refuses commits that add credentials** (`.githooks/check_secrets.py`). Every clone must turn it on once: `git config core.hooksPath .githooks`. Never bypass it with `--no-verify`; a real false positive is fixed by narrowing its pattern.
+- **If a secret is ever committed:** rotate it first — the history of a public repo is already copied — then remove it, and tell the user immediately.
+
 ## Agent skills
 
 ### Issue tracker

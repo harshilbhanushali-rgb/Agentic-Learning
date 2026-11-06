@@ -1,0 +1,2 @@
+# Hook scripts must keep LF: a CRLF shebang breaks them on macOS/Linux.
+.githooks/* text eol=lf
