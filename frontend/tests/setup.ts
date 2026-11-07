@@ -46,6 +46,65 @@ if (hasDom) {
     disconnect() {}
   }
   globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+
+  /** Node 25+ ships its own experimental `localStorage` / `sessionStorage` globals. Without
+   *  `--localstorage-file` they are `undefined`, and because vitest's jsdom environment will
+   *  not overwrite a global that already exists, they SHADOW jsdom's working ones -- every
+   *  `localStorage.clear()` then throws "Cannot read properties of undefined". Provide an
+   *  in-memory Storage only when the real one is missing, so older Node is untouched.
+   *
+   *  Instances inherit from `Storage.prototype` and the methods are patched onto it (falling
+   *  through to jsdom's originals for any other receiver), because tests spy on
+   *  `Storage.prototype.removeItem` to simulate unavailable storage -- own methods on the
+   *  instance would shadow that spy. */
+  const stores = new WeakMap<object, Map<string, string>>();
+  const proto = Storage.prototype as unknown as Record<string, (...args: unknown[]) => unknown>;
+  let patched = false;
+  const patchPrototype = () => {
+    if (patched) return;
+    patched = true;
+    const original: Record<string, (...args: unknown[]) => unknown> = {};
+    for (const method of ['clear', 'getItem', 'setItem', 'removeItem', 'key']) {
+      original[method] = proto[method]!;
+    }
+    const lengthDescriptor = Object.getOwnPropertyDescriptor(Storage.prototype, 'length');
+    const mine = (self: object) => stores.get(self);
+    const wrap = (
+      name: string,
+      impl: (store: Map<string, string>, ...args: string[]) => unknown,
+    ) => {
+      proto[name] = function (this: object, ...args: unknown[]) {
+        const store = mine(this);
+        return store ? impl(store, ...(args as string[])) : original[name]?.apply(this, args);
+      };
+    };
+    wrap('clear', (m) => m.clear());
+    wrap('getItem', (m, k) => (m.has(String(k)) ? m.get(String(k)) : null));
+    wrap('setItem', (m, k, v) => void m.set(String(k), String(v)));
+    wrap('removeItem', (m, k) => void m.delete(String(k)));
+    wrap('key', (m, i) => Array.from(m.keys())[Number(i)] ?? null);
+    Object.defineProperty(Storage.prototype, 'length', {
+      configurable: true,
+      get(this: object) {
+        const store = mine(this);
+        return store ? store.size : (lengthDescriptor?.get?.call(this) as number);
+      },
+    });
+  };
+
+  for (const name of ['localStorage', 'sessionStorage'] as const) {
+    let usable = false;
+    try {
+      usable = typeof globalThis[name]?.clear === 'function';
+    } catch {
+      usable = false;
+    }
+    if (usable) continue;
+    patchPrototype();
+    const memory = Object.create(Storage.prototype) as Storage;
+    stores.set(memory, new Map());
+    Object.defineProperty(globalThis, name, { value: memory, configurable: true, writable: true });
+  }
 }
 
 /* ---------------------------------------------------------------------------
