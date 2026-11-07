@@ -166,8 +166,16 @@ def test_an_unverified_answer_is_never_forwarded_in_any_field():
     assert "40% lift" not in repr(result)
 
 
-def test_a_generation_citing_the_wrong_call_is_refused():
-    wrong = _payload(cited_call="a_call_never_retrieved.txt")
+def test_a_real_quote_under_the_wrong_call_is_cited_to_the_call_it_is_in():
+    """Since 2026-11-07 (`grounding.check`): the quote is checked against what was shown and
+    cited where it really is, so a CSM still never sees a call the words are not in."""
+    result, _ = _ask(_payload(cited_call="a_call_never_retrieved.txt"))
+    assert result["outcome"] == "answered"
+    assert result["citation"]["call_filename"] == CALL
+
+
+def test_an_invented_quote_under_the_wrong_call_is_refused():
+    wrong = _payload(quote="we guarantee a 40% lift", cited_call="a_call_never_retrieved.txt")
     result, _ = _ask(wrong, wrong)
     assert result["outcome"] == "declined"
     assert result["reason"] == "grounding_unverified"

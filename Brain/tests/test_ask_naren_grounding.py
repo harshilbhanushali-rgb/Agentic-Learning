@@ -52,13 +52,26 @@ def test_an_empty_quote_never_passes():
     assert result.reason == "quote_not_verbatim"
 
 
-def test_citing_a_call_that_was_not_retrieved_is_refused():
-    """Only one exchange is ever put in the prompt, so a different citation means the model
-    named a source it was not shown -- the citation would point a CSM at the wrong call."""
+def test_a_real_quote_under_a_call_it_was_not_shown_cites_the_call_it_is_in():
+    """Since 2026-11-07 the gate checks the QUOTE against everything shown and cites where it
+    really is. A wrong `cited_call` with a verbatim quote is a citation slip, not an invented
+    quote -- the CSM is shown the call the words actually come from."""
     result = grounding.check(_model(cited_call="some_other_call.txt"),
+                             grounding.from_pairs([MATCHED]))
+    assert result.passed and result.corrected
+    assert result.source.identifier == CALL
+
+
+def test_a_fabricated_quote_under_a_call_it_was_not_shown_is_refused():
+    result = grounding.check(_model(quote="we guarantee a 40% lift by Friday",
+                                    cited_call="some_other_call.txt"),
                              grounding.from_pairs([MATCHED]))
     assert not result.passed
     assert result.reason == "wrong_call_cited"
+
+
+def test_a_quote_in_the_call_it_names_is_not_marked_corrected():
+    assert not grounding.check(_model(), grounding.from_pairs([MATCHED])).corrected
 
 
 def test_a_citation_differing_only_in_case_or_spacing_still_passes():
@@ -102,21 +115,50 @@ def test_the_gate_resolves_the_candidate_the_answer_actually_rests_on():
     assert result.source.payload["call_filename"] == CALL_B
 
 
-def test_citing_one_candidate_while_quoting_another_is_refused():
-    """The shortlist's characteristic failure: both texts are in front of the model, so a
-    quote lifted from candidate B under candidate A's citation is coherent, verbatim, and
-    points at the wrong call. Verifying against the WHOLE shortlist instead of against the
-    cited candidate would wave this through."""
+def test_quoting_one_candidate_while_citing_another_cites_the_one_quoted():
+    """The shortlist's characteristic slip: both texts are in front of the model, so a quote
+    lifted from candidate B lands under candidate A's citation. Until 2026-11-07 this was
+    refused; now the citation is CORRECTED to B, so the CSM is still never pointed at a
+    call the words are not in -- the reason the old refusal existed."""
+    quote = "We do have coverage there, but it is nothing like the global footprint"
+    result = grounding.check(_model(quote=quote, cited_call=CALL),
+                             grounding.from_pairs([MATCHED, MATCHED_B]))
+    assert result.passed and result.corrected
+    assert result.source.payload["call_filename"] == CALL_B
+
+
+def test_a_short_quote_is_never_moved_to_another_call():
+    """A short phrase ("We do have coverage there") can sit in many calls by coincidence, so
+    finding it in a call the model did NOT name says nothing about where the answer came
+    from. Only a quote of `MIN_CORRECTED_QUOTE_WORDS` or more is re-cited."""
+    assert len(QUOTE_B.split()) < grounding.MIN_CORRECTED_QUOTE_WORDS
     result = grounding.check(_model(quote=QUOTE_B, cited_call=CALL),
                              grounding.from_pairs([MATCHED, MATCHED_B]))
-    assert not result.passed
-    assert result.reason == "quote_not_verbatim"
+    assert not result.passed and result.reason == "quote_not_verbatim"
 
 
-def test_citing_a_call_in_none_of_the_candidates_is_refused():
-    result = grounding.check(_model(cited_call="never_retrieved.txt"),
+def test_a_short_quote_in_the_call_it_names_still_passes():
+    result = grounding.check(_model(quote=QUOTE_B, cited_call=CALL_B),
                              grounding.from_pairs([MATCHED, MATCHED_B]))
-    assert not result.passed
+    assert result.passed and not result.corrected
+
+
+def test_a_quote_in_both_the_named_call_and_another_cites_the_named_one():
+    shared = "pull the last 90 days of spend"
+    also_has_it = {"response_text": "First we pull the last 90 days of spend.",
+                   "call_filename": CALL_B}
+    result = grounding.check(_model(quote=shared, cited_call=CALL),
+                             grounding.from_pairs([also_has_it, MATCHED]))
+    assert result.passed and not result.corrected
+    assert result.source.identifier == CALL
+
+
+def test_a_quote_in_none_of_the_candidates_is_refused_whatever_it_cites():
+    for cited in (CALL, "never_retrieved.txt"):
+        result = grounding.check(_model(quote="we guarantee a 40% lift by Friday",
+                                        cited_call=cited),
+                                 grounding.from_pairs([MATCHED, MATCHED_B]))
+        assert not result.passed
     assert result.reason == "wrong_call_cited"
 
 
@@ -172,9 +214,20 @@ def test_a_playbook_answer_quoting_a_plausible_near_miss_fails():
     assert result.reason == "quote_not_verbatim"
 
 
-def test_a_playbook_answer_citing_a_call_it_was_not_shown_fails():
+def test_a_playbook_quote_cited_with_txt_added_cites_the_evidence_call():
+    """Exchanges carry `call_filename` WITH `.txt`, evidence records `call` WITHOUT it, and
+    the writer -- shown both -- adds it to evidence calls (3 of 18 tries, 2026-11-06)."""
     result = grounding.check(
         _model(quote="our system will automatically turn those off",
+               cited_call=MOVE_CALL + ".txt"),
+        grounding.from_playbook_evidence(EVIDENCE))
+    assert result.passed and result.source.identifier == MOVE_CALL
+    assert not result.corrected          # the right call, named with `.txt`: not a slip
+
+
+def test_a_playbook_answer_citing_a_call_it_was_not_shown_with_an_invented_quote_fails():
+    result = grounding.check(
+        _model(quote="the system automatically disables jobs that exceed the target",
                cited_call="20240101_someone_else_joveo_call_abc123"),
         grounding.from_playbook_evidence(EVIDENCE))
     assert not result.passed

@@ -36,3 +36,40 @@ Four live questions on the rebuilt Brain: a broad pixel question, a narrow "clie
 - **Every situation question now costs two model calls.** Before, thirteen intents were rendered and cost one (intake). `ASK_NAREN_ANSWER_COST_SECONDS` and the throughput figure in ADR 0010 are therefore optimistic. Re-measure before relying on them.
 - **The intent router, ADR 0013's carrying and ADR 0014's three switches do not run while `COMPOSE` is on.** They are not deleted, and `False` restores them exactly.
 - **Before treating this as settled:** run the 36-question blind read (`ask-naren/audit/`) with `COMPOSE` on against the router, plus a set of broad "teach me" questions the router could not answer. The main known failure, a right-topic exchange that answers a different question (issue #9), is not addressed by design. Wider gathering may help it or hide it.
+
+## Update 2026-11-07: reworks search too, the writer's principles, and a citation that moves
+
+Measured on Naren's golden set (`ask-naren/golden/README.md`, three dated sections that day) and a
+held-out pairwise read:
+
+- **A rework also searches.** `from_conversation` still gets the conversation and what the last
+  answer rested on, shown first, and now also the exchanges and playbooks its backup searches find
+  (the message, if it wrote none). The quote is checked against all of it. A declined rework is a
+  searched decline that records its match, not the follow-up decline, whose message ("ask it fresh
+  and it will search") would be false. Reason: a new question on a topic the thread had touched was
+  planned as a rework in most golden runs, and the carried material alone could not answer it.
+- **The writer's rules were rewritten as principles:** build on the exchanges where Naren answers
+  this same question; keep his reasons, offers and conditions, not just the topic; answer in the
+  form asked (words for the client, or a walkthrough); prefer the most recent call. No examples, no
+  length cap. A further line -- take his reasons for results from anywhere in the material, even
+  another situation -- was measured and removed: it did not fix the case it targeted (golden 03) and
+  the held-out pairwise read fell with it in (10-8 where both answered, against 14-6 and 13-5).
+- **The quote is one or two sentences.** Paragraph-long quotes (1,300-1,550 characters, 99.8%
+  verbatim) were the main grounding failure.
+- **The gate moves a citation instead of refusing it** (`grounding.check`): a quote of 8 or more
+  words that is verbatim in a shown call other than the one named passes, cited to the call it is
+  really in (`GateResult.corrected`, logged `citation_corrected`). A shorter quote must be in the
+  call named. A name differing only in `.txt` is the call named.
+- **The CSM's own words are an extra search** (`composing.SEARCH_CSM_WORDS = True`), in the same
+  embedding call as the planner's searches; not for reworks. No difference on the golden set, but
+  every held-out pairwise read with it on beat the old code by more than any read with it off, and
+  it won a direct head-to-head. Cost: a fuller shortlist and a longer writer prompt.
+- A writer reply that is not JSON gets one retry when the deadline allows (`GatewayReplyNotJSON`).
+- **A "why" search was built and left off** (`composing.SEARCH_FOR_THE_WHY = False`): a planner
+  field asking for one search aimed at Naren's reason a result comes about. Naren's reasoning is
+  reachable by such a search, but the planner's searches named the topic, the golden case it
+  targets (03) stayed partial, and held-out lost 3 answers to declines with no quality gain.
+
+Still open from this ADR: the 36-question blind read against the router was not run; the golden set
+and the held-out pairwise read stand in for it until it is.
+

@@ -1,0 +1,551 @@
+{
+  "about": {
+    "what": "Golden cases from Naren's own test of Ask Naren on 2026-11-04. Each case is a question HE asked and HIS verdict on the answer, said out loud on the recording. Expectations restate only what he said should be in (or out of) the answer -- nothing was added from the prompt or from our own idea of a good answer.",
+    "session": "Meet 'Test AI tool (Vignesh & Harshil)', 2026-11-04 22:13 IST. Prod Ask Naren (the OLD 19-intent router, not COMPOSE), Naren's test account, thread 13, turns 1-12.",
+    "evidence": "recordings/2026-11-04-naren/ (git-ignored): video.mp4, transcript.md, turns_raw.json (full responses incl. client citations), screenshots/. video_time = turn answered_at minus 16:43:55 UTC.",
+    "how_to_use": "See README.md in this folder. Replay with naren-2026-11-04.replay.json; judge each new answer against `expected` and compare to `baseline`.",
+    "verdict_scale": "right | right_with_gaps | partly_right | wrong | wrongly_declined | timed_out. These are Naren's words mapped onto a scale; his exact words are in `naren_said`.",
+    "breadth": "generic = a broad, sales-style question ('how does your tracking work'); specific = names a concrete thing (ATS integration, Craigslist, organic traffic). Naren's main finding: specific questions are answered well, generic ones are answered too narrowly."
+  },
+  "cases": [
+    {
+      "id": "N1104-01",
+      "turn": {
+        "thread": 13,
+        "position": 1,
+        "turn_id": "30"
+      },
+      "video_time": "03:19",
+      "screenshots": [
+        "02m30_picks-situation-conversion-tracking.png",
+        "03m27_t01_tracking-answer.png"
+      ],
+      "question": "How Does Joveo's tracking work? Can you explain the process to me?",
+      "context": "First message of the thread. He picked it from the 'Application conversion event definition' situation, then asked it as a broad question.",
+      "breadth": "generic",
+      "topic": "tracking",
+      "naren_verdict": "partly_right",
+      "naren_said": [
+        "this answer for example is not 100% accurate in the sense that Joveo's tracking work is more of a generic question",
+        "this answer is more so from how we track somebody through the funnel ... Joveo's tracking is actually a very broad element versus this one is very specific to like funnel tracking",
+        "the answer should also be as broad generic and not so specific"
+      ],
+      "baseline": {
+        "outcome": "answered",
+        "intent": "reply_to_client",
+        "scenario": "down_funnel_ats_tracking_and_attribution",
+        "answer": "When candidates complete an application via API or by redirecting to your career site where our pixel is placed, Joveo tracks them by capturing an anonymized identifier—such as a candidate or applicant ID, depending on your ATS. We use this unique ID to match candidates and track their progress through various stages downstream. Crucially, Joveo only pulls data for applicant IDs generated through our platform, ensuring direct candidates who applied on your career site without Joveo's touch are not included.",
+        "quote": "we capture, like in think of it as an anonymized ID, could be a candidate, ID, could be an applicant, ID could be like a system or person id, depending on the type of applicant tracking system it is, right? So we essentially match candidates and their stages based on that.",
+        "asked_at": "2026-11-04T16:46:55.587Z",
+        "answered_at": "2026-11-04T16:47:14.506Z",
+        "seconds": 19
+      },
+      "expected": {
+        "must": [
+          "Answer at the same breadth as the question: an overview of how Joveo tracking works as a whole, not only down-funnel ATS stage attribution",
+          "Read as something a CSM could say on a sales or intro call"
+        ],
+        "must_not": [
+          "Narrow straight into one sub-topic (down-funnel ID matching) as if that were the whole of tracking"
+        ],
+        "also_acceptable": "A short clarifying question about which part of tracking the client means (Naren's 4th overall recommendation), ideally alongside a brief overview",
+        "why_needed": false
+      }
+    },
+    {
+      "id": "N1104-02",
+      "turn": {
+        "thread": 13,
+        "position": 2,
+        "turn_id": "31"
+      },
+      "video_time": "06:47",
+      "screenshots": [
+        "06m55_t02_ats-integration-answer.png"
+      ],
+      "question": "How do I get my ATS to integrate with Joveo?",
+      "context": "Second message, same thread.",
+      "breadth": "generic",
+      "topic": "integration",
+      "naren_verdict": "right",
+      "naren_said": [
+        "Yeah, this answer is good",
+        "this is the right amount of generic the answer should be because my question wasn't as specific"
+      ],
+      "baseline": {
+        "outcome": "answered",
+        "intent": "reply_to_client",
+        "scenario": "ats_integration_feasibility_and_architecture",
+        "answer": "Joveo is flexible and can integrate with your ATS depending on your tech stack. If your ATS has an API framework (whether standard or custom APIs), we can easily connect using our unified API framework. For systems that do not support APIs, we can also set up automated file-based transfers—such as a simple CSV file or SFTP drop containing anonymized applicant or candidate IDs and their stages—which Joveo can ingest automatically.",
+        "quote": "we actually have a unified API, you know, framework that can easily plug and play into these ATS systems as well.",
+        "asked_at": "2026-11-04T16:50:23.664Z",
+        "answered_at": "2026-11-04T16:50:42.431Z",
+        "seconds": 19
+      },
+      "expected": {
+        "must": [
+          "Stay at this level: integration depends on the ATS; API-based (unified API framework) where the ATS has APIs; file-based (CSV/SFTP) where it does not"
+        ],
+        "must_not": [
+          "Go narrow into one integration detail or one ATS -- a general question gets the general picture (API where the ATS has one, file transfer where it does not)"
+        ],
+        "why_needed": false,
+        "note": "Regression guard: a new version must not lose what this answer already does."
+      }
+    },
+    {
+      "id": "N1104-03",
+      "turn": {
+        "thread": 13,
+        "position": 3,
+        "turn_id": "32"
+      },
+      "video_time": "10:17",
+      "screenshots": [
+        "10m25_t03_nurses-answer.png",
+        "10m50_t03_nurses-answer-reading.png"
+      ],
+      "question": "I'm looking to hire nurses across multiple states in the US. I'm currently using INded and not getting enough candidates. What can Joveo do to help me hire nurses faster?",
+      "context": "Third message. Naren framed it as 'a more generic question but from a campaign specific standpoint'. 'INded' is his typo for Indeed -- keep it, it is real input.",
+      "breadth": "generic",
+      "topic": "campaign_setup",
+      "naren_verdict": "right_with_gaps",
+      "naren_said": [
+        "This is good. Yeah, this is something that I would have said",
+        "Think of this as like 75% of the answer",
+        "I would have also said: in addition to this we track and attribute across your funnel, which helps you understand what your drop-offs across multiple stages are, but also more importantly allows Joveo to optimize directly to your quality metrics, which is not probably happening on Indeed today",
+        "the why is also super important and critical ... when it comes to integration the why doesn't matter but when we talk about campaign management ... the why starts to become important"
+      ],
+      "baseline": {
+        "outcome": "answered",
+        "intent": "reply_to_client",
+        "scenario": "sourcing_channel_diversification_and_roi_visibility",
+        "answer": "Joveo can help by expanding your reach beyond broad platforms like Indeed into specialty and niche healthcare sites, such as nurse.com, Vivian, and Healthy Careers. We have exclusive partnerships—including performance-based models with sites like nurse.com—which reduce risk compared to traditional bulk posting setups.\n\nAdditionally, Joveo brings all channels (whether duration-based, slot-based, or pay-per-click) into an apples-to-apples ROI comparison. This allows us to track performance transparently, double down on the specialty channels that actually convert, and get qualified nursing candidates into your pipeline faster.",
+        "quote": "Jovio can distribute to all of these, you know, specialty or think of them or or or more niche sites.",
+        "asked_at": "2026-11-04T16:53:56.387Z",
+        "answered_at": "2026-11-04T16:54:12.389Z",
+        "seconds": 16
+      },
+      "expected": {
+        "must": [
+          "Cover: reach beyond Indeed into specialty/niche healthcare sites; performance-based partnerships; apples-to-apples ROI across channel types",
+          "Add: Joveo tracks and attributes across the hiring funnel, which shows drop-offs at each stage",
+          "Add: that lets Joveo optimize directly to the client's quality metrics -- something not happening on Indeed today",
+          "Say WHY each point matters to the client (campaign-management answers need the why)"
+        ],
+        "must_not": [],
+        "why_needed": true,
+        "needs_outside_calls": "Possibly. Naren said the missing part could come from Joveo documentation/collateral, not only his calls."
+      }
+    },
+    {
+      "id": "N1104-04",
+      "turn": {
+        "thread": 13,
+        "position": 4,
+        "turn_id": "33"
+      },
+      "video_time": "13:17",
+      "screenshots": [
+        "13m25_t04_craigslist-answer.png"
+      ],
+      "question": "Can Joveo get my ads on Craigslist? How is it going to be any better when compared to my team posting ads on Craigslist directly?",
+      "context": "Fourth message.",
+      "breadth": "specific",
+      "topic": "supply_channels",
+      "naren_verdict": "right",
+      "naren_said": [
+        "Yeah, this is a really good answer."
+      ],
+      "baseline": {
+        "outcome": "answered",
+        "intent": "reply_to_client",
+        "scenario": "craigslist_and_flat_fee_channel_evaluation",
+        "answer": "Yes, Joveo can place your ads on Craigslist. In fact, Craigslist was one of Joveo's first products, backed by years of data across millions of job postings.\n\nHere is why using Joveo is far more effective than posting directly:\n\n- **Performance-Based (CPA) Pricing:** When posting directly, your team pays a flat fee per post and absorbs all the risk if it fails to yield results. Joveo converts Craigslist into a performance-based (cost-per-apply / cost-per-reply) model, shifting the risk away from you so you pay for actual candidate traffic and applications.\n- **Automated Category & Market Optimization:** The platform uses historical data to select the right Craigslist markets and target the exact sections (e.g., job sections vs. gig sections) that deliver the best traction.\n- **Frequency & Ad Copy Variations:** Rather than posting a single manual listing, Joveo automates posting schedules and can run multiple ad copy variations (for example, testing 5 variations in a single day) to capture maximum candidate attention.",
+        "quote": "So typically, the model in which we convert this into is a performance based model, when we essentially look at Craigslist.",
+        "asked_at": "2026-11-04T16:56:52.347Z",
+        "answered_at": "2026-11-04T16:57:12.589Z",
+        "seconds": 20
+      },
+      "expected": {
+        "must": [
+          "Yes, Joveo can post to Craigslist",
+          "Why it beats posting directly: performance-based (cost-per-apply) instead of flat fee per post; data-driven market/section selection; automated frequency and ad-copy variation"
+        ],
+        "must_not": [],
+        "why_needed": true,
+        "note": "Regression guard. Also the context for N1104-05."
+      }
+    },
+    {
+      "id": "N1104-05",
+      "turn": {
+        "thread": 13,
+        "position": 5,
+        "turn_id": "34"
+      },
+      "video_time": "14:07",
+      "screenshots": [
+        "13m50_t05_pricing-followup-asked.png",
+        "14m15_t05_pricing-followup-answer.png",
+        "14m55_t05_pricing-not-accurate-part.png"
+      ],
+      "question": "What's the pricing for this?",
+      "context": "FOLLOW-UP to N1104-04: 'this' = Joveo posting to Craigslist. Must be replayed in the same thread, straight after N1104-04.",
+      "breadth": "specific",
+      "topic": "pricing",
+      "naren_verdict": "right_with_gaps",
+      "naren_said": [
+        "(first) it doesn't contextually understand that this is in relation to the previous question",
+        "Wait, actually now that I read it, that's not the case ... it's Craigslist specific pricing",
+        "it's actually the right answer except this is not accurate -- it's pretty much cost per apply basis is how it works",
+        "I stand corrected, so this is contextually understanding the previous responses as well"
+      ],
+      "what_he_flagged": "At 14:55 he highlighted the opening sentence: 'Our pricing typically works as a percentage on top of your overall media spend, tailored based on the volume and budget you allocate.' That is the inaccurate part. The quote it came from is Naren's own words on a Feb 2024 call -- a stale fact, not a hallucination.",
+      "baseline": {
+        "outcome": "answered",
+        "intent": "reply_to_client",
+        "scenario": "down_funnel_activation_and_onboarding_performance_benchmarking",
+        "answer": "Our pricing typically works as a percentage on top of your overall media spend, tailored based on the volume and budget you allocate. It operates on a cost-per-apply basis, and we provide full visibility into campaign performance—including posting frequencies and breakdowns (such as state-by-state performance)—just as you would see for standard job boards.",
+        "quote": "we do do, like, a percentage on on top of the spend.",
+        "asked_at": "2026-11-04T16:57:48.329Z",
+        "answered_at": "2026-11-04T16:58:02.267Z",
+        "seconds": 14
+      },
+      "expected": {
+        "must": [
+          "Treat 'this' as Craigslist via Joveo (the previous answer), not Joveo pricing in general",
+          "Lead with cost-per-apply as how it works"
+        ],
+        "must_not": [
+          "Say pricing is a percentage on top of media spend"
+        ],
+        "why_needed": false,
+        "note": "Tests two things at once: carrying the thread, and not repeating an out-of-date fact from an old call."
+      }
+    },
+    {
+      "id": "N1104-06",
+      "turn": {
+        "thread": 13,
+        "position": 6,
+        "turn_id": "35"
+      },
+      "video_time": "16:02",
+      "screenshots": [
+        "16m08_t06_title-expansions-declined.png"
+      ],
+      "question": "What are title expansions? Can Joveo support it?",
+      "context": "Sixth message. He introduced it as 'geo expansions or title expansions'.",
+      "breadth": "specific",
+      "topic": "job_taxonomy",
+      "naren_verdict": "wrongly_declined",
+      "naren_said": [
+        "this says this is outside the taxonomy, but I think this shouldn't be the case",
+        "this ideally should come under job taxonomy, because this is when we're talking about keywords -- keywords are nothing but like job titles when it comes to the context of job boards"
+      ],
+      "baseline": {
+        "outcome": "declined",
+        "intent": "out_of_scope",
+        "reason": "out_of_scope",
+        "message": "Ask Naren answers from what Naren said on real client calls, so it cannot answer questions about Joveo's product, pricing or contract terms. Rewording this will not help -- the answer is not in his calls to find.",
+        "asked_at": "2026-11-04T16:59:52.582Z",
+        "answered_at": "2026-11-04T16:59:57.371Z",
+        "seconds": 5
+      },
+      "expected": {
+        "must": [
+          "Not decline as out of scope -- it is a job-taxonomy / keyword question",
+          "Explain title expansion in job-board terms: keywords are job titles, so expanding titles widens which searches the job shows up for"
+        ],
+        "must_not": [
+          "Claim the topic is outside what Naren covers"
+        ],
+        "why_needed": true,
+        "needs_outside_calls": "Unknown -- check whether title/keyword expansion appears in his calls before deciding whether this is a routing bug or a coverage gap.",
+        "note": "The decline came from the intake classifier (intent=out_of_scope) before any search ran."
+      }
+    },
+    {
+      "id": "N1104-07",
+      "turn": {
+        "thread": 13,
+        "position": 7,
+        "turn_id": "36"
+      },
+      "video_time": "18:10",
+      "screenshots": [
+        "18m20_t07_get-started-answer.png",
+        "18m50_t07_get-started-answer-scrolled.png"
+      ],
+      "question": "How do I get started with Joveo? What are the things I need to do on my end?",
+      "context": "Seventh message. He first thought of 'What does the onboarding process look like?' and reworded it to be more conversational.",
+      "breadth": "generic",
+      "topic": "onboarding",
+      "naren_verdict": "wrong",
+      "naren_said": [
+        "my question was more generic versus this gets specific into like jobs, which is only one component of the setup",
+        "ideally the answer should have been more about what our onboarding process looks like: we take two to four weeks to set you up, the onboarding process includes A, B, C steps -- versus getting too much into the specifics",
+        "it might not be a bad idea to even have follow-up questions, to say: get started with what? Are you just looking to do programmatic?"
+      ],
+      "baseline": {
+        "outcome": "answered",
+        "intent": "procedure",
+        "scenario": "xml_job_feed_setup_and_ingestion",
+        "answer": "To get started with Joveo's job feed setup and ingestion, follow this 5-step play in the order Naren typically executes it:\n\n1. **Explain format adaptation between APIs, JSON, and XML feeds**: Clarify how non-XML formats (such as JSON payload arrays or API endpoints) are processed into a standardized feed format or replace an XML feed URL.\n2. **Validate feed schema structures and metadata field requirements**: Review and identify required metadata attributes (such as job IDs, destination URLs, or location codes) in the feed payload prior to setup.\n3. **Detail file transport protocols and update refresh intervals**: Establish the transport mechanism (such as an SFTP/FTP server) and define update cadences (such as hourly or 45-minute refresh cycles).\n4. **Map feed XML nodes and tags to campaign budget structures**: Map specific XML elements or job group nodes to campaign budget structures, location tiers, or priority categories.\n5. **Verify feed ingestion through staging environments and test instances**: Conduct testing by obtaining access to staging environments, running test ingestions, and validating job displays on demo or staging portals.",
+        "quote": "Yep. So on our end as well, we'll map these elements out. Right? Like, we'll give you a a more complete checklist.",
+        "asked_at": "2026-11-04T17:01:45.303Z",
+        "answered_at": "2026-11-04T17:02:05.040Z",
+        "seconds": 20
+      },
+      "expected": {
+        "must": [
+          "Give the onboarding process as a whole: the typical timeline (Naren: two to four weeks) and the main stages, at a high level",
+          "Treat the job feed as one component of setup, not the whole answer"
+        ],
+        "must_not": [
+          "Answer only with job-feed / XML setup steps"
+        ],
+        "also_acceptable": "A clarifying question first -- 'get started with what? Are you looking to do programmatic?' -- which Naren suggested himself",
+        "why_needed": false,
+        "needs_outside_calls": "The 2-4 week figure is Naren's; the list of stages may need documentation if his calls don't cover it end to end."
+      }
+    },
+    {
+      "id": "N1104-09",
+      "turn": {
+        "thread": 13,
+        "position": 9,
+        "also": "position 8 was the same question and timed out (deadline_exceeded, 30s) -- see `timeouts` below",
+        "turn_id": "38"
+      },
+      "video_time": "22:22",
+      "screenshots": [
+        "21m30_t08_location-timeout.png",
+        "22m30_t09_location-answer.png"
+      ],
+      "question": "How does location targeting work on your end?",
+      "context": "He called it 'a super generic question'. Asked twice; the first try timed out.",
+      "breadth": "generic",
+      "topic": "geo_targeting",
+      "naren_verdict": "right_with_gaps",
+      "naren_said": [
+        "Yeah, this is a great answer",
+        "The only thing I would have added is that it's also specific to certain channels",
+        "The second thing I would have added was some of the why ... location targeting works both where talent lives and where talent works -- why is that important? Because people commute; certain types of roles require people to commute all the time"
+      ],
+      "baseline": {
+        "outcome": "answered",
+        "intent": "reply_to_client",
+        "scenario": "international_market_expansion_and_geo_granularity_strategy",
+        "answer": "At a high level, location targeting works by looking at both where talent lives and where talent works, marrying those two insights together.\n\nWe hyper-target specific ZIP codes based on geography and talent pools. For remote positions, statewide roles, or opportunities with a relocation component, we can target specific cities with high concentrations of relevant talent based on your compensation rates and requirements, ensuring targeting is tailored rather than a one-size-fits-all approach.",
+        "quote": "So we we'll look at where talent lives, where talent works.",
+        "asked_at": "2026-11-04T17:05:52.500Z",
+        "answered_at": "2026-11-04T17:06:17.563Z",
+        "seconds": 25
+      },
+      "expected": {
+        "must": [
+          "Cover: targets both where talent lives and where talent works; ZIP-level targeting; city targeting for remote/statewide/relocation roles",
+          "Add: targeting options are specific to certain channels",
+          "Add the why: people commute, and some roles mean commuting all the time, so where they live and where they work both matter"
+        ],
+        "must_not": [],
+        "why_needed": true,
+        "must_finish_within_deadline": true
+      }
+    },
+    {
+      "id": "N1104-10",
+      "turn": {
+        "thread": 13,
+        "position": 10,
+        "turn_id": "39"
+      },
+      "video_time": "24:04",
+      "screenshots": [
+        "24m12_t10_countries-answer.png"
+      ],
+      "question": "What are the countries that Joveo can post my jobs in?",
+      "context": "He called it a question 'on supply'.",
+      "breadth": "generic",
+      "topic": "supply_channels",
+      "naren_verdict": "right",
+      "naren_said": [
+        "again this is not entirely accurate ... Actually, I take it back. No, this is good enough actually"
+      ],
+      "baseline": {
+        "outcome": "answered",
+        "intent": "reply_to_client",
+        "scenario": "international_market_expansion_and_geo_granularity_strategy",
+        "answer": "Joveo is fully global from a media buying standpoint and supports posting jobs across international markets with multi-currency capabilities and deep global experience.\n\nDepending on the specific region (such as markets like France), job posting strategies may include non-programmatic options like duration-based job boards where credits are purchased. We can also provide a full, customized list of supported countries based on your specific hiring needs.",
+        "quote": "we are global even from a media buying standpoint as well.",
+        "asked_at": "2026-11-04T17:07:39.686Z",
+        "answered_at": "2026-11-04T17:07:59.315Z",
+        "seconds": 20
+      },
+      "expected": {
+        "must": [
+          "Joveo is global from a media-buying standpoint; some markets use non-programmatic (duration-based) boards; a full country list can be provided for the client's needs"
+        ],
+        "must_not": [],
+        "why_needed": false,
+        "note": "Regression guard. 'Good enough' after he hesitated -- a borderline right."
+      }
+    },
+    {
+      "id": "N1104-11",
+      "turn": {
+        "thread": 13,
+        "position": 11,
+        "turn_id": "40"
+      },
+      "video_time": "25:29",
+      "screenshots": [
+        "25m37_t11_organic-answer.png"
+      ],
+      "question": "Can I track my organic traffic through Joveo?",
+      "context": "He picked it from the 'sponsored versus organic attribution reporting' situation.",
+      "breadth": "specific",
+      "topic": "tracking",
+      "naren_verdict": "right",
+      "naren_said": [
+        "this is exactly a very good example of why is there -- it picks up the question and explains the why",
+        "whereas here this also has the why component to it as well, which is really important"
+      ],
+      "what_he_flagged": "At 25:37 he highlighted: 'This allows you to evaluate performance by source, see which organic posts drive candidate engagement, and attribute site traffic, applications, and hires back to both organic and paid channels.' -- the why he was praising.",
+      "baseline": {
+        "outcome": "answered",
+        "intent": "reply_to_client",
+        "scenario": "sponsored_vs_organic_attribution_and_reporting",
+        "answer": "Yes, Joveo can help track your organic traffic alongside paid media. We can break down and measure how much traffic on your site is generated from organic activities (such as blog posts or organic updates on platforms like LinkedIn) versus paid campaigns. This allows you to evaluate performance by source, see which organic posts drive candidate engagement, and attribute site traffic, applications, and hires back to both organic and paid channels.",
+        "quote": "you want to accurately track, let's say, how much of traffic on the site is being generated from the organic content versus how much is coming from from the paid content",
+        "asked_at": "2026-11-04T17:09:07.816Z",
+        "answered_at": "2026-11-04T17:09:24.405Z",
+        "seconds": 17
+      },
+      "expected": {
+        "must": [
+          "Yes; measure organic vs paid traffic on the site",
+          "Give the why: evaluate performance by source and attribute traffic, applications and hires to organic and paid"
+        ],
+        "must_not": [],
+        "why_needed": true,
+        "note": "Regression guard, and Naren's model of what 'explains the why' looks like."
+      }
+    },
+    {
+      "id": "N1104-12",
+      "turn": {
+        "thread": 13,
+        "position": 12,
+        "turn_id": "41"
+      },
+      "video_time": "27:23",
+      "screenshots": [
+        "27m35_t12_tracking-setup-answer.png",
+        "28m10_t12_tracking-setup-scrolled.png"
+      ],
+      "question": "What do I need to do to get tracking setup on Joveo?",
+      "context": "Last message. He was looking at pixel placement when he asked it.",
+      "breadth": "generic",
+      "topic": "tracking",
+      "naren_verdict": "wrong",
+      "naren_said": [
+        "this again is not entirely accurate because one of the components of this is also pixel placement",
+        "it needs to probably understand tracking as a concept and then map this to the response",
+        "I don't think tracking as an end to end concept is being understood",
+        "while I wouldn't say none of these are wrong, this just doesn't answer my question"
+      ],
+      "baseline": {
+        "outcome": "answered",
+        "intent": "procedure",
+        "scenario": "campaign_level_segmentation_and_tracking",
+        "answer": "Here is the general play to set up campaign-level tracking and segmentation on Joveo. You should run the following moves in this order:\n\n1. **Define Account Hierarchy and Campaign Allocation Parameters**: Establish the platform structural levels (Client/Account, Campaign, Job Group, Job) and outline operational requirements like dedicated channel budgets or geographic targeting.\n2. **Establish Master Tracking Documents, UTM Generators, and Offline Reports**: Utilize offline reports, master spreadsheets, or UTM generator tools to track campaign assets, job boards, or dynamic naming conventions that are not directly isolated in standard dashboards.\n3. **Enable API Extraction, Entity Mapping, and System Tracking Boundaries**: Set up stats APIs, define entity mapping logic between job groups and platform campaign IDs, and communicate system parameters like API pinging frequency or tracking start dates.",
+        "quote": "Like, we have something called the UTM generator on our end, which which means that we can actually go ahead and set it up for each job board.",
+        "asked_at": "2026-11-04T17:10:54.011Z",
+        "answered_at": "2026-11-04T17:11:18.429Z",
+        "seconds": 24
+      },
+      "expected": {
+        "must": [
+          "Cover tracking setup end to end from the client's side, including pixel placement",
+          "Answer the question asked (what the client has to do), not campaign segmentation/reporting structure"
+        ],
+        "must_not": [
+          "Answer with campaign-segmentation steps (account hierarchy, UTM generators, stats API) as if they were tracking setup"
+        ],
+        "why_needed": false,
+        "needs_outside_calls": "Naren suggested mapping tracking to existing documentation so the end-to-end concept is understood."
+      }
+    }
+  ],
+  "timeouts": [
+    {
+      "turn": {
+        "thread": 13,
+        "position": 8,
+        "turn_id": "37"
+      },
+      "question": "How does location targeting work on your end?",
+      "video_time": "21:26",
+      "screenshot": "21m30_t08_location-timeout.png",
+      "what_happened": "declined / deadline_exceeded after 30s. Naren re-asked the same words and got N1104-09 in 25s.",
+      "use": "Count it: 1 of 12 questions in a real session hit the deadline."
+    }
+  ],
+  "session_feedback": [
+    {
+      "theme": "generic_vs_specific",
+      "naren_said": "wherever it needs to be generic it needs to be generic and not specific to certain conversations ... wherever it's specific I think it works -- ATS specific and so on -- but it's more effort needed when it's more generic in nature",
+      "cases": [
+        "N1104-01",
+        "N1104-07",
+        "N1104-12"
+      ]
+    },
+    {
+      "theme": "certified_sources",
+      "naren_said": "link other existing certified sources like Cortex, where we know it's coming from the product team ... connect this to Cortex and other documentation so you can truly marry both elements",
+      "cases": [
+        "N1104-03",
+        "N1104-06",
+        "N1104-07",
+        "N1104-12"
+      ]
+    },
+    {
+      "theme": "explain_the_why",
+      "naren_said": "explain the why behind it -- that's what makes a real impact. For integration the why doesn't matter; for campaign management it does",
+      "cases": [
+        "N1104-03",
+        "N1104-09",
+        "N1104-11"
+      ]
+    },
+    {
+      "theme": "clarifying_questions",
+      "naren_said": "get it to clarify ... when the question is too wide, get it more specific to understand that you're answering their question. That's also what we do with customers",
+      "cases": [
+        "N1104-01",
+        "N1104-07"
+      ]
+    },
+    {
+      "theme": "bucket_the_situations",
+      "naren_said": "bucket the situations, otherwise it's a little random -- ATS candidate deduplication would come under a tracking bucket, others under integration, others under general campaign setup. If it's only to use, not required",
+      "cases": [],
+      "screenshots": [
+        "00m54_situations-list.png",
+        "01m30_situations-list-bucketing.png"
+      ]
+    },
+    {
+      "theme": "learning_tool",
+      "naren_said": "if this is to be a learning tool also, follow-up questions mean people will start to understand what are some of the questions to ask",
+      "cases": [
+        "N1104-07"
+      ]
+    }
+  ]
+}

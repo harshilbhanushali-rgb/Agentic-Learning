@@ -72,6 +72,39 @@ class GatewayError(Exception):
     pass
 
 
+class GatewayReplyNotJSON(GatewayError):
+    """A JSON-mode completion that `parse_json_reply` could not read. A subclass so a caller
+    can retry exactly this (a fresh generation usually parses) without retrying transport
+    faults, while every existing `except GatewayError` still catches it."""
+
+
+def parse_json_reply(content: str):
+    """Parse a JSON-mode completion, forgiving two formatting slips the model really makes.
+
+    Strict `json.loads` first, so every reply that parsed before parses identically now.
+    Only on failure, in order:
+      1. `strict=False` -- a raw newline/tab INSIDE a string ("Invalid control character").
+      2. the FIRST complete JSON value, ignoring what follows ("Extra data") -- the model
+         closed the object and then kept writing.
+    Measured 2026-11-06 on Ask Naren's writer (gemini-3.6-flash, JSON mode): 2 of 22
+    answers on the golden set failed with exactly these two errors, and each was a complete,
+    usable answer -- surfaced to the CSM as a service fault. Anything that is not JSON at
+    all still raises `json.JSONDecodeError`, as before.
+    """
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError as strict_error:
+        try:
+            return json.loads(content, strict=False)
+        except json.JSONDecodeError:
+            pass
+        try:
+            value, _end = json.JSONDecoder(strict=False).raw_decode(content.lstrip())
+            return value
+        except json.JSONDecodeError:
+            raise strict_error from None
+
+
 class _RateLimiter:
     """A shared token bucket pacing requests to a per-minute ceiling.
 
@@ -383,9 +416,9 @@ class GatewayClient:
             # third return value so none of the five callers change.
             meta = dict(data.get("usage") or {})
             meta["served_model"] = data.get("model")
-            return json.loads(content), meta
+            return parse_json_reply(content), meta
         except json.JSONDecodeError as e:
-            raise GatewayError(f"non-JSON from {model}: {e}\nRaw: {content[:400]}") from e
+            raise GatewayReplyNotJSON(f"non-JSON from {model}: {e}\nRaw: {content[:400]}") from e
 
     # -- embeddings --------------------------------------------------------------
 
@@ -806,9 +839,9 @@ class AsyncGatewayClient:
         try:
             meta = dict(data.get("usage") or {})
             meta["served_model"] = data.get("model")
-            return json.loads(content), meta
+            return parse_json_reply(content), meta
         except json.JSONDecodeError as e:
-            raise GatewayError(f"non-JSON from {model}: {e}\nRaw: {content[:400]}") from e
+            raise GatewayReplyNotJSON(f"non-JSON from {model}: {e}\nRaw: {content[:400]}") from e
 
     # -- embeddings --------------------------------------------------------------
 

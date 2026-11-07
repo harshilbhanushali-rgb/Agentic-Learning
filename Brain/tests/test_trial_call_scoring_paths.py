@@ -140,7 +140,8 @@ def test_chat_json_meta_carries_the_served_model_without_breaking_callers():
 
     src = inspect.getsource(trial_gateway.GatewayClient.chat_json)
     assert 'meta["served_model"] = data.get("model")' in src
-    assert "return json.loads(content), meta" in src, (
+    # The parse moved into `parse_json_reply` (2026-11-06, lenient JSON); the shape is the point.
+    assert "return parse_json_reply(content), meta" in src, (
         "chat_json must still return exactly two values")
 
     # every caller still destructures two values
