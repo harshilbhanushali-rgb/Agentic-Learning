@@ -4,6 +4,8 @@ import { scenarioLabel } from '@/lib/thread';
 
 import { answerBlocks } from './answerBlocks';
 import { boldSpans } from './boldSpans';
+import { CopyButton } from './CopyButton';
+import { plainAnswer } from './plainAnswer';
 
 function Inline({ text }: { text: string }) {
   return (
@@ -18,12 +20,12 @@ function Inline({ text }: { text: string }) {
 /** The answer as headings, lists and paragraphs (`answerBlocks`), all rendered as escaped text. */
 function AnswerBody({ text }: { text: string }) {
   return (
-    <div className="flex flex-col gap-3 text-[15px] leading-relaxed text-ink">
+    <div className="flex max-w-[68ch] flex-col gap-3 text-[16px] leading-[1.7] text-ink">
       {answerBlocks(text).map((block, i) => {
         switch (block.kind) {
           case 'heading':
             return (
-              <h3 key={i} className="mt-2 text-[15px] font-semibold text-ink first:mt-0">
+              <h3 key={i} className="mt-2 text-[16px] font-semibold text-ink first:mt-0">
                 <Inline text={block.text} />
               </h3>
             );
@@ -81,51 +83,50 @@ function AnswerBody({ text }: { text: string }) {
  */
 export function AnswerCard({ result }: { result: AskNarenAnswer }) {
   return (
-    <article className="flex flex-col gap-5 rounded-2xl rounded-tl-md border border-line-subtle bg-bg shadow-sm p-6">
+    // CHAT LAYOUT (2026-11-10, Vignesh: "close to Claude"): the answer is plain text, not a
+    // card. The quote stays on the page, in its own box, for the reason above.
+    <article className="flex flex-col gap-4">
       {result.my_reply && (
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-placeholder">
-            What you replied
-          </span>
-          <p className="text-[13px] leading-relaxed text-ink-2">{result.my_reply}</p>
+          <span className="text-[13px] font-semibold text-ink-2">What you replied</span>
+          <p className="text-[14px] leading-relaxed text-ink-2">{result.my_reply}</p>
         </div>
       )}
 
       <AnswerBody text={result.answer} />
 
-      <blockquote className="border-l-2 border-accent pl-4">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-placeholder">
-          What Naren actually said
-        </div>
-        <p className="mt-1.5 text-[13px] italic leading-relaxed text-ink-2">
+      <figure className="flex flex-col gap-2 rounded-[14px] border border-line bg-surface px-[18px] py-3.5">
+        <figcaption className="text-[13px] font-semibold text-primary">
+          What Naren said on the call
+        </figcaption>
+        <blockquote className="text-[14.5px] leading-relaxed text-ink">
           &ldquo;{result.quote}&rdquo;
-        </p>
-      </blockquote>
-
-      <footer className="flex flex-col gap-1.5 border-t border-line-subtle pt-4 text-[11px] text-ink-placeholder">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="font-semibold uppercase tracking-[0.06em]">Situation</span>
-          <span className="font-medium text-ink-2">
-            {scenarioLabel(result.citation.scenario_key)}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="font-semibold uppercase tracking-[0.06em]">Source</span>
-          {/* Raw filename for now. Issue #4 resolves `label` to an account and a date; this
-              renders whatever the service put in `label`, so that lands with no change here. */}
-          <span className="break-all font-medium text-ink-2">{result.citation.label}</span>
-        </div>
-        {result.drawn_from && result.drawn_from.length > 1 && (
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="font-semibold uppercase tracking-[0.06em]">
-              Drawn from {result.drawn_from.length} calls
-            </span>
-            <span className="font-medium text-ink-2">
-              {result.drawn_from.map((call) => call.label).join(' · ')}
-            </span>
+        </blockquote>
+        <dl className="flex flex-col gap-1 text-[12.5px] leading-relaxed text-ink-2">
+          <div className="flex flex-wrap gap-x-1.5">
+            <dt>Topic:</dt>
+            <dd className="font-medium text-ink">{scenarioLabel(result.citation.scenario_key)}</dd>
           </div>
-        )}
-      </footer>
+          <div className="flex flex-wrap gap-x-1.5">
+            <dt>Call:</dt>
+            {/* Raw filename for now. Issue #4 resolves `label` to an account and a date; this
+                renders whatever the service put in `label`, so that lands with no change here. */}
+            <dd className="break-all font-medium text-ink">{result.citation.label}</dd>
+          </div>
+          {result.drawn_from && result.drawn_from.length > 1 && (
+            <div className="flex flex-wrap gap-x-1.5">
+              <dt>Drawn from {result.drawn_from.length} calls:</dt>
+              <dd className="font-medium text-ink">
+                {result.drawn_from.map((call) => call.label).join(' · ')}
+              </dd>
+            </div>
+          )}
+        </dl>
+      </figure>
+
+      <div className="-ml-2.5">
+        <CopyButton text={plainAnswer(result.answer)} />
+      </div>
     </article>
   );
 }

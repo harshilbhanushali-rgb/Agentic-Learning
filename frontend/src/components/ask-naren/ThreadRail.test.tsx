@@ -30,9 +30,9 @@ describe('ThreadRail', () => {
   it('always offers New thread', async () => {
     const user = userEvent.setup();
     const { onNew } = renderRail({ threads: [] });
-    await user.click(screen.getByRole('button', { name: /New thread/ }));
+    await user.click(screen.getByRole('button', { name: /New question/ }));
     expect(onNew).toHaveBeenCalledOnce();
-    expect(screen.getByText(/No threads yet/)).toBeInTheDocument();
+    expect(screen.getByText(/No questions yet/)).toBeInTheDocument();
   });
 
   it('groups by calendar day in the reader’s zone, with a count and a relative time', () => {

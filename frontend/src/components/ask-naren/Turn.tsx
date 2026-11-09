@@ -4,6 +4,7 @@ import { AnswerCard } from '@/components/ask-naren/AnswerCard';
 import { DeclineNotice } from '@/components/ask-naren/DeclineNotice';
 import { ClarifyPrompt } from '@/components/ask-naren/ClarifyPrompt';
 import { RenderedAnswer } from '@/components/ask-naren/RenderedAnswer';
+import { PRODUCT_NAME } from '@/components/ask-naren/N10Mark';
 
 /**
  * The one place a response's `outcome` is turned into a component.
@@ -39,11 +40,13 @@ export function Outcome({ result }: { result: AskNarenResponse }) {
 /** What the CSM typed, above whatever came back: a bubble on the right, as in a chat. */
 export function Asked({ message, when }: { message: string; when?: string }) {
   return (
-    <div className="flex flex-col items-end gap-1">
-      <span className="px-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-placeholder">
-        You asked{when ? <span className="font-normal normal-case tracking-normal"> · {when}</span> : null}
+    // Chat convention: the question is a grey bubble on the right with no label. "You asked"
+    // and the time stay for screen readers, and the time shows on hover.
+    <div className="flex flex-col items-end" title={when}>
+      <span className="sr-only">
+        You asked{when ? <span> · {when}</span> : null}
       </span>
-      <p className="max-w-[85%] whitespace-pre-line rounded-2xl rounded-tr-md bg-primary-surface px-4 py-2.5 text-[14px] leading-relaxed text-ink">
+      <p className="max-w-[80%] whitespace-pre-line rounded-[18px] bg-surface-raised px-[18px] py-3 text-[15px] leading-relaxed text-ink">
         {message}
       </p>
     </div>
@@ -58,9 +61,9 @@ export function Asked({ message, when }: { message: string; when?: string }) {
  */
 export function NotSavedNote() {
   return (
-    <p className="border-l-2 border-warning pl-4 text-[11px] leading-relaxed text-ink-2">
+    <p className="rounded-md bg-warning-surface px-4 py-2.5 text-[12px] leading-relaxed text-ink-2">
       <span className="font-semibold text-ink">Not saved to this thread.</span>{' '}
-      Ask Naren replied, but the reply could not be stored, so it will not be here when you
+      {PRODUCT_NAME} replied, but the reply could not be stored, so it will not be here when you
       come back. Your next question starts a new thread, so nothing is answered from a thread
       with a gap in it.
     </p>

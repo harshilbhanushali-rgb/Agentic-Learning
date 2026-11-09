@@ -57,8 +57,14 @@ describe('db()', () => {
   it('throws on first use, naming the variable, when it is not set', () => {
     vi.stubEnv('ASK_NAREN_DATABASE_URL', '');
     expect(() => db()).toThrow(/ASK_NAREN_DATABASE_URL is not set\. Sign-in needs/);
+    // With no admin login either, the CLI falls back to the app's and names that one.
     vi.stubEnv('ASK_NAREN_ADMIN_DATABASE_URL', '');
-    expect(() => adminDb()).toThrow(/ASK_NAREN_ADMIN_DATABASE_URL is not set\. The users CLI needs/);
+    expect(() => adminDb()).toThrow(/ASK_NAREN_DATABASE_URL is not set\. Sign-in needs/);
+  });
+
+  it('gives the CLI the app’s own login when no admin login is set (ADR 0016)', () => {
+    vi.stubEnv('ASK_NAREN_ADMIN_DATABASE_URL', '');
+    expect(adminDb()).toBe(db());
   });
 
   it('checks the role once, before the first query, and remembers a pass', async () => {

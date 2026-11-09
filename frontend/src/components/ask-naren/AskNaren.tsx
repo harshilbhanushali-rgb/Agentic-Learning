@@ -1,10 +1,14 @@
 'use client';
 
 import type { AskNarenDecline, AskNarenResponse } from '@/types';
+import type { ReactNode } from 'react';
 import type { ThreadSummaryJson } from '@/lib/thread';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
+import { N10Mark, PRODUCT_NAME } from '@/components/ask-naren/N10Mark';
+import { SIDEBAR_SLOT_ID } from '@/components/sidebarSlot';
 import { SituationForm } from '@/components/ask-naren/SituationForm';
 import { DeclineNotice } from '@/components/ask-naren/DeclineNotice';
 import { ThreadRail } from '@/components/ask-naren/ThreadRail';
@@ -14,7 +18,6 @@ import { Asked, NotSavedNote, Outcome } from '@/components/ask-naren/Turn';
 import { relativeTime } from '@/components/ask-naren/threadTime';
 import { stashAndSignIn, takeStash } from '@/components/ask-naren/draftStash';
 import * as api from '@/components/ask-naren/threadClient';
-import { SignOutButton } from '@/components/auth/SignOutButton';
 import { carriedScenario, scenarioLabel } from '@/lib/thread';
 
 /**
@@ -106,6 +109,12 @@ export function AskNaren({
     const tick = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(tick);
   }, []);
+
+  // The thread list lives in the app shell's sidebar (chat layout, 2026-11-10), portalled into
+  // the slot the shell renders. `undefined` until mounted, so nothing jumps from the page into
+  // the sidebar; `null` when there is no shell (tests render this alone), which shows it inline.
+  const [slot, setSlot] = useState<HTMLElement | null | undefined>(undefined);
+  useEffect(() => { setSlot(document.getElementById(SIDEBAR_SLOT_ID)); }, []);
 
   const refreshRail = useCallback(async () => {
     const r = await api.fetchThreads();
@@ -301,127 +310,156 @@ export function AskNaren({
     conversation.threadId !== null && !conversation.detached && turns.length > 0 && opening === null;
   const scenario = continuing ? carriedScenario(turns) : '';
   const lastAsked = turns.length ? new Date(turns[turns.length - 1].askedAt) : null;
-  const empty = threads.length === 0 && turns.length === 0 && asking === null && opening === null;
+  // The empty page: no turns on screen and nothing in flight, whether or not the CSM has
+  // older threads in the sidebar. Sign-in lands here (#39).
+  const home = turns.length === 0 && asking === null && opening === null;
+  const firstName = user.name.trim().split(/\s+/)[0] ?? '';
+
+  const rail = (
+    <ThreadRail
+      threads={threads}
+      activeId={opening ?? conversation.threadId}
+      now={now}
+      stale={railStale}
+      onOpen={id => void openThread(id)}
+      onNew={newThread}
+      onRename={rename}
+      onRemove={remove}
+    />
+  );
+
+  // Not turns: nothing was asked. Shown once, where the CSM is looking.
+  const notices = (
+    <>
+      {help && <HelpCard onClose={() => setHelp(false)} />}
+      {flash && <DeclineNotice result={flash} />}
+    </>
+  );
 
   return (
-    // CHAT LAYOUT (operator, 2026-10-10): the conversation reads top to bottom with the newest
-    // answer last, and the box is pinned under it -- the shape every chat tool has taught
-    // CSMs. The rail stays where it was. min-h keeps the box at the bottom of an empty page.
-    <div className="mx-auto grid min-h-[calc(100vh-var(--topbar-height))] max-w-[1180px] grid-cols-1 gap-8 px-6 md:grid-cols-[240px_minmax(0,1fr)]">
-      <div className="pt-6">
-        <ThreadRail
-          threads={threads}
-          activeId={opening ?? conversation.threadId}
-          now={now}
-          stale={railStale}
-          onOpen={id => void openThread(id)}
-          onNew={newThread}
-          onRename={rename}
-          onRemove={remove}
-        />
-      </div>
+    // CHAT LAYOUT (2026-11-10, Vignesh: "close to Claude"): the thread list is in the sidebar;
+    // an empty page is a centred greeting, box and starting points; a conversation reads top to
+    // bottom with the newest reply last and the box pinned under it.
+    <>
+      {slot ? createPortal(rail, slot) : null}
+      <div className="flex min-h-[calc(100vh-var(--topbar-height))] flex-col">
+        {slot === null && <div className="mx-auto w-full max-w-[760px] px-6 pt-6">{rail}</div>}
 
-      <div className="flex min-h-[calc(100vh-var(--topbar-height))] min-w-0 flex-col">
-        <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-line-subtle py-5">
-          <div className="flex items-baseline gap-3">
-            <h1 className="text-lg font-bold tracking-[-0.01em] text-ink">Ask Naren</h1>
-            <span className="hidden text-[12px] text-ink-placeholder sm:inline">
-              Answers from Naren&rsquo;s real calls, with the call they came from
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-ink-placeholder">
-            <span>Signed in as {user.name}</span>
-            <span aria-hidden="true">·</span>
-            <SignOutButton />
-          </div>
-        </header>
-
-        <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col gap-6 py-6">
-          {empty && !help && <CoverageStarters />}
-
-          {opening !== null ? (
-            <p className="flex items-center gap-3 text-[13px] text-ink-2" role="status">
-              <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden="true" />
-              Opening thread&hellip;
+        {home ? (
+          <div className="mx-auto flex w-full max-w-[720px] flex-1 flex-col items-center justify-center gap-7 px-6 pb-14 pt-16">
+            <div className="flex items-center gap-3.5">
+              <N10Mark size={44} />
+              <h1 className="text-balance text-[30px] font-bold leading-tight tracking-[-0.025em] text-ink">
+                {firstName ? `Hi ${firstName}, what did the client ask?` : 'What did the client ask?'}
+              </h1>
+            </div>
+            {note && (
+              <p role="status" className="text-center text-[13px] leading-relaxed text-ink-2">
+                {note}
+              </p>
+            )}
+            <SituationForm large value={draft} onChange={setDraft} onSubmit={ask} busy={asking !== null} />
+            {(help || flash) && <div className="flex w-full flex-col gap-4">{notices}</div>}
+            {!help && <CoverageStarters onPick={setDraft} />}
+            <p className="max-w-[620px] text-center text-[13px] leading-relaxed text-ink-2">
+              {PRODUCT_NAME} answers from Naren&rsquo;s real client calls. Strongest on getting
+              clients contracted, integrated and live; thinner on rescuing a campaign that&rsquo;s
+              already running. When his calls don&rsquo;t cover something, it says so instead of
+              guessing.
             </p>
-          ) : (
-            (turns.length > 0 || asking !== null) && (
-              <section className="flex flex-col gap-8" aria-live="polite" aria-busy={asking !== null}>
-                {turns.map(turn => (
-                  <div key={turn.key} className="flex flex-col gap-3">
-                    <Asked
-                      message={turn.question}
-                      when={now ? relativeTime(new Date(turn.askedAt), now) : undefined}
-                    />
-                    <Outcome result={turn.response} />
-                    {turn.notSaved && <NotSavedNote />}
-                  </div>
-                ))}
-
-                {asking !== null && (
-                  <div className="flex flex-col gap-3">
-                    <Asked message={asking} />
-                    <div className="flex w-fit items-center gap-3 rounded-2xl rounded-bl-md border border-line-subtle bg-bg px-5 py-3.5">
-                      <span
-                        className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent"
-                        aria-hidden="true"
-                      />
-                      <span className="text-[13px] text-ink-2">
-                        Searching Naren&rsquo;s calls for the closest exchange&hellip;
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </section>
-            )
-          )}
-
-          {help && <HelpCard onClose={() => setHelp(false)} />}
-
-          {flash && <DeclineNotice result={flash} />}
-
-          <div ref={bottom} aria-hidden="true" />
-        </div>
-
-        <div className="sticky bottom-0 mx-auto flex w-full max-w-[760px] flex-col gap-2 bg-surface pb-4 pt-2">
-          {continuing && now && lastAsked && (
-            // Visible on purpose (#39): a stale carried scenario is the known wrong-answer
-            // risk, and only the CSM can tell that it is no longer their client's situation.
-            <p className="px-2 text-[12px] leading-relaxed text-ink-2">
-              {scenario ? (
-                <>
-                  Continuing: <span className="font-semibold text-ink">{scenarioLabel(scenario)}</span>
-                </>
+          </div>
+        ) : (
+          <>
+            <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col gap-6 px-6 py-8">
+              {opening !== null ? (
+                <p className="flex items-center gap-3 text-[14px] text-ink-2" role="status">
+                  <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-primary" aria-hidden="true" />
+                  Opening thread&hellip;
+                </p>
               ) : (
-                'Continuing this thread'
+                <section className="flex flex-col gap-8" aria-live="polite" aria-busy={asking !== null}>
+                  {turns.map(turn => (
+                    <div key={turn.key} className="flex flex-col gap-4">
+                      <Asked
+                        message={turn.question}
+                        when={now ? relativeTime(new Date(turn.askedAt), now) : undefined}
+                      />
+                      <Reply>
+                        <Outcome result={turn.response} />
+                      </Reply>
+                      {turn.notSaved && <NotSavedNote />}
+                    </div>
+                  ))}
+
+                  {asking !== null && (
+                    <div className="flex flex-col gap-4">
+                      <Asked message={asking} />
+                      <Reply>
+                        <p className="flex items-center gap-3 pt-0.5 text-[15px] text-ink-2">
+                          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-primary" aria-hidden="true" />
+                          Searching Naren&rsquo;s calls for the closest exchange&hellip;
+                        </p>
+                      </Reply>
+                    </div>
+                  )}
+                </section>
               )}
-              , last asked {relativeTime(lastAsked, now)}.{' '}
-              <span className="text-ink-placeholder">
-                A different situation?{' '}
-                <button
-                  type="button"
-                  onClick={newThread}
-                  className="underline underline-offset-2 transition-colors duration-fast ease-out-quart hover:text-primary"
-                >
-                  Start a new thread
-                </button>
-                .
-              </span>
-            </p>
-          )}
-          {conversation.detached && (
-            <p className="px-2 text-[12px] leading-relaxed text-ink-2">
-              The last answer was not saved, so your next question starts a new thread.
-            </p>
-          )}
-          {note && (
-            <p role="status" className="px-2 text-[12px] leading-relaxed text-ink-2">
-              {note}
-            </p>
-          )}
-          <SituationForm value={draft} onChange={setDraft} onSubmit={ask} busy={asking !== null} />
-        </div>
+
+              {notices}
+
+              <div ref={bottom} aria-hidden="true" />
+            </div>
+
+            <div className="sticky bottom-0 mx-auto flex w-full max-w-[760px] flex-col gap-2 bg-surface px-6 pb-4 pt-2">
+              {continuing && now && lastAsked && (
+                // Visible on purpose (#39): a stale carried scenario is the known wrong-answer
+                // risk, and only the CSM can tell that it is no longer their situation.
+                <p className="px-2 text-[13px] leading-relaxed text-ink-2">
+                  {scenario ? (
+                    <>
+                      Following up on <span className="font-semibold text-ink">{scenarioLabel(scenario)}</span>
+                    </>
+                  ) : (
+                    'Following up in this thread'
+                  )}
+                  , last asked {relativeTime(lastAsked, now)}. A different scenario?{' '}
+                  <button
+                    type="button"
+                    onClick={newThread}
+                    className="font-semibold text-primary underline underline-offset-2 transition-colors duration-fast ease-out-quart hover:text-primary-hover"
+                  >
+                    Start a new question
+                  </button>
+                  .
+                </p>
+              )}
+              {conversation.detached && (
+                <p className="px-2 text-[13px] leading-relaxed text-ink-2">
+                  The last answer was not saved, so your next question starts a new thread.
+                </p>
+              )}
+              {note && (
+                <p role="status" className="px-2 text-[13px] leading-relaxed text-ink-2">
+                  {note}
+                </p>
+              )}
+              <SituationForm value={draft} onChange={setDraft} onSubmit={ask} busy={asking !== null} />
+            </div>
+          </>
+        )}
       </div>
+    </>
+  );
+}
+
+/** One reply from N10: the mark beside whatever came back, the way a chat shows who is talking. */
+function Reply({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-3.5">
+      <span className="pt-1">
+        <N10Mark size={26} />
+      </span>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }

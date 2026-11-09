@@ -8,7 +8,7 @@ import { Asked, NotSavedNote, Outcome } from './Turn';
 
 describe('Outcome', () => {
   it.each([
-    ['answered', answer(), 'What Naren actually said'],
+    ['answered', answer(), 'What Naren said on the call'],
     ['declined', decline('no_close_match'), 'No grounded answer'],
     ['clarify', clarify(), 'One thing first'],
     ['rendered', maximal.show_exchange, 'The real exchange'],

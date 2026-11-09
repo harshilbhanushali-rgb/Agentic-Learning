@@ -124,13 +124,16 @@ describe('ask_naren_app (the web app)', () => {
     await deleteSession(app(), token);
   });
 
-  it('cannot create a user or set a password -- that is the admin credential', async () => {
-    await expect(
-      app().query(`insert into ask_naren.users (email, name, password_hash) values ('x@joveo.com', 'X', 'h')`),
-    ).rejects.toEqual(denied);
-    await addUser(admin(), { email: 'priya@joveo.com', name: 'Priya', password: 'pw-for-tests-1' });
-    await expect(app().query(`update ask_naren.users set password_hash = 'h'`)).rejects.toEqual(denied);
-    await expect(app().query(`update ask_naren.users set disabled_at = null`)).rejects.toEqual(denied);
+  it('manages users for /admin (ADR 0016), but cannot change who a user is', async () => {
+    await addUser(app(), { email: 'priya@joveo.com', name: 'Priya', password: 'pw-for-tests-1' });
+    expect(await setPassword(app(), 'priya@joveo.com', 'pw-for-tests-2')).toBe(0);
+    await disableUser(app(), 'priya@joveo.com');
+    await enableUser(app(), 'priya@joveo.com');
+    expect((await listUsers(app()))[0]).toMatchObject({ email: 'priya@joveo.com', sessions: 0 });
+    // Email and name are fixed once created; users are never deleted (threads outlive them).
+    await expect(app().query(`update ask_naren.users set email = 'other@joveo.com'`)).rejects.toEqual(denied);
+    await expect(app().query(`update ask_naren.users set name = 'Other'`)).rejects.toEqual(denied);
+    await expect(app().query('delete from ask_naren.users')).rejects.toEqual(denied);
   });
 
   it('cannot rewrite history: turns are append-only, threads are never hard-deleted', async () => {

@@ -3,14 +3,15 @@ import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import AppShell from '@/components/AppShell';
 import { getCurrentUser } from '@/server/auth/current-user';
+import { isAdmin } from '@/server/auth/admin-list';
 import './globals.css';
 
 const geist = GeistSans;
 const geistMono = GeistMono;
 
 export const metadata = {
-  title: 'Joveo CS Platform',
-  description: 'Knowledge platform for Customer Champions',
+  title: 'N10 · Joveo',
+  description: 'Answers from Naren’s real client calls, for Support and Implementation',
 };
 
 /**
@@ -19,10 +20,10 @@ export const metadata = {
  * no user rather than failing every page; the page underneath reports the outage properly
  * (issue #40). `getCurrentUser` is cached per request, so this is not a second read.
  */
-async function sidebarUser(): Promise<{ name: string; email: string } | null> {
+async function sidebarUser(): Promise<{ name: string; email: string; isAdmin: boolean } | null> {
   try {
     const user = await getCurrentUser();
-    return user ? { name: user.name, email: user.email } : null;
+    return user ? { name: user.name, email: user.email, isAdmin: isAdmin(user.email) } : null;
   } catch {
     return null;
   }

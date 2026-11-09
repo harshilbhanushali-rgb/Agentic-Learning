@@ -2,6 +2,8 @@
 
 import { useRef, useEffect } from 'react';
 
+import { PRODUCT_NAME } from '@/components/ask-naren/N10Mark';
+
 /**
  * The one input, as a chat composer pinned under the conversation.
  *
@@ -18,11 +20,14 @@ export function SituationForm({
   onChange,
   onSubmit,
   busy,
+  large = false,
 }: {
   value: string;
   onChange: (next: string) => void;
   onSubmit: () => void;
   busy: boolean;
+  /** The empty page's centred box: taller, with the first-question prompt. */
+  large?: boolean;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -42,13 +47,15 @@ export function SituationForm({
 
   return (
     <form
-      className="flex flex-col gap-1.5"
+      className="flex w-full flex-col gap-2"
       onSubmit={e => { e.preventDefault(); if (canSubmit) onSubmit(); }}
     >
       <label htmlFor="situation" className="sr-only">
-        The situation
+        What did the client ask?
       </label>
-      <div className="flex items-end gap-2 rounded-2xl border border-line bg-bg px-4 py-2.5 shadow-sm transition-colors duration-fast ease-out-quart focus-within:border-primary">
+      <div
+        className={`flex items-end gap-3 rounded-[22px] border border-line bg-bg shadow-ambient transition-colors duration-fast ease-out-quart focus-within:border-primary ${large ? 'px-5 pb-3 pt-4' : 'py-2.5 pl-5 pr-2.5'}`}
+      >
         <textarea
           id="situation"
           ref={ref}
@@ -60,22 +67,25 @@ export function SituationForm({
               if (canSubmit) onSubmit();
             }
           }}
-          rows={1}
-          placeholder="What did the client say, and what do you need to respond to?"
+          rows={large ? 3 : 1}
+          placeholder={large ? 'What did the client ask? Paste their words.' : 'Ask a follow-up, or paste what the client said next'}
           disabled={busy}
-          className="max-h-48 min-h-[24px] w-full resize-none bg-transparent py-1 text-sm leading-relaxed text-ink placeholder:text-ink-placeholder focus:outline-none disabled:opacity-60"
+          className={`max-h-48 w-full resize-none bg-transparent py-1.5 leading-relaxed text-ink placeholder:text-ink-placeholder focus:outline-none disabled:opacity-60 ${large ? 'min-h-[80px] text-[17px]' : 'min-h-[24px] text-[15px]'}`}
         />
         <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex h-8 shrink-0 items-center rounded-full bg-primary px-4 text-[11px] font-bold uppercase tracking-[0.03em] text-white transition-colors duration-fast ease-out-quart hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-placeholder"
+          aria-label={busy ? 'Asking…' : `Ask ${PRODUCT_NAME}`}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white transition-colors duration-fast ease-out-quart hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-placeholder"
         >
-          {busy ? 'Asking…' : 'Ask Naren'}
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 19V5M5 12l7-7 7 7" />
+          </svg>
         </button>
       </div>
-      <span className="px-2 text-center text-[11px] text-ink-placeholder">
-        Grounded in Naren&rsquo;s real calls &middot; Enter to send, Shift+Enter for a new line
-        &middot; Type <span className="font-medium text-ink-2">/help</span> for what to ask
+      <span className="px-2 text-center text-[12px] text-ink-2">
+        Enter to send, Shift+Enter for a new line &middot; Type{' '}
+        <span className="font-semibold text-ink">/help</span> for what to ask
       </span>
     </form>
   );

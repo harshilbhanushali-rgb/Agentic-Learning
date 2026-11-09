@@ -90,10 +90,11 @@ export function db(): Db {
 }
 
 /**
- * The admin CLI's connection (role `ask_naren_admin`, issue #38). A separate credential so
- * that the web app's cannot create a user or set a password -- a compromised app must not be
- * able to mint itself a permanent sign-in.
+ * The users CLI's connection. Role `ask_naren_admin` when ASK_NAREN_ADMIN_DATABASE_URL is
+ * set; otherwise the app's own, which can manage users since ADR 0016 (one credential).
  */
 export function adminDb(): Db {
-  return connect('ASK_NAREN_ADMIN_DATABASE_URL', 'The users CLI');
+  return process.env.ASK_NAREN_ADMIN_DATABASE_URL
+    ? connect('ASK_NAREN_ADMIN_DATABASE_URL', 'The users CLI')
+    : db();
 }

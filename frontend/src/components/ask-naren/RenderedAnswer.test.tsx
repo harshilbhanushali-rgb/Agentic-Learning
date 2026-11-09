@@ -38,7 +38,7 @@ describe('RenderedAnswer', () => {
 describe('discovery', () => {
   it('leads with what Ask Naren is, and folds the full list behind a toggle', () => {
     render(<RenderedAnswer result={minimal.discovery} />);
-    expect(screen.getByRole('region', { name: 'What Ask Naren can do' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'What N10 can do' })).toBeInTheDocument();
     expect(screen.getByText(/See all \d+ situations/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close help' })).not.toBeInTheDocument();
   });

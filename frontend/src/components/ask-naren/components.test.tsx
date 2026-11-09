@@ -17,7 +17,7 @@ describe('AnswerCard', () => {
     // The quote is on the page, not behind a disclosure: the verification of that quote is
     // the reason to trust the answer at all.
     expect(screen.getByText(/Let us look at delivery before we touch the budget\./)).toBeInTheDocument();
-    expect(screen.getByText('What Naren actually said')).toBeInTheDocument();
+    expect(screen.getByText('What Naren said on the call')).toBeInTheDocument();
     // Naming the scenario is what lets a CSM catch an inherited identifier going stale.
     expect(screen.getByText('performance pushback')).toBeInTheDocument();
     expect(screen.getByText('Account A · March 2024')).toBeInTheDocument();
@@ -78,11 +78,11 @@ describe('DeclineNotice', () => {
     // Collapsing these is how a capacity problem ends up wearing a quality problem's
     // clothes -- the tool looks like it is working and simply declining a lot.
     const { rerender } = render(<DeclineNotice result={decline('service_busy')} />);
-    expect(screen.getByText('Ask Naren is busy')).toBeInTheDocument();
+    expect(screen.getByText('N10 is busy')).toBeInTheDocument();
     expect(screen.getByText(/nothing is broken/)).toBeInTheDocument();
 
     rerender(<DeclineNotice result={decline('service_unreachable')} />);
-    expect(screen.getByText('Ask Naren is unavailable')).toBeInTheDocument();
+    expect(screen.getByText('N10 is unavailable')).toBeInTheDocument();
   });
 
   it('tells a CSM when rewording cannot help', () => {
@@ -100,7 +100,7 @@ describe('DeclineNotice', () => {
 describe('SituationForm', () => {
   it('focuses the textarea on mount', () => {
     render(<SituationForm value="" onChange={vi.fn()} onSubmit={vi.fn()} busy={false} />);
-    expect(document.activeElement).toBe(screen.getByLabelText('The situation'));
+    expect(document.activeElement).toBe(screen.getByLabelText('What did the client ask?'));
   });
 
   it('reports what was typed', async () => {
@@ -108,7 +108,7 @@ describe('SituationForm', () => {
     const onChange = vi.fn();
     render(<SituationForm value="" onChange={onChange} onSubmit={vi.fn()} busy={false} />);
 
-    await user.type(screen.getByLabelText('The situation'), 'flat');
+    await user.type(screen.getByLabelText('What did the client ask?'), 'flat');
     expect(onChange).toHaveBeenCalled();
   });
 
@@ -118,10 +118,10 @@ describe('SituationForm', () => {
     const { rerender } = render(
       <SituationForm value="" onChange={vi.fn()} onSubmit={onSubmit} busy={false} />,
     );
-    expect(screen.getByRole('button', { name: 'Ask Naren' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Ask N10' })).toBeDisabled();
 
     rerender(<SituationForm value="   " onChange={vi.fn()} onSubmit={onSubmit} busy={false} />);
-    screen.getByLabelText('The situation').focus();
+    screen.getByLabelText('What did the client ask?').focus();
     await user.keyboard('{Enter}');
     expect(onSubmit).not.toHaveBeenCalled();
   });
@@ -132,7 +132,7 @@ describe('SituationForm', () => {
     render(
       <SituationForm value="applies are flat" onChange={vi.fn()} onSubmit={onSubmit} busy={false} />,
     );
-    screen.getByLabelText('The situation').focus();
+    screen.getByLabelText('What did the client ask?').focus();
 
     await user.keyboard('{Shift>}{Enter}{/Shift}');
     expect(onSubmit).not.toHaveBeenCalled();
@@ -147,7 +147,7 @@ describe('SituationForm', () => {
     render(
       <SituationForm value="applies are flat" onChange={vi.fn()} onSubmit={onSubmit} busy={false} />,
     );
-    await user.click(screen.getByRole('button', { name: 'Ask Naren' }));
+    await user.click(screen.getByRole('button', { name: 'Ask N10' }));
     expect(onSubmit).toHaveBeenCalledOnce();
   });
 
@@ -159,7 +159,7 @@ describe('SituationForm', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Asking…' })).toBeDisabled();
-    expect(screen.getByLabelText('The situation')).toBeDisabled();
+    expect(screen.getByLabelText('What did the client ask?')).toBeDisabled();
 
     await user.keyboard('{Control>}{Enter}{/Control}');
     expect(onSubmit).not.toHaveBeenCalled();

@@ -34,28 +34,33 @@ beforeEach(() => {
 });
 
 describe('AppShell', () => {
-  it('renders its children and one navigation item', () => {
-    renderShell();
+  it('renders its children, the N10 brand linking home, and the slot the page fills', () => {
+    const { container } = renderShell();
     expect(screen.getByText('page content')).toBeInTheDocument();
-    const nav = screen.getByRole('navigation', { name: 'Pages' });
-    expect(nav.querySelectorAll('a')).toHaveLength(1);
-    expect(screen.getByRole('link', { name: 'Ask Naren' })).toHaveAttribute('href', '/ask-naren');
+    expect(screen.getByRole('link', { name: 'N10 home' })).toHaveAttribute('href', '/ask-naren');
+    // One live page, so no page nav: the thread list is portalled into the slot instead.
+    expect(screen.queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
+    expect(container.querySelector('#sidebar-slot')).not.toBeNull();
   });
 
-  it('marks Ask Naren current by exact match and by prefix, and not elsewhere', () => {
-    const { unmount } = renderShell();
-    expect(screen.getByRole('link', { name: 'Ask Naren' })).toHaveAttribute('aria-current', 'page');
+  it('links to Manage users for an admin only', () => {
+    const { unmount } = render(
+      <AppShell user={{ name: 'Asha Rao', email: 'asha.rao@joveo.com', isAdmin: true }}>
+        <p>page content</p>
+      </AppShell>,
+    );
+    expect(screen.getByRole('link', { name: 'Manage users' })).toHaveAttribute('href', '/admin');
     unmount();
-
-    pathname = '/ask-naren/anything';
-    const second = renderShell();
-    expect(screen.getByRole('link', { name: 'Ask Naren' })).toHaveAttribute('aria-current', 'page');
-    second.unmount();
-
-    // A route that merely starts with the same letters is not the page.
-    pathname = '/ask-narenx';
     renderShell();
-    expect(screen.getByRole('link', { name: 'Ask Naren' })).not.toHaveAttribute('aria-current');
+    expect(screen.queryByRole('link', { name: 'Manage users' })).not.toBeInTheDocument();
+  });
+
+  it('offers sign out beside the signed-in user, and not when nobody is signed in', () => {
+    const { unmount } = renderShell();
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+    unmount();
+    renderShell(null);
+    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument();
   });
 
   it('has no mode switch: Ask Naren renders the same in both modes', () => {
@@ -95,7 +100,6 @@ describe('AppShell signed-in user', () => {
     expect(container.querySelector('.sidebar-user')).not.toHaveAttribute('title');
     await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
     expect(container.querySelector('.sidebar-user')).toHaveAttribute('title', 'Asha Rao · asha.rao@joveo.com');
-    expect(screen.getByRole('link', { name: 'Ask Naren' })).toHaveAttribute('title', 'Ask Naren');
   });
 });
 
@@ -108,15 +112,15 @@ describe('AppShell sidebar', () => {
 
     await user.click(toggle);
     expect(container.querySelector('.app-layout')).toHaveClass('sidebar-collapsed');
-    expect(localStorage.getItem('cs-sidebar')).toBe('closed');
+    expect(localStorage.getItem('n10-sidebar')).toBe('closed');
 
     await user.click(screen.getByRole('button', { name: 'Expand sidebar' }));
     expect(container.querySelector('.app-layout')).not.toHaveClass('sidebar-collapsed');
-    expect(localStorage.getItem('cs-sidebar')).toBe('open');
+    expect(localStorage.getItem('n10-sidebar')).toBe('open');
   });
 
   it('restores a collapsed sidebar', async () => {
-    localStorage.setItem('cs-sidebar', 'closed');
+    localStorage.setItem('n10-sidebar', 'closed');
     const { container } = renderShell();
     expect(await screen.findByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
     expect(container.querySelector('.app-layout')).toHaveClass('sidebar-collapsed');

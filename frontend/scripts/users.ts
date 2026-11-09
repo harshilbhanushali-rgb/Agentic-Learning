@@ -22,8 +22,8 @@ if (!argv.length || argv.includes('--help')) {
   console.log(USAGE);
   process.exit(argv.length ? 0 : 2);
 }
-if (!process.env.ASK_NAREN_ADMIN_DATABASE_URL) {
-  console.error('ASK_NAREN_ADMIN_DATABASE_URL is not set -- in the environment or .env.local.');
+if (!process.env.ASK_NAREN_ADMIN_DATABASE_URL && !process.env.ASK_NAREN_DATABASE_URL) {
+  console.error('Neither ASK_NAREN_ADMIN_DATABASE_URL nor ASK_NAREN_DATABASE_URL is set -- in the environment or .env.local.');
   process.exit(1);
 }
 

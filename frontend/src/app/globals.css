@@ -27,11 +27,11 @@
   --color-ink-2:             oklch(0.420 0.010 256);
   --color-ink-placeholder:   oklch(0.448 0.010 256); /* AA on bg (~4.7:1); carries meta text */
 
-  --color-primary:           oklch(0.428 0.198 256);
-  --color-primary-hover:     oklch(0.372 0.208 256);
-  --color-primary-active:    oklch(0.322 0.215 256);
-  --color-primary-surface:   oklch(0.948 0.034 256);
-  --color-primary-subtle:    oklch(0.968 0.020 256);
+  --color-primary:           oklch(0.505 0.164 279); /* Joveo indigo #5454BF */
+  --color-primary-hover:     oklch(0.443 0.150 278);
+  --color-primary-active:    oklch(0.382 0.125 279);
+  --color-primary-surface:   oklch(0.945 0.030 283);
+  --color-primary-subtle:    oklch(0.968 0.016 285);
 
   --color-accent:            oklch(0.858 0.092 80);
   --color-accent-on:         oklch(0.210 0.055 75);
@@ -126,11 +126,11 @@
   --color-ink-2:             oklch(0.622 0.008 256);
   --color-ink-placeholder:   oklch(0.585 0.008 256); /* AA on dark bg (~4.6:1); was 0.478 (~3.4:1, failed) */
 
-  --color-primary:           oklch(0.648 0.168 256);
-  --color-primary-hover:     oklch(0.698 0.158 256);
-  --color-primary-active:    oklch(0.738 0.148 256);
-  --color-primary-surface:   oklch(0.182 0.046 256);
-  --color-primary-subtle:    oklch(0.142 0.026 256);
+  --color-primary:           oklch(0.601 0.145 281);
+  --color-primary-hover:     oklch(0.654 0.128 282);
+  --color-primary-active:    oklch(0.701 0.115 283);
+  --color-primary-surface:   oklch(0.205 0.055 280);
+  --color-primary-subtle:    oklch(0.160 0.032 280);
 
   --color-accent:            oklch(0.800 0.088 80);
   --color-accent-on:         oklch(0.210 0.055 75);
@@ -162,9 +162,9 @@
   --sb-ink:         oklch(0.135 0.014 256);
   --sb-ink-2:       oklch(0.420 0.010 256);
   --sb-ink-3:       oklch(0.490 0.010 256);
-  --sb-active-bg:   oklch(0.920 0.034 256);
+  --sb-active-bg:   oklch(0.920 0.030 283);
   --sb-hover-bg:    oklch(0.932 0.009 256);
-  --sb-badge-bg:    oklch(0.428 0.198 256);
+  --sb-badge-bg:    oklch(0.505 0.164 279);
 }
 
 /* Sidebar palette — dark mode (placed after the light :root block so it wins by source order) */
@@ -175,9 +175,9 @@
   --sb-ink:         oklch(0.940 0.006 256);
   --sb-ink-2:       oklch(0.622 0.008 256);
   --sb-ink-3:       oklch(0.478 0.008 256);
-  --sb-active-bg:   oklch(0.205 0.038 256);
+  --sb-active-bg:   oklch(0.215 0.045 280);
   --sb-hover-bg:    oklch(0.175 0.008 256);
-  --sb-badge-bg:    oklch(0.428 0.198 256);
+  --sb-badge-bg:    oklch(0.505 0.164 279);
 }
 
 /* ── RESET & BASE ── */
@@ -848,8 +848,8 @@ svg { display: block; flex-shrink: 0; }
   width: 30px;
   height: 30px;
   border-radius: var(--radius-full);
-  background: oklch(0.428 0.198 256 / 0.3);
-  color: oklch(0.648 0.168 256);
+  background: oklch(0.505 0.164 279 / 0.18);
+  color: var(--color-primary);
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
   letter-spacing: 0.02em;
@@ -1233,3 +1233,23 @@ svg { display: block; flex-shrink: 0; }
   .cs-toast { animation: none; }
 }
 
+
+/* ── SIDEBAR SLOT ── the page's own sidebar content (N10's thread list) is portalled in here,
+   between the brand and the signed-in user. Scrolls on its own; hidden when collapsed. */
+.sidebar-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-3) var(--space-3);
+}
+.sidebar-collapsed .sidebar-slot,
+.sidebar-collapsed .sidebar-signout {
+  display: none;
+}
+
+/* The user block holds avatar, name/email and Sign out on one line in a fixed-width sidebar:
+   the name and email shorten with an ellipsis so Sign out is never pushed out of view. */
+.sidebar-user-info { flex: 1 1 auto; min-width: 0; }
+.sidebar-user-name,
+.sidebar-user-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-signout { flex-shrink: 0; }

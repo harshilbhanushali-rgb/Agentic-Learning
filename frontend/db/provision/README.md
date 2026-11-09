@@ -16,7 +16,8 @@ over the **direct** endpoint (the host without `-pooler`). Every file is idempot
 5. Put the connection strings in `frontend/.env.local` (gitignored). Both use the **pooled**
    host, with `sslmode=verify-full`:
    - `ASK_NAREN_DATABASE_URL` for `ask_naren_app` (the web app)
-   - `ASK_NAREN_ADMIN_DATABASE_URL` for `ask_naren_admin` (`npm run users`)
+   - `ASK_NAREN_ADMIN_DATABASE_URL` for `ask_naren_admin` (`npm run users`). Optional since
+     ADR 0016: the app's own login can manage users, and the CLI falls back to it.
 
 On its first query the app checks its own role. It refuses to serve if the role could
 reach Brain's pipeline (`src/server/privilege.ts`). `src/server/grants.test.ts` runs every

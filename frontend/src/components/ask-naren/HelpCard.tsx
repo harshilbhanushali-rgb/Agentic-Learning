@@ -28,12 +28,12 @@ const TIPS = [
 export function HelpCard({ onClose }: { onClose?: () => void }) {
   return (
     <section
-      aria-label="What Ask Naren can do"
+      aria-label="What N10 can do"
       className="flex flex-col gap-4 rounded-2xl rounded-tl-md border border-line-subtle bg-bg shadow-sm px-6 py-5"
     >
       <div className="flex items-start justify-between gap-4">
         <p className="text-[13px] leading-relaxed text-ink-2">
-          Ask Naren finds the closest moment in Naren&rsquo;s recorded calls and answers from what
+          N10 finds the closest moment in Naren&rsquo;s recorded calls and answers from what
           he actually said, with the quote and the call. If nothing is close, it says so.
         </p>
         {onClose && (

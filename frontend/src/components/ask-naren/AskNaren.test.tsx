@@ -92,8 +92,8 @@ function renderPage(initialThreads: ThreadSummaryJson[] = []) {
 }
 
 async function ask(user: ReturnType<typeof userEvent.setup>, text = 'applies are flat') {
-  await user.type(screen.getByLabelText('The situation'), text);
-  await user.click(screen.getByRole('button', { name: 'Ask Naren' }));
+  await user.type(screen.getByLabelText('What did the client ask?'), text);
+  await user.click(screen.getByRole('button', { name: 'Ask N10' }));
 }
 
 /** A promise the test resolves when it chooses, for holding a request in flight. */
@@ -110,7 +110,7 @@ describe('AskNaren outcomes', () => {
     const user = userEvent.setup();
     renderPage();
     await ask(user);
-    expect(await screen.findByText('What Naren actually said')).toBeInTheDocument();
+    expect(await screen.findByText('What Naren said on the call')).toBeInTheDocument();
     expect(screen.getByText('You asked')).toBeInTheDocument();
   });
 
@@ -146,7 +146,7 @@ describe('AskNaren outcomes', () => {
     routes.ask = () => reply(decline('service_busy'), 429, recorded(9, 1));
     renderPage();
     await ask(user);
-    expect(await screen.findByText('Ask Naren is busy')).toBeInTheDocument();
+    expect(await screen.findByText('N10 is busy')).toBeInTheDocument();
   });
 });
 
@@ -156,7 +156,7 @@ describe('AskNaren: the thread is the server’s', () => {
     renderPage();
 
     await ask(user, 'client says applies are flat');
-    await screen.findByText('What Naren actually said');
+    await screen.findByText('What Naren said on the call');
     await ask(user, 'and what if they push back?');
     await waitFor(() => expect(screen.getAllByText('You asked')).toHaveLength(2));
 
@@ -184,15 +184,15 @@ describe('AskNaren: the thread is the server’s', () => {
     renderPage();
 
     await ask(user);
-    const banner = (await screen.findByText(/Continuing:/)).closest('p')!;
-    expect(banner).toHaveTextContent('Continuing: performance pushback, last asked just now.');
+    const banner = (await screen.findByText(/Following up on/)).closest('p')!;
+    expect(banner).toHaveTextContent('Following up on performance pushback, last asked just now.');
 
-    await user.click(within(banner).getByRole('button', { name: 'Start a new thread' }));
-    expect(screen.queryByText(/Continuing/)).not.toBeInTheDocument();
+    await user.click(within(banner).getByRole('button', { name: 'Start a new question' }));
+    expect(screen.queryByText(/Following up/)).not.toBeInTheDocument();
     expect(screen.queryByText('You asked')).not.toBeInTheDocument();
 
     await ask(user, 'a different client');
-    await screen.findByText('What Naren actually said');
+    await screen.findByText('What Naren said on the call');
     expect(askBodies()[1]).toEqual({ situation: 'a different client', thread_id: null });
   });
 
@@ -202,7 +202,7 @@ describe('AskNaren: the thread is the server’s', () => {
     renderPage();
 
     await ask(user);
-    expect(await screen.findByText(/Continuing this thread/)).toBeInTheDocument();
+    expect(await screen.findByText(/Following up in this thread/)).toBeInTheDocument();
   });
 
   /* #40: a real answer the store failed to record is shown, flagged, and the next question
@@ -215,7 +215,7 @@ describe('AskNaren: the thread is the server’s', () => {
     await ask(user, 'first');
     expect(await screen.findByText('Not saved to this thread.')).toBeInTheDocument();
     expect(screen.getByText(/your next question starts a new thread\./)).toBeInTheDocument();
-    expect(screen.queryByText(/Continuing/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Following up/)).not.toBeInTheDocument();
 
     routes.ask = () => reply(answer({ answer: 'second answer' }), 200, recorded(11, 1));
     await ask(user, 'second');
@@ -230,7 +230,7 @@ describe('AskNaren: the thread is the server’s', () => {
     const user = userEvent.setup();
     renderPage();
     await ask(user, 'first');
-    await screen.findByText('What Naren actually said');
+    await screen.findByText('What Naren said on the call');
 
     routes.ask = () => reply({ error: 'thread_not_found' }, 404);
     await ask(user, 'follow up');
@@ -238,7 +238,7 @@ describe('AskNaren: the thread is the server’s', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       'That thread was removed from your list, so nothing was asked.',
     );
-    expect(screen.getByLabelText('The situation')).toHaveValue('follow up');
+    expect(screen.getByLabelText('What did the client ask?')).toHaveValue('follow up');
     expect(screen.queryByText('You asked')).not.toBeInTheDocument();
   });
 
@@ -254,7 +254,7 @@ describe('AskNaren: the thread is the server’s', () => {
     await ask(user, 'second situation');
     expect(await screen.findByText(/Searching Naren’s calls/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /New thread/ }));
+    await user.click(screen.getByRole('button', { name: /New question/ }));
     expect(screen.queryByText(/Searching Naren’s calls/)).not.toBeInTheDocument();
 
     late.resolve(reply(answer({ answer: 'late answer' }), 200, recorded(9, 1)));
@@ -272,7 +272,7 @@ describe('AskNaren: the thread is the server’s', () => {
     await ask(user);
     const live = document.querySelector('[aria-live="polite"]');
     expect(live).toHaveAttribute('aria-busy', 'true');
-    expect(screen.getByLabelText('The situation')).toBeDisabled();
+    expect(screen.getByLabelText('What did the client ask?')).toBeDisabled();
     expect(askBodies()).toHaveLength(1);
   });
 });
@@ -286,9 +286,9 @@ describe('AskNaren failures that are not turns', () => {
     renderPage();
 
     await ask(user, 'applies are flat');
-    expect(await screen.findByText('Ask Naren is unavailable')).toBeInTheDocument();
+    expect(await screen.findByText('N10 is unavailable')).toBeInTheDocument();
     expect(screen.getByText(/Nothing was answered/)).toBeInTheDocument();
-    expect(screen.getByLabelText('The situation')).toHaveValue('applies are flat');
+    expect(screen.getByLabelText('What did the client ask?')).toHaveValue('applies are flat');
     expect(screen.queryByText('You asked')).not.toBeInTheDocument();
   });
 
@@ -297,7 +297,7 @@ describe('AskNaren failures that are not turns', () => {
     routes.ask = () => reply({ outcome: 'something_else', answer: 'hi' });
     renderPage();
     await ask(user);
-    expect(await screen.findByText('Ask Naren is unavailable')).toBeInTheDocument();
+    expect(await screen.findByText('N10 is unavailable')).toBeInTheDocument();
   });
 
   it('shows a store fault once, above the thread, and asks nothing', async () => {
@@ -306,8 +306,8 @@ describe('AskNaren failures that are not turns', () => {
     renderPage();
 
     await ask(user, 'applies are flat');
-    expect(await screen.findByText('Ask Naren can’t reach your threads')).toBeInTheDocument();
-    expect(screen.getByLabelText('The situation')).toHaveValue('applies are flat');
+    expect(await screen.findByText('N10 can’t reach your threads')).toBeInTheDocument();
+    expect(screen.getByLabelText('What did the client ask?')).toHaveValue('applies are flat');
     expect(screen.queryByText('You asked')).not.toBeInTheDocument();
     expect(listCalls()).toBe(0);
   });
@@ -316,7 +316,7 @@ describe('AskNaren failures that are not turns', () => {
     const user = userEvent.setup();
     renderPage();
     await ask(user, 'first');
-    await screen.findByText('What Naren actually said');
+    await screen.findByText('What Naren said on the call');
 
     routes.ask = () => reply({ error: 'signed_out' }, 401);
     await ask(user, 'the unsent follow-up');
@@ -333,16 +333,15 @@ describe('AskNaren failures that are not turns', () => {
 describe('AskNaren rail', () => {
   it('lands a user with no threads on an empty box and the coverage guide', () => {
     renderPage();
-    expect(screen.getByText('Where Naren’s calls go deepest')).toBeInTheDocument();
-    expect(within(rail()).getByText(/No threads yet/)).toBeInTheDocument();
-    expect(screen.getByText('Signed in as Asha Rao')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Common questions' })).toBeInTheDocument();
+    expect(within(rail()).getByText(/No questions yet/)).toBeInTheDocument();
   });
 
   it('lists a returning user’s threads and opens none of them', async () => {
     renderPage([summary()]);
     expect(await within(rail()).findByText('Applies are flat')).toBeInTheDocument();
-    expect(screen.queryByText('Where Naren’s calls go deepest')).not.toBeInTheDocument();
+    // Sign-in lands on the empty page whether or not there are threads (#39).
+    expect(screen.getByRole('region', { name: 'Common questions' })).toBeInTheDocument();
     expect(calls(u => u.startsWith('/api/ask-naren/threads/'))).toHaveLength(0);
   });
 
@@ -365,11 +364,11 @@ describe('AskNaren rail', () => {
     );
     expect(await screen.findByText('first question')).toBeInTheDocument();
     expect(screen.getByText('second question')).toBeInTheDocument();
-    expect(screen.getByText('What Naren actually said')).toBeInTheDocument();
+    expect(screen.getByText('What Naren said on the call')).toBeInTheDocument();
     expect(screen.getByText('Outside what Naren’s calls cover')).toBeInTheDocument();
     // The carried scenario comes from the answered turn, past the later decline.
-    expect(screen.getByText(/Continuing:/).closest('p')).toHaveTextContent(
-      'Continuing: performance pushback, last asked 1 hour ago.',
+    expect(screen.getByText(/Following up on/).closest('p')).toHaveTextContent(
+      'Following up on performance pushback, last asked 1 hour ago.',
     );
     expect(within(rail()).getByRole('button', { name: /^Applies are flat/ })).toHaveAttribute('aria-current', 'true');
 
@@ -385,7 +384,7 @@ describe('AskNaren rail', () => {
     await user.click(await within(rail()).findByRole('button', { name: /^Applies are flat/ }));
     expect(await screen.findByRole('status')).toHaveTextContent('That thread was removed from your list');
     await waitFor(() => expect(listCalls()).toBe(1));
-    expect(within(rail()).getByText(/No threads yet/)).toBeInTheDocument();
+    expect(within(rail()).getByText(/No questions yet/)).toBeInTheDocument();
   });
 
   it('says it is our fault when a thread will not open', async () => {
@@ -402,7 +401,7 @@ describe('AskNaren rail', () => {
     routes.get = () => reply({}, 401);
     renderPage([summary()]);
 
-    await user.type(screen.getByLabelText('The situation'), 'half typed');
+    await user.type(screen.getByLabelText('What did the client ask?'), 'half typed');
     await user.click(await within(rail()).findByRole('button', { name: /^Applies are flat/ }));
     await waitFor(() => expect(assign).toHaveBeenCalled());
     expect(JSON.parse(sessionStorage.getItem(DRAFT_KEY)!)).toEqual({ userId: 7, draft: 'half typed', threadId: 9 });
@@ -415,7 +414,7 @@ describe('AskNaren rail', () => {
     renderPage([summary()]);
 
     await user.click(await within(rail()).findByRole('button', { name: /^Applies are flat/ }));
-    await user.click(screen.getByRole('button', { name: /New thread/ }));
+    await user.click(screen.getByRole('button', { name: /New question/ }));
     held.resolve(reply({ thread: stored(9, [{ question: 'stale question', response: answer() }]) }));
 
     await waitFor(() => expect(screen.queryByText('Opening thread…')).not.toBeInTheDocument());
@@ -475,7 +474,7 @@ describe('AskNaren rename and remove', () => {
     await rename(user, 'Acme pause');
     expect(await screen.findByRole('status')).toHaveTextContent('That thread was removed from your list.');
     await waitFor(() => expect(listCalls()).toBe(1));
-    expect(await within(rail()).findByText(/No threads yet/)).toBeInTheDocument();
+    expect(await within(rail()).findByText(/No questions yet/)).toBeInTheDocument();
   });
 
   it('signs in again when a rename finds the session ended', async () => {
@@ -538,13 +537,13 @@ describe('AskNaren back from a sign-in it sent someone to', () => {
     renderPage([summary()]);
 
     expect(await screen.findByText('first question')).toBeInTheDocument();
-    expect(screen.getByLabelText('The situation')).toHaveValue('the unsent follow-up');
+    expect(screen.getByLabelText('What did the client ask?')).toHaveValue('the unsent follow-up');
   });
 
   it('restores a draft with no thread to an empty box', async () => {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ userId: 7, draft: '', threadId: null }));
     renderPage();
-    expect(screen.getByLabelText('The situation')).toHaveValue('');
+    expect(screen.getByLabelText('What did the client ask?')).toHaveValue('');
     expect(calls(u => u.startsWith('/api/ask-naren/threads/'))).toHaveLength(0);
   });
 });
@@ -554,8 +553,8 @@ describe('AskNaren chat layout', () => {
     const user = userEvent.setup();
     renderPage();
     await ask(user);
-    const answer = await screen.findByText('What Naren actually said');
-    const box = screen.getByLabelText('The situation');
+    const answer = await screen.findByText('What Naren said on the call');
+    const box = screen.getByLabelText('What did the client ask?');
     expect(answer.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
@@ -565,18 +564,18 @@ describe('AskNaren /help', () => {
     const user = userEvent.setup();
     renderPage();
     await ask(user, '/help');
-    expect(await screen.findByRole('region', { name: 'What Ask Naren can do' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'What N10 can do' })).toBeInTheDocument();
     expect(askBodies()).toEqual([]);
-    expect(screen.getByLabelText('The situation')).toHaveValue('');
+    expect(screen.getByLabelText('What did the client ask?')).toHaveValue('');
   });
 
   it('is not a turn: the thread is untouched and the next question continues it', async () => {
     const user = userEvent.setup();
     renderPage();
     await ask(user, 'applies are flat');
-    await screen.findByText('What Naren actually said');
+    await screen.findByText('What Naren said on the call');
     await ask(user, '/help');
-    await screen.findByRole('region', { name: 'What Ask Naren can do' });
+    await screen.findByRole('region', { name: 'What N10 can do' });
     expect(screen.getAllByText('You asked')).toHaveLength(1);
     routes.ask = () => reply(answer(), 200, recorded(9, 2));
     await ask(user, 'and if they push back');
@@ -589,14 +588,14 @@ describe('AskNaren /help', () => {
     renderPage();
     await ask(user, '/help');
     await user.click(await screen.findByRole('button', { name: 'Close help' }));
-    expect(screen.queryByRole('region', { name: 'What Ask Naren can do' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'What N10 can do' })).not.toBeInTheDocument();
   });
 
   it('ignores case and surrounding spaces, but a question that starts with "help" is a question', async () => {
     const user = userEvent.setup();
     renderPage();
     await ask(user, '  /HELP ');
-    expect(await screen.findByRole('region', { name: 'What Ask Naren can do' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'What N10 can do' })).toBeInTheDocument();
     await ask(user, 'help, the client says applies are flat');
     await waitFor(() => expect(askBodies()).toHaveLength(1));
   });

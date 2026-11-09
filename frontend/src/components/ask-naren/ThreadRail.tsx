@@ -40,30 +40,29 @@ export function ThreadRail({
   onRemove: (id: number) => Promise<boolean>;
 }) {
   return (
-    <aside
-      aria-label="Your threads"
-      className="flex flex-col gap-4 border-b border-line-subtle pb-6 md:border-b-0 md:border-r md:pb-0 md:pr-5"
-    >
+    <aside aria-label="Your threads" className="flex flex-col gap-4">
       <button
         type="button"
         onClick={onNew}
         // Always present. Moving to an unrelated situation is exactly when a carried
         // scenario would strand an answer, so the way out has to be visible.
-        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-sm border border-line px-3 text-[11px] font-bold uppercase tracking-[0.03em] text-ink-2 transition-colors duration-fast ease-out-quart hover:border-primary hover:text-primary"
+        className="flex min-h-[44px] items-center gap-2.5 rounded-md px-2 text-left text-[14px] font-semibold text-ink transition-colors duration-fast ease-out-quart hover:bg-surface-raised"
       >
-        <PlusIcon /> New thread
+        <span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-white">
+          <PlusIcon />
+        </span>
+        New question
       </button>
 
       {threads.length === 0 ? (
-        <p className="px-1 text-[12px] leading-relaxed text-ink-placeholder">
-          No threads yet. Your first question starts one, and it stays here for you to come
-          back to. Only you can see your threads.
+        <p className="px-2 text-[12px] leading-relaxed text-ink-2">
+          No questions yet. Each one you ask stays here to come back to. Only you can see them.
         </p>
       ) : now ? (
-        <nav className="flex flex-col gap-4">
+        <nav aria-label="Recents" className="flex flex-col gap-4">
           {groupByBucket(threads, t => new Date(t.lastTurnAt), now).map(group => (
             <div key={group.label} className="flex flex-col gap-1">
-              <h2 className="px-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-placeholder">
+              <h2 className="px-3 text-[12px] font-semibold text-ink-2">
                 {group.label}
               </h2>
               <ul className="flex flex-col gap-0.5">
@@ -87,7 +86,7 @@ export function ThreadRail({
       )}
 
       {stale && (
-        <p className="px-1 text-[11px] leading-relaxed text-ink-placeholder">
+        <p className="px-2 text-[11px] leading-relaxed text-ink-2">
           Could not refresh this list just now, so it may be out of date.
         </p>
       )}
@@ -145,11 +144,11 @@ function RailRow({
             className="flex min-w-0 flex-1 flex-col gap-0.5 text-left focus-visible:outline-none"
           >
             <span
-              className={`line-clamp-2 text-[12px] leading-snug ${active ? 'font-semibold text-ink' : 'text-ink-2 group-hover:text-ink'}`}
+              className={`line-clamp-2 text-[13px] leading-snug ${active ? 'font-semibold text-ink' : 'text-ink group-hover:text-ink'}`}
             >
               {thread.title}
             </span>
-            <span className="text-[10px] text-ink-placeholder">
+            <span className="text-[11px] text-ink-placeholder">
               {turns} · {relativeTime(new Date(thread.lastTurnAt), now)}
             </span>
           </button>

@@ -23,24 +23,23 @@ export function ClarifyPrompt({ result }: { result: AskNarenClarify }) {
     // A reply to small talk, not a question Ask Naren needs answered: no "one thing first"
     // and no promise about not asking again.
     return (
-      <article className="rounded-md border border-line bg-surface p-6">
-        <p className="text-sm leading-relaxed text-ink">{result.question}</p>
+      <article className="max-w-[68ch]">
+        <p className="text-[16px] leading-[1.7] text-ink">{result.question}</p>
       </article>
     );
   }
+  // Chat layout: a plain reply, like the assistant asking back. Never styled as a failure.
   return (
-    <article className="flex flex-col gap-2 rounded-2xl rounded-tl-md border border-line-subtle bg-bg shadow-sm p-6">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-accent">
-        One thing first
-      </div>
-      <p className="text-sm leading-relaxed text-ink">{result.question}</p>
+    <article className="flex max-w-[68ch] flex-col gap-2">
+      <div className="text-[14px] font-semibold text-primary">One thing first</div>
+      <p className="text-[16px] leading-[1.7] text-ink">{result.question}</p>
       {/* True since #16 and not before: a reply is now read against the conversation, so a
           CSM answers the question rather than retyping the whole situation (story 13). The
           second half is the promise loop prevention actually makes -- the same question is
           never put twice, and a reply that still does not carry the client's words gets a
           best-effort answer instead of being asked again. */}
-      <p className="mt-1 text-[11px] text-ink-placeholder">
-        Just reply — Ask Naren picks up where you left off, and will not ask you this again.
+      <p className="text-[13.5px] text-ink-2">
+        Just reply — N10 picks up where you left off, and will not ask you this again.
       </p>
     </article>
   );
