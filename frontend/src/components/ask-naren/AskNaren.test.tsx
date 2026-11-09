@@ -92,7 +92,7 @@ function renderPage(initialThreads: ThreadSummaryJson[] = []) {
 }
 
 async function ask(user: ReturnType<typeof userEvent.setup>, text = 'applies are flat') {
-  await user.type(screen.getByLabelText('What did the client ask?'), text);
+  await user.type(screen.getByLabelText('Your question'), text);
   await user.click(screen.getByRole('button', { name: 'Ask N10' }));
 }
 
@@ -238,7 +238,7 @@ describe('AskNaren: the thread is the server’s', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       'That thread was removed from your list, so nothing was asked.',
     );
-    expect(screen.getByLabelText('What did the client ask?')).toHaveValue('follow up');
+    expect(screen.getByLabelText('Your question')).toHaveValue('follow up');
     expect(screen.queryByText('You asked')).not.toBeInTheDocument();
   });
 
@@ -272,7 +272,7 @@ describe('AskNaren: the thread is the server’s', () => {
     await ask(user);
     const live = document.querySelector('[aria-live="polite"]');
     expect(live).toHaveAttribute('aria-busy', 'true');
-    expect(screen.getByLabelText('What did the client ask?')).toBeDisabled();
+    expect(screen.getByLabelText('Your question')).toBeDisabled();
     expect(askBodies()).toHaveLength(1);
   });
 });
@@ -288,7 +288,7 @@ describe('AskNaren failures that are not turns', () => {
     await ask(user, 'applies are flat');
     expect(await screen.findByText('N10 is unavailable')).toBeInTheDocument();
     expect(screen.getByText(/Nothing was answered/)).toBeInTheDocument();
-    expect(screen.getByLabelText('What did the client ask?')).toHaveValue('applies are flat');
+    expect(screen.getByLabelText('Your question')).toHaveValue('applies are flat');
     expect(screen.queryByText('You asked')).not.toBeInTheDocument();
   });
 
@@ -307,7 +307,7 @@ describe('AskNaren failures that are not turns', () => {
 
     await ask(user, 'applies are flat');
     expect(await screen.findByText('N10 can’t reach your threads')).toBeInTheDocument();
-    expect(screen.getByLabelText('What did the client ask?')).toHaveValue('applies are flat');
+    expect(screen.getByLabelText('Your question')).toHaveValue('applies are flat');
     expect(screen.queryByText('You asked')).not.toBeInTheDocument();
     expect(listCalls()).toBe(0);
   });
@@ -401,7 +401,7 @@ describe('AskNaren rail', () => {
     routes.get = () => reply({}, 401);
     renderPage([summary()]);
 
-    await user.type(screen.getByLabelText('What did the client ask?'), 'half typed');
+    await user.type(screen.getByLabelText('Your question'), 'half typed');
     await user.click(await within(rail()).findByRole('button', { name: /^Applies are flat/ }));
     await waitFor(() => expect(assign).toHaveBeenCalled());
     expect(JSON.parse(sessionStorage.getItem(DRAFT_KEY)!)).toEqual({ userId: 7, draft: 'half typed', threadId: 9 });
@@ -537,13 +537,13 @@ describe('AskNaren back from a sign-in it sent someone to', () => {
     renderPage([summary()]);
 
     expect(await screen.findByText('first question')).toBeInTheDocument();
-    expect(screen.getByLabelText('What did the client ask?')).toHaveValue('the unsent follow-up');
+    expect(screen.getByLabelText('Your question')).toHaveValue('the unsent follow-up');
   });
 
   it('restores a draft with no thread to an empty box', async () => {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ userId: 7, draft: '', threadId: null }));
     renderPage();
-    expect(screen.getByLabelText('What did the client ask?')).toHaveValue('');
+    expect(screen.getByLabelText('Your question')).toHaveValue('');
     expect(calls(u => u.startsWith('/api/ask-naren/threads/'))).toHaveLength(0);
   });
 });
@@ -554,7 +554,7 @@ describe('AskNaren chat layout', () => {
     renderPage();
     await ask(user);
     const answer = await screen.findByText('What Naren said on the call');
-    const box = screen.getByLabelText('What did the client ask?');
+    const box = screen.getByLabelText('Your question');
     expect(answer.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
@@ -566,7 +566,7 @@ describe('AskNaren /help', () => {
     await ask(user, '/help');
     expect(await screen.findByRole('region', { name: 'What N10 can do' })).toBeInTheDocument();
     expect(askBodies()).toEqual([]);
-    expect(screen.getByLabelText('What did the client ask?')).toHaveValue('');
+    expect(screen.getByLabelText('Your question')).toHaveValue('');
   });
 
   it('is not a turn: the thread is untouched and the next question continues it', async () => {

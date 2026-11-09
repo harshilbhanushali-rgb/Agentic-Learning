@@ -100,7 +100,7 @@ describe('DeclineNotice', () => {
 describe('SituationForm', () => {
   it('focuses the textarea on mount', () => {
     render(<SituationForm value="" onChange={vi.fn()} onSubmit={vi.fn()} busy={false} />);
-    expect(document.activeElement).toBe(screen.getByLabelText('What did the client ask?'));
+    expect(document.activeElement).toBe(screen.getByLabelText('Your question'));
   });
 
   it('reports what was typed', async () => {
@@ -108,7 +108,7 @@ describe('SituationForm', () => {
     const onChange = vi.fn();
     render(<SituationForm value="" onChange={onChange} onSubmit={vi.fn()} busy={false} />);
 
-    await user.type(screen.getByLabelText('What did the client ask?'), 'flat');
+    await user.type(screen.getByLabelText('Your question'), 'flat');
     expect(onChange).toHaveBeenCalled();
   });
 
@@ -121,7 +121,7 @@ describe('SituationForm', () => {
     expect(screen.getByRole('button', { name: 'Ask N10' })).toBeDisabled();
 
     rerender(<SituationForm value="   " onChange={vi.fn()} onSubmit={onSubmit} busy={false} />);
-    screen.getByLabelText('What did the client ask?').focus();
+    screen.getByLabelText('Your question').focus();
     await user.keyboard('{Enter}');
     expect(onSubmit).not.toHaveBeenCalled();
   });
@@ -132,7 +132,7 @@ describe('SituationForm', () => {
     render(
       <SituationForm value="applies are flat" onChange={vi.fn()} onSubmit={onSubmit} busy={false} />,
     );
-    screen.getByLabelText('What did the client ask?').focus();
+    screen.getByLabelText('Your question').focus();
 
     await user.keyboard('{Shift>}{Enter}{/Shift}');
     expect(onSubmit).not.toHaveBeenCalled();
@@ -159,7 +159,7 @@ describe('SituationForm', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Asking…' })).toBeDisabled();
-    expect(screen.getByLabelText('What did the client ask?')).toBeDisabled();
+    expect(screen.getByLabelText('Your question')).toBeDisabled();
 
     await user.keyboard('{Control>}{Enter}{/Control}');
     expect(onSubmit).not.toHaveBeenCalled();

@@ -51,7 +51,7 @@ export function SituationForm({
       onSubmit={e => { e.preventDefault(); if (canSubmit) onSubmit(); }}
     >
       <label htmlFor="situation" className="sr-only">
-        What did the client ask?
+        Your question
       </label>
       <div
         className={`flex items-end gap-3 rounded-[22px] border border-line bg-bg shadow-ambient transition-colors duration-fast ease-out-quart focus-within:border-primary ${large ? 'px-5 pb-3 pt-4' : 'py-2.5 pl-5 pr-2.5'}`}
@@ -68,7 +68,7 @@ export function SituationForm({
             }
           }}
           rows={large ? 3 : 1}
-          placeholder={large ? 'What did the client ask? Paste their words.' : 'Ask a follow-up, or paste what the client said next'}
+          placeholder={large ? 'Ask me anything…' : 'Ask a follow-up…'}
           disabled={busy}
           className={`max-h-48 w-full resize-none bg-transparent py-1.5 leading-relaxed text-ink placeholder:text-ink-placeholder focus:outline-none disabled:opacity-60 ${large ? 'min-h-[80px] text-[17px]' : 'min-h-[24px] text-[15px]'}`}
         />

@@ -350,7 +350,7 @@ export function AskNaren({
             <div className="flex items-center gap-3.5">
               <N10Mark size={44} />
               <h1 className="text-balance text-[30px] font-bold leading-tight tracking-[-0.025em] text-ink">
-                {firstName ? `Hi ${firstName}, what did the client ask?` : 'What did the client ask?'}
+                {firstName ? `Hey ${firstName}, what’s your question?` : 'What’s your question?'}
               </h1>
             </div>
             {note && (
