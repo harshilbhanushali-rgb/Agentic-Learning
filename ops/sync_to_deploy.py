@@ -9,6 +9,7 @@ here.
     python ops/sync_to_deploy.py                      # dry run: print what would change
     python ops/sync_to_deploy.py --apply              # write it
     python ops/sync_to_deploy.py --apply --init       # first sync: no manifest exists yet
+    python ops/sync_to_deploy.py --apply --only frontend   # one tree; the others stay as deployed
 
 THE FAILURE THIS EXISTS TO PREVENT is silent: a hand copy that clobbers a deployment-only
 fix, or a downstream edit that the next copy erases. So every file this writes is recorded
@@ -115,9 +116,10 @@ class Plan:
     unchanged: int
 
 
-def plan(upstream: Path, downstream: Path, manifest: dict[str, str], init: bool) -> Plan:
+def plan(upstream: Path, downstream: Path, manifest: dict[str, str], init: bool,
+         trees: tuple[Tree, ...] = TREES) -> Plan:
     p = Plan([], [], [], [], 0)
-    for t in TREES:
+    for t in trees:
         up_base, down_base = upstream / t.src, downstream / t.dst
         for root in t.mirror + t.update_only:
             is_mirror = root in t.mirror
@@ -166,9 +168,11 @@ def plan(upstream: Path, downstream: Path, manifest: dict[str, str], init: bool)
     return p
 
 
-def apply(p: Plan, upstream: Path, downstream: Path, manifest_files: dict[str, str]) -> dict[str, str]:
+def apply(p: Plan, upstream: Path, downstream: Path, manifest_files: dict[str, str],
+          trees: tuple[Tree, ...] = TREES) -> dict[str, str]:
     """Write and delete what `p` says; return the new manifest's file map. The map also
-    records files that were already identical, so a later edit to them is caught as drift."""
+    records files that were already identical, so a later edit to them is caught as drift.
+    Entries of trees not synced this time are carried over untouched."""
     files = dict(manifest_files)
     for key, uf, df in p.write:
         df.parent.mkdir(parents=True, exist_ok=True)
@@ -178,7 +182,7 @@ def apply(p: Plan, upstream: Path, downstream: Path, manifest_files: dict[str, s
     for key, df in p.delete:
         df.unlink()
         files.pop(key, None)
-    for t in TREES:
+    for t in trees:
         for root in t.mirror + t.update_only:
             for rel, uf in _files(upstream / t.src / root).items():
                 prefix = root if (upstream / t.src / root).is_dir() else ""
@@ -207,7 +211,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--apply", action="store_true", help="write the changes (default: dry run)")
     ap.add_argument("--init", action="store_true", help="first sync: accept differing files without a manifest")
     ap.add_argument("--allow-dirty", action="store_true", help="sync from uncommitted upstream files")
+    ap.add_argument("--only", choices=[t.src for t in TREES],
+                    help="sync one tree (e.g. frontend) and leave the others exactly as deployed")
     args = ap.parse_args(argv)
+    trees = tuple(t for t in TREES if args.only in (None, t.src))
 
     upstream = Path(__file__).resolve().parents[1]
     downstream = args.deploy.resolve()
@@ -215,7 +222,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {downstream} does not look like a coder-pets-tray checkout", file=sys.stderr)
         return 2
 
-    dirty = _git_dirty(upstream, [f"{t.src}/{r}" for t in TREES for r in t.mirror + t.update_only])
+    dirty = _git_dirty(upstream, [f"{t.src}/{r}" for t in trees for r in t.mirror + t.update_only])
     if dirty and not args.allow_dirty:
         print("error: uncommitted changes under synced paths -- the manifest records a commit, so "
               "commit first (or pass --allow-dirty):\n  " + "\n  ".join(dirty), file=sys.stderr)
@@ -227,7 +234,7 @@ def main(argv: list[str] | None = None) -> int:
         print("error: no manifest in the deployment repo; the first sync needs --init", file=sys.stderr)
         return 2
 
-    p = plan(upstream, downstream, manifest["files"], args.init)
+    p = plan(upstream, downstream, manifest["files"], args.init, trees)
     for key, _, df in p.write:
         print(("  update " if df.exists() else "  add    ") + key)
     for key, _ in p.delete:
@@ -243,7 +250,7 @@ def main(argv: list[str] | None = None) -> int:
         print("(dry run -- pass --apply to write)")
         return 0
 
-    files = apply(p, upstream, downstream, manifest["files"])
+    files = apply(p, upstream, downstream, manifest["files"], trees)
     mpath.write_text(json.dumps({"source": "harshilbhanushali-rgb/Agentic-Learning",
                                  "source_commit": _git_head(upstream),
                                  "files": dict(sorted(files.items()))}, indent=2) + "\n", encoding="utf-8")

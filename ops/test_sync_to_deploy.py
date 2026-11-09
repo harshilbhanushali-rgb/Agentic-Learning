@@ -127,3 +127,20 @@ def test_apply_writes_deletes_and_records_hashes_for_the_next_run(repos):
     write(down, "coder-pets-tray-app/src/same.ts", "hotfix\n")
     write(up, "frontend/src/same.ts", "same v2\n")
     assert len(s.plan(up, down, files, init=False).drift) == 1
+
+
+def test_only_one_tree_leaves_the_other_tree_and_its_manifest_entries_alone(repos):
+    up, down = repos
+    write(up, "frontend/src/page.ts", "new ui\n")
+    write(up, "Brain/ask_naren/engine.py", "new engine\n")
+    write(down, "ask-naren/ask_naren/engine.py", "deployed engine\n")
+    manifest = {"ask-naren/ask_naren/engine.py": s._norm_hash(b"deployed engine\n")}
+    frontend = tuple(t for t in s.TREES if t.src == "frontend")
+
+    p = s.plan(up, down, manifest, init=False, trees=frontend)
+    assert keys(p.write) == ["coder-pets-tray-app/src/page.ts"] and not p.drift
+    files = s.apply(p, up, down, manifest, trees=frontend)
+
+    assert (down / "ask-naren/ask_naren/engine.py").read_text() == "deployed engine\n"
+    assert files["ask-naren/ask_naren/engine.py"] == manifest["ask-naren/ask_naren/engine.py"]
+    assert "coder-pets-tray-app/src/page.ts" in files
