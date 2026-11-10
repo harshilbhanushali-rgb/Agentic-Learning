@@ -26,6 +26,7 @@ describe('migrations', () => {
        where table_schema not in ('pg_catalog', 'information_schema')`,
     );
     expect(rows.map(r => `${r.table_schema}.${r.table_name}`).sort()).toEqual([
+      'ask_naren.feedback',
       'ask_naren.sessions',
       'ask_naren.threads',
       'ask_naren.turns',

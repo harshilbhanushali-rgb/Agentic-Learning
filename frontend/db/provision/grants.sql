@@ -14,6 +14,9 @@ grant usage on schema ask_naren to ask_naren_app, ask_naren_admin;
 grant select on ask_naren.users to ask_naren_app;
 grant insert (email, name, password_hash) on ask_naren.users to ask_naren_app;
 grant update (password_hash, disabled_at) on ask_naren.users to ask_naren_app;
+-- Google sign-in (ADR 0011, "The Google Workspace swap"): a seeded user's first Google
+-- sign-in saves Google's id for them. Matching later is on that id, never on email alone.
+grant update (google_sub) on ask_naren.users to ask_naren_app;
 grant select, insert, delete on ask_naren.sessions to ask_naren_app;
 grant update (last_seen_at) on ask_naren.sessions to ask_naren_app;
 grant select on ask_naren.threads to ask_naren_app;
@@ -23,6 +26,11 @@ grant update (title, last_turn_at, turn_count, deleted_at) on ask_naren.threads 
 grant select on ask_naren.turns to ask_naren_app;
 grant insert (thread_id, position, question, response, outcome, kind, reason, intent,
               scenario_key, cosine, asked_at, answered_at) on ask_naren.turns to ask_naren_app;
+-- Ratings (0003): a user rates their own turns, and may change the rating or reason later.
+-- SELECT because INSERT ... ON CONFLICT DO UPDATE reads the conflicting row.
+grant select on ask_naren.feedback to ask_naren_app;
+grant insert (turn_id, user_id, rating, reason, created_at, updated_at) on ask_naren.feedback to ask_naren_app;
+grant update (rating, reason, updated_at) on ask_naren.feedback to ask_naren_app;
 
 -- ask_naren_admin: the users CLI (scripts/users.ts), when ASK_NAREN_ADMIN_DATABASE_URL is set.
 -- Optional since ADR 0016: the CLI falls back to the app's login. Users and sessions only.

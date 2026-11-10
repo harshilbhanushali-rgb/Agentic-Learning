@@ -43,6 +43,23 @@ export const renameThread = (id: number, title: string | null) =>
 export const removeThread = (id: number) =>
   call(`/api/ask-naren/threads/${id}`, { method: 'DELETE' }, () => true);
 
+/** Rate one answer; called on the thumb click and again with the optional reason. */
+export const sendFeedback = (
+  threadId: number,
+  position: number,
+  rating: 'good' | 'bad',
+  reason: string | null,
+) =>
+  call(
+    '/api/ask-naren/feedback',
+    {
+      method: 'POST',
+      headers: JSON_BODY,
+      body: JSON.stringify({ thread_id: threadId, position, rating, reason }),
+    },
+    () => true,
+  );
+
 /* -- Asking --------------------------------------------------------------------------- */
 
 /** The last resort for the proxy ITSELF being gone -- the app is down, not the service. A

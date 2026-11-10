@@ -22,7 +22,7 @@ export async function freshDb(): Promise<{ pg: PGlite; db: Db; reset: () => Prom
   await pg.exec(MIGRATION);
   const db: Db = { query: (text, params) => pg.query(text, params) };
   const reset = async () => {
-    await pg.exec('truncate ask_naren.turns, ask_naren.threads, ask_naren.sessions, ask_naren.users restart identity cascade');
+    await pg.exec('truncate ask_naren.feedback, ask_naren.turns, ask_naren.threads, ask_naren.sessions, ask_naren.users restart identity cascade');
   };
   return { pg, db, reset };
 }

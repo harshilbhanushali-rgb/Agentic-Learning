@@ -11,10 +11,12 @@ import type { AskNarenResponse } from '@/types';
 import type { Db } from './db';
 import { PrivilegeError, assertLeastPrivilege } from './privilege';
 import { freshDb } from './testing/pglite';
+import { recordFeedback } from './feedback';
 import { createSession, deleteSession, validateSession } from './auth/sessions';
 import {
   addUser,
   authenticate,
+  authenticateGoogle,
   disableUser,
   enableUser,
   listUsers,
@@ -120,8 +122,17 @@ describe('ask_naren_app (the web app)', () => {
     expect(await listThreads(app(), id)).toHaveLength(1);
     expect((await loadThread(app(), id, first!.threadId))!.turns).toHaveLength(2);
     expect(await renameThread(app(), id, first!.threadId, 'Renamed')).toBe(true);
+    // Ratings (0003): saved, then replaced, as the app.
+    expect(await recordFeedback(app(), { userId: id, threadId: first!.threadId, position: 2, rating: 'bad' })).toBe(true);
+    expect(await recordFeedback(app(), { userId: id, threadId: first!.threadId, position: 2, rating: 'bad', reason: 'why' })).toBe(true);
     expect(await deleteThread(app(), id, first!.threadId)).toBe(true);
     await deleteSession(app(), token);
+  });
+
+  it('signs a seeded user in with Google, linking their Google identity', async () => {
+    const id = await addUser(app(), { email: 'priya@joveo.com', name: 'Priya', password: 'pw-for-tests-1' });
+    expect(await authenticateGoogle(app(), { sub: 'g-priya', email: 'priya@joveo.com' })).toEqual({ id });
+    expect(await authenticateGoogle(app(), { sub: 'g-priya', email: 'priya@joveo.com' })).toEqual({ id });
   });
 
   it('manages users for /admin (ADR 0016), but cannot change who a user is', async () => {

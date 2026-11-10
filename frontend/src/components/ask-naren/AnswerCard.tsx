@@ -4,8 +4,6 @@ import { scenarioLabel } from '@/lib/thread';
 
 import { answerBlocks } from './answerBlocks';
 import { boldSpans } from './boldSpans';
-import { CopyButton } from './CopyButton';
-import { plainAnswer } from './plainAnswer';
 
 function Inline({ text }: { text: string }) {
   return (
@@ -123,10 +121,6 @@ export function AnswerCard({ result }: { result: AskNarenAnswer }) {
           )}
         </dl>
       </figure>
-
-      <div className="-ml-2.5">
-        <CopyButton text={plainAnswer(result.answer)} />
-      </div>
     </article>
   );
 }

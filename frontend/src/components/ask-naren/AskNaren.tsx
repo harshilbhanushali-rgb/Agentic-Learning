@@ -10,6 +10,8 @@ import { createPortal } from 'react-dom';
 import { N10Mark, PRODUCT_NAME } from '@/components/ask-naren/N10Mark';
 import { SIDEBAR_SLOT_ID } from '@/components/sidebarSlot';
 import { SituationForm } from '@/components/ask-naren/SituationForm';
+import { TurnActions } from '@/components/ask-naren/TurnActions';
+import { plainAnswer } from '@/components/ask-naren/plainAnswer';
 import { DeclineNotice } from '@/components/ask-naren/DeclineNotice';
 import { ThreadRail } from '@/components/ask-naren/ThreadRail';
 import { CoverageStarters } from '@/components/ask-naren/CoverageStarters';
@@ -59,6 +61,8 @@ interface TurnView {
   response: AskNarenResponse;
   askedAt: string;
   notSaved?: boolean;
+  /** Where the turn is stored, so it can be rated. Absent on a turn that is not stored. */
+  position?: number;
 }
 
 /** The open thread. `threadId` null is a new thread, created by its first ask. `detached`:
@@ -151,6 +155,7 @@ export function AskNaren({
               question: t.question,
               response: t.response,
               askedAt: t.askedAt,
+              position: t.position,
             })),
             detached: false,
           });
@@ -245,6 +250,7 @@ export function AskNaren({
           response: r.result,
           askedAt: new Date().toISOString(),
           notSaved: !r.recorded,
+          position: r.recorded ? r.position : undefined,
         };
         setConversation({
           threadId: r.recorded ? r.threadId : from.threadId,
@@ -386,6 +392,16 @@ export function AskNaren({
                       />
                       <Reply>
                         <Outcome result={turn.response} />
+                        {(turn.response.outcome === 'answered' || turn.response.outcome === 'rendered') && (
+                          <TurnActions
+                            copyText={turn.response.outcome === 'answered' ? plainAnswer(turn.response.answer) : null}
+                            target={
+                              conversation.threadId !== null && turn.position !== undefined && !turn.notSaved
+                                ? { threadId: conversation.threadId, position: turn.position }
+                                : null
+                            }
+                          />
+                        )}
                       </Reply>
                       {turn.notSaved && <NotSavedNote />}
                     </div>
