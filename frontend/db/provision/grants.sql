@@ -8,12 +8,17 @@
 
 grant usage on schema ask_naren to ask_naren_app, ask_naren_admin;
 
+-- Passwords are gone (ADR 0018): people sign in with Google only. A grant is not removed by
+-- deleting its line, so the old password grants are revoked explicitly -- harmless when
+-- they were never there.
+revoke insert (password_hash), update (password_hash) on ask_naren.users from ask_naren_app, ask_naren_admin;
+
 -- ask_naren_app: the web app. Signs users in, and since ADR 0016 (2026-11-10) also manages
--- them from /admin: create, set a password, disable. Email and name stay unchangeable, as
--- they are for the admin role. It never touches Brain's tables either way.
+-- them from /admin: create, set a role (ADR 0018), disable. Email and name stay
+-- unchangeable, as they are for the admin role. It never touches Brain's tables either way.
 grant select on ask_naren.users to ask_naren_app;
-grant insert (email, name, password_hash) on ask_naren.users to ask_naren_app;
-grant update (password_hash, disabled_at) on ask_naren.users to ask_naren_app;
+grant insert (email, name) on ask_naren.users to ask_naren_app;
+grant update (disabled_at, role) on ask_naren.users to ask_naren_app;
 -- Google sign-in (ADR 0011, "The Google Workspace swap"): a seeded user's first Google
 -- sign-in saves Google's id for them. Matching later is on that id, never on email alone.
 grant update (google_sub) on ask_naren.users to ask_naren_app;
@@ -35,6 +40,6 @@ grant update (rating, reason, updated_at) on ask_naren.feedback to ask_naren_app
 -- ask_naren_admin: the users CLI (scripts/users.ts), when ASK_NAREN_ADMIN_DATABASE_URL is set.
 -- Optional since ADR 0016: the CLI falls back to the app's login. Users and sessions only.
 grant select on ask_naren.users to ask_naren_admin;
-grant insert (email, name, password_hash) on ask_naren.users to ask_naren_admin;
-grant update (password_hash, disabled_at) on ask_naren.users to ask_naren_admin;
+grant insert (email, name) on ask_naren.users to ask_naren_admin;
+grant update (disabled_at, role) on ask_naren.users to ask_naren_admin;
 grant select, delete on ask_naren.sessions to ask_naren_admin;

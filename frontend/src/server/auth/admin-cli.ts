@@ -1,78 +1,53 @@
-import { randomBytes } from 'node:crypto';
-
 import type { Db } from '../db';
-import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from './password';
+import type { Role } from './sessions';
 import {
   UserError,
   addUser,
   disableUser,
   enableUser,
   listUsers,
-  setPassword,
+  normalizeEmail,
+  setRole,
   signOutEverywhere,
 } from './users';
 
 /**
- * The admin's only tool (ADR 0011: admin-seeded users, no self-service, no admin UI).
- * scripts/users.ts is the thin shell around this; the logic lives here so it is tested.
- *
- * A PASSWORD IS NEVER TAKEN AS A COMMAND-LINE ARGUMENT, because that lands in shell history
- * and process listings. It is generated and printed once, or read from stdin.
+ * The admin's command-line tool -- the way back in if /admin is ever unreachable (ADR 0016,
+ * 0018). scripts/users.ts is the thin shell around this; the logic lives here so it is tested.
+ * People sign in with Google, so there are no passwords to set or hand over.
  */
 export const USAGE = `Usage: npm run users -- <command>
 
-  add <email> <name> [--password-stdin]   Create a user. Prints a generated password once,
-                                          unless one is piped on stdin.
-  set-password <email> [--password-stdin] Replace a password. Signs the user out everywhere.
-  disable <email>                         Offboard: block sign-in and sign out everywhere.
-  enable <email>                          Undo disable.
-  sign-out <email>                        Sign the user out on every browser.
-  list                                    Every user, with status and session count.
+  add <email> <name>              Add a member. They sign in with their Joveo Google account.
+  role <email> <member|admin>     Set what they may do. Admins also manage users on /admin.
+  disable <email>                 Offboard: block sign-in and sign out everywhere.
+  enable <email>                  Undo disable.
+  sign-out <email>                Sign the user out on every browser.
+  list                            Every user, with role, status and session count.
 
 Uses ASK_NAREN_ADMIN_DATABASE_URL if set, else ASK_NAREN_DATABASE_URL (environment or .env.local).`;
 
 export interface CliIo {
   out: (line: string) => void;
-  readStdin: () => Promise<string>;
-}
-
-function generatePassword(): string {
-  return randomBytes(18).toString('base64url');
-}
-
-async function passwordFrom(flags: string[], io: CliIo): Promise<{ password: string; generated: boolean }> {
-  if (!flags.includes('--password-stdin')) return { password: generatePassword(), generated: true };
-  const password = (await io.readStdin()).replace(/\r?\n$/, '');
-  if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
-    throw new UserError(
-      `A password must be ${MIN_PASSWORD_LENGTH}-${MAX_PASSWORD_LENGTH} characters.`,
-    );
-  }
-  return { password, generated: false };
 }
 
 /** Returns the process exit code. */
 export async function runCli(argv: string[], db: Db, io: CliIo): Promise<number> {
-  const flags = argv.filter(a => a.startsWith('--'));
-  const [command, ...args] = argv.filter(a => !a.startsWith('--'));
+  const [command, ...args] = argv;
   try {
     switch (command) {
       case 'add': {
         const [email, ...nameParts] = args;
         if (!email || !nameParts.length) break;
-        const { password, generated } = await passwordFrom(flags, io);
-        await addUser(db, { email, name: nameParts.join(' '), password });
-        io.out(`Added ${email.trim().toLowerCase()}.`);
-        if (generated) io.out(`Password (shown once, hand it over directly): ${password}`);
+        await addUser(db, { email, name: nameParts.join(' ') });
+        io.out(`Added ${normalizeEmail(email)}. They sign in with Google.`);
         return 0;
       }
-      case 'set-password': {
-        const [email] = args;
-        if (!email) break;
-        const { password, generated } = await passwordFrom(flags, io);
-        const ended = await setPassword(db, email, password);
-        io.out(`Password replaced; ${ended} session(s) ended.`);
-        if (generated) io.out(`Password (shown once, hand it over directly): ${password}`);
+      case 'role': {
+        const [email, role] = args;
+        if (!email || !role) break;
+        await setRole(db, email, role as Role);
+        io.out(`${normalizeEmail(email)} is now ${role === 'admin' ? 'an admin' : 'a member'}.`);
         return 0;
       }
       case 'disable': {
@@ -100,8 +75,8 @@ export async function runCli(argv: string[], db: Db, io: CliIo): Promise<number>
         const users = await listUsers(db);
         if (!users.length) io.out('No users.');
         for (const u of users) {
-          const status = u.disabledAt ? 'disabled' : u.hasPassword ? 'active' : 'no password';
-          io.out(`${u.email}\t${u.name}\t${status}\t${u.sessions} session(s)`);
+          const status = u.disabledAt ? 'disabled' : u.googleLinked ? 'active' : 'not signed in yet';
+          io.out(`${u.email}\t${u.name}\t${u.role}\t${status}\t${u.sessions} session(s)`);
         }
         return 0;
       }

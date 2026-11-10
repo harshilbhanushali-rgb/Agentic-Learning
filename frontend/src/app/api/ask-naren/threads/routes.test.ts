@@ -43,7 +43,6 @@ async function signedIn(): Promise<{ token: string; userId: number }> {
   const userId = await addUser(testDb, {
     email: `rail${emails}@joveo.com`,
     name: `Rail ${emails}`,
-    password: 'pw-for-tests-1',
   });
   return { token: (await createSession(testDb, userId)).token, userId };
 }

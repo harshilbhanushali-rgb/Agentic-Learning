@@ -1,27 +1,19 @@
 // @vitest-environment node
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Db } from '../db';
 import { freshDb } from '../testing/pglite';
-import * as password from './password';
 import { createSession, validateSession } from './sessions';
 import {
   UserError,
   addUser,
-  authenticate,
   authenticateGoogle,
   disableUser,
   enableUser,
   listUsers,
-  setPassword,
+  setRole,
   signOutEverywhere,
 } from './users';
-
-// Wraps the real function, so every test still hashes for real; the one below reads the calls.
-vi.mock('./password', async importOriginal => {
-  const actual = await importOriginal<typeof import('./password')>();
-  return { ...actual, verifyPassword: vi.fn(actual.verifyPassword) };
-});
 
 let db: Db;
 let reset: () => Promise<void>;
@@ -36,42 +28,7 @@ beforeAll(async () => {
 afterAll(() => close());
 beforeEach(() => reset());
 
-const PRIYA = { email: 'priya@joveo.com', name: 'Priya Shah', password: 'first-password-1' };
-
-describe('authenticate', () => {
-  it('signs in with the password the admin set', async () => {
-    const id = await addUser(db, PRIYA);
-    expect(await authenticate(db, PRIYA.email, PRIYA.password)).toEqual({ id });
-  });
-
-  it('matches the email however it is typed', async () => {
-    const id = await addUser(db, PRIYA);
-    expect(await authenticate(db, '  Priya@Joveo.COM ', PRIYA.password)).toEqual({ id });
-  });
-
-  it('refuses a wrong password, an unknown email, a disabled user and a cleared password alike', async () => {
-    await addUser(db, PRIYA);
-    await addUser(db, { email: 'gone@joveo.com', name: 'Gone', password: 'gone-password-1' });
-    await addUser(db, { email: 'swapped@joveo.com', name: 'Swapped', password: 'swap-password-1' });
-    await disableUser(db, 'gone@joveo.com');
-    await db.query(
-      "update ask_naren.users set password_hash = null where email = 'swapped@joveo.com'",
-    );
-
-    expect(await authenticate(db, PRIYA.email, 'not-her-password')).toBeNull();
-    expect(await authenticate(db, 'nobody@joveo.com', PRIYA.password)).toBeNull();
-    expect(await authenticate(db, 'gone@joveo.com', 'gone-password-1')).toBeNull();
-    expect(await authenticate(db, 'swapped@joveo.com', 'swap-password-1')).toBeNull();
-  });
-
-  it('does the same scrypt work for an unknown email, so timing does not reveal who exists', async () => {
-    const verify = vi.mocked(password.verifyPassword);
-    verify.mockClear();
-    await authenticate(db, 'nobody@joveo.com', 'whatever');
-    expect(verify).toHaveBeenCalledTimes(1);
-    expect(verify.mock.calls[0][1]).toBe(await password.dummyHash());
-  });
-});
+const PRIYA = { email: 'priya@joveo.com', name: 'Priya Shah' };
 
 describe('authenticateGoogle', () => {
   it("links a seeded user's Google identity at first sign-in, then matches on it", async () => {
@@ -88,7 +45,7 @@ describe('authenticateGoogle', () => {
 
   it('refuses a disabled user, whether or not their Google identity is linked yet', async () => {
     await addUser(db, PRIYA);
-    await addUser(db, { email: 'gone@joveo.com', name: 'Gone', password: 'gone-password-1' });
+    await addUser(db, { email: 'gone@joveo.com', name: 'Gone' });
     expect(await authenticateGoogle(db, { sub: 'g-priya', email: PRIYA.email })).not.toBeNull();
     await disableUser(db, PRIYA.email);
     await disableUser(db, 'gone@joveo.com');
@@ -114,35 +71,18 @@ describe('admin operations', () => {
     await expect(addUser(db, { ...PRIYA, email: 'PRIYA@joveo.com' })).rejects.toThrow('already exists');
   });
 
-  it('never stores the password itself', async () => {
-    await addUser(db, PRIYA);
-    const { rows } = await db.query('select * from ask_naren.users');
-    expect(JSON.stringify(rows)).not.toContain(PRIYA.password);
-  });
-
-  it('a new password replaces the old one and signs the user out everywhere', async () => {
-    const id = await addUser(db, PRIYA);
-    const laptop = await createSession(db, id);
-    const phone = await createSession(db, id);
-    expect(await setPassword(db, PRIYA.email, 'second-password-2')).toBe(2);
-    expect(await authenticate(db, PRIYA.email, PRIYA.password)).toBeNull();
-    expect(await authenticate(db, PRIYA.email, 'second-password-2')).toEqual({ id });
-    expect(await validateSession(db, laptop.token)).toBeNull();
-    expect(await validateSession(db, phone.token)).toBeNull();
-  });
-
   it('offboarding disables AND signs out, and keeps the user row', async () => {
     const id = await addUser(db, PRIYA);
     const { token } = await createSession(db, id);
     expect(await disableUser(db, PRIYA.email)).toBe(1);
     expect(await validateSession(db, token)).toBeNull();
-    expect(await authenticate(db, PRIYA.email, PRIYA.password)).toBeNull();
+    expect(await authenticateGoogle(db, { sub: 'g-priya', email: PRIYA.email })).toBeNull();
     const [row] = await listUsers(db);
     expect(row).toMatchObject({ email: PRIYA.email, sessions: 0 });
     expect(row.disabledAt).toBeInstanceOf(Date);
 
     await enableUser(db, PRIYA.email);
-    expect(await authenticate(db, PRIYA.email, PRIYA.password)).toEqual({ id });
+    expect(await authenticateGoogle(db, { sub: 'g-priya', email: PRIYA.email })).toEqual({ id });
   });
 
   it('disabling twice keeps the original offboarding date', async () => {
@@ -153,15 +93,47 @@ describe('admin operations', () => {
     expect((await listUsers(db))[0].disabledAt).toEqual(first);
   });
 
-  it('signing out everywhere ends sessions without touching the password', async () => {
+  it('signing out everywhere ends sessions and leaves the user able to sign in again', async () => {
     const id = await addUser(db, PRIYA);
     await createSession(db, id);
     expect(await signOutEverywhere(db, PRIYA.email)).toBe(1);
-    expect(await authenticate(db, PRIYA.email, PRIYA.password)).toEqual({ id });
+    expect(await authenticateGoogle(db, { sub: 'g-priya', email: PRIYA.email })).toEqual({ id });
+  });
+
+  it('a new user has no password and has not linked Google yet', async () => {
+    await addUser(db, PRIYA);
+    expect((await listUsers(db))[0]).toMatchObject({ googleLinked: false });
+    await authenticateGoogle(db, { sub: 'g-priya', email: PRIYA.email });
+    expect((await listUsers(db))[0]).toMatchObject({ googleLinked: true });
+    const { rows } = await db.query<{ password_hash: string | null }>('select password_hash from ask_naren.users');
+    expect(rows[0].password_hash).toBeNull();
+  });
+
+  it('a new user is a member; an admin can be made, and made a member again', async () => {
+    await addUser(db, PRIYA);
+    expect((await listUsers(db))[0].role).toBe('member');
+    await setRole(db, 'Priya@joveo.com', 'admin');
+    expect((await listUsers(db))[0].role).toBe('admin');
+    await setRole(db, PRIYA.email, 'member');
+    expect((await listUsers(db))[0].role).toBe('member');
+  });
+
+  it('knows only the two roles', async () => {
+    await addUser(db, PRIYA);
+    await expect(setRole(db, PRIYA.email, 'owner' as 'admin')).rejects.toThrow(UserError);
+    await expect(setRole(db, 'nobody@joveo.com', 'admin')).rejects.toThrow('No user with email');
+  });
+
+  it('a signed-in user carries their role, so asking "admin?" needs no second read', async () => {
+    const id = await addUser(db, PRIYA);
+    const { token } = await createSession(db, id);
+    expect(await validateSession(db, token)).toMatchObject({ email: PRIYA.email, role: 'member' });
+    await setRole(db, PRIYA.email, 'admin');
+    expect(await validateSession(db, token)).toMatchObject({ role: 'admin' });
   });
 
   it('names the missing user rather than silently doing nothing', async () => {
     await expect(disableUser(db, 'nobody@joveo.com')).rejects.toThrow('No user with email');
-    await expect(setPassword(db, 'nobody@joveo.com', 'x'.repeat(12))).rejects.toThrow(UserError);
+    await expect(setRole(db, 'nobody@joveo.com', 'admin')).rejects.toThrow(UserError);
   });
 });

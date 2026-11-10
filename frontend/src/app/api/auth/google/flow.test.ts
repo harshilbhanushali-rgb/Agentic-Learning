@@ -38,7 +38,7 @@ const { GET: start } = await import('./start/route');
 const { GET: callback } = await import('./callback/route');
 const { SESSION_COOKIE } = await import('@/server/auth/cookie');
 const { validateSession } = await import('@/server/auth/sessions');
-const { addUser, disableUser } = await import('@/server/auth/users');
+const { addUser, disableUser, setRole } = await import('@/server/auth/users');
 const { requireAdmin } = await import('@/server/auth/admins');
 
 const SITE = 'https://naren-ai.prod.joveo.com';
@@ -66,8 +66,8 @@ beforeEach(async () => {
   for (const [k, v] of Object.entries(CONFIG)) vi.stubEnv(k, v);
 });
 
-const PRIYA = { email: 'priya@joveo.com', name: 'Priya Shah', password: 'priya-password-1' };
-const BOSS = { email: 'boss@joveo.com', name: 'Boss', password: 'boss-password-12' };
+const PRIYA = { email: 'priya@joveo.com', name: 'Priya Shah' };
+const BOSS = { email: 'boss@joveo.com', name: 'Boss' };
 
 /** The cookies a response sets, by name. */
 function setCookies(res: Response): Map<string, string> {
@@ -170,7 +170,7 @@ describe('the return address', () => {
     expect(res.headers.get('location')).toBe('/ask-naren/threads/4');
     const token = sessionToken(res);
     expect(token).not.toBeNull();
-    expect(await validateSession(testDb, token!)).toEqual({ id, email: PRIYA.email, name: PRIYA.name });
+    expect(await validateSession(testDb, token!)).toEqual({ id, email: PRIYA.email, name: PRIYA.name, role: 'member' });
     // The attempt is used up.
     expect(setCookies(res).get(attempt.cookieName)).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/i);
 
@@ -292,15 +292,24 @@ describe('roles after a Google sign-in', () => {
     return token!;
   }
 
-  it('an admin signed in with Google can open /admin', async () => {
-    vi.stubEnv('ASK_NAREN_ADMIN_EMAILS', BOSS.email);
+  it('someone given the admin role can open /admin', async () => {
     await signInWithGoogle(BOSS, 'g-boss');
-    expect(await requireAdmin()).toMatchObject({ email: BOSS.email });
+    await setRole(testDb, BOSS.email, 'admin');
+    expect(await requireAdmin()).toMatchObject({ email: BOSS.email, role: 'admin' });
   });
 
-  it('anyone else signed in with Google gets the same 404 a password user does', async () => {
-    vi.stubEnv('ASK_NAREN_ADMIN_EMAILS', BOSS.email);
+  it('a member gets a 404 there, and loses /admin again when an admin is made a member', async () => {
     await signInWithGoogle(PRIYA, 'g-priya');
     await expect(requireAdmin()).rejects.toThrow('NEXT_NOT_FOUND');
+
+    await setRole(testDb, PRIYA.email, 'admin');
+    expect(await requireAdmin()).toMatchObject({ email: PRIYA.email });
+    await setRole(testDb, PRIYA.email, 'member');
+    await expect(requireAdmin()).rejects.toThrow('NEXT_NOT_FOUND');
+  });
+
+  it('the built-in admin can open /admin from their first sign-in, with no role set', async () => {
+    await signInWithGoogle({ email: 'harshil.bhanushali@joveo.com', name: 'Harshil' }, 'g-harshil');
+    expect(await requireAdmin()).toMatchObject({ email: 'harshil.bhanushali@joveo.com', role: 'member' });
   });
 });

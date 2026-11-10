@@ -15,12 +15,11 @@ import { recordFeedback } from './feedback';
 import { createSession, deleteSession, validateSession } from './auth/sessions';
 import {
   addUser,
-  authenticate,
   authenticateGoogle,
   disableUser,
   enableUser,
   listUsers,
-  setPassword,
+  setRole,
   signOutEverywhere,
 } from './auth/users';
 import { deleteThread, listThreads, loadThread, recordTurn, renameThread } from './threads';
@@ -84,12 +83,20 @@ const denied = expect.objectContaining({ message: expect.stringMatching(/permiss
 
 describe('ask_naren_admin (the users CLI)', () => {
   it('can do everything the CLI does', async () => {
-    await addUser(admin(), { email: 'priya@joveo.com', name: 'Priya', password: 'pw-for-tests-1' });
-    expect(await setPassword(admin(), 'priya@joveo.com', 'pw-for-tests-2')).toBe(0);
+    await addUser(admin(), { email: 'priya@joveo.com', name: 'Priya' });
+    await setRole(admin(), 'priya@joveo.com', 'admin');
     await disableUser(admin(), 'priya@joveo.com');
     await enableUser(admin(), 'priya@joveo.com');
     expect(await signOutEverywhere(admin(), 'priya@joveo.com')).toBe(0);
-    expect((await listUsers(admin()))[0]).toMatchObject({ email: 'priya@joveo.com', sessions: 0 });
+    expect((await listUsers(admin()))[0]).toMatchObject({ email: 'priya@joveo.com', role: 'admin', sessions: 0 });
+  });
+
+  it('cannot write a password any more (ADR 0018)', async () => {
+    await expect(
+      admin().query(`insert into ask_naren.users (email, name, password_hash) values ('x@joveo.com', 'X', 'h')`),
+    ).rejects.toEqual(denied);
+    await addUser(admin(), { email: 'priya@joveo.com', name: 'Priya' });
+    await expect(admin().query(`update ask_naren.users set password_hash = 'h'`)).rejects.toEqual(denied);
   });
 
   it("cannot read threads, turns, or Brain's tables", async () => {
@@ -101,8 +108,8 @@ describe('ask_naren_admin (the users CLI)', () => {
 
 describe('ask_naren_app (the web app)', () => {
   it('can sign in, keep a session, and read and write threads', async () => {
-    const id = await addUser(admin(), { email: 'priya@joveo.com', name: 'Priya', password: 'pw-for-tests-1' });
-    expect(await authenticate(app(), 'priya@joveo.com', 'pw-for-tests-1')).toEqual({ id });
+    const id = await addUser(admin(), { email: 'priya@joveo.com', name: 'Priya' });
+    expect(await authenticateGoogle(app(), { sub: 'g-priya', email: 'priya@joveo.com' })).toEqual({ id });
     const t0 = new Date('2026-09-28T09:00:00Z');
     const { token } = await createSession(app(), id, t0);
     // Two hours later: the lookup AND the last_seen touch both run as the app. The touch is
@@ -130,14 +137,15 @@ describe('ask_naren_app (the web app)', () => {
   });
 
   it('signs a seeded user in with Google, linking their Google identity', async () => {
-    const id = await addUser(app(), { email: 'priya@joveo.com', name: 'Priya', password: 'pw-for-tests-1' });
+    const id = await addUser(app(), { email: 'priya@joveo.com', name: 'Priya' });
     expect(await authenticateGoogle(app(), { sub: 'g-priya', email: 'priya@joveo.com' })).toEqual({ id });
     expect(await authenticateGoogle(app(), { sub: 'g-priya', email: 'priya@joveo.com' })).toEqual({ id });
   });
 
-  it('manages users for /admin (ADR 0016), but cannot change who a user is', async () => {
-    await addUser(app(), { email: 'priya@joveo.com', name: 'Priya', password: 'pw-for-tests-1' });
-    expect(await setPassword(app(), 'priya@joveo.com', 'pw-for-tests-2')).toBe(0);
+  it('manages users and roles for /admin (ADR 0016, 0018), but cannot change who a user is', async () => {
+    await addUser(app(), { email: 'priya@joveo.com', name: 'Priya' });
+    await setRole(app(), 'priya@joveo.com', 'admin');
+    await setRole(app(), 'priya@joveo.com', 'member');
     await disableUser(app(), 'priya@joveo.com');
     await enableUser(app(), 'priya@joveo.com');
     expect((await listUsers(app()))[0]).toMatchObject({ email: 'priya@joveo.com', sessions: 0 });
@@ -145,10 +153,15 @@ describe('ask_naren_app (the web app)', () => {
     await expect(app().query(`update ask_naren.users set email = 'other@joveo.com'`)).rejects.toEqual(denied);
     await expect(app().query(`update ask_naren.users set name = 'Other'`)).rejects.toEqual(denied);
     await expect(app().query('delete from ask_naren.users')).rejects.toEqual(denied);
+    // No passwords any more: the app can neither set one nor create a user with one.
+    await expect(app().query(`update ask_naren.users set password_hash = 'h'`)).rejects.toEqual(denied);
+    await expect(
+      app().query(`insert into ask_naren.users (email, name, password_hash) values ('x@joveo.com', 'X', 'h')`),
+    ).rejects.toEqual(denied);
   });
 
   it('cannot rewrite history: turns are append-only, threads are never hard-deleted', async () => {
-    const id = await addUser(admin(), { email: 'priya@joveo.com', name: 'Priya', password: 'pw-for-tests-1' });
+    const id = await addUser(admin(), { email: 'priya@joveo.com', name: 'Priya' });
     const t0 = new Date();
     await recordTurn(app(), { userId: id, threadId: null, question: 'q', response: ANSWER, askedAt: t0, answeredAt: t0 });
     await expect(app().query(`update ask_naren.turns set question = 'edited'`)).rejects.toEqual(denied);

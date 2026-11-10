@@ -20,8 +20,8 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Step 3 of Google sign-in (src/server/auth/google.ts): Google sends the browser back here.
- * The person ends up signed in exactly as a password would have done it -- same session row,
- * same cookie -- so everything downstream, the admin check included, cannot tell the two apart.
+ * The person ends up signed in with an ordinary session row and cookie, which everything
+ * downstream -- the admin check included -- reads the same way.
  *
  * Every way out but success goes back to /login with a reason code the page turns into fixed
  * copy. Never reflected text: this address is reachable by anyone with a link.
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     if (!user) return refuse('google_not_set_up');
     session = await createSession(db(), user.id);
   } catch (cause) {
-    // A store fault, never phrased as a refusal (issue #40), as on the password form.
+    // A store fault, never phrased as a refusal (issue #40).
     console.error('[ask-naren] Google sign-in failed on the store:', cause);
     return refuse('unavailable');
   }

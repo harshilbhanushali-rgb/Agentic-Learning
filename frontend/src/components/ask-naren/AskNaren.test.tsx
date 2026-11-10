@@ -10,7 +10,7 @@ import { AskNaren } from './AskNaren';
 
 /* The sign-out form's server action is not reachable from jsdom and is not what this file
  * is about; SignOutButton has its own test. */
-vi.mock('@/app/login/actions', () => ({ signOut: vi.fn(), signIn: vi.fn() }));
+vi.mock('@/app/login/actions', () => ({ signOut: vi.fn() }));
 
 const USER = { id: 7, name: 'Asha Rao' };
 const DRAFT_KEY = 'cs-ask-naren-draft';

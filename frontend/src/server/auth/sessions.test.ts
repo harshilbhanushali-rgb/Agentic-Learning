@@ -51,6 +51,7 @@ describe('sessions', () => {
       id,
       email: 'priya@joveo.com',
       name: 'Priya',
+      role: 'member',
     });
   });
 

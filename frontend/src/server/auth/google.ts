@@ -12,7 +12,7 @@ import { isJoveoEmail, normalizeEmail } from './users';
  *   2. Google                  -- the person picks their joveo.com account.
  *   3. /api/auth/google/callback -- checks the answer belongs to the attempt, swaps the code
  *                                 for an ID token with our secret, checks the token, finds the
- *                                 seeded user, and starts the same session a password does.
+ *                                 seeded user, and starts an ordinary session.
  */
 
 /** The Workspace whose accounts may sign in. `hd` is Google's own statement of it. */
@@ -29,8 +29,8 @@ export interface GoogleConfig {
 }
 
 /**
- * The OAuth client, or null when Google sign-in is not set up -- then the button is not shown
- * and password sign-in is all there is. All three or nothing: the redirect address is set
+ * The OAuth client, or null when Google sign-in is not set up -- then the sign-in page says so,
+ * because there is no other way in (ADR 0018). All three or nothing: the redirect address is set
  * explicitly rather than worked out from the request, because behind the deployment's proxy
  * the request's own host is not the public one Google was told about.
  */

@@ -23,7 +23,7 @@ export const metadata = {
 async function sidebarUser(): Promise<{ name: string; email: string; isAdmin: boolean } | null> {
   try {
     const user = await getCurrentUser();
-    return user ? { name: user.name, email: user.email, isAdmin: isAdmin(user.email) } : null;
+    return user ? { name: user.name, email: user.email, isAdmin: isAdmin(user) } : null;
   } catch {
     return null;
   }

@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
-import { SignInForm } from '@/components/auth/SignInForm';
 import { safeNext } from '@/server/auth/cookie';
 import { getCurrentUser } from '@/server/auth/current-user';
 import { type GoogleSignInError, googleConfig } from '@/server/auth/google';
@@ -16,11 +15,15 @@ const GOOGLE_ERRORS: Record<GoogleSignInError, string> = {
   google_wrong_account:
     'Ask Naren only accepts your verified @joveo.com Google account. Choose that one and try again.',
   google_failed: "Google sign-in didn't finish. Try again.",
-  google_off: "Google sign-in isn't available here yet. Use your email and password.",
+  google_off: "Google sign-in isn't available on this site right now.",
   unavailable:
     'Sign-in is unavailable right now. This is a fault on our side, not your account — try ' +
     'again in a moment.',
 };
+
+/** Shown when the site has no Google client configured: there is then no way in at all. */
+const NOT_CONFIGURED =
+  "Sign-in isn't set up on this site yet. This is a fault on our side — tell the Ask Naren admin.";
 
 function googleError(raw: unknown): string | null {
   return typeof raw === 'string' && Object.hasOwn(GOOGLE_ERRORS, raw)
@@ -29,9 +32,8 @@ function googleError(raw: unknown): string | null {
 }
 
 /**
- * Sign in (issue #44). Users are seeded by an admin; there is no sign-up and no self-service
- * reset, so the page says who to ask instead of offering a link that does not exist. Google
- * is offered first when it is configured (ADR 0017); the password form stays beneath it.
+ * Sign in (issue #44, ADR 0018): with a Joveo Google account, and nothing else. Users are added
+ * by an admin; there is no sign-up, so the page says who to ask.
  */
 export default async function LoginPage({
   searchParams,
@@ -39,18 +41,18 @@ export default async function LoginPage({
   searchParams: { next?: string | string[]; error?: string | string[] };
 }) {
   const next = safeNext(searchParams.next);
-  // Already signed in: a bookmark to /login should not strand someone on a form.
+  // Already signed in: a bookmark to /login should not strand someone here.
   if (await getCurrentUser()) redirect(next);
 
   const google = googleConfig() !== null;
-  const error = googleError(searchParams.error);
+  const error = google ? googleError(searchParams.error) : NOT_CONFIGURED;
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-var(--topbar-height))] max-w-[400px] flex-col justify-center gap-8 px-8 py-10">
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold tracking-[-0.01em] text-ink">Sign in</h1>
         <p className="text-sm leading-relaxed text-ink-2">
-          Ask Naren keeps your threads under your Joveo email.
+          Use your Joveo Google account. Ask Naren keeps your threads under it.
         </p>
       </header>
       {error && (
@@ -58,20 +60,9 @@ export default async function LoginPage({
           {error}
         </p>
       )}
-      {google && (
-        <>
-          <GoogleSignInButton next={next} />
-          <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.06em] text-ink-placeholder">
-            <span className="h-px flex-1 bg-line" />
-            or with a password
-            <span className="h-px flex-1 bg-line" />
-          </div>
-        </>
-      )}
-      <SignInForm next={next} />
+      {google && <GoogleSignInButton next={next} />}
       <p className="text-[11px] leading-relaxed text-ink-placeholder">
-        Not set up yet, or forgot your password? Ask the Ask Naren admin — passwords are set
-        by them, not reset by email.
+        Not set up yet? Ask the Ask Naren admin to add your Joveo email.
       </p>
     </div>
   );

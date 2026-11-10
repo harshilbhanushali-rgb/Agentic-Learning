@@ -43,7 +43,7 @@ const ANSWER: AskNarenResponse = {
 let n = 0;
 async function userWithTurn(): Promise<{ token: string; userId: number; threadId: number }> {
   n += 1;
-  const userId = await addUser(testDb, { email: `fb${n}@joveo.com`, name: `FB ${n}`, password: 'pw-for-tests-1' });
+  const userId = await addUser(testDb, { email: `fb${n}@joveo.com`, name: `FB ${n}` });
   const at = new Date();
   const turn = await recordTurn(testDb, { userId, threadId: null, question: 'q', response: ANSWER, askedAt: at, answeredAt: at });
   return { token: (await createSession(testDb, userId)).token, userId, threadId: turn!.threadId };

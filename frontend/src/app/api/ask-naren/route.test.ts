@@ -82,7 +82,7 @@ let emails = 0;
 async function signedIn(): Promise<{ token: string; userId: number; email: string }> {
   emails += 1;
   const email = `csm${emails}@joveo.com`;
-  const userId = await addUser(testDb, { email, name: `CSM ${emails}`, password: 'pw-for-tests-1' });
+  const userId = await addUser(testDb, { email, name: `CSM ${emails}` });
   return { token: (await createSession(testDb, userId)).token, userId, email };
 }
 

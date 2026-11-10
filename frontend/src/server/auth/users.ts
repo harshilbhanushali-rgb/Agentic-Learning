@@ -1,12 +1,10 @@
 import type { Db } from '../db';
-import { dummyHash, hashPassword, verifyPassword } from './password';
-import { deleteUserSessions } from './sessions';
+import { type Role, deleteUserSessions } from './sessions';
 
 /**
- * Users (ADR 0011): admin-seeded, keyed on a `@joveo.com` email, no self-signup.
- *
- * The admin CLI (scripts/users.ts) and the sign-in form both come through this module, so a
- * password the admin sets is hashed by exactly the code that later verifies it.
+ * Users (ADR 0011, 0018): added by an admin, keyed on a `@joveo.com` email, no self-signup.
+ * They sign in with Google only; the admin CLI (scripts/users.ts) and /admin both manage
+ * them through this module.
  */
 export function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();
@@ -14,33 +12,6 @@ export function normalizeEmail(raw: string): string {
 
 export function isJoveoEmail(email: string): boolean {
   return /^[^\s@]+@joveo\.com$/.test(email);
-}
-
-/**
- * The user this email and password sign in as, or null.
- *
- * EVERY REFUSAL LOOKS THE SAME -- unknown email, wrong password, disabled user, a user with
- * no password -- and does the same scrypt work, so neither the answer nor its timing says
- * whether an email belongs to someone. There is no throttling (ADR 0011: the app relies on a
- * network boundary), which makes this the only thing standing between a guessable email
- * format and a list of who uses the tool.
- */
-export async function authenticate(
-  db: Db,
-  email: string,
-  password: string,
-): Promise<{ id: number } | null> {
-  const { rows } = await db.query<{
-    id: number;
-    password_hash: string | null;
-    disabled_at: Date | null;
-  }>('select id, password_hash, disabled_at from ask_naren.users where email = $1', [
-    normalizeEmail(email),
-  ]);
-  const row = rows[0];
-  const ok = await verifyPassword(password, row?.password_hash ?? (await dummyHash()));
-  if (!row || !row.password_hash || !ok || row.disabled_at !== null) return null;
-  return { id: row.id };
 }
 
 /**
@@ -75,7 +46,9 @@ export interface UserSummary {
   id: number;
   email: string;
   name: string;
-  hasPassword: boolean;
+  role: Role;
+  /** Has signed in with Google at least once (their Google account is linked). */
+  googleLinked: boolean;
   disabledAt: Date | null;
   sessions: number;
 }
@@ -91,10 +64,7 @@ async function idFor(db: Db, email: string): Promise<number> {
   return rows[0].id;
 }
 
-export async function addUser(
-  db: Db,
-  input: { email: string; name: string; password: string },
-): Promise<number> {
+export async function addUser(db: Db, input: { email: string; name: string }): Promise<number> {
   const email = normalizeEmail(input.email);
   if (!isJoveoEmail(email)) throw new UserError(`${email} is not a @joveo.com address.`);
   const name = input.name.trim();
@@ -102,21 +72,10 @@ export async function addUser(
   const existing = await db.query('select 1 from ask_naren.users where email = $1', [email]);
   if (existing.rows.length) throw new UserError(`${email} already exists.`);
   const { rows } = await db.query<{ id: number }>(
-    `insert into ask_naren.users (email, name, password_hash) values ($1, $2, $3) returning id`,
-    [email, name, await hashPassword(input.password)],
+    `insert into ask_naren.users (email, name) values ($1, $2) returning id`,
+    [email, name],
   );
   return rows[0].id;
-}
-
-/** An admin reset. Ends every session the user has, so an old password's sign-ins do not
- *  outlive it. */
-export async function setPassword(db: Db, email: string, password: string): Promise<number> {
-  const id = await idFor(db, email);
-  await db.query('update ask_naren.users set password_hash = $2 where id = $1', [
-    id,
-    await hashPassword(password),
-  ]);
-  return deleteUserSessions(db, id);
 }
 
 /**
@@ -137,6 +96,15 @@ export async function enableUser(db: Db, email: string): Promise<void> {
   await db.query('update ask_naren.users set disabled_at = null where id = $1', [id]);
 }
 
+export const ROLES: readonly Role[] = ['member', 'admin'];
+
+/** ADR 0018. Takes effect on the user's next request: the role is read with the session. */
+export async function setRole(db: Db, email: string, role: Role): Promise<void> {
+  if (!ROLES.includes(role)) throw new UserError(`${role} is not a role. Use member or admin.`);
+  const id = await idFor(db, email);
+  await db.query('update ask_naren.users set role = $2 where id = $1', [id, role]);
+}
+
 export async function signOutEverywhere(db: Db, email: string): Promise<number> {
   return deleteUserSessions(db, await idFor(db, email));
 }
@@ -146,11 +114,12 @@ export async function listUsers(db: Db): Promise<UserSummary[]> {
     id: number;
     email: string;
     name: string;
-    has_password: boolean;
+    role: Role;
+    google_linked: boolean;
     disabled_at: Date | null;
     sessions: number;
   }>(
-    `select u.id, u.email, u.name, u.password_hash is not null as has_password, u.disabled_at,
+    `select u.id, u.email, u.name, u.role, u.google_sub is not null as google_linked, u.disabled_at,
             (select count(*)::int from ask_naren.sessions s where s.user_id = u.id) as sessions
      from ask_naren.users u
      order by u.email`,
@@ -159,7 +128,8 @@ export async function listUsers(db: Db): Promise<UserSummary[]> {
     id: r.id,
     email: r.email,
     name: r.name,
-    hasPassword: r.has_password,
+    role: r.role,
+    googleLinked: r.google_linked,
     disabledAt: r.disabled_at,
     sessions: r.sessions,
   }));

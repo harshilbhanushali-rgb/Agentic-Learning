@@ -24,10 +24,14 @@ const TOKEN_BYTES = 32;
 /** base64url of 32 bytes. Anything else is not a token this code issued. */
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
+/** What a user may do (ADR 0018). `admin` also manages users on /admin. */
+export type Role = 'member' | 'admin';
+
 export interface SessionUser {
   id: number;
   email: string;
   name: string;
+  role: Role;
 }
 
 /** What the table stores in place of the token: reading the table must not yield a sign-in. */
@@ -75,11 +79,12 @@ export async function validateSession(
     user_id: number;
     email: string;
     name: string;
+    role: Role;
     disabled_at: Date | null;
     last_seen_at: Date;
     expires_at: Date;
   }>(
-    `select s.user_id, u.email, u.name, u.disabled_at, s.last_seen_at, s.expires_at
+    `select s.user_id, u.email, u.name, u.role, u.disabled_at, s.last_seen_at, s.expires_at
      from ask_naren.sessions s
      join ask_naren.users u on u.id = s.user_id
      where s.token_hash = $1`,
@@ -107,7 +112,7 @@ export async function validateSession(
       ]),
     );
   }
-  return { id: row.user_id, email: row.email, name: row.name };
+  return { id: row.user_id, email: row.email, name: row.name, role: row.role };
 }
 
 /**

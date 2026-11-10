@@ -11,12 +11,6 @@ import { adminDb } from '../src/server/db';
 // which database they are pointed at.
 loadEnvConfig(process.cwd());
 
-async function readStdin(): Promise<string> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
-  return Buffer.concat(chunks).toString('utf8');
-}
-
 const argv = process.argv.slice(2);
 if (!argv.length || argv.includes('--help')) {
   console.log(USAGE);
@@ -27,7 +21,7 @@ if (!process.env.ASK_NAREN_ADMIN_DATABASE_URL && !process.env.ASK_NAREN_DATABASE
   process.exit(1);
 }
 
-runCli(argv, adminDb(), { out: line => console.log(line), readStdin })
+runCli(argv, adminDb(), { out: line => console.log(line) })
   .then(code => process.exit(code))
   .catch(err => {
     console.error(err);

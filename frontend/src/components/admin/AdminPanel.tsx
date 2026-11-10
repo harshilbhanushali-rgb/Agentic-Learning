@@ -1,16 +1,19 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 
-import { addUserAction, resetPasswordAction, setDisabledAction } from '@/app/admin/actions';
-import { CopyButton } from '@/components/ask-naren/CopyButton';
+import { addUserAction, setDisabledAction, setRoleAction } from '@/app/admin/actions';
 import { EMPTY_RESULT, type AdminResult } from '@/server/auth/admin-web-result';
 
 export interface AdminUserRow {
   email: string;
   name: string;
-  hasPassword: boolean;
+  role: 'member' | 'admin';
+  /** The built-in admin: always an admin, never changed or disabled from this page. */
+  fixedAdmin: boolean;
+  /** Has signed in with Google at least once. */
+  googleLinked: boolean;
   disabled: boolean;
   sessions: number;
 }
@@ -32,19 +35,13 @@ function Submit({ children, pendingText, className = PRIMARY }: { children: stri
   );
 }
 
-/** What an action said, and a generated password shown once with a way to copy it. */
+/** What an action said. */
 function Outcome({ result }: { result: AdminResult }) {
   if (!result.ok && !result.error) return null;
   return (
     <div role="status" className="flex flex-col gap-2">
       {result.error && <p className="text-[14px] font-medium text-error">{result.error}</p>}
       {result.ok && <p className="text-[14px] text-ink">{result.ok}</p>}
-      {result.password && (
-        <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface px-3.5 py-2.5">
-          <code className="select-all break-all font-mono text-[14px] text-ink">{result.password}</code>
-          <CopyButton text={result.password} />
-        </div>
-      )}
     </div>
   );
 }
@@ -52,7 +49,7 @@ function Outcome({ result }: { result: AdminResult }) {
 function AddUserForm() {
   const [state, action] = useFormState(addUserAction, EMPTY_RESULT);
   const form = useRef<HTMLFormElement>(null);
-  const ids = { email: useId(), name: useId(), password: useId() };
+  const ids = { email: useId(), name: useId() };
 
   // Clear the fields once the user exists, so a second click cannot add them twice.
   useEffect(() => { if (state.ok) form.current?.reset(); }, [state]);
@@ -60,7 +57,7 @@ function AddUserForm() {
   return (
     <section aria-labelledby="add-user" className="flex flex-col gap-4 rounded-xl border border-line bg-bg p-6">
       <h2 id="add-user" className="text-[17px] font-semibold text-ink">Add a user</h2>
-      <form ref={form} action={action} className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <form ref={form} action={action} className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor={ids.email} className={LABEL}>Email</label>
           <input id={ids.email} name="email" type="email" required autoComplete="off" placeholder="name@joveo.com" className={FIELD} />
@@ -69,11 +66,7 @@ function AddUserForm() {
           <label htmlFor={ids.name} className={LABEL}>Name</label>
           <input id={ids.name} name="name" required autoComplete="off" placeholder="Full name" className={FIELD} />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={ids.password} className={LABEL}>Password</label>
-          <input id={ids.password} name="password" type="password" autoComplete="new-password" placeholder="Leave empty to generate one" className={FIELD} />
-        </div>
-        <div className="md:col-span-3">
+        <div className="md:col-span-2">
           <Submit pendingText="Adding…">Add user</Submit>
         </div>
       </form>
@@ -82,16 +75,38 @@ function AddUserForm() {
   );
 }
 
+/** Member or admin. Changing it saves at once; locked for yourself and the built-in admin. */
+function RoleSelect({ user, locked, action }: { user: AdminUserRow; locked: boolean; action: (form: FormData) => void }) {
+  const form = useRef<HTMLFormElement>(null);
+  const id = useId();
+  const role = user.fixedAdmin ? 'admin' : user.role;
+  return (
+    <form ref={form} action={action}>
+      <input type="hidden" name="email" value={user.email} />
+      <label htmlFor={id} className="sr-only">Role for {user.email}</label>
+      <select
+        id={id}
+        name="role"
+        defaultValue={role}
+        disabled={locked}
+        title={user.fixedAdmin ? 'Always an admin' : locked ? 'You can’t change your own role' : undefined}
+        onChange={() => form.current?.requestSubmit()}
+        className="h-9 rounded-md border border-line bg-bg px-2.5 text-[13px] font-semibold text-ink transition-colors duration-fast ease-out-quart focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <option value="member">Member</option>
+        <option value="admin">Admin</option>
+      </select>
+    </form>
+  );
+}
+
 function UserRow({ user, isMe }: { user: AdminUserRow; isMe: boolean }) {
-  const [resetState, resetAction] = useFormState(resetPasswordAction, EMPTY_RESULT);
+  const [roleState, roleAction] = useFormState(setRoleAction, EMPTY_RESULT);
   const [statusState, statusAction] = useFormState(setDisabledAction, EMPTY_RESULT);
-  const [resetting, setResetting] = useState(false);
-  const passwordId = useId();
+  const locked = isMe || user.fixedAdmin;
 
-  useEffect(() => { if (resetState.ok) setResetting(false); }, [resetState]);
-
-  const status = user.disabled ? 'Disabled' : user.hasPassword ? 'Active' : 'No password';
-  const latest = statusState.ok || statusState.error ? statusState : resetState;
+  const status = user.disabled ? 'Disabled' : user.googleLinked ? 'Active' : 'Not signed in yet';
+  const latest = statusState.ok || statusState.error ? statusState : roleState;
 
   return (
     <tbody className="border-t border-line">
@@ -101,8 +116,11 @@ function UserRow({ user, isMe }: { user: AdminUserRow; isMe: boolean }) {
           {isMe && <span className="ml-2 text-[12px] font-normal text-ink-2">(you)</span>}
         </td>
         <td className="break-all px-4 py-3 text-[14px] text-ink">{user.email}</td>
+        <td className="px-4 py-3">
+          <RoleSelect user={user} locked={locked} action={roleAction} />
+        </td>
         <td className="px-4 py-3 text-[14px]">
-          <span className={user.disabled ? 'font-semibold text-error' : user.hasPassword ? 'text-ink' : 'font-semibold text-warning'}>
+          <span className={user.disabled ? 'font-semibold text-error' : user.googleLinked ? 'text-ink' : 'text-ink-2'}>
             {status}
           </span>
         </td>
@@ -110,48 +128,30 @@ function UserRow({ user, isMe }: { user: AdminUserRow; isMe: boolean }) {
           {user.sessions === 1 ? '1 browser' : `${user.sessions} browsers`}
         </td>
         <td className="px-4 py-3">
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              aria-expanded={resetting}
-              onClick={() => setResetting(r => !r)}
-              className={SECONDARY}
-            >
-              Reset password
-            </button>
-            <form action={statusAction}>
-              <input type="hidden" name="email" value={user.email} />
-              <input type="hidden" name="disable" value={user.disabled ? 'false' : 'true'} />
-              {isMe && !user.disabled ? (
-                <button type="button" disabled title="You can’t disable your own account" className={SECONDARY}>
-                  Disable
-                </button>
-              ) : (
-                <Submit pendingText={user.disabled ? 'Enabling…' : 'Disabling…'} className={SECONDARY}>
-                  {user.disabled ? 'Enable' : 'Disable'}
-                </Submit>
-              )}
-            </form>
-          </div>
+          <form action={statusAction}>
+            <input type="hidden" name="email" value={user.email} />
+            <input type="hidden" name="disable" value={user.disabled ? 'false' : 'true'} />
+            {locked && !user.disabled ? (
+              <button
+                type="button"
+                disabled
+                title={user.fixedAdmin ? 'Always an admin' : 'You can’t disable your own account'}
+                className={SECONDARY}
+              >
+                Disable
+              </button>
+            ) : (
+              <Submit pendingText={user.disabled ? 'Enabling…' : 'Disabling…'} className={SECONDARY}>
+                {user.disabled ? 'Enable' : 'Disable'}
+              </Submit>
+            )}
+          </form>
         </td>
       </tr>
-      {(resetting || latest.ok || latest.error) && (
+      {(latest.ok || latest.error) && (
         <tr>
-          <td colSpan={5} className="px-4 pb-4">
-            <div className="flex flex-col gap-3">
-              {resetting && (
-                <form action={resetAction} className="flex flex-wrap items-end gap-3">
-                  <input type="hidden" name="email" value={user.email} />
-                  <div className="flex min-w-[260px] flex-1 flex-col gap-1.5">
-                    <label htmlFor={passwordId} className={LABEL}>New password for {user.email}</label>
-                    <input id={passwordId} name="password" type="password" autoComplete="new-password" placeholder="Leave empty to generate one" className={FIELD} />
-                  </div>
-                  <Submit pendingText="Resetting…">Reset password</Submit>
-                  <span className="basis-full text-[12.5px] text-ink-2">This signs them out on every browser.</span>
-                </form>
-              )}
-              <Outcome result={latest} />
-            </div>
+          <td colSpan={6} className="px-4 pb-4">
+            <Outcome result={latest} />
           </td>
         </tr>
       )}
@@ -165,8 +165,9 @@ export function AdminPanel({ me, users }: { me: string; users: AdminUserRow[] | 
       <header className="flex flex-col gap-2">
         <h1 className="text-[28px] font-bold tracking-[-0.02em] text-ink">Users</h1>
         <p className="max-w-[70ch] text-[15px] leading-relaxed text-ink-2">
-          Add people, reset passwords, and turn sign-in off or on. Only admins can see this page.
-          A password you leave empty is generated and shown once — hand it over directly.
+          Add people, choose who is an admin, and turn sign-in off or on. Only admins can see
+          this page. People sign in with their Joveo Google account — there is nothing to hand
+          over.
         </p>
       </header>
 
@@ -188,7 +189,7 @@ export function AdminPanel({ me, users }: { me: string; users: AdminUserRow[] | 
             <table className="w-full min-w-[760px] border-collapse text-left">
               <thead className="bg-surface">
                 <tr>
-                  {['Name', 'Email', 'Status', 'Signed in on', 'Actions'].map(h => (
+                  {['Name', 'Email', 'Role', 'Status', 'Signed in on', 'Actions'].map(h => (
                     <th key={h} scope="col" className="px-4 py-2.5 text-[13px] font-semibold text-ink-2">{h}</th>
                   ))}
                 </tr>

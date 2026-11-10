@@ -8,8 +8,8 @@ import {
   type AdminResult,
   UNAVAILABLE,
   webAddUser,
-  webResetPassword,
   webSetDisabled,
+  webSetRole,
 } from '@/server/auth/admin-web';
 import { getCurrentUser } from '@/server/auth/current-user';
 import type { SessionUser } from '@/server/auth/sessions';
@@ -20,8 +20,8 @@ import type { SessionUser } from '@/server/auth/sessions';
  * page's own check does not protect these.
  */
 
-const NOT_ALLOWED: AdminResult = { ok: null, error: 'Only an admin can do that.', password: null };
-const DOWN: AdminResult = { ok: null, error: UNAVAILABLE, password: null };
+const NOT_ALLOWED: AdminResult = { ok: null, error: 'Only an admin can do that.' };
+const DOWN: AdminResult = { ok: null, error: UNAVAILABLE };
 
 async function asAdmin(work: (db: Db, me: SessionUser) => Promise<AdminResult>): Promise<AdminResult> {
   let me: SessionUser | null;
@@ -32,7 +32,7 @@ async function asAdmin(work: (db: Db, me: SessionUser) => Promise<AdminResult>):
     console.error('[ask-naren] admin action could not read the session:', cause);
     return DOWN;
   }
-  if (!me || !isAdmin(me.email)) return NOT_ALLOWED;
+  if (!me || !isAdmin(me)) return NOT_ALLOWED;
 
   let db: Db;
   try {
@@ -50,18 +50,12 @@ async function asAdmin(work: (db: Db, me: SessionUser) => Promise<AdminResult>):
 const field = (form: FormData, name: string) => String(form.get(name) ?? '');
 
 export async function addUserAction(_prev: AdminResult, form: FormData): Promise<AdminResult> {
-  return asAdmin(db =>
-    webAddUser(db, {
-      email: field(form, 'email'),
-      name: field(form, 'name'),
-      password: field(form, 'password'),
-    }),
-  );
+  return asAdmin(db => webAddUser(db, { email: field(form, 'email'), name: field(form, 'name') }));
 }
 
-export async function resetPasswordAction(_prev: AdminResult, form: FormData): Promise<AdminResult> {
-  return asAdmin(db =>
-    webResetPassword(db, { email: field(form, 'email'), password: field(form, 'password') }),
+export async function setRoleAction(_prev: AdminResult, form: FormData): Promise<AdminResult> {
+  return asAdmin((db, me) =>
+    webSetRole(db, me.email, { email: field(form, 'email'), role: field(form, 'role') }),
   );
 }
 

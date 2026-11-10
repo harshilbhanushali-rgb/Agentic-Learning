@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Db } from '../db';
 import { freshDb } from '../testing/pglite';
 import { runCli } from './admin-cli';
-import { authenticate, listUsers } from './users';
+import { authenticateGoogle, listUsers } from './users';
 
 let db: Db;
 let reset: () => Promise<void>;
@@ -19,56 +19,42 @@ beforeAll(async () => {
 afterAll(() => close());
 beforeEach(() => reset());
 
-async function run(argv: string[], stdin = '') {
+async function run(argv: string[]) {
   const lines: string[] = [];
-  const code = await runCli(argv, db, { out: l => lines.push(l), readStdin: async () => stdin });
+  const code = await runCli(argv, db, { out: l => lines.push(l) });
   return { code, output: lines.join('\n') };
 }
 
-const generated = (output: string) => /hand it over directly\): (\S+)/.exec(output)?.[1];
-
 describe('users CLI', () => {
-  it('add prints a generated password once, and that password signs in', async () => {
+  it('add creates a member who can then sign in with Google, and prints no password', async () => {
     const { code, output } = await run(['add', 'Priya@joveo.com', 'Priya', 'Shah']);
     expect(code).toBe(0);
-    const pw = generated(output);
-    expect(pw).toHaveLength(24);
-    expect(await authenticate(db, 'priya@joveo.com', pw!)).not.toBeNull();
-    expect((await listUsers(db))[0].name).toBe('Priya Shah');
+    expect(output).toBe('Added priya@joveo.com. They sign in with Google.');
+    expect((await listUsers(db))[0]).toMatchObject({ name: 'Priya Shah', role: 'member' });
+    expect(await authenticateGoogle(db, { sub: 'g-priya', email: 'priya@joveo.com' })).not.toBeNull();
   });
 
-  it('takes a chosen password from stdin, never from an argument', async () => {
-    const { code, output } = await run(['add', 'priya@joveo.com', 'Priya', '--password-stdin'], 'chosen-password-1\n');
-    expect(code).toBe(0);
-    expect(output).not.toContain('chosen-password-1');
-    expect(generated(output)).toBeUndefined();
-    expect(await authenticate(db, 'priya@joveo.com', 'chosen-password-1')).not.toBeNull();
-  });
-
-  it('refuses a short chosen password', async () => {
-    const { code, output } = await run(['add', 'priya@joveo.com', 'Priya', '--password-stdin'], 'short');
-    expect(code).toBe(1);
-    expect(output).toContain('12-1024 characters');
-    expect(await listUsers(db)).toHaveLength(0);
-  });
-
-  it('set-password, disable, enable, sign-out and list work end to end', async () => {
+  it('role makes someone an admin or a member', async () => {
     await run(['add', 'priya@joveo.com', 'Priya']);
-    const reset = await run(['set-password', 'priya@joveo.com']);
-    expect(reset.output).toContain('0 session(s) ended');
-    expect(await authenticate(db, 'priya@joveo.com', generated(reset.output)!)).not.toBeNull();
+    expect((await run(['role', 'priya@joveo.com', 'admin'])).output).toBe('priya@joveo.com is now an admin.');
+    expect((await listUsers(db))[0].role).toBe('admin');
+    expect((await run(['role', 'priya@joveo.com', 'member'])).output).toBe('priya@joveo.com is now a member.');
+    expect((await run(['role', 'priya@joveo.com', 'owner'])).code).toBe(1);
+  });
 
+  it('disable, enable, sign-out and list work end to end', async () => {
+    await run(['add', 'priya@joveo.com', 'Priya']);
     expect((await run(['disable', 'priya@joveo.com'])).output).toContain('Disabled');
-    expect((await run(['list'])).output).toContain('priya@joveo.com\tPriya\tdisabled\t0 session(s)');
+    expect((await run(['list'])).output).toContain('priya@joveo.com\tPriya\tmember\tdisabled\t0 session(s)');
     expect((await run(['enable', 'priya@joveo.com'])).code).toBe(0);
     expect((await run(['sign-out', 'priya@joveo.com'])).output).toBe('0 session(s) ended.');
-    expect((await run(['list'])).output).toContain('\tactive\t');
+    expect((await run(['list'])).output).toContain('\tmember\tnot signed in yet\t');
   });
 
   it('reports a user error with exit code 1, and bad usage with 2', async () => {
     expect((await run(['add', 'priya@gmail.com', 'Priya'])).code).toBe(1);
     expect((await run(['disable', 'nobody@joveo.com'])).code).toBe(1);
-    const usage = await run(['frobnicate']);
+    const usage = await run(['set-password', 'priya@joveo.com']);
     expect(usage.code).toBe(2);
     expect(usage.output).toContain('Usage: npm run users');
     expect((await run(['add', 'priya@joveo.com'])).code).toBe(2);
