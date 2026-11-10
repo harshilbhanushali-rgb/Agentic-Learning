@@ -12,6 +12,7 @@ import type { Db } from './db';
 import { PrivilegeError, assertLeastPrivilege } from './privilege';
 import { freshDb } from './testing/pglite';
 import { recordFeedback } from './feedback';
+import { loadUsage } from './analytics';
 import { createSession, deleteSession, validateSession } from './auth/sessions';
 import {
   addUser,
@@ -134,6 +135,17 @@ describe('ask_naren_app (the web app)', () => {
     expect(await recordFeedback(app(), { userId: id, threadId: first!.threadId, position: 2, rating: 'bad', reason: 'why' })).toBe(true);
     expect(await deleteThread(app(), id, first!.threadId)).toBe(true);
     await deleteSession(app(), token);
+  });
+
+  it('can read the usage analytics for the admin Usage page', async () => {
+    const id = await addUser(app(), { email: 'priya@joveo.com', name: 'Priya' });
+    const t0 = new Date();
+    const first = await recordTurn(app(), { userId: id, threadId: null, question: 'q', response: ANSWER, askedAt: t0, answeredAt: t0 });
+    await recordFeedback(app(), { userId: id, threadId: first!.threadId, position: 1, rating: 'good' });
+    for (const range of ['7', 'all'] as const) {
+      const r = await loadUsage(app(), range, new Date(t0.getTime() + 1000));
+      expect(r).toMatchObject({ questions: 1, activePeople: 1, ratings: { good: 1, bad: 0 } });
+    }
   });
 
   it('signs a seeded user in with Google, linking their Google identity', async () => {
