@@ -43,34 +43,6 @@ export async function authenticate(
   return { id: row.id };
 }
 
-/**
- * The user a Google identity signs in as, or null (ADR 0011, "The Google Workspace swap").
- *
- * `identity` must already be checked as Google's own word about a verified @joveo.com
- * account (google.ts). Matching is on `sub` -- Google's stable id -- once it is known. The
- * first time, the seeded user is found by email and `sub` is saved onto it. A Google identity
- * with no seeded user is refused, never created: an admin decides who uses the tool.
- */
-export async function authenticateGoogle(
-  db: Db,
-  identity: { sub: string; email: string },
-): Promise<{ id: number } | null> {
-  const bySub = await db.query<{ id: number; disabled_at: Date | null }>(
-    'select id, disabled_at from ask_naren.users where google_sub = $1',
-    [identity.sub],
-  );
-  if (bySub.rows[0]) return bySub.rows[0].disabled_at === null ? { id: bySub.rows[0].id } : null;
-
-  // One statement, so two first sign-ins racing for the same user cannot both link it.
-  const { rows } = await db.query<{ id: number }>(
-    `update ask_naren.users set google_sub = $2
-     where email = $1 and google_sub is null and disabled_at is null
-     returning id`,
-    [normalizeEmail(identity.email), identity.sub],
-  );
-  return rows[0] ? { id: rows[0].id } : null;
-}
-
 export interface UserSummary {
   id: number;
   email: string;

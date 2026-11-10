@@ -9,7 +9,6 @@ import {
   UserError,
   addUser,
   authenticate,
-  authenticateGoogle,
   disableUser,
   enableUser,
   listUsers,
@@ -70,38 +69,6 @@ describe('authenticate', () => {
     await authenticate(db, 'nobody@joveo.com', 'whatever');
     expect(verify).toHaveBeenCalledTimes(1);
     expect(verify.mock.calls[0][1]).toBe(await password.dummyHash());
-  });
-});
-
-describe('authenticateGoogle', () => {
-  it("links a seeded user's Google identity at first sign-in, then matches on it", async () => {
-    const id = await addUser(db, PRIYA);
-    expect(await authenticateGoogle(db, { sub: 'g-priya', email: 'Priya@joveo.com' })).toEqual({ id });
-    // Google says an email can change; the identity it promises is stable is `sub`.
-    expect(await authenticateGoogle(db, { sub: 'g-priya', email: 'priya.shah@joveo.com' })).toEqual({ id });
-  });
-
-  it('refuses a Google account with no seeded user, and creates nobody', async () => {
-    expect(await authenticateGoogle(db, { sub: 'g-new', email: 'new@joveo.com' })).toBeNull();
-    expect(await listUsers(db)).toEqual([]);
-  });
-
-  it('refuses a disabled user, whether or not their Google identity is linked yet', async () => {
-    await addUser(db, PRIYA);
-    await addUser(db, { email: 'gone@joveo.com', name: 'Gone', password: 'gone-password-1' });
-    expect(await authenticateGoogle(db, { sub: 'g-priya', email: PRIYA.email })).not.toBeNull();
-    await disableUser(db, PRIYA.email);
-    await disableUser(db, 'gone@joveo.com');
-
-    expect(await authenticateGoogle(db, { sub: 'g-priya', email: PRIYA.email })).toBeNull();
-    expect(await authenticateGoogle(db, { sub: 'g-gone', email: 'gone@joveo.com' })).toBeNull();
-  });
-
-  it('refuses a second Google identity claiming an email that is already linked', async () => {
-    const id = await addUser(db, PRIYA);
-    await authenticateGoogle(db, { sub: 'g-priya', email: PRIYA.email });
-    expect(await authenticateGoogle(db, { sub: 'g-impostor', email: PRIYA.email })).toBeNull();
-    expect(await authenticateGoogle(db, { sub: 'g-priya', email: PRIYA.email })).toEqual({ id });
   });
 });
 
