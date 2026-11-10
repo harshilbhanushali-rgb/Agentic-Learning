@@ -126,7 +126,7 @@ if (!process.env.ASK_NAREN_SERVICE_URL) {
  * The store reads and writes either side of the fetch are not covered by this timeout; #40
  * bounds them separately, with connect and query timeouts on the pool in src/server/db.ts.
  */
-const SERVICE_DEADLINE_MS = 30_000;
+const SERVICE_DEADLINE_MS = 45_000;
 const TIMEOUT_MS = SERVICE_DEADLINE_MS + 5_000;
 
 /** Response headers worth forwarding from the service, rather than replacing wholesale.

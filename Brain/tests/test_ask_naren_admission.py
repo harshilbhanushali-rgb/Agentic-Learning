@@ -263,7 +263,7 @@ def test_the_refusal_carries_an_estimate_drawn_from_the_actual_queue():
     # and then a ~12.5s answer, so ~31s in total, just past the 30s deadline -- exactly as
     # it must be, since position 9 being over the deadline is WHY this caller was refused.
     assert seen == [math.ceil(9 * 12.5 / 6 + 12.5)]
-    assert seen[0] >= admission.ANSWER_DEADLINE_SECONDS, (
+    assert seen[0] >= gate.deadline, (
         "an estimate below the deadline sends the caller back into the same full queue")
 
 

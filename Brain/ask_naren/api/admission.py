@@ -79,7 +79,9 @@ import os
 #: mirrors can be PINNED to it by a test. An operator's local override must not make that
 #: test fail; what has to stay true is that the deployed proxy and the deployed service
 #: agree. See test_the_frontend_proxy_timeout_is_set_against_this_deadline.
-SHIPPED_DEADLINE_SECONDS = 30.0
+#: 45s since 2026-11-11 (was 30): the Plan->Gather->Write engine makes two model calls a
+#: question, and at 30s a slow first call after startup timed out (golden 01 in the B rehearsal).
+SHIPPED_DEADLINE_SECONDS = 45.0
 
 ANSWER_DEADLINE_SECONDS = float(
     os.environ.get("ASK_NAREN_DEADLINE_SECONDS", SHIPPED_DEADLINE_SECONDS))
