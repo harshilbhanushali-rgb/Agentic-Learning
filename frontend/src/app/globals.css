@@ -180,6 +180,19 @@
   --sb-badge-bg:    oklch(0.505 0.164 279);
 }
 
+/* Chart series for the admin Usage page: answered / asked to clarify / declined. Validated
+   as a categorical set (colour-blind separation, contrast) against each mode's surface. */
+:root {
+  --chart-answered: #5454BF;
+  --chart-clarify:  #16917F;
+  --chart-declined: #B5751A;
+}
+[data-theme="dark"] {
+  --chart-answered: #7B7AD6;
+  --chart-clarify:  #1FA390;
+  --chart-declined: #C4852A;
+}
+
 /* ── RESET & BASE ── */
 *, *::before, *::after {
   box-sizing: border-box;

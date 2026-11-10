@@ -6,6 +6,8 @@ import { useFormState, useFormStatus } from 'react-dom';
 import { addUserAction, setDisabledAction, setRoleAction } from '@/app/admin/actions';
 import { EMPTY_RESULT, type AdminResult } from '@/server/auth/admin-web-result';
 
+import { AdminTabs } from './AdminTabs';
+
 export interface AdminUserRow {
   email: string;
   name: string;
@@ -162,6 +164,7 @@ function UserRow({ user, isMe }: { user: AdminUserRow; isMe: boolean }) {
 export function AdminPanel({ me, users }: { me: string; users: AdminUserRow[] | null }) {
   return (
     <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-8 px-6 py-10">
+      <AdminTabs current="people" />
       <header className="flex flex-col gap-2">
         <h1 className="text-[28px] font-bold tracking-[-0.02em] text-ink">Users</h1>
         <p className="max-w-[70ch] text-[15px] leading-relaxed text-ink-2">
