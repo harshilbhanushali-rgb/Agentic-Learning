@@ -14,6 +14,9 @@ grant usage on schema ask_naren to ask_naren_app, ask_naren_admin;
 grant select on ask_naren.users to ask_naren_app;
 grant insert (email, name, password_hash) on ask_naren.users to ask_naren_app;
 grant update (password_hash, disabled_at) on ask_naren.users to ask_naren_app;
+-- Google sign-in (ADR 0011, "The Google Workspace swap"): a seeded user's first Google
+-- sign-in saves Google's id for them. Matching later is on that id, never on email alone.
+grant update (google_sub) on ask_naren.users to ask_naren_app;
 grant select, insert, delete on ask_naren.sessions to ask_naren_app;
 grant update (last_seen_at) on ask_naren.sessions to ask_naren_app;
 grant select on ask_naren.threads to ask_naren_app;
