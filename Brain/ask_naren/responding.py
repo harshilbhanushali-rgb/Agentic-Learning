@@ -121,7 +121,8 @@ def _carried_anchor(decision: intake.IntakeDecision, turns,
     turn = threads.last_answer(turns)
     if turn is None:
         return None
-    pair = pool.by_pair_id(turn.pair_id) if turn.pair_id is not None else None
+    pair = (pool.by_pair_id(turn.pair_id, call_filename=turn.call_filename)
+            if turn.pair_id is not None else None)
     if intake.ANCHORS[decision.intent].kind == intake.EXCHANGE_ANCHOR:
         return Anchor(scenario_key=pair["scenario_key"], pair=pair) if pair else None
     scenario_key = turn.scenario_key or (pair or {}).get("scenario_key") or ""
@@ -240,7 +241,9 @@ async def respond(message: str, pool: RetrievalPool, gateway, *, embed_query, th
         # NO RETRIEVAL AND NO EMBEDDING (ADR 0006). `_guarded` has already established that
         # a carried source exists and is still in the pool, so this cannot be reached with
         # nothing to ground on.
-        source = pool.by_pair_id(threads.carried_source(turns).pair_id)
+        carried_turn = threads.carried_source(turns)
+        source = pool.by_pair_id(carried_turn.pair_id,
+                                 call_filename=carried_turn.call_filename)
         followed = await answering.answer_follow_up(message, turns, source, gateway,
                                                     label_for=label_for)
         unsearched = decision.model_copy(update={"search_query": ""})
@@ -717,7 +720,7 @@ def _guarded(decision: intake.IntakeDecision, message: str, turns,
         carried = threads.carried_source(turns)
         if (threads.awaiting_clarify(turns)
                 or carried is None
-                or pool.by_pair_id(carried.pair_id) is None):
+                or pool.by_pair_id(carried.pair_id, call_filename=carried.call_filename) is None):
             return intake.fallback_decision(message)
 
     elif decision.situation == intake.CARRIED:

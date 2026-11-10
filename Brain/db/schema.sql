@@ -406,3 +406,14 @@ CREATE TABLE IF NOT EXISTS move_performance (
 ALTER TABLE move_performance DROP CONSTRAINT IF EXISTS move_performance_grader_arm_check;
 ALTER TABLE move_performance ADD CONSTRAINT move_performance_grader_arm_check
     CHECK (grader_arm IN ('checks', 'pairwise', 'say'));
+
+-- brain_meta (2026-11-11): settings that belong to THIS Brain database. `vector_index` names
+-- the Pinecone index holding this database's vectors (ids are this database's kb_pairs
+-- serials, so the two only work as a pair). Ask Naren reads it at startup; without a row it
+-- falls back to the index named in ops/serve_ask_naren.py. Written by ops/set_brain_index.py,
+-- which refuses an index that does not hold one vector per pair.
+CREATE TABLE IF NOT EXISTS brain_meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+GRANT SELECT ON brain_meta TO PUBLIC;

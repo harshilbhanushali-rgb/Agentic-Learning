@@ -24,6 +24,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ask_naren import vector_store
+from ask_naren.grounding import call_key as _call_key
 from shared import relative_match, storage
 
 # How deep a ranking topk asks a store for, so its post-filter cannot starve the result.
@@ -161,7 +162,7 @@ class RetrievalPool:
         if closer is not None:
             await closer()
 
-    def by_pair_id(self, pair_id) -> dict | None:
+    def by_pair_id(self, pair_id, call_filename: str = "") -> dict | None:
         """The exchange a thread carried forward, WITHOUT searching for it (ADR 0006).
 
         This is what makes multi-turn possible under an ADR that forbids history from
@@ -172,8 +173,18 @@ class RetrievalPool:
         nicety: the pool is loaded once at startup, and a re-run of Brain's pipeline between
         restarts can retire a pair a CSM's open thread still refers to. The caller answers
         the message as a new question rather than grounding in nothing.
+
+        `call_filename` -- the call the thread says it cited -- must match when given. A
+        rebuilt Brain REASSIGNS kb_pairs serials (2026-11-11: the bridged Layer B), so an
+        open thread's pair_id can name a different exchange in the new pool; the call name
+        is what tells the two apart. Case, spacing and a trailing `.txt` are ignored --
+        `grounding.call_key`, the one definition of a call's identity.
         """
-        return self._by_pair_id.get(pair_id)
+        pair = self._by_pair_id.get(pair_id)
+        if pair is not None and call_filename and \
+                _call_key(pair.get("call_filename")) != _call_key(call_filename):
+            return None
+        return pair
 
     async def top1(self, query_vec: np.ndarray) -> Match:
         """The closest pair to this situation, with a real cosine.

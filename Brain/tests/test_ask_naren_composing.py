@@ -561,3 +561,14 @@ def test_a_written_why_leaves_the_gate_and_the_response_contract_alone_and_logs_
     assert "Secret Hospital" not in err
     write_line = next(l for l in err.splitlines() if '"event": "write"' in l)
     assert json.loads(write_line.split("[ask-naren] ", 1)[1])["why_chars"] == len(why)
+
+
+def test_a_rework_whose_carried_id_names_another_call_carries_nothing():
+    """After a Brain rebuild, pair_id 2 can be a different exchange; the thread's call name
+    no longer matches, so the old id must not pull an unrelated exchange into the rework."""
+    turns = threads.parse([{"message": "how do we know the pixel works", "outcome": "answered",
+                            "reply": "Naren runs one test application to confirm it fires.",
+                            "scenario_key": PIXEL, "pair_id": 2,
+                            "call_filename": "a_call_from_the_previous_brain.txt"}])
+    pairs, _ = composing.carried_material(turns, _pool())
+    assert pairs == []

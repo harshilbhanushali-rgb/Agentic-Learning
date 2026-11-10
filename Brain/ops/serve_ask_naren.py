@@ -150,6 +150,19 @@ VECTOR_STORE = "pinecone"
 # pre-rebuild Brain's (rollback: both back together).
 VECTOR_INDEX_NAME = "narens-brain-rebuild-3072"
 
+# SINCE 2026-11-11 THE BRAIN DATABASE NAMES ITS OWN INDEX, and VECTOR_INDEX_NAME is only the
+# fallback for a database that does not. Vector ids are that database's kb_pairs serials, so
+# a database and an index work only as a pair; with the name in code and the URL in the
+# deployment's environment, switching one without the other served one Brain's texts under
+# another's ranking -- silently. A `brain_meta` row (key `vector_index`) makes them ONE
+# switch: restore a database and its index comes with it, including on rollback (the
+# pre-2026-11-11 Brain has no table, so it falls back to the constant it was built with).
+def _vector_index_for(conn) -> str:
+    if conn.execute("SELECT to_regclass('public.brain_meta')").fetchone()[0] is None:
+        return VECTOR_INDEX_NAME
+    row = conn.execute("SELECT value FROM brain_meta WHERE key = 'vector_index'").fetchone()
+    return row[0] if row and row[0] else VECTOR_INDEX_NAME
+
 # How many pool identifiers the startup guard checks against the store. 1,000 of 6,496 --
 # about 15% of the pool -- costs ~1.7s because the check transfers no vectors. The sample is
 # random per start, so repeated restarts widen the coverage actually checked, and
@@ -208,6 +221,7 @@ async def build_pool(hostaddr: str | None):
         playbooks_by_scenario = _load_playbooks(conn, pairs)
         coachable_scenarios = _load_coachable_scenarios(conn)
         following_by_pair = _load_call_adjacency(conn, pairs)
+        index_name = _vector_index_for(conn)
     finally:
         conn.close()
     if not pairs:
@@ -216,7 +230,7 @@ async def build_pool(hostaddr: str | None):
     print(f"[pool] {len(pairs)} coachable kb_pairs after content dedup", flush=True)
     scenario_keys = sorted({p["scenario_key"] for p in pairs})
     pool = retrieval.RetrievalPool(
-        pairs, store=await _build_store(config, pairs, scenario_keys))
+        pairs, store=await _build_store(config, pairs, scenario_keys, index_name))
     print(f"[pool] ready: {len(pool)} pairs across {len(scenario_keys)} coachable scenarios",
           flush=True)
     return (pool, moves_by_scenario, playbooks_by_scenario,
@@ -325,7 +339,8 @@ def _load_playbooks(conn, pairs: list[dict]) -> dict[str, dict]:
     return playbooks
 
 
-async def _build_store(config, pairs: list[dict], scenario_keys: list[str]):
+async def _build_store(config, pairs: list[dict], scenario_keys: list[str],
+                       index_name: str = VECTOR_INDEX_NAME):
     """The store the pool ranks with, per the VECTOR_STORE switch above.
 
     THE ROLLBACK PATH IS THE ONE PLACE IN THIS PROCESS THE SYNCHRONOUS GATEWAY CLIENT IS
@@ -348,11 +363,11 @@ async def _build_store(config, pairs: list[dict], scenario_keys: list[str]):
         raise SystemExit(f"ERROR: unknown VECTOR_STORE {VECTOR_STORE!r} -- "
                          f"expected 'pinecone' or 'memory'.")
     store = await vector_store.PineconeTriggerStore.open(
-        config.pinecone_api_key, VECTOR_INDEX_NAME, scenario_keys=scenario_keys)
-    print(f"[vectors] {VECTOR_INDEX_NAME}, restricted to {len(scenario_keys)} coachable "
+        config.pinecone_api_key, index_name, scenario_keys=scenario_keys)
+    print(f"[vectors] {index_name}, restricted to {len(scenario_keys)} coachable "
           f"scenarios -- nothing embedded, no vectors held", flush=True)
     try:
-        await _assert_store_covers_pool(store, pairs)
+        await _assert_store_covers_pool(store, pairs, index_name)
     except BaseException:
         # Closed HERE, by the function that opened it. The guard exits the process on a
         # fatal coverage gap, so `_build_store` never returns and `_run`'s `finally` has no
@@ -364,7 +379,8 @@ async def _build_store(config, pairs: list[dict], scenario_keys: list[str]):
     return store
 
 
-async def _assert_store_covers_pool(store, pairs: list[dict]) -> None:
+async def _assert_store_covers_pool(store, pairs: list[dict],
+                                    index_name: str = VECTOR_INDEX_NAME) -> None:
     """Refuse to serve if the index is missing pool pairs. See ADR 0008.
 
     The failure this prevents is silent, which is why it is worth a second of startup: a
@@ -388,7 +404,7 @@ async def _assert_store_covers_pool(store, pairs: list[dict]) -> None:
         detail = "; ".join(f"{pair_id} ({reason})" for pair_id, reason in fatal[:3])
         raise SystemExit(
             f"ERROR: {len(fatal)} of {len(sample)} sampled coachable kb_pairs CANNOT be "
-            f"retrieved from {VECTOR_INDEX_NAME} -- {detail}. Those exchanges would be "
+            f"retrieved from {index_name} -- {detail}. Those exchanges would be "
             f"invisible to every situation, so this refuses to serve rather than degrade "
             f"silently. Re-ship the trigger vectors (ops/ship_layer_b.py --vectors "
             f"triggers), then verify with ops/check_vector_coverage.py.")

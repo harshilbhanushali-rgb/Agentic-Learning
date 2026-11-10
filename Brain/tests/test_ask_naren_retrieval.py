@@ -292,3 +292,29 @@ def test_top1_raises_a_diagnosable_error_when_nothing_is_authorised():
     pool = retrieval.RetrievalPool([_pair(1, "x", "y")], store=store)
     with pytest.raises(ValueError, match="no kb_pair this pool authorises"):
         asyncio.run(pool.top1(np.array([1.0, 0.0])))
+
+
+# -- a carried pair_id must still be the same exchange (2026-11-11, the Brain "B" switch) -----
+# A thread carries a kb_pairs SERIAL. When the Brain is rebuilt the serials are reassigned, so an
+# open conversation's pair_id can name a DIFFERENT exchange in the new pool. The thread also
+# carries the call it cited; a mismatch means the id no longer means what it meant.
+
+def _carry_pool():
+    return retrieval.RetrievalPool([_pair(7, "x", "y", filename="call_a.txt")],
+                                   np.array([[1.0, 0.0]]))
+
+
+def test_a_carried_id_from_the_same_call_resolves():
+    assert _carry_pool().by_pair_id(7, call_filename="call_a.txt")["pair_id"] == 7
+
+
+def test_a_carried_id_now_naming_a_different_call_resolves_to_nothing():
+    assert _carry_pool().by_pair_id(7, call_filename="call_from_the_old_brain.txt") is None
+
+
+def test_the_call_check_ignores_case_and_the_txt_suffix():
+    assert _carry_pool().by_pair_id(7, call_filename="CALL_A")["pair_id"] == 7
+
+
+def test_without_a_call_name_the_lookup_is_by_id_alone():
+    assert _carry_pool().by_pair_id(7)["pair_id"] == 7

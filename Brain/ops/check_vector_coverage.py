@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from ask_naren import retrieval, vector_store            # noqa: E402
 from config import load_config                           # noqa: E402
 from ops.serve_ask_naren import (DEFAULT_HOSTADDR,       # noqa: E402
-                                 VECTOR_INDEX_NAME, _connect_read_only)
+                                 _connect_read_only, _vector_index_for)
 
 
 async def main() -> int:
@@ -40,6 +40,7 @@ async def main() -> int:
     conn = _connect_read_only(config.database_url, DEFAULT_HOSTADDR)
     try:
         pairs = retrieval.load_coachable_pairs(conn)
+        index_name = _vector_index_for(conn)    # the index THIS database names
     finally:
         conn.close()
     if not pairs:
@@ -51,8 +52,8 @@ async def main() -> int:
           f"{len(scenario_keys)} scenarios")
 
     store = await vector_store.PineconeTriggerStore.open(
-        config.pinecone_api_key, VECTOR_INDEX_NAME, scenario_keys=scenario_keys)
-    print(f"[vectors] checking every pair against {VECTOR_INDEX_NAME}...", flush=True)
+        config.pinecone_api_key, index_name, scenario_keys=scenario_keys)
+    print(f"[vectors] checking every pair against {index_name}...", flush=True)
     t0 = time.time()
     try:
         fatal, stale = await store.unretrievable(pairs)

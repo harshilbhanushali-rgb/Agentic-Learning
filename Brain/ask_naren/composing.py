@@ -609,7 +609,8 @@ def carried_material(turns, pool: RetrievalPool, playbook_for=None
     last = threads.last_answer(turns)
     if last is None:
         return [], []
-    pair = pool.by_pair_id(last.pair_id) if last.pair_id is not None else None
+    pair = (pool.by_pair_id(last.pair_id, call_filename=last.call_filename)
+            if last.pair_id is not None else None)
     row = playbook_for(last.scenario_key) if (playbook_for and last.scenario_key) else None
     document = (row or {}).get("playbook")
     return ([pair] if pair else []), ([(last.scenario_key, document)] if document else [])
