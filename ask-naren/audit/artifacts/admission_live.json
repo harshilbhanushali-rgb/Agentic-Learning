@@ -1,5 +1,5 @@
 {
-  "measured_at": "2026-09-11T18:48:59",
+  "measured_at": "2026-11-09T17:58:19",
   "issue": 32,
   "deviation_from_shipped": {
     "BRAIN_GATEWAY_MAX_PARALLEL": 2,
@@ -13,12 +13,12 @@
     "sent": 8,
     "refused": 2
   },
-  "burst_wall_seconds": 20.219000000011874,
+  "burst_wall_seconds": 36.26124862500001,
   "requests": [
     {
       "situation": "client says our cost per hire is way too high",
       "status": 200,
-      "seconds": 3.312999999994645,
+      "seconds": 23.389150334000078,
       "outcome": "answered",
       "reason": null,
       "retry_after_seconds": null,
@@ -28,7 +28,7 @@
     {
       "situation": "the client wants to pause spend until next quarter",
       "status": 200,
-      "seconds": 3.6570000000065193,
+      "seconds": 30.110877457999777,
       "outcome": "answered",
       "reason": null,
       "retry_after_seconds": null,
@@ -37,19 +37,19 @@
     },
     {
       "situation": "they are asking why our applicant quality dropped this month",
-      "status": 200,
-      "seconds": 4.625,
-      "outcome": "answered",
-      "reason": null,
-      "retry_after_seconds": null,
-      "retry_after_header": null,
-      "message": ""
+      "status": 429,
+      "seconds": 0.012980583000171464,
+      "outcome": "declined",
+      "reason": "service_busy",
+      "retry_after_seconds": 210,
+      "retry_after_header": "210",
+      "message": "Ask Naren is answering as many people as it can right now, and could not get to this one in time to be useful. Nothing is wrong with your question and nothing is broken -- ask again in about 210 seconds."
     },
     {
       "situation": "the client is threatening to move budget to a competitor",
       "status": 200,
-      "seconds": 5.032000000006519,
-      "outcome": "clarify",
+      "seconds": 15.033381540999471,
+      "outcome": "answered",
       "reason": null,
       "retry_after_seconds": null,
       "retry_after_header": null,
@@ -58,8 +58,8 @@
     {
       "situation": "they want a discount because last month underdelivered",
       "status": 200,
-      "seconds": 6.2039999999979045,
-      "outcome": "clarify",
+      "seconds": 32.49126712500038,
+      "outcome": "answered",
       "reason": null,
       "retry_after_seconds": null,
       "retry_after_header": null,
@@ -68,27 +68,27 @@
     {
       "situation": "the client says our reporting does not match their ATS",
       "status": 200,
-      "seconds": 20.219000000011874,
-      "outcome": "declined",
-      "reason": "no_close_match",
+      "seconds": 9.95901429100013,
+      "outcome": "answered",
+      "reason": null,
       "retry_after_seconds": null,
       "retry_after_header": null,
-      "message": "No close match in Naren's calls. Nothing in his history is near enough to this situation to answer from, so Ask Naren is declining rather than guessing."
+      "message": ""
     },
     {
       "situation": "they are unhappy that we changed their campaign without telling them",
-      "status": 429,
-      "seconds": 0.01600000000325963,
-      "outcome": "declined",
-      "reason": "service_busy",
-      "retry_after_seconds": 210,
-      "retry_after_header": "210",
-      "message": "Ask Naren is answering as many people as it can right now, and could not get to this one in time to be useful. Nothing is wrong with your question and nothing is broken -- ask again in about 210 seconds."
+      "status": 200,
+      "seconds": 36.26022879099946,
+      "outcome": "answered",
+      "reason": null,
+      "retry_after_seconds": null,
+      "retry_after_header": null,
+      "message": ""
     },
     {
       "situation": "the client asked for a weekly call instead of monthly",
       "status": 429,
-      "seconds": 0.01600000000325963,
+      "seconds": 0.012878290999651654,
       "outcome": "declined",
       "reason": "service_busy",
       "retry_after_seconds": 210,
@@ -97,12 +97,12 @@
     }
   ],
   "health_ms": {
-    "polls": 77,
-    "worst": 16.00000000325963,
-    "median": 0.0
+    "polls": 141,
+    "worst": 14.03729200046655,
+    "median": 4.3538749996514525
   },
-  "saturated_reports": 13,
-  "abandoned_slot_released_seconds": 0.0,
+  "saturated_reports": 39,
+  "abandoned_slot_released_seconds": 0.0010619579998092377,
   "ready_at_end": {
     "status": "ready",
     "in_flight": 0,

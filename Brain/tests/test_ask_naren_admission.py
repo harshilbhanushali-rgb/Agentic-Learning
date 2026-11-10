@@ -238,7 +238,7 @@ def test_the_refusal_carries_an_estimate_drawn_from_the_actual_queue():
     -- and it is honest: it is how long the backlog in front of this caller takes to
     drain, so someone who waits that long really does find room."""
     gate = _gate(in_flight_limit=6, deadline=30.0, answer_cost=12.5)
-    assert gate.queue_limit == 8             # the shipped numbers
+    assert gate.queue_limit == 8             # the numbers shipped until 2026-11-09
 
     held = asyncio.Event()
     seen = []
@@ -499,3 +499,14 @@ def test_the_frontend_proxy_timeout_is_set_against_this_deadline():
     assert timeout, ("route.ts no longer derives TIMEOUT_MS from SERVICE_DEADLINE_MS, so "
                      "the proxy's abort is no longer set against the deadline at all")
     assert int(timeout.group(1).replace("_", "")) > 0
+
+
+def test_the_shipped_answer_cost_is_the_plan_gather_write_measurement():
+    """Re-measured 2026-11-09 on the Plan->Gather->Write engine (two model calls a question):
+    a ramp to 14 simultaneous questions answered in 17.5s at the median, and at 12.5s the
+    queue admitted 8 behind 6 slots -- 10 of 14 then waited the whole 30s for a timeout
+    instead of an immediate busy. At 17.5s the queue is 4 deep: 10 served, the 11th refused
+    at once. `ask-naren/golden/recordings/runs/load/` (ignored) holds the run."""
+    assert admission.ANSWER_COST_SECONDS == 17.5
+    assert admission.queue_depth_within(30.0, answer_cost=admission.ANSWER_COST_SECONDS,
+                                        in_flight_limit=6) == 4

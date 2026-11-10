@@ -91,7 +91,10 @@ ANSWER_DEADLINE_SECONDS = float(
 #: because being wrong by a factor here moves the depth, not the deadline -- an admitted
 #: caller is still held to 30s either way, and the deadline is enforced rather than
 #: estimated. See the module docstring on where to re-measure.
-ANSWER_COST_SECONDS = float(os.environ.get("ASK_NAREN_ANSWER_COST_SECONDS", "12.5"))
+#: 17.5 since 2026-11-09: the median answer under a 1-14 question ramp on the Plan->Gather->Write
+#: engine, which makes two model calls a question. At the old 12.5 the queue was 8 deep and
+#: 10 of 14 simultaneous callers waited the full deadline for a timeout instead of a busy.
+ANSWER_COST_SECONDS = float(os.environ.get("ASK_NAREN_ANSWER_COST_SECONDS", "17.5"))
 
 #: When this request's deadline falls, in event-loop time; set by `answer_flow` for the
 #: duration of one answer. A context variable because the deadline is a property of the
