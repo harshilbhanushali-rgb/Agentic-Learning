@@ -9,16 +9,17 @@ import { createSession } from './sessions';
 import { authenticate, listUsers } from './users';
 
 describe('who is an admin', () => {
-  it('reads a comma-separated list, ignoring case and spaces', () => {
-    const raw = ' Harshil.Bhanushali@joveo.com , vignesh@joveo.com,,';
+  it('adds a comma-separated list to the built-in admins, ignoring case and spaces', () => {
+    const raw = ' Vignesh@joveo.com , harshil.bhanushali@joveo.com,,';
     expect([...adminEmails(raw)]).toEqual(['harshil.bhanushali@joveo.com', 'vignesh@joveo.com']);
-    expect(isAdmin('HARSHIL.bhanushali@joveo.com', raw)).toBe(true);
+    expect(isAdmin('VIGNESH@joveo.com', raw)).toBe(true);
     expect(isAdmin('someone@joveo.com', raw)).toBe(false);
   });
 
-  it('makes nobody an admin when the list is unset or empty', () => {
-    expect(adminEmails(undefined).size).toBe(0);
-    expect(isAdmin('harshil.bhanushali@joveo.com', '')).toBe(false);
+  it('keeps the built-in admins with no setting at all, and no one else', () => {
+    expect([...adminEmails(undefined)]).toEqual(['harshil.bhanushali@joveo.com']);
+    expect(isAdmin('Harshil.Bhanushali@joveo.com', '')).toBe(true);
+    expect(isAdmin('someone@joveo.com', '')).toBe(false);
   });
 });
 

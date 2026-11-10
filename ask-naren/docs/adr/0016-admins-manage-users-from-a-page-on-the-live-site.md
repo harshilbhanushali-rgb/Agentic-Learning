@@ -11,7 +11,7 @@ With N10 going to Support and Implementation teams, adding people and resetting 
 ## Decision
 
 - `/admin` on the live site: add a user, reset a password, disable or re-enable, and list everyone.
-- Admins are the emails in `ASK_NAREN_ADMIN_EMAILS` (comma-separated). It is not a database column, so being an admin cannot be granted from the page. Unset means nobody is an admin. Anyone else gets a 404, so the page does not announce that it exists.
+- Admins are a built-in list in code (`BUILT_IN_ADMINS` in `src/server/auth/admin-list.ts`, so the page works with no deployment setting) plus any emails in the optional `ASK_NAREN_ADMIN_EMAILS`. Neither is a database column, so being an admin cannot be granted from the page. Anyone else gets a 404, so the page does not announce that it exists.
 - ONE database credential. The app's own role, `ask_naren_app`, is granted `insert (email, name, password_hash)` and `update (password_hash, disabled_at)` on `ask_naren.users` (`grants.sql`). It still cannot change an email or name, delete a user, or reach Brain's tables, and the least-privilege check still runs. `ASK_NAREN_ADMIN_DATABASE_URL` is now optional: the CLI uses it when set and falls back to the app's login otherwise. (The operator chose one credential over a second admin login on the deployment.)
 - Every server action checks the caller itself (`src/app/admin/actions.ts`), because a server action is a public endpoint regardless of which page it was written for.
 - The page uses the same functions as the CLI (`src/server/auth/users.ts`), so both enforce the same rules: `@joveo.com` only, passwords of 12+ characters, a reset signs the user out everywhere, and disabling keeps their threads. An admin cannot disable themselves from the page.
