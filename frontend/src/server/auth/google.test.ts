@@ -24,7 +24,10 @@ describe('checkGoogleClaims', () => {
     expect(checkGoogleClaims(CLAIMS, EXPECTED)).toEqual({
       sub: '110169484474386276334',
       email: 'priya@joveo.com',
+      name: null,
     });
+    // Google's name, when it sends one, is passed on as a label for a first sign-in.
+    expect(checkGoogleClaims({ ...CLAIMS, name: ' Priya Shah ' }, EXPECTED)).toMatchObject({ name: 'Priya Shah' });
   });
 
   it('also accepts the issuer spelled without the scheme, which Google documents as valid', () => {

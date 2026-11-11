@@ -10,8 +10,8 @@ import { type GoogleSignInError, googleConfig } from '@/server/auth/google';
  * page never shows text taken from its own URL -- a link to /login could say anything.
  */
 const GOOGLE_ERRORS: Record<GoogleSignInError, string> = {
-  google_not_set_up:
-    "Your Google account isn't set up for Ask Naren yet. Ask the Ask Naren admin to add you.",
+  google_refused:
+    "Your access to Ask Naren is turned off. Ask the Ask Naren admin if that's a mistake.",
   google_wrong_account:
     'Ask Naren only accepts your verified @joveo.com Google account. Choose that one and try again.',
   google_failed: "Google sign-in didn't finish. Try again.",
@@ -32,8 +32,8 @@ function googleError(raw: unknown): string | null {
 }
 
 /**
- * Sign in (issue #44, ADR 0018): with a Joveo Google account, and nothing else. Users are added
- * by an admin; there is no sign-up, so the page says who to ask.
+ * Sign in (issue #44, ADR 0018, ADR 0019): with a Joveo Google account, and nothing else. Any
+ * Joveo account may sign in; the first time, it joins as a member.
  */
 export default async function LoginPage({
   searchParams,
@@ -62,7 +62,7 @@ export default async function LoginPage({
       )}
       {google && <GoogleSignInButton next={next} />}
       <p className="text-[11px] leading-relaxed text-ink-placeholder">
-        Not set up yet? Ask the Ask Naren admin to add your Joveo email.
+        Anyone with a Joveo Google account can sign in.
       </p>
     </div>
   );

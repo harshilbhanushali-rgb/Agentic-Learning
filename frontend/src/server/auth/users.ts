@@ -2,9 +2,10 @@ import type { Db } from '../db';
 import { type Role, deleteUserSessions } from './sessions';
 
 /**
- * Users (ADR 0011, 0018): added by an admin, keyed on a `@joveo.com` email, no self-signup.
- * They sign in with Google only; the admin CLI (scripts/users.ts) and /admin both manage
- * them through this module.
+ * Users (ADR 0011, 0018, 0019): keyed on a `@joveo.com` email. Anyone with a verified Joveo
+ * Google account may sign in, and their first sign-in adds them as a member (ADR 0019); an
+ * admin can also add people ahead of time. They sign in with Google only; the admin CLI
+ * (scripts/users.ts) and /admin both manage them through this module.
  */
 export function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();
@@ -14,32 +15,62 @@ export function isJoveoEmail(email: string): boolean {
   return /^[^\s@]+@joveo\.com$/.test(email);
 }
 
+/** A name for someone who joins by signing in: Google's, else made from the email
+ *  ("priya.shah@joveo.com" -> "Priya Shah"). The column refuses an empty one. */
+export function displayName(identity: { email: string; name?: string | null }): string {
+  const given = identity.name?.trim().slice(0, 200);
+  if (given) return given;
+  const local = normalizeEmail(identity.email).split('@')[0];
+  const words = local.split(/[._-]+/).filter(Boolean);
+  return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || local;
+}
+
 /**
- * The user a Google identity signs in as, or null (ADR 0011, "The Google Workspace swap").
+ * The user a Google identity signs in as, or null (ADR 0011, "The Google Workspace swap";
+ * ADR 0019).
  *
  * `identity` must already be checked as Google's own word about a verified @joveo.com
  * account (google.ts). Matching is on `sub` -- Google's stable id -- once it is known. The
- * first time, the seeded user is found by email and `sub` is saved onto it. A Google identity
- * with no seeded user is refused, never created: an admin decides who uses the tool.
+ * first time, a user with that email is found and `sub` is saved onto it; if there is none,
+ * one is created as a member (ADR 0019: any Joveo account may use the tool). Refused: a
+ * disabled user, and an email already linked to a DIFFERENT Google identity.
  */
 export async function authenticateGoogle(
   db: Db,
-  identity: { sub: string; email: string },
+  identity: { sub: string; email: string; name?: string | null },
 ): Promise<{ id: number } | null> {
-  const bySub = await db.query<{ id: number; disabled_at: Date | null }>(
-    'select id, disabled_at from ask_naren.users where google_sub = $1',
-    [identity.sub],
-  );
-  if (bySub.rows[0]) return bySub.rows[0].disabled_at === null ? { id: bySub.rows[0].id } : null;
-
+  const bySub = async () => {
+    const { rows } = await db.query<{ id: number; disabled_at: Date | null }>(
+      'select id, disabled_at from ask_naren.users where google_sub = $1',
+      [identity.sub],
+    );
+    return rows[0] ? (rows[0].disabled_at === null ? { id: rows[0].id } : null) : undefined;
+  };
   // One statement, so two first sign-ins racing for the same user cannot both link it.
-  const { rows } = await db.query<{ id: number }>(
-    `update ask_naren.users set google_sub = $2
-     where email = $1 and google_sub is null and disabled_at is null
-     returning id`,
-    [normalizeEmail(identity.email), identity.sub],
+  const link = async () => {
+    const { rows } = await db.query<{ id: number }>(
+      `update ask_naren.users set google_sub = $2
+       where email = $1 and google_sub is null and disabled_at is null
+       returning id`,
+      [email, identity.sub],
+    );
+    return rows[0] ? { id: rows[0].id } : null;
+  };
+  const email = normalizeEmail(identity.email);
+
+  const known = await bySub();
+  if (known !== undefined) return known;
+  const linked = await link();
+  if (linked) return linked;
+
+  // Nobody with this email yet: they join as a member. ON CONFLICT DO NOTHING leaves an
+  // existing row -- disabled, or linked to someone else -- exactly as it was, still refused.
+  await db.query(
+    `insert into ask_naren.users (email, name) values ($1, $2) on conflict (email) do nothing`,
+    [email, displayName(identity)],
   );
-  return rows[0] ? { id: rows[0].id } : null;
+  // Linked now, unless a concurrent first sign-in by the same person got there first.
+  return (await link()) ?? (await bySub()) ?? null;
 }
 
 export interface UserSummary {

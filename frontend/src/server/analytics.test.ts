@@ -150,8 +150,10 @@ describe('loadUsage', () => {
       { key: 'ats_integration', questions: 2, good: 1, bad: 0 },
       { key: 'xml_feed', questions: 1, good: 0, bad: 0 },
     ]);
-    expect(r.thumbsDown).toEqual([
-      { question: 'Client wants to pause spend', name: 'Ana', topic: null, at: NOW, reason: 'off topic' },
+    // Both kinds, newest first (same time: the later turn first); the reason only where given.
+    expect(r.feedback).toEqual([
+      { question: 'Client wants to pause spend', name: 'Ana', topic: null, at: NOW, rating: 'bad', reason: 'off topic' },
+      { question: 'q at 2026-11-10T08:00:00Z', name: 'Ana', topic: 'ats_integration', at: NOW, rating: 'good', reason: null },
     ]);
     // Only coverage gaps -- the busy decline is not a question Naren's calls failed.
     expect(r.gaps.map(g => g.question)).toEqual(['Client wants to pause spend']);

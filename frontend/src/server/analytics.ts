@@ -95,7 +95,8 @@ export interface UsageReport {
   topics: { key: string | null; questions: number; good: number; bad: number }[];
   /** Everyone who asked in the window, most questions first. */
   people: PersonUsage[];
-  thumbsDown: { question: string; name: string; topic: string | null; at: Date; reason: string | null }[];
+  /** The latest ratings, up and down, newest first. */
+  feedback: { question: string; name: string; topic: string | null; at: Date; rating: 'good' | 'bad'; reason: string | null }[];
   gaps: { question: string; name: string; at: Date }[];
   nudges: {
     neverSignedIn: { name: string; email: string }[];
@@ -129,7 +130,7 @@ export async function loadUsage(db: Db, range: UsageRange, now: Date = new Date(
   const { from, previousFrom } = windowFor(range, now);
   const p = [from, now];
 
-  const [totals, declineRows, dailyRows, heatRows, weekRows, topicRows, userRows, badRows, gapRows, previous] =
+  const [totals, declineRows, dailyRows, heatRows, weekRows, topicRows, userRows, feedbackRows, gapRows, previous] =
     await Promise.all([
       db.query<{
         questions: number; chats: number; answered: number; clarify: number; declined: number;
@@ -217,12 +218,13 @@ export async function loadUsage(db: Db, range: UsageRange, now: Date = new Date(
          order by questions desc, u.name`,
         p,
       ),
-      db.query<{ question: string; name: string; topic: string | null; at: Date; reason: string | null }>(
+      db.query<{ question: string; name: string; topic: string | null; at: Date; rating: 'good' | 'bad'; reason: string | null }>(
         `${IN_WINDOW}
-         select w.question, u.name, w.scenario_key as topic, w.rated_at as at, w.rating_reason as reason
+         select w.question, u.name, w.scenario_key as topic, w.rated_at as at, w.rating,
+                w.rating_reason as reason
          from w join ask_naren.users u on u.id = w.user_id
-         where w.rating = 'bad'
-         order by w.rated_at desc, w.id desc limit 6`,
+         where w.rating is not null
+         order by w.rated_at desc, w.id desc limit 8`,
         p,
       ),
       db.query<{ question: string; name: string; at: Date }>(
@@ -303,7 +305,7 @@ export async function loadUsage(db: Db, range: UsageRange, now: Date = new Date(
         id: u.id, name: u.name, email: u.email, questions: u.questions, activeDays: u.days,
         chats: u.chats, good: u.good, bad: u.bad, lastAsked: u.last_asked,
       })),
-    thumbsDown: badRows.rows,
+    feedback: feedbackRows.rows,
     gaps: gapRows.rows,
     nudges: {
       neverSignedIn: enabled.filter(u => !u.signed_in).map(u => ({ name: u.name, email: u.email })),

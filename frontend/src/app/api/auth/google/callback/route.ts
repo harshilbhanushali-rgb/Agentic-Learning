@@ -52,7 +52,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   let session: { token: string; expiresAt: Date };
   try {
     const user = await authenticateGoogle(db(), identity);
-    if (!user) return refuse('google_not_set_up');
+    if (!user) return refuse('google_refused');
     session = await createSession(db(), user.id);
   } catch (cause) {
     // A store fault, never phrased as a refusal (issue #40).

@@ -134,7 +134,7 @@ _Avoid_: chat, history, conversation — and **session**, which since issue #42 
 _Avoid_: login, token, auth state, thread.
 
 **User**:
-**Built** (decided in issue #36, ADR 0011; built in #44). A person who can sign in to Ask Naren, and the owner of their threads. Seeded by an admin — there is no self-signup — and identified by their `@joveo.com` email. Usually a CSM, but a user is the sign-in record and a CSM is a role, so the two words are not interchangeable. It is deliberately not called an **account**: that word already means a Joveo client here (see **Where else seen**), and "an account's threads" would read two ways.
+**Built** (decided in issue #36, ADR 0011; built in #44). A person who can sign in to Ask Naren, and the owner of their threads. Created at their first Google sign-in as a member, or added ahead of time by an admin (ADR 0019), and identified by their `@joveo.com` email. Usually a CSM, but a user is the sign-in record and a CSM is a role, so the two words are not interchangeable. It is deliberately not called an **account**: that word already means a Joveo client here (see **Where else seen**), and "an account's threads" would read two ways.
 _Avoid_: account, login, member, CSM (when the record rather than the role is meant).
 
 **Trimming a thread**:

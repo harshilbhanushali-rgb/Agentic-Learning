@@ -26,7 +26,7 @@ function googleOn() {
 }
 
 describe('LoginPage', () => {
-  it('signs in with Google only, carrying a safe next, and says who to ask', async () => {
+  it('signs in with Google only, carrying a safe next, and says any Joveo account can', async () => {
     googleOn();
     getCurrentUser.mockResolvedValue(null);
     render(await LoginPage({ searchParams: { next: '/ask-naren/threads/4' } }));
@@ -37,7 +37,7 @@ describe('LoginPage', () => {
     );
     expect(screen.queryByLabelText(/password/i)).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
-    expect(screen.getByText(/Ask the Ask Naren admin/)).toBeInTheDocument();
+    expect(screen.getByText(/Anyone with a Joveo Google account can sign in/)).toBeInTheDocument();
   });
 
   it('never carries an off-site or repeated next through to Google', async () => {
@@ -65,7 +65,7 @@ describe('LoginPage', () => {
   });
 
   it.each([
-    ['google_not_set_up', /isn.t set up for Ask Naren yet/],
+    ['google_refused', /access to Ask Naren is turned off/],
     ['google_wrong_account', /joveo\.com Google account/],
     ['google_failed', /didn.t finish/],
     ['google_off', /isn.t available/],

@@ -410,31 +410,41 @@ function Topics({ r }: { r: UsageReport }) {
   );
 }
 
-function ThumbsDown({ r, now }: { r: UsageReport; now: Date }) {
+function Feedback({ r, now }: { r: UsageReport; now: Date }) {
   return (
     <Card
-      id="h-bad"
-      title="Latest thumbs-down"
-      sub={`What was asked, and why the person didn’t like the answer. ${r.ratings.bad} in this period.`}
+      id="h-feedback"
+      title="Latest feedback"
+      sub={`What was asked, how the person rated the answer, and why. ${r.ratings.good} up and ${r.ratings.bad} down in this period.`}
       className="flex-[2_1_560px]"
     >
-      {r.thumbsDown.length === 0 ? (
-        <Empty>No thumbs-down in this period.</Empty>
+      {r.feedback.length === 0 ? (
+        <Empty>No ratings in this period.</Empty>
       ) : (
         <ul className="flex flex-col">
-          {r.thumbsDown.map((b, i) => (
-            <li key={i} className="flex flex-col gap-1.5 border-t border-line-subtle py-3.5">
-              <p className="text-[15px] font-semibold leading-snug text-ink">“{b.question}”</p>
-              <p className="text-[13px] text-ink-2">{b.name} · {topicLabel(b.topic)} · {formatWhen(b.at, now)}</p>
-              {b.reason ? (
-                <p className="mt-0.5 rounded-md bg-error-surface px-3 py-2 text-[14px] leading-relaxed text-ink">
-                  <b className="text-error">Why:</b> {b.reason}
-                </p>
-              ) : (
-                <p className="mt-0.5 text-[13px] italic text-ink-2">No reason given</p>
-              )}
-            </li>
-          ))}
+          {r.feedback.map((b, i) => {
+            const good = b.rating === 'good';
+            return (
+              <li key={i} className="flex flex-col gap-1.5 border-t border-line-subtle py-3.5">
+                <div className="flex items-start gap-2.5">
+                  <span
+                    className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[12px] font-semibold ${good ? 'bg-success-surface text-success' : 'bg-error-surface text-error'}`}
+                  >
+                    {good ? 'Thumbs up' : 'Thumbs down'}
+                  </span>
+                  <p className="text-[15px] font-semibold leading-snug text-ink">“{b.question}”</p>
+                </div>
+                <p className="text-[13px] text-ink-2">{b.name} · {topicLabel(b.topic)} · {formatWhen(b.at, now)}</p>
+                {b.reason ? (
+                  <p className={`mt-0.5 rounded-md px-3 py-2 text-[14px] leading-relaxed text-ink ${good ? 'bg-success-surface' : 'bg-error-surface'}`}>
+                    <b className={good ? 'text-success' : 'text-error'}>Why:</b> {b.reason}
+                  </p>
+                ) : (
+                  <p className="mt-0.5 text-[13px] italic text-ink-2">No reason given</p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </Card>
@@ -550,7 +560,7 @@ export function UsageDashboard({ range, report }: { range: UsageRange; report: U
           </div>
           <div className="flex flex-wrap gap-5">
             <Topics r={report} />
-            <ThumbsDown r={report} now={now} />
+            <Feedback r={report} now={now} />
           </div>
           <div className="flex flex-wrap gap-5">
             <Gaps r={report} now={now} />

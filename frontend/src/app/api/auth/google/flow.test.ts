@@ -244,16 +244,23 @@ describe('the return address, refusing', () => {
     expectRefused(await returnFromGoogle(`code=c&state=${attempt.state}`, attempt.cookie), 'google_wrong_account');
   });
 
-  it('tells a Joveo account with no seeded user, or a disabled one, to ask the admin', async () => {
-    let attempt = await startAttempt();
-    googleAnswers({ sub: 'g-new', email: 'new@joveo.com', nonce: attempt.nonce });
-    expectRefused(await returnFromGoogle(`code=c&state=${attempt.state}`, attempt.cookie), 'google_not_set_up');
+  it('signs in a Joveo account nobody added, as a new member (ADR 0019)', async () => {
+    const attempt = await startAttempt();
+    googleAnswers({ sub: 'g-new', email: 'new@joveo.com', name: 'New Person', nonce: attempt.nonce });
+    const res = await returnFromGoogle(`code=c&state=${attempt.state}`, attempt.cookie);
+    expect(res.status).toBe(303);
+    expect(res.headers.get('location')).toBe('/ask-naren');
+    expect(await validateSession(testDb, sessionToken(res)!)).toMatchObject({
+      email: 'new@joveo.com', name: 'New Person', role: 'member',
+    });
+  });
 
+  it('refuses a disabled user, and says to ask the admin', async () => {
     await addUser(testDb, PRIYA);
     await disableUser(testDb, PRIYA.email);
-    attempt = await startAttempt();
+    const attempt = await startAttempt();
     googleAnswers({ sub: 'g-priya', email: PRIYA.email, nonce: attempt.nonce });
-    expectRefused(await returnFromGoogle(`code=c&state=${attempt.state}`, attempt.cookie), 'google_not_set_up');
+    expectRefused(await returnFromGoogle(`code=c&state=${attempt.state}`, attempt.cookie), 'google_refused');
   });
 
   it('reports a store outage as a fault, never as "not set up"', async () => {
