@@ -148,6 +148,12 @@ describe('ask_naren_app (the web app)', () => {
     }
   });
 
+  it('adds a Joveo account nobody added at its first Google sign-in (ADR 0019)', async () => {
+    const joined = await authenticateGoogle(app(), { sub: 'g-new', email: 'new@joveo.com', name: 'New' });
+    expect(joined).not.toBeNull();
+    expect(await authenticateGoogle(app(), { sub: 'g-new', email: 'new@joveo.com' })).toEqual(joined);
+  });
+
   it('signs a seeded user in with Google, linking their Google identity', async () => {
     const id = await addUser(app(), { email: 'priya@joveo.com', name: 'Priya' });
     expect(await authenticateGoogle(app(), { sub: 'g-priya', email: 'priya@joveo.com' })).toEqual({ id });

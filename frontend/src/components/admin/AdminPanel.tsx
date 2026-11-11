@@ -168,9 +168,9 @@ export function AdminPanel({ me, users }: { me: string; users: AdminUserRow[] | 
       <header className="flex flex-col gap-2">
         <h1 className="text-[28px] font-bold tracking-[-0.02em] text-ink">Users</h1>
         <p className="max-w-[70ch] text-[15px] leading-relaxed text-ink-2">
-          Add people, choose who is an admin, and turn sign-in off or on. Only admins can see
-          this page. People sign in with their Joveo Google account — there is nothing to hand
-          over.
+          Anyone with a Joveo Google account can sign in, and joins as a member the first time.
+          Here you choose who is an admin, turn sign-in off or on, and can add people ahead of
+          time. Only admins can see this page.
         </p>
       </header>
 

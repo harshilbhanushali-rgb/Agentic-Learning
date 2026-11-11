@@ -33,7 +33,10 @@ const REPORT: UsageReport = {
     { id: 1, name: 'Ana', email: 'ana@joveo.com', questions: 15, activeDays: 4, chats: 6, good: 6, bad: 2, lastAsked: NOW },
     { id: 2, name: 'Karan', email: 'karan@joveo.com', questions: 6, activeDays: 2, chats: 4, good: 0, bad: 0, lastAsked: new Date('2026-11-06T06:00:00Z') },
   ],
-  thumbsDown: [{ question: 'Client wants to pause spend', name: 'Ana', topic: null, at: NOW, reason: 'off topic' }],
+  feedback: [
+    { question: 'Client wants to pause spend', name: 'Ana', topic: null, at: NOW, rating: 'bad', reason: 'off topic' },
+    { question: 'How long does ATS take?', name: 'Karan', topic: 'ats_integration', at: NOW, rating: 'good', reason: 'spot on' },
+  ],
   gaps: [{ question: 'Renewal pushback', name: 'Karan', at: new Date('2026-11-09T06:00:00Z') }],
   nudges: {
     neverSignedIn: [{ name: 'Newbie', email: 'newbie@joveo.com' }],
@@ -57,7 +60,12 @@ describe('UsageDashboard', () => {
 
     // 8 of 10 rated answers liked.
     expect(within(screen.getByRole('region', { name: 'Are they liking it?' })).getByText('80%')).toBeInTheDocument();
-    expect(screen.getByText('“Client wants to pause spend”')).toBeInTheDocument();
+    // Feedback shows both kinds, each with its comment.
+    const feedback = within(screen.getByRole('region', { name: 'Latest feedback' }));
+    expect(feedback.getByText('“Client wants to pause spend”')).toBeInTheDocument();
+    expect(feedback.getByText('Thumbs down')).toBeInTheDocument();
+    expect(feedback.getByText('Thumbs up')).toBeInTheDocument();
+    expect(feedback.getByText('spot on')).toBeInTheDocument();
     expect(screen.getByText('“Renewal pushback”')).toBeInTheDocument();
     expect(screen.getByText(/Typical wait for an answer/).textContent).toBe('Typical wait for an answer: 14s · 9 in 10 under 26s');
     // A topic with 3+ ratings and under 70% liked is flagged.
@@ -77,7 +85,7 @@ describe('UsageDashboard', () => {
     const empty: UsageReport = {
       ...REPORT, daily: [], questions: 0, chats: 0, activePeople: 0, previous: null, avgWeekdayPeople: 0,
       outcomes: { answered: 0, clarify: 0, declined: 0 }, declines: { gap: 0, busy: 0, broke: 0 },
-      ratings: { good: 0, bad: 0 }, weeklyRatings: [], wait: null, topics: [], people: [], thumbsDown: [], gaps: [],
+      ratings: { good: 0, bad: 0 }, weeklyRatings: [], wait: null, topics: [], people: [], feedback: [], gaps: [],
     };
     render(<UsageDashboard range="all" report={empty} />);
     expect(screen.getByText('No questions yet.')).toBeInTheDocument();

@@ -11,8 +11,8 @@ import { isJoveoEmail, normalizeEmail } from './users';
  *                                 to Google.
  *   2. Google                  -- the person picks their joveo.com account.
  *   3. /api/auth/google/callback -- checks the answer belongs to the attempt, swaps the code
- *                                 for an ID token with our secret, checks the token, finds the
- *                                 seeded user, and starts an ordinary session.
+ *                                 for an ID token with our secret, checks the token, finds or
+ *                                 adds the user (ADR 0019), and starts an ordinary session.
  */
 
 /** The Workspace whose accounts may sign in. `hd` is Google's own statement of it. */
@@ -156,14 +156,15 @@ export async function exchangeGoogleCode(
  *   google_failed        -- the round trip did not complete (cancelled, expired, Google down):
  *                           try again.
  *   google_wrong_account -- Google answered for an account that is not a verified joveo.com one.
- *   google_not_set_up    -- a Joveo account no admin has added (or one that is disabled).
+ *   google_refused       -- a Joveo account that may not sign in: disabled by an admin, or
+ *                           its email is already linked to a different Google account.
  *   unavailable          -- our store failed: a fault, not the person's account.
  */
 export type GoogleSignInError =
   | 'google_off'
   | 'google_failed'
   | 'google_wrong_account'
-  | 'google_not_set_up'
+  | 'google_refused'
   | 'unavailable';
 
 const GOOGLE_ISSUERS = new Set(['https://accounts.google.com', 'accounts.google.com']);
@@ -181,7 +182,7 @@ const GOOGLE_ISSUERS = new Set(['https://accounts.google.com', 'accounts.google.
 export function checkGoogleClaims(
   claims: unknown,
   expected: { clientId: string; nonce: string; now: Date },
-): { sub: string; email: string } | null {
+): { sub: string; email: string; name: string | null } | null {
   if (typeof claims !== 'object' || claims === null) return null;
   const c = claims as Record<string, unknown>;
   const email = typeof c.email === 'string' ? normalizeEmail(c.email) : '';
@@ -195,5 +196,7 @@ export function checkGoogleClaims(
     // Google sends a boolean; an older format sent the string. Both mean verified.
     (c.email_verified === true || c.email_verified === 'true') &&
     isJoveoEmail(email);
-  return ok ? { sub: c.sub as string, email } : null;
+  // The name is only a label for a first sign-in (ADR 0019), never a check.
+  const name = typeof c.name === 'string' && c.name.trim() ? c.name.trim() : null;
+  return ok ? { sub: c.sub as string, email, name } : null;
 }

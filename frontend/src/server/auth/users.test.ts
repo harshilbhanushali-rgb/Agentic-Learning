@@ -8,6 +8,7 @@ import {
   UserError,
   addUser,
   authenticateGoogle,
+  displayName,
   disableUser,
   enableUser,
   listUsers,
@@ -38,9 +39,30 @@ describe('authenticateGoogle', () => {
     expect(await authenticateGoogle(db, { sub: 'g-priya', email: 'priya.shah@joveo.com' })).toEqual({ id });
   });
 
-  it('refuses a Google account with no seeded user, and creates nobody', async () => {
-    expect(await authenticateGoogle(db, { sub: 'g-new', email: 'new@joveo.com' })).toBeNull();
-    expect(await listUsers(db)).toEqual([]);
+  it('adds anyone else with a Joveo account as a member at first sign-in (ADR 0019)', async () => {
+    const joined = await authenticateGoogle(db, { sub: 'g-new', email: 'New.Person@joveo.com', name: 'New Person' });
+    expect(joined).toEqual({ id: expect.any(Number) });
+    expect(await listUsers(db)).toEqual([
+      expect.objectContaining({ id: joined!.id, email: 'new.person@joveo.com', name: 'New Person', role: 'member', googleLinked: true }),
+    ]);
+    // The next sign-in matches on Google's id; nobody is added twice.
+    expect(await authenticateGoogle(db, { sub: 'g-new', email: 'new.person@joveo.com' })).toEqual(joined);
+    expect(await listUsers(db)).toHaveLength(1);
+  });
+
+  it('names a newcomer from their email when Google sends no name', async () => {
+    await authenticateGoogle(db, { sub: 'g-x', email: 'priya.shah-k@joveo.com', name: '  ' });
+    expect((await listUsers(db))[0].name).toBe('Priya Shah K');
+    expect(displayName({ email: 'a@joveo.com' })).toBe('A');
+  });
+
+  it('two first sign-ins by the same new person at once give one user', async () => {
+    const [a, b] = await Promise.all([
+      authenticateGoogle(db, { sub: 'g-new', email: 'new@joveo.com' }),
+      authenticateGoogle(db, { sub: 'g-new', email: 'new@joveo.com' }),
+    ]);
+    expect(a).toEqual(b);
+    expect(await listUsers(db)).toHaveLength(1);
   });
 
   it('refuses a disabled user, whether or not their Google identity is linked yet', async () => {
