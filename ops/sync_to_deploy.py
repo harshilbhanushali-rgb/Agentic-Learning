@@ -55,8 +55,9 @@ TREES = (
         src="frontend",
         dst="coder-pets-tray-app",
         # tests/fixtures is synced because the synced src/ tests import it; the rest of
-        # tests/ (setup, unit, e2e) belongs to the deployment.
-        mirror=("src", "db", "scripts", "tests/fixtures"),
+        # tests/ (setup, unit, e2e) belongs to the deployment. public/ holds the static assets
+        # (favicon, icons) that the deployment's Dockerfile copies into the image.
+        mirror=("src", "db", "scripts", "public", "tests/fixtures"),
         owned_downstream=(
             # The deployment's operational surface, which CS-platform has no counterpart for.
             "src/app/api/health/**",
