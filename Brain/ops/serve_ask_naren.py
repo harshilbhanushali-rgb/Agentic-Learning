@@ -215,6 +215,12 @@ def _connect_read_only(database_url: str, hostaddr: str | None):
         # broader login (an operator's) still reads Brain and never the other app's tables.
         # A direct connection, not a transaction pooler, so a session setting is safe here.
         conn.execute("SET search_path = brain, extensions")
+        # The role's 30s statement_timeout guards SEARCHES. This connection does the startup
+        # bulk read (all of kb_pairs, ~8 MB of text), and a statement's clock includes sending
+        # its rows to a slow client: from a laptop ~200 ms from us-east-1 it was cancelled at
+        # 30s (2026-11-23). Lifted for this one read-only session, which is closed before
+        # serving; the search pool keeps the role's limit.
+        conn.execute("SET statement_timeout = '5min'")
     conn.execute("SET SESSION default_transaction_read_only = on")
     ro = conn.execute("SELECT current_setting('default_transaction_read_only')").fetchone()[0]
     if ro != "on":

@@ -186,6 +186,24 @@ def _reset_sequences(dst, schema: str, table: str) -> None:
                                                      sql.Identifier(table)), (seq,))
 
 
+def _refuse_if_live(dst, role: str) -> None:
+    """Refuse while `role` is connected to the target -- i.e. while the app that reads these
+    tables is running against them.
+
+    Two failures this prevents (bug hunt, 2026-11-23). The emptying TRUNCATE holds an
+    exclusive lock until the copy commits, so every request blocks for the whole copy. And a
+    running Ask Naren keeps the pool it loaded at startup, keyed by pair_id, while a replaced
+    Brain reuses those ids for different exchanges -- every answer would quote the wrong one.
+    (The store also refuses to search a replaced Brain; this stops it happening at all.)
+    """
+    n = dst.execute("select count(*) from pg_stat_activity "
+                    "where usename = %s and datname = current_database()", (role,)).fetchone()[0]
+    if n:
+        raise SystemExit(f"ERROR: {n} connection(s) from {role} are open on the target -- the "
+                         f"app is running against it. Stop it, run this again, then restart it. "
+                         f"Nothing was written.")
+
+
 def _empty_or_refuse(dst, schema: str, tables: list[str], replace: bool) -> None:
     held = {t: n for t in tables if (n := _count(dst, schema, t))}
     if held and not replace:
@@ -278,6 +296,7 @@ def copy_brain(src, dst, args) -> dict[str, int]:
         pair_ids, mat, model = _cached_vectors(pairs)
         print(f"[cache] all {len(pair_ids)} trigger vectors found locally ({model}, "
               f"{WIDTH} dims)", flush=True)
+        _refuse_if_live(dst, "ask_naren_service")
         if args.dry_run:
             raise _DryRun
 
@@ -310,6 +329,7 @@ def copy_ask_naren(src, dst, args) -> dict[str, int]:
         tables = _plan(src, dst, "ask_naren", "ask_naren", exclude)
         print(f"[plan] {len(tables)} tables, in FK order: {', '.join(tables)}"
               f"{'' if args.with_sessions else ' (sessions NOT copied)'}", flush=True)
+        _refuse_if_live(dst, "ask_naren_app")
         if args.dry_run:
             raise _DryRun
         _empty_or_refuse(dst, "ask_naren", tables, args.replace)

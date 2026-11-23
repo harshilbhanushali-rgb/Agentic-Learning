@@ -53,7 +53,10 @@ master user is a member of `rds_superuser`, and the web app refuses to serve as 
    python ops/copy_brain_to_rds.py ask-naren --from DATABASE_URL_PRE_REBUILD
    ```
 
-   Both take `--dry-run` and `--replace`. The vectors come from `Brain/gemini_embed_cache.db`,
+   Both take `--dry-run` and `--replace`. **Stop the app first and restart it after**: the
+   copy refuses while the service (`brain`) or the web app (`ask-naren`) is connected, and a
+   running service that finds its Brain replaced answers with an error until restarted,
+   rather than quoting exchanges by ids that now mean something else. The vectors come from `Brain/gemini_embed_cache.db`,
    **never from Pinecone**: bulk vector reads there exhausted the account's monthly egress on
    2026-11-11 and took production search down. The copy writes
    `brain_meta.vector_store = pgvector`, which is what switches the service to this store.

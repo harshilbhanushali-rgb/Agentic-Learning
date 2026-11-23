@@ -61,6 +61,41 @@ def test_a_redacted_url_never_carries_the_password():
         "svc@h.rds.amazonaws.com/db"
 
 
+_KEYVALUE = "host=db.x.rds.amazonaws.com user=u password=pw dbname=d"
+
+
+def test_a_key_value_connection_string_is_refused_not_connected_unverified():
+    """Bug hunt 2026-11-23: is_rds said False, so TLS was NOT upgraded to verify-full."""
+    with pytest.raises(ValueError, match="postgresql:// URI"):
+        connection_url(_KEYVALUE)
+
+
+def test_a_key_value_connection_string_is_never_printed():
+    """Bug hunt 2026-11-23: redacted() returned it whole, password included."""
+    assert "pw" not in redacted(_KEYVALUE) and "host=" not in redacted(_KEYVALUE)
+
+
+def test_the_copy_refuses_while_the_app_is_connected():
+    # The copy is a laptop tool in CS-platform's Brain/ops; the deployment does not ship it.
+    copy = pytest.importorskip("ops.copy_brain_to_rds")
+
+    class _Conn:
+        def __init__(self, n):
+            self.n = n
+
+        def execute(self, sql, params=None):
+            n = self.n
+
+            class _Cur:
+                def fetchone(self):
+                    return (n,)
+            return _Cur()
+
+    copy._refuse_if_live(_Conn(0), "ask_naren_service")
+    with pytest.raises(SystemExit, match="app is running"):
+        copy._refuse_if_live(_Conn(2), "ask_naren_service")
+
+
 # ---------------------------------------------------------------------------------------
 # the migration runner's bookkeeping
 # ---------------------------------------------------------------------------------------
@@ -326,6 +361,26 @@ def test_the_stores_sessions_cannot_write(scratch):
         with pytest.raises(psycopg.errors.ReadOnlySqlTransaction):
             await store.fetch("insert into kb_pairs values (100, 'a')")
     _with_store(scratch, ["a"], write)
+
+
+@needs_pg
+def test_a_brain_replaced_under_a_running_store_is_an_error_not_wrong_answers(scratch):
+    """Bug hunt 2026-11-23: the pool is keyed by pair_id from startup, the search is live, and
+    a --replace copy reuses ids for different exchanges. The store must refuse, loudly."""
+    import psycopg
+    url, s = connection_url(_test_url()), scratch["schema"]
+    with psycopg.connect(url, autocommit=True) as c:
+        c.execute(f"create table {s}.brain_meta (key text primary key, value text)")
+        c.execute(f"insert into {s}.brain_meta values ('copied_at', '2026-11-23T10:00:00')")
+
+    async def body(store):
+        assert (await store.search(scratch["vecs"][1], 1))[0][0] == "1"   # same Brain: fine
+        with psycopg.connect(url, autocommit=True) as c:
+            c.execute(f"update {s}.brain_meta set value = '2026-11-24T09:00:00' "
+                      f"where key = 'copied_at'")
+        with pytest.raises(RuntimeError, match="replaced"):
+            await store.search(scratch["vecs"][1], 1)
+    _with_store(scratch, ["a"], body)
 
 
 @needs_pg

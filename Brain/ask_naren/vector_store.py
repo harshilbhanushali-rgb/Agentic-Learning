@@ -275,14 +275,19 @@ class PgVectorTriggerStore:
 
     DEFAULT_SEARCH_PATH = "brain,extensions"
 
-    def __init__(self, pool, *, scenario_keys: Sequence[str]):
-        """`pool` is a `psycopg_pool.AsyncConnectionPool`, already open. Use `open()`."""
+    def __init__(self, pool, *, scenario_keys: Sequence[str], generation: str | None = None):
+        """`pool` is a `psycopg_pool.AsyncConnectionPool`, already open. Use `open()`.
+
+        `generation` is the Brain's `brain_meta.copied_at` when this process loaded it. See
+        `search`: a different value later means the Brain was replaced underneath us.
+        """
         if not scenario_keys:
             raise ValueError(
                 "no coachable scenario keys -- an unrestricted filter would let Ask Naren "
                 "answer from scenarios it is not allowed to coach")
         self._pool = pool
         self._scenario_keys = sorted(set(scenario_keys))
+        self._generation = generation
 
     @classmethod
     async def open(cls, database_url: str, *, scenario_keys: Sequence[str],
@@ -305,13 +310,26 @@ class PgVectorTriggerStore:
 
         pool = AsyncConnectionPool(
             connection_url(database_url), min_size=1, max_size=max_connections, open=False,
+            # CHECKED ON CHECKOUT, AND KEPT ALIVE. psycopg_pool's default is no check, so after
+            # an RDS restart or failover every idle connection was handed out dead and its
+            # CSM got an error (bug hunt, 2026-11-23). The check is one round trip per
+            # search; keepalives stop a silent network drop from hanging until the deadline.
+            check=AsyncConnectionPool.check_connection,
             # Set per connection as well as on the role, so a store opened with a broader
             # login (the master user, in a verification run) is still read-only.
             kwargs={"autocommit": True,
+                    "keepalives": 1, "keepalives_idle": 30, "keepalives_interval": 10,
+                    "keepalives_count": 5,
                     "options": f"-c search_path={search_path} "
                                f"-c default_transaction_read_only=on"})
         await pool.open(wait=True, timeout=30)
-        return cls(pool, scenario_keys=scenario_keys)
+        try:
+            async with pool.connection() as conn:
+                generation = await _generation(conn)
+        except BaseException:
+            await pool.close()
+            raise
+        return cls(pool, scenario_keys=scenario_keys, generation=generation)
 
     async def aclose(self) -> None:
         await self._pool.close()
@@ -333,6 +351,19 @@ class PgVectorTriggerStore:
                    order by t.embedding <=> q.v
                    limit %s""",
                 (_vector_literal(query_vec), self._scenario_keys, int(top_k)))).fetchall()
+            # THE BRAIN MUST STILL BE THE ONE THIS PROCESS LOADED. The pool's texts were read
+            # once at startup and are keyed by pair_id, while this search reads the tables
+            # live; a Brain copied in with --replace reuses the ids for different exchanges,
+            # so every answer would quote an unrelated exchange as Naren's -- silently (bug
+            # hunt, 2026-11-23). Checked in the same connection, after the search: a mismatch
+            # is a loud error (service_error to the CSM) until the process is restarted.
+            # One indexed lookup; skipped when the Brain had no copied_at at startup.
+            if self._generation is not None and (await (await conn.execute(
+                    "select value from brain_meta where key = 'copied_at'")).fetchone()
+                    or (None,))[0] != self._generation:
+                raise RuntimeError(
+                    "the Brain database was replaced after this process loaded it "
+                    "(brain_meta.copied_at changed) -- restart the service")
         return [(pair_id, _clamp_cosine(cos)) for pair_id, cos in rows]
 
     async def unretrievable(self, pairs: Sequence[dict]) -> tuple[list[tuple[str, str]],
@@ -361,6 +392,15 @@ class PgVectorTriggerStore:
         """One read-only query on the store's pool -- for GET /verify's reports."""
         async with self._pool.connection() as conn:
             return await (await conn.execute(sql, params)).fetchall()
+
+
+async def _generation(conn) -> str | None:
+    """`brain_meta.copied_at` -- which copy of the Brain this is -- or None without one."""
+    if (await (await conn.execute("select to_regclass('brain_meta')")).fetchone())[0] is None:
+        return None
+    row = await (await conn.execute(
+        "select value from brain_meta where key = 'copied_at'")).fetchone()
+    return row[0] if row else None
 
 
 def _vector_literal(query_vec) -> str:
