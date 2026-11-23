@@ -12,6 +12,8 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "psycopg[binary]>=3.1",
+    # Ask Naren's pgvector store holds a small pool of read-only connections (2026-11-23).
+    "psycopg-pool>=3.2",
     "pinecone>=5.0",
     "spacy>=3.7",
     "google-genai>=0.8",

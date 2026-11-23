@@ -1,5 +1,12 @@
 # Provisioning Ask Naren's database (issue #47, ADR 0012)
 
+> **On AWS RDS (2026-11-23):** the same files apply, run by
+> `Brain/ask_naren/db/migrate.py` (see `Brain/ask_naren/db/README.md`) as the RDS master user.
+> There, Brain lives in the `brain` schema and another application owns `public`, the web
+> app's URL must name the bundled certificates
+> (`?sslmode=verify-full&sslrootcert=<path>/db/certs/rds-global-bundle.pem`), and the app
+> refuses to serve as a member of `rds_superuser`. The Neon steps below are unchanged.
+
 The Ask Naren tables live in the `ask_naren` schema of **Brain's Neon instance**. The app
 connects as roles that can reach only that schema. Everything here runs as `neondb_owner`
 over the **direct** endpoint (the host without `-pooler`). Every file is idempotent.

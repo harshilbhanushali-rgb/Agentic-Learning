@@ -74,7 +74,7 @@ async def main_async(a):
     composing.gather = _timed_stage("gather", composing.gather)
     composing.write = _timed_stage("write", composing.write)
 
-    pool, moves_by, playbooks_by, coachable, following_by = await serve.build_pool(a.hostaddr or None)
+    pool, moves_by, playbooks_by, coachable, following_by, _verify = await serve.build_pool(a.hostaddr or None)
     label_for, account_for = serve.build_label_resolver()
     gateway = AsyncGatewayClient()
     gateway.chat_json = _timed_call("llm", gateway.chat_json)

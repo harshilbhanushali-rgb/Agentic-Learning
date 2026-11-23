@@ -2,7 +2,7 @@
 handed to the routes through FastAPI's dependency system."""
 from __future__ import annotations
 
-from typing import Annotated, Awaitable, Callable
+from typing import Annotated, Awaitable, Callable, Optional
 
 from fastapi import Depends, Request
 
@@ -18,6 +18,10 @@ Answerer = Callable[[str, tuple], Awaitable[dict]]
 #: up but not able to answer is not a dead one, and an ingress that cannot tell the
 #: difference will kill something that is merely starting.
 ReadyCheck = Callable[[], bool]
+
+#: GET /verify: `(all checks passed, report)`. Optional -- a process built without one answers
+#: 404 `not_configured`. See ask_naren/verification.py.
+Verifier = Callable[[], Awaitable[tuple[bool, dict]]]
 
 
 # Read from `app.state`, where `build_app` put them, rather than closed over -- so the routes
@@ -36,6 +40,12 @@ def _is_ready(request: Request) -> ReadyCheck:
     return request.app.state.is_ready
 
 
+def _verifier(request: Request) -> "Verifier | None":
+    return request.app.state.verify
+
+
 GateDep = Annotated[admission.Admission, Depends(_gate)]
 AnswererDep = Annotated[Answerer, Depends(_answerer)]
 ReadyDep = Annotated[ReadyCheck, Depends(_is_ready)]
+# A real type, not a string: FastAPI evaluates this annotation in the ROUTES module.
+VerifierDep = Annotated[Optional[Verifier], Depends(_verifier)]

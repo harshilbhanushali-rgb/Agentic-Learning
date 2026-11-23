@@ -5,7 +5,7 @@ from typing import Awaitable, Callable
 
 from ask_naren.api import admission
 from ask_naren.api.app import build_app
-from ask_naren.api.dependencies import Answerer, ReadyCheck
+from ask_naren.api.dependencies import Answerer, ReadyCheck, Verifier
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8787
@@ -14,7 +14,8 @@ DEFAULT_PORT = 8787
 async def serve(answerer: Answerer, *, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
                 ready: ReadyCheck | None = None,
                 on_shutdown: "Callable[[], Awaitable[None]] | None" = None,
-                gate: "admission.Admission | None" = None) -> None:
+                gate: "admission.Admission | None" = None,
+                verify: "Verifier | None" = None) -> None:
     """Serve until interrupted. AWAITED, because uvicorn owns the event loop.
 
     `uvicorn` is imported here rather than at module scope so `--ask` and the answer-path
@@ -38,13 +39,13 @@ async def serve(answerer: Answerer, *, host: str = DEFAULT_HOST, port: int = DEF
 
     gate = gate if gate is not None else admission.Admission()
     config = uvicorn.Config(
-        build_app(answerer, ready=ready, on_shutdown=on_shutdown, gate=gate),
+        build_app(answerer, ready=ready, on_shutdown=on_shutdown, gate=gate, verify=verify),
         host=host, port=port, log_level="info", access_log=False)
     server = uvicorn.Server(config)
     sock = config.bind_socket()
     bound_host, bound_port = sock.getsockname()[:2]
     print(f"[ask-naren] listening on http://{bound_host}:{bound_port}  "
-          f"POST /ask  GET /health  GET /ready  GET /docs", flush=True)
+          f"POST /ask  GET /health  GET /ready  GET /verify  GET /docs", flush=True)
     # ANNOUNCED, because these are the numbers that decide who gets refused and an operator
     # should not have to read the source to learn them -- particularly the depth, which is
     # derived and therefore changes when either of the other two does. `/ready` reports the
