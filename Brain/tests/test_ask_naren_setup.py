@@ -131,40 +131,140 @@ def test_a_crash_is_reported_not_raised():
     assert snap["status"] == "failed" and "connection refused" in snap["error"]
 
 
-# -- the guards on the new logins' URLs ---------------------------------------------------------
+def test_a_system_exit_inside_a_step_is_reported_and_the_service_keeps_running():
+    """Bug hunt 2026-11-24: SystemExit escaped `except Exception` and stopped the process."""
+    def edited_migration(log):
+        raise SystemExit("these migrations were applied and have been EDITED since")
+    snap = _finished(setup.SetupJobs(TOKEN, runners={"brain": edited_migration}), "brain")
+    assert snap["status"] == "failed" and "EDITED" in snap["error"]
+
+
+def test_the_migration_runner_refuses_with_an_exception_not_an_exit():
+    from ask_naren.db import migrate
+    ms = migrate.collect([("brain", migrate.MIGRATIONS)])
+
+    class _Tracked:
+        def execute(self, sql, params=None):
+            class _C:
+                def fetchall(self_inner):
+                    return [(ms[0].name, "0" * 64)]
+            return _C()
+    with pytest.raises(migrate.MigrationRefused):
+        migrate.pending(_Tracked(), ms)
+
+
+# -- the target, the new logins, and the same-database check ------------------------------------
+
+TARGET = "postgresql://postgres:mpw@prod.abc.us-east-1.rds.amazonaws.com:5432/ask_naren?sslmode=require"
+
+
+def test_the_target_is_postgres_url_unless_an_explicit_override_is_set(monkeypatch):
+    monkeypatch.delenv("ASK_NAREN_MIGRATE_URL", raising=False)
+    monkeypatch.delenv("POSTGRES_URL", raising=False)
+    with pytest.raises(CopyRefused, match="POSTGRES_URL"):
+        setup.target_url()
+    monkeypatch.setenv("POSTGRES_URL", TARGET)
+    assert setup.target_url() == TARGET
+    monkeypatch.setenv("ASK_NAREN_MIGRATE_URL", "postgresql://other@h/db")
+    assert setup.target_url() == "postgresql://other@h/db"
+
+
+def test_a_login_url_is_the_admin_url_with_only_the_login_swapped():
+    url = setup.role_url(TARGET, "ask_naren_service", "a/b@c:d%e" + "x" * 10)
+    from urllib.parse import unquote, urlparse
+    p = urlparse(url)
+    assert (p.username, unquote(p.password)) == ("ask_naren_service", "a/b@c:d%e" + "x" * 10)
+    assert (p.hostname, p.port, p.path, p.query) == ("prod.abc.us-east-1.rds.amazonaws.com",
+                                                     5432, "/ask_naren", "sslmode=require")
+
+
+def test_same_database_ignores_the_login_but_not_the_host_or_database():
+    other_login = "postgresql://ask_naren_service:x@prod.abc.us-east-1.rds.amazonaws.com/ask_naren"
+    assert setup._same_database(TARGET, other_login)
+    assert not setup._same_database(TARGET, other_login.replace("/ask_naren", "/staging"))
+    assert not setup._same_database(TARGET, other_login.replace("prod.abc", "stg.xyz"))
+
+
+def test_a_short_new_password_is_refused(monkeypatch):
+    monkeypatch.setenv(setup.SERVICE_PASSWORD_ENV, "short")
+    with pytest.raises(CopyRefused, match="16"):
+        setup._new_password(setup.SERVICE_PASSWORD_ENV)
+    monkeypatch.delenv(setup.SERVICE_PASSWORD_ENV)
+    assert setup._new_password(setup.SERVICE_PASSWORD_ENV) is None
+
 
 class _Admin:
-    def __init__(self):
-        self.statements = []
+    def __init__(self, live=0):
+        self.live, self.statements = live, []
 
     def execute(self, statement, params=None):
         self.statements.append(statement)
+        live = self.live
+
+        class _C:
+            def fetchone(self_inner):
+                return (live,)
+        return _C()
 
 
-TARGET = "postgresql://postgres:pw@prod.abc.us-east-1.rds.amazonaws.com:5432/ask_naren"
+def test_a_password_is_set_only_while_nobody_uses_that_login_anywhere():
+    """Bug hunt 2026-11-24: RDS roles are instance-wide; changing a live login's password
+    cuts off whatever app uses it, on any database."""
+    admin = _Admin(live=0)
+    setup._set_password(admin, "ask_naren_service", "p" * 20, log=lambda line: None)
+    assert len(admin.statements) == 2
+    busy = _Admin(live=3)
+    with pytest.raises(CopyRefused, match="open connection"):
+        setup._set_password(busy, "ask_naren_service", "p" * 20, log=lambda line: None)
+    assert len(busy.statements) == 1        # only the check; no ALTER ROLE
 
 
-def test_a_login_url_for_the_right_database_sets_that_roles_password():
-    admin = _Admin()
-    setup._set_password_from(
-        admin, "postgresql://ask_naren_service:" + "p" * 20 + "@prod.abc.us-east-1.rds.amazonaws.com/ask_naren",
-        "ask_naren_service", TARGET, log=lambda line: None)
-    assert len(admin.statements) == 1
+# -- the sign-in copy refuses to finish without every table and a person ------------------------
+
+def test_a_sign_in_source_missing_a_table_or_people_is_refused():
+    """Bug hunt 2026-11-24: an unreadable source finished "done" with nothing copied."""
+    setup.require_sign_in_source(["users", "threads", "turns", "feedback"], users=5)
+    with pytest.raises(CopyRefused, match="feedback"):
+        setup.require_sign_in_source(["users", "threads", "turns"], users=5)
+    with pytest.raises(CopyRefused, match="users"):
+        setup.require_sign_in_source([], users=0)
+    with pytest.raises(CopyRefused, match="no users"):
+        setup.require_sign_in_source(["users", "threads", "turns", "feedback"], users=0)
 
 
-@pytest.mark.parametrize("url, why", [
-    ("postgresql://ask_naren_app:" + "p" * 20 + "@prod.abc.us-east-1.rds.amazonaws.com/ask_naren",
-     "logs in as"),
-    ("postgresql://ask_naren_service:" + "p" * 20 + "@staging.xyz.us-east-1.rds.amazonaws.com/ask_naren",
-     "not at"),
-    ("postgresql://ask_naren_service:short@prod.abc.us-east-1.rds.amazonaws.com/ask_naren",
-     "16\\+ characters"),
-])
-def test_a_login_url_for_another_role_database_or_with_a_weak_password_is_refused(url, why):
-    admin = _Admin()
-    with pytest.raises(CopyRefused, match=why):
-        setup._set_password_from(admin, url, "ask_naren_service", TARGET, log=lambda line: None)
-    assert admin.statements == []
+# -- no secret reaches a log line or the GET response -------------------------------------------
+
+def test_every_setup_secret_is_scrubbed_including_from_malformed_urls(monkeypatch):
+    """Bug hunt 2026-11-24: libpq quoted a raw password back ("invalid percent-encoded token")
+    and a raw `/` put part of one into the host name."""
+    monkeypatch.setenv("POSTGRES_URL", "postgresql://master:Pa/ss%zzWord@db.x.rds.amazonaws.com/d")
+    monkeypatch.setenv(setup.SERVICE_PASSWORD_ENV, "svc-password-0123456789")
+    monkeypatch.setenv(setup.TOKEN_ENV, TOKEN)
+    # Built by role_url (as production builds the logins' URLs), so it arrives URL-encoded.
+    monkeypatch.setenv("ASK_NAREN_SETUP_LOGINS_FROM",
+                       setup.role_url("postgresql://x@n.neon.tech/db", "app", "enc@oded/pw"))
+    line = ('invalid percent-encoded token: "Pa/ss%zzWord"; host "ss%zzWord@db.x"; '
+            'svc-password-0123456789; ' + TOKEN + '; enc@oded/pw; enc%40oded%2Fpw')
+    out = setup.scrub(line)
+    for secret in ("Pa/ss%zzWord", "svc-password-0123456789", TOKEN, "enc@oded/pw", "enc%40oded%2Fpw"):
+        assert secret not in out, secret
+
+
+def test_errors_and_log_lines_from_a_step_are_scrubbed(monkeypatch):
+    monkeypatch.setenv("POSTGRES_URL", "postgresql://master:Se/CrEt%zzPASS@db.x.rds.amazonaws.com/d")
+
+    def leaky(log):
+        log("connecting with Se/CrEt%zzPASS")
+        raise RuntimeError('invalid percent-encoded token: "Se/CrEt%zzPASS"')
+    snap = _finished(setup.SetupJobs(TOKEN, runners={"brain": leaky}), "brain")
+    assert "CrEt" not in snap["error"] and not any("CrEt" in line for line in snap["log"])
+
+
+def test_a_url_that_does_not_parse_cleanly_is_never_echoed():
+    from ask_naren.db import redacted
+    for url in ("postgresql://master/PASSWORD@db.nohost.invalid/naren",
+                "postgresql://master:pa/ss@db.x.rds.amazonaws.com/d"):
+        assert "PASSWORD" not in redacted(url) and "pa/ss" not in redacted(url)
 
 
 def test_the_scram_verifier_never_contains_the_password():

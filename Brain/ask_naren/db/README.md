@@ -72,19 +72,24 @@ Production's RDS cannot be reached from a laptop, so the deployed service fills 
 (`admin_setup.py` here). Nothing below changes what CSMs see: the service keeps answering from its
 current `DATABASE_URL` the whole time.
 
-1. **Turn it on.** Add these to the ask-naren deployment's settings, temporarily:
+1. **Turn it on.** The platform already sets `POSTGRES_URL` (the NEW database, master
+   login) on the deployment; setup uses it as the admin login (`ASK_NAREN_MIGRATE_URL`, if
+   set, overrides it). Add these, temporarily:
 
    | Setting | Value |
    |---|---|
    | `ASK_NAREN_SETUP_TOKEN` | a random string of 32+ characters (the password for the two routes) |
-   | `ASK_NAREN_MIGRATE_URL` | the NEW database, master login |
    | `ASK_NAREN_SETUP_BRAIN_FROM` | staging's `ask_naren_service` URL (read-only; the Brain is already there, vectors included) |
    | `ASK_NAREN_SETUP_LOGINS_FROM` | the web app's current `ASK_NAREN_DATABASE_URL` (Neon) |
-   | `ASK_NAREN_SETUP_SERVICE_URL` | the NEW database's `ask_naren_service` URL, with a new 16+ character password |
-   | `ASK_NAREN_SETUP_APP_URL` | the NEW database's `ask_naren_app` URL, likewise |
+   | `ASK_NAREN_SETUP_SERVICE_PASSWORD` | a new password for `ask_naren_service`, 16+ characters |
+   | `ASK_NAREN_SETUP_APP_PASSWORD` | a new password for `ask_naren_app`, 16+ characters |
 
-   The last two are how the new logins get their passwords; they become `DATABASE_URL` and
-   the web app's `ASK_NAREN_DATABASE_URL` at cutover.
+   At cutover the two logins' URLs are `POSTGRES_URL` with the login and password swapped:
+   `postgresql://ask_naren_service:<service password>@<host:port/db of POSTGRES_URL>?sslmode=verify-full`
+   for `DATABASE_URL`, and the same with `ask_naren_app` plus
+   `&sslrootcert=/usr/src/app/db/certs/rds-global-bundle.pem` for the web app.
+   **`POSTGRES_URL` itself must never be `DATABASE_URL`:** the service refuses to start as an
+   RDS admin, and the web app refuses to serve as one.
 
 2. **Fill the Brain, any time before cutover:**
 
@@ -100,14 +105,16 @@ current `DATABASE_URL` the whole time.
    `POST /admin/setup/logins`, then point `DATABASE_URL` and `ASK_NAREN_DATABASE_URL` at the
    new database, start both, and check `GET /verify`.
 
-4. **Turn it off:** remove every `ASK_NAREN_SETUP_*` setting and `ASK_NAREN_MIGRATE_URL`.
-   The routes then answer 404, exactly as if they did not exist.
+4. **Turn it off:** remove every `ASK_NAREN_SETUP_*` setting (and `ASK_NAREN_MIGRATE_URL`
+   if it was used). The routes then answer 404, exactly as if they did not exist.
 
-**It only ever fills an EMPTY database.** A target that already holds Brain or sign-in rows
-is refused with nothing written, so whoever holds the token cannot wipe or overwrite
-anything. The source logins only read. Rehearsed end to end on 2026-11-24 against a
-throwaway database on staging: both steps `done`, counts equal, a second run refused, and
-`/verify` all green on the result.
+**It only ever fills an EMPTY database, and checks that first.** A target holding a Brain,
+or one Ask Naren is connected to, is refused before any migration or password change. A
+login's password is never changed while that login is connected anywhere on the instance.
+The sign-in copy refuses unless users, threads, turns and feedback are all readable and there
+is at least one user. No setting's secret is logged or returned. Rehearsed end to end on
+2026-11-24 against a throwaway database on staging, after a bug hunt: both steps `done`,
+counts equal, a second run refused in 2s with nothing changed, `/verify` all green.
 
 ## Connecting
 

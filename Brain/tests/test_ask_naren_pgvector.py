@@ -138,7 +138,7 @@ def test_only_unapplied_migrations_are_pending():
 def test_an_applied_migration_that_was_edited_stops_the_run():
     ms = migrate.collect([("brain", migrate.MIGRATIONS)])
     conn = _TrackingConn({ms[0].name: "0" * 64})
-    with pytest.raises(SystemExit, match="EDITED"):
+    with pytest.raises(migrate.MigrationRefused, match="EDITED"):
         migrate.pending(conn, ms)
 
 

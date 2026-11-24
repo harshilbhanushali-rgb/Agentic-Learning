@@ -41,6 +41,12 @@ TRACKING = "brain.schema_migrations"
 LOCK_KEY = 0x41534B4E  # "ASKN"
 
 
+class MigrationRefused(Exception):
+    """A migration run that must not go ahead. An Exception, NOT SystemExit: this runs inside
+    the live service behind POST /admin/setup, where a SystemExit escaped the job's handler
+    and stopped the whole process (bug hunt, 2026-11-24). Only `main()` turns it into an exit."""
+
+
 @dataclass(frozen=True)
 class Migration:
     name: str        # what is recorded: "<track>/<file name>"
@@ -53,7 +59,7 @@ def collect(trees: list[tuple[str, Path]]) -> list[Migration]:
     found: list[Migration] = []
     for track, directory in trees:
         if not directory.is_dir():
-            raise SystemExit(f"ERROR: migrations directory not found: {directory}")
+            raise MigrationRefused(f"migrations directory not found: {directory}")
         for path in sorted(directory.glob("*.sql")):
             found.append(Migration(f"{track}/{path.name}", path,
                                    hashlib.sha256(path.read_bytes()).hexdigest()))
@@ -65,8 +71,8 @@ def pending(conn, migrations: list[Migration]) -> list[Migration]:
     applied = dict(conn.execute(f"select name, sha256 from {TRACKING}").fetchall())
     edited = [m.name for m in migrations if m.name in applied and applied[m.name] != m.sha256]
     if edited:
-        raise SystemExit(
-            "ERROR: these migrations were applied and have been EDITED since: "
+        raise MigrationRefused(
+            "these migrations were applied and have been EDITED since: "
             + ", ".join(edited) + ". Restore them and put the change in a new numbered file.")
     return [m for m in migrations if m.name not in applied]
 
@@ -123,8 +129,11 @@ def main(argv: list[str] | None = None) -> int:
     if not url:
         raise SystemExit(f"ERROR: {args.url_env} is not set (environment or {SERVICE_ROOT / '.env'})")
 
-    migrate_database(url, [("brain", MIGRATIONS), *_parse_also(args.also)],
-                     [GRANTS, *[g.resolve() for g in args.grants]], dry_run=args.dry_run)
+    try:
+        migrate_database(url, [("brain", MIGRATIONS), *_parse_also(args.also)],
+                         [GRANTS, *[g.resolve() for g in args.grants]], dry_run=args.dry_run)
+    except MigrationRefused as refusal:
+        raise SystemExit(f"ERROR: {refusal}") from None
     return 0
 
 

@@ -81,4 +81,9 @@ def redacted(url: str) -> str:
     p = urlparse(url)
     if p.scheme not in _URI_SCHEMES:
         return "<not a postgresql:// URI>"
+    # A raw `/` or `@` in a password moves part of it into the "host" or the "path" (bug hunt,
+    # 2026-11-24: `None@master/PASSWORD@host/db`). Anything that did not parse cleanly is
+    # described, never echoed.
+    if not p.username or not p.hostname or "@" in p.path or ":" in p.path:
+        return "<a database URL that does not parse cleanly -- URL-encode its password>"
     return f"{p.username}@{p.hostname}{p.path}"
