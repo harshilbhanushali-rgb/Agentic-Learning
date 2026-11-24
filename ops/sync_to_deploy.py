@@ -80,6 +80,11 @@ TREES = (
             "tests/**",
         ),
     ),
+    # The SQL that POST /admin/setup (Brain/ask_naren/db/setup.py) applies from INSIDE the
+    # deployment, to a database only it can reach (2026-11-24). Outside ask-naren/ask_naren/ on
+    # purpose: that root is mirrored, and its pass would delete files another tree wrote there.
+    Tree(src="Brain/db", dst="ask-naren/sql/brain", mirror=("schema.sql",)),
+    Tree(src="frontend/db", dst="ask-naren/sql/web_app", mirror=("migrations", "provision")),
 )
 
 IGNORED_PARTS = {"__pycache__", "node_modules", ".next", ".pytest_cache", "coverage"}

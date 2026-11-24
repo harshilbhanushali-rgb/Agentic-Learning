@@ -221,6 +221,22 @@ def _connect_read_only(database_url: str, hostaddr: str | None):
         # 30s (2026-11-23). Lifted for this one read-only session, which is closed before
         # serving; the search pool keeps the role's limit.
         conn.execute("SET statement_timeout = '5min'")
+        # NEVER AS AN ADMIN ON RDS. The platform puts the master URL in POSTGRES_URL beside
+        # DATABASE_URL (2026-11-24); copied into the wrong one, the service would run with
+        # every privilege on a database it shares, and nothing else would notice. The web app
+        # refuses the same thing (frontend/src/server/privilege.ts). Not checked on Neon,
+        # where the Brain has always been read as its owner.
+        elevated = conn.execute(
+            """select (r.rolsuper or r.rolcreaterole or r.rolcreatedb or r.rolbypassrls)
+                      or exists (select 1 from pg_roles s
+                                 where s.rolname in ('rds_superuser', 'pg_write_all_data')
+                                   and pg_has_role(current_user, s.oid, 'MEMBER'))
+               from pg_roles r where r.rolname = current_user""").fetchone()[0]
+        if elevated:
+            conn.close()
+            raise SystemExit("ERROR: DATABASE_URL logs in as an ADMIN on RDS. Ask Naren must "
+                             "use the read-only ask_naren_service login -- never POSTGRES_URL "
+                             "or the master user.")
     conn.execute("SET SESSION default_transaction_read_only = on")
     ro = conn.execute("SELECT current_setting('default_transaction_read_only')").fetchone()[0]
     if ro != "on":
@@ -676,8 +692,11 @@ async def _run(args) -> int:
         # raises CancelledError and the client and Pinecone session leak. Uvicorn runs the
         # lifespan shutdown as part of its GRACEFUL stop, before any of that. The `finally`
         # still matters for every other exit: `--ask`, a startup failure, a bind failure.
+        # POST /admin/setup: ON only while ASK_NAREN_SETUP_TOKEN is set (ask_naren/db/admin_setup.py),
+        # to fill a database only the deployment can reach. Remove the setting after cutover.
+        from ask_naren.db.admin_setup import SetupJobs
         await api.serve(answer, host=args.host, port=args.port, ready=lambda: True,
-                        on_shutdown=_close, verify=verify)
+                        on_shutdown=_close, verify=verify, setup=SetupJobs.from_env())
     finally:
         # Covers `--ask`, a startup failure and a bind failure. On Ctrl-C the lifespan
         # shutdown has already run `_close`, and this task is cancelled by then -- which is

@@ -144,3 +144,20 @@ def test_only_one_tree_leaves_the_other_tree_and_its_manifest_entries_alone(repo
     assert (down / "ask-naren/ask_naren/engine.py").read_text() == "deployed engine\n"
     assert files["ask-naren/ask_naren/engine.py"] == manifest["ask-naren/ask_naren/engine.py"]
     assert "coder-pets-tray-app/src/page.ts" in files
+
+
+def test_no_real_module_is_mistaken_for_a_deployment_owned_file():
+    """`owned_downstream` patterns match from the right, so `setup.py` (meant for ask-naren's
+    packaging file) also matched ask_naren/db/setup.py, and the sync skipped that module
+    without a word (2026-11-24; it is admin_setup.py now). Every file under a mirrored root
+    must actually be synced."""
+    upstream = Path(__file__).resolve().parents[1]
+    for t in s.TREES:
+        for root in t.mirror:
+            base = upstream / t.src / root
+            for f in (base.rglob("*") if base.is_dir() else [base]):
+                if not f.is_file() or set(f.relative_to(upstream / t.src).parts) & s.IGNORED_PARTS:
+                    continue
+                rel = f.relative_to(upstream / t.src).as_posix()
+                assert not s._matches(rel, t.owned_downstream), \
+                    f"{t.src}/{rel} would never be synced: it matches {t.owned_downstream}"

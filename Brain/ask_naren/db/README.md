@@ -66,6 +66,56 @@ master user is a member of `rds_superuser`, and the web app refuses to serve as 
    counts, vector width, that every answerable exchange has a vector, and that sampled
    vectors find themselves. HTTP 200 means every check passed; 503 names what failed.
 
+## A database only the deployment can reach (production): POST /admin/setup
+
+Production's RDS cannot be reached from a laptop, so the deployed service fills it itself
+(`admin_setup.py` here). Nothing below changes what CSMs see: the service keeps answering from its
+current `DATABASE_URL` the whole time.
+
+1. **Turn it on.** The platform already sets `POSTGRES_URL` (the NEW database, master
+   login) on the deployment; setup uses it as the admin login (`ASK_NAREN_MIGRATE_URL`, if
+   set, overrides it). Add these, temporarily:
+
+   | Setting | Value |
+   |---|---|
+   | `ASK_NAREN_SETUP_TOKEN` | a random string of 32+ characters (the password for the two routes) |
+   | `ASK_NAREN_SETUP_BRAIN_FROM` | staging's `ask_naren_service` URL (read-only; the Brain is already there, vectors included) |
+   | `ASK_NAREN_SETUP_LOGINS_FROM` | the web app's current `ASK_NAREN_DATABASE_URL` (Neon) |
+   | `ASK_NAREN_SETUP_SERVICE_PASSWORD` | a new password for `ask_naren_service`, 16+ characters |
+   | `ASK_NAREN_SETUP_APP_PASSWORD` | a new password for `ask_naren_app`, 16+ characters |
+
+   At cutover the two logins' URLs are `POSTGRES_URL` with the login and password swapped:
+   `postgresql://ask_naren_service:<service password>@<host:port/db of POSTGRES_URL>?sslmode=verify-full`
+   for `DATABASE_URL`, and the same with `ask_naren_app` plus
+   `&sslrootcert=/usr/src/app/db/certs/rds-global-bundle.pem` for the web app.
+   **`POSTGRES_URL` itself must never be `DATABASE_URL`:** the service refuses to start as an
+   RDS admin, and the web app refuses to serve as one.
+
+2. **Fill the Brain, any time before cutover:**
+
+   ```bash
+   curl -X POST -H "Authorization: Bearer $TOKEN" https://<ask-naren>/admin/setup/brain
+   curl -H "Authorization: Bearer $TOKEN" https://<ask-naren>/admin/setup   # until status != running
+   ```
+
+   Migrations, the two logins' passwords, the Brain and its vectors, then a login as each to
+   prove what it can and cannot do. `done` with counts, or `refused`/`failed` with the reason.
+
+3. **At cutover**, with the web app stopped (so nothing written mid-copy is lost):
+   `POST /admin/setup/logins`, then point `DATABASE_URL` and `ASK_NAREN_DATABASE_URL` at the
+   new database, start both, and check `GET /verify`.
+
+4. **Turn it off:** remove every `ASK_NAREN_SETUP_*` setting (and `ASK_NAREN_MIGRATE_URL`
+   if it was used). The routes then answer 404, exactly as if they did not exist.
+
+**It only ever fills an EMPTY database, and checks that first.** A target holding a Brain,
+or one Ask Naren is connected to, is refused before any migration or password change. A
+login's password is never changed while that login is connected anywhere on the instance.
+The sign-in copy refuses unless users, threads, turns and feedback are all readable and there
+is at least one user. No setting's secret is logged or returned. Rehearsed end to end on
+2026-11-24 against a throwaway database on staging, after a bug hunt: both steps `done`,
+counts equal, a second run refused in 2s with nothing changed, `/verify` all green.
+
 ## Connecting
 
 RDS certificates are signed by Amazon's own authorities, which default trust stores lack.
@@ -74,6 +124,9 @@ RDS certificates are signed by Amazon's own authorities, which default trust sto
 The web app ships the same file at `db/certs/rds-global-bundle.pem` and names it in its URL:
 `...?sslmode=verify-full&sslrootcert=<path to that file>`. Without it, node-postgres refuses
 the connection (measured), which is the correct failure.
+
+A non-RDS URL that asks for `verify-full` (the web app's Neon URL) is given certifi's public
+authorities, because Python's libpq has no usable default store in a container.
 
 ## Switching back
 

@@ -9,7 +9,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
 from ask_naren.api.answer_flow import admit_and_answer, unless_abandoned
-from ask_naren.api.dependencies import AnswererDep, GateDep, ReadyDep, VerifierDep
+from ask_naren.api.dependencies import (AnswererDep, GateDep, ReadyDep, SetupDep,
+                                        VerifierDep)
 from ask_naren.api.models import AskRequest, AskResponse, Declined, Error, Health, Readiness
 
 router = APIRouter()
@@ -68,6 +69,45 @@ async def verify(verifier: VerifierDep) -> JSONResponse:
         return JSONResponse({"status": "not_configured"}, status_code=404)
     ok, report = await verifier()
     return JSONResponse(report, status_code=200 if ok else 503)
+
+
+_NOT_FOUND = {"detail": "Not Found"}
+
+
+def _setup_refusal(jobs, request: Request) -> "JSONResponse | None":
+    """OFF looks exactly like a route that does not exist; ON needs the bearer token."""
+    if jobs is None:
+        return JSONResponse(_NOT_FOUND, status_code=404)
+    if not jobs.authorised(request.headers.get("authorization")):
+        return JSONResponse({"status": "unauthorised"}, status_code=401)
+    return None
+
+
+@router.post("/admin/setup/{step}", include_in_schema=False)
+async def start_setup(step: str, request: Request, jobs: SetupDep) -> JSONResponse:
+    """Start a database setup step in the background (ask_naren/db/admin_setup.py).
+
+    404 unless ASK_NAREN_SETUP_TOKEN is set; 401 without `Authorization: Bearer <token>`;
+    202 started; 409 while a step is already running. Takes no admission slot. Only ever
+    FILLS AN EMPTY database -- it cannot wipe or overwrite one, whoever holds the token.
+    """
+    if (refusal := _setup_refusal(jobs, request)) is not None:
+        return refusal
+    from ask_naren.db.admin_setup import STEPS
+    if step not in STEPS:
+        return JSONResponse({"status": "unknown_step", "steps": list(STEPS)}, status_code=400)
+    if not jobs.start(step):
+        return JSONResponse({"status": "busy", **jobs.snapshot()}, status_code=409)
+    return JSONResponse({"status": "started", "step": step,
+                         "follow": "GET /admin/setup"}, status_code=202)
+
+
+@router.get("/admin/setup", include_in_schema=False)
+async def setup_status(request: Request, jobs: SetupDep) -> JSONResponse:
+    """The running or last setup step: status, log lines, result or error."""
+    if (refusal := _setup_refusal(jobs, request)) is not None:
+        return refusal
+    return JSONResponse(jobs.snapshot())
 
 
 @router.post(

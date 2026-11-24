@@ -20,9 +20,10 @@ from ask_naren.api.routes import router
 def build_app(answerer: Answerer, *, ready: ReadyCheck | None = None,
               on_shutdown: "Callable[[], Awaitable[None]] | None" = None,
               gate: "admission.Admission | None" = None,
-              verify: "Verifier | None" = None) -> FastAPI:
+              verify: "Verifier | None" = None, setup=None) -> FastAPI:
     """The FastAPI application. `ready` defaults to always-ready; `verify` (GET /verify) to
-    none, which that route reports as 404 `not_configured`.
+    none, which that route reports as 404 `not_configured`; `setup` (the /admin/setup jobs,
+    ask_naren/db/admin_setup.SetupJobs) to none, which makes those routes plain 404s.
 
     IT HOLDS ONE PIECE OF STATE: `gate` counts what is in flight and what is queued (issue
     #32), which is unavoidable -- a bound is by definition something remembered between
@@ -47,6 +48,7 @@ def build_app(answerer: Answerer, *, ready: ReadyCheck | None = None,
     app.state.is_ready = ready if ready is not None else (lambda: True)
     app.state.gate = gate if gate is not None else admission.Admission()
     app.state.verify = verify
+    app.state.setup = setup
 
     app.include_router(router)
     app.openapi = _without_422(app)

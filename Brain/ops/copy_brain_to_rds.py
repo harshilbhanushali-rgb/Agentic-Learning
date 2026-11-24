@@ -5,6 +5,7 @@
     python ops/copy_brain_to_rds.py ask-naren --from DATABASE_URL_PRE_REBUILD
     ... --dry-run     read the source and check everything; write nothing
     ... --replace     empty the target tables first (refused otherwise if they hold rows)
+    ... --to VAR      the Brain/.env variable naming the target (default ASK_NAREN_MIGRATE_URL)
 
 `brain`: every table of Brain/db/schema.sql, from the source's `public` into the target's
 `brain` schema, PLUS one trigger vector per kb_pair into `brain.trigger_vectors` (pgvector),
@@ -26,9 +27,12 @@ ONE TRANSACTION ON THE TARGET: schema, emptying, every table, sequences, vectors
 brain_meta commit together or not at all. The source is read in ONE read-only
 repeatable-read snapshot, so the tables agree with each other.
 
-URLs come from Brain/.env, never the command line: `--from` names the SOURCE variable, and the
-target is ASK_NAREN_MIGRATE_URL (a login that can create tables: on RDS, the master user).
-Migrations and grants run first (ask_naren.db.migrate, idempotent).
+A database this laptop cannot reach (production RDS) is filled from INSIDE the deployment
+instead: POST /admin/setup, ask_naren/db/admin_setup.py. Both paths share ask_naren/db/copy.py.
+
+URLs come from Brain/.env, never the command line: `--from` names the SOURCE variable, and
+`--to` the target (a login that can create tables: on RDS, the master user). Migrations and
+grants run first (ask_naren.db.migrate, idempotent).
 """
 from __future__ import annotations
 
@@ -49,16 +53,12 @@ load_dotenv(BRAIN / ".env")
 
 import numpy as np  # noqa: E402
 import psycopg  # noqa: E402
-from psycopg import sql  # noqa: E402
 
 from ask_naren.db import GRANTS, connection_url, redacted  # noqa: E402
+from ask_naren.db import copy as tables_copy  # noqa: E402
+from ask_naren.db.copy import CopyRefused  # noqa: E402
 
 TARGET_ENV = "ASK_NAREN_MIGRATE_URL"
-SCHEMA_SQL = BRAIN / "db" / "schema.sql"
-FRONTEND_DB = BRAIN.parent / "frontend" / "db"
-# Not Brain data: the vector table is filled from the cache, and the tracking table is the
-# migration runner's.
-NOT_COPIED = {"trigger_vectors", "schema_migrations"}
 WIDTH = 3072
 VECTOR_BATCH = 500
 
@@ -80,148 +80,15 @@ def _source_url(key: str, hostaddr: str | None) -> str:
         return url
 
 
-def _target_url() -> str:
-    url = os.environ.get(TARGET_ENV)
+def _target_url(key: str) -> str:
+    url = os.environ.get(key)
     if not url:
-        raise SystemExit(f"ERROR: {TARGET_ENV} is not set in {BRAIN / '.env'}")
+        raise SystemExit(f"ERROR: {key} is not set in {BRAIN / '.env'}")
     return url
 
 
 # ---------------------------------------------------------------------------------------
-# catalog helpers
-# ---------------------------------------------------------------------------------------
-
-def _tables(conn, schema: str) -> list[str]:
-    return [r[0] for r in conn.execute(
-        "select table_name from information_schema.tables "
-        "where table_schema = %s and table_type = 'BASE TABLE' order by table_name",
-        (schema,)).fetchall()]
-
-
-def _columns(conn, schema: str, table: str) -> list[str]:
-    return [r[0] for r in conn.execute(
-        "select column_name from information_schema.columns "
-        "where table_schema = %s and table_name = %s order by ordinal_position",
-        (schema, table)).fetchall()]
-
-
-def _fk_order(conn, schema: str, tables: list[str]) -> list[str]:
-    """`tables` ordered so every table comes after the tables it references."""
-    deps = {t: set() for t in tables}
-    for child, parent in conn.execute(
-            """select cl.relname, pl.relname
-               from pg_constraint c
-               join pg_class cl on cl.oid = c.conrelid
-               join pg_class pl on pl.oid = c.confrelid
-               join pg_namespace n on n.oid = cl.relnamespace
-               where c.contype = 'f' and n.nspname = %s""", (schema,)).fetchall():
-        if child in deps and parent in deps and parent != child:
-            deps[child].add(parent)
-    ordered: list[str] = []
-    while deps:
-        ready = sorted(t for t, d in deps.items() if not d - set(ordered))
-        if not ready:
-            raise SystemExit(f"ERROR: foreign-key cycle among {sorted(deps)}")
-        for t in ready:
-            ordered.append(t)
-            del deps[t]
-    return ordered
-
-
-def _count(conn, schema: str, table: str) -> int:
-    return conn.execute(sql.SQL("select count(*) from {}.{}").format(
-        sql.Identifier(schema), sql.Identifier(table))).fetchone()[0]
-
-
-# ---------------------------------------------------------------------------------------
-# copying
-# ---------------------------------------------------------------------------------------
-
-def _plan(src, dst, src_schema: str, dst_schema: str,
-          exclude: frozenset[str] = frozenset()) -> list[str]:
-    """The tables to copy, in FK order, after refusing any that would lose columns."""
-    src_tables = set(_tables(src, src_schema)) - NOT_COPIED
-    dst_tables = set(_tables(dst, dst_schema)) - NOT_COPIED
-    both = src_tables & dst_tables
-    for label, names in (("source tables with no target table, NOT copied", src_tables - dst_tables),
-                         ("target tables absent from the source, left empty", dst_tables - src_tables),
-                         ("left out on purpose", both & exclude)):
-        if names:
-            print(f"[plan] {label}: {', '.join(sorted(names))}")
-    tables = [t for t in _fk_order(dst, dst_schema, sorted(dst_tables)) if t in both - exclude]
-    for t in tables:
-        lost = set(_columns(src, src_schema, t)) - set(_columns(dst, dst_schema, t))
-        if lost:
-            raise SystemExit(f"ERROR: {src_schema}.{t} has columns the target lacks "
-                             f"({', '.join(sorted(lost))}) -- they would be dropped. Add them "
-                             f"to the target's schema first.")
-    return tables
-
-
-def _copy_table(src, dst, src_schema: str, dst_schema: str, table: str) -> int:
-    cols = _columns(src, src_schema, table)
-    col_list = sql.SQL(", ").join(map(sql.Identifier, cols))
-    out_q = sql.SQL("copy (select {} from {}.{}) to stdout").format(
-        col_list, sql.Identifier(src_schema), sql.Identifier(table))
-    in_q = sql.SQL("copy {}.{} ({}) from stdin").format(
-        sql.Identifier(dst_schema), sql.Identifier(table), col_list)
-    with src.cursor().copy(out_q) as out, dst.cursor().copy(in_q) as inp:
-        for chunk in out:
-            inp.write(chunk)
-    return _count(dst, dst_schema, table)
-
-
-def _reset_sequences(dst, schema: str, table: str) -> None:
-    """Point every serial/identity sequence past the copied ids, or the next insert collides."""
-    for col, seq in dst.execute(
-            """select a.attname, pg_get_serial_sequence(format('%%I.%%I', %s::text, %s::text),
-                                                       a.attname)
-               from pg_attribute a join pg_class c on c.oid = a.attrelid
-               join pg_namespace n on n.oid = c.relnamespace
-               where n.nspname = %s and c.relname = %s and a.attnum > 0
-                 and not a.attisdropped""", (schema, table, schema, table)).fetchall():
-        if seq:
-            dst.execute(sql.SQL("select setval(%s, coalesce(max({}), 0) + 1, false) "
-                                "from {}.{}").format(sql.Identifier(col), sql.Identifier(schema),
-                                                     sql.Identifier(table)), (seq,))
-
-
-def _refuse_if_live(dst, role: str) -> None:
-    """Refuse while `role` is connected to the target -- i.e. while the app that reads these
-    tables is running against them.
-
-    Two failures this prevents (bug hunt, 2026-11-23). The emptying TRUNCATE holds an
-    exclusive lock until the copy commits, so every request blocks for the whole copy. And a
-    running Ask Naren keeps the pool it loaded at startup, keyed by pair_id, while a replaced
-    Brain reuses those ids for different exchanges -- every answer would quote the wrong one.
-    (The store also refuses to search a replaced Brain; this stops it happening at all.)
-    """
-    n = dst.execute("select count(*) from pg_stat_activity "
-                    "where usename = %s and datname = current_database()", (role,)).fetchone()[0]
-    if n:
-        raise SystemExit(f"ERROR: {n} connection(s) from {role} are open on the target -- the "
-                         f"app is running against it. Stop it, run this again, then restart it. "
-                         f"Nothing was written.")
-
-
-def _empty_or_refuse(dst, schema: str, tables: list[str], replace: bool) -> None:
-    held = {t: n for t in tables if (n := _count(dst, schema, t))}
-    if held and not replace:
-        raise SystemExit(f"ERROR: target already holds rows ({held}) -- pass --replace to "
-                         f"empty these tables first. Nothing was written.")
-    if tables:
-        # CASCADE: a table left out of the copy can still point at one being emptied (target
-        # sessions -> users), and Postgres refuses to truncate a referenced table otherwise.
-        # Everything it reaches is in this same schema and is reported.
-        if held:
-            print(f"[replace] emptying {schema}: {held} (and any rows referencing them)")
-        dst.execute(sql.SQL("truncate {} restart identity cascade").format(sql.SQL(", ").join(
-            sql.SQL("{}.{}").format(sql.Identifier(schema), sql.Identifier(t))
-            for t in tables)))
-
-
-# ---------------------------------------------------------------------------------------
-# vectors
+# vectors from the local cache
 # ---------------------------------------------------------------------------------------
 
 def _cached_vectors(pairs: list[tuple[int, str]]):
@@ -229,16 +96,15 @@ def _cached_vectors(pairs: list[tuple[int, str]]):
     from calibration.layer_bc_arms import _load_cached
     from calibration.trial_pool_unit_gemini import CACHE, EMBED_DIMS, EMBED_MODEL
     if EMBED_DIMS != WIDTH:
-        raise SystemExit(f"ERROR: cache width {EMBED_DIMS} != {WIDTH}")
+        raise CopyRefused(f"cache width {EMBED_DIMS} != {WIDTH}")
     if not CACHE.exists():
-        raise SystemExit(f"ERROR: the embedding cache is not at {CACHE}")
+        raise CopyRefused(f"the embedding cache is not at {CACHE}")
     mat, missing = _load_cached([text for _, text in pairs], WIDTH)
     if mat is None:
-        raise SystemExit(
-            f"ERROR: the local cache has no vector for {len(missing)} of {len(pairs)} trigger "
-            f"texts (e.g. {missing[0][:80]!r}). Nothing was written. Fill the cache first "
-            f"(ops/rebuild_bridge.py vectors embeds only what is missing) -- never fetch "
-            f"vectors back from Pinecone.")
+        raise CopyRefused(
+            f"the local cache has no vector for {len(missing)} of {len(pairs)} trigger "
+            f"texts (e.g. {missing[0][:80]!r}). Fill the cache first (ops/rebuild_bridge.py "
+            f"vectors embeds only what is missing) -- never fetch vectors back from Pinecone.")
     return [pid for pid, _ in pairs], mat, EMBED_MODEL
 
 
@@ -268,45 +134,43 @@ def _load_vectors(dst, pair_ids, mat, model: str) -> int:
                            "from stdin (format binary)") as inp:
         for chunk in _binary_rows(pair_ids, mat, model):
             inp.write(chunk)
-    return _count(dst, "brain", "trigger_vectors")
+    return tables_copy.count(dst, "brain", "trigger_vectors")
 
 
 # ---------------------------------------------------------------------------------------
 # the two parts
 # ---------------------------------------------------------------------------------------
 
-def _migrate() -> None:
+def _migrate(target_env: str) -> None:
     from ask_naren.db import migrate
-    migrate.main(["--url-env", TARGET_ENV,
-                  "--also", f"ask_naren={FRONTEND_DB / 'migrations'}",
-                  "--grants", str(FRONTEND_DB / "provision" / "roles.sql"),
-                  str(FRONTEND_DB / "provision" / "grants.sql")])
+    web = tables_copy.web_app_db_dir()
+    migrate.main(["--url-env", target_env,
+                  "--also", f"ask_naren={web / 'migrations'}",
+                  "--grants", str(web / "provision" / "roles.sql"),
+                  str(web / "provision" / "grants.sql")])
 
 
 def copy_brain(src, dst, args) -> dict[str, int]:
     with dst.transaction():
         # Brain's own DDL, inside `brain`. Idempotent; creates what a fresh target lacks.
         dst.execute("set local search_path = brain, extensions")
-        dst.execute(SCHEMA_SQL.read_text(encoding="utf-8-sig"))
-        tables = _plan(src, dst, "public", "brain")
-        print(f"[plan] {len(tables)} tables, in FK order: {', '.join(tables)}", flush=True)
+        dst.execute(tables_copy.brain_schema_sql().read_text(encoding="utf-8-sig"))
+        names = tables_copy.plan(src, dst, "public", "brain",
+                                 src_tables=set(tables_copy.tables(src, "public")),
+                                 exclude=frozenset({"trigger_vectors"}))
+        print(f"[plan] {len(names)} tables, in FK order: {', '.join(names)}", flush=True)
 
         pairs = src.execute("select pair_id, trigger_text from public.kb_pairs "
                             "order by pair_id").fetchall()
         pair_ids, mat, model = _cached_vectors(pairs)
         print(f"[cache] all {len(pair_ids)} trigger vectors found locally ({model}, "
               f"{WIDTH} dims)", flush=True)
-        _refuse_if_live(dst, "ask_naren_service")
+        tables_copy.refuse_if_live(dst, "ask_naren_service")
         if args.dry_run:
             raise _DryRun
 
-        _empty_or_refuse(dst, "brain", tables + ["trigger_vectors"], args.replace)
-        counts = {}
-        for t in tables:
-            t0 = time.time()
-            counts[t] = _copy_table(src, dst, "public", "brain", t)
-            _reset_sequences(dst, "brain", t)
-            print(f"[copy] brain.{t}: {counts[t]} rows ({time.time() - t0:.1f}s)", flush=True)
+        tables_copy.empty_or_refuse(dst, "brain", names + ["trigger_vectors"], args.replace)
+        counts = tables_copy.copy_tables(src, dst, "public", "brain", names)
         t0 = time.time()
         counts["trigger_vectors"] = _load_vectors(dst, pair_ids, mat, model)
         print(f"[vectors] {counts['trigger_vectors']} loaded ({time.time() - t0:.1f}s)",
@@ -326,19 +190,16 @@ def copy_brain(src, dst, args) -> dict[str, int]:
 def copy_ask_naren(src, dst, args) -> dict[str, int]:
     exclude = frozenset() if args.with_sessions else frozenset({"sessions"})
     with dst.transaction():
-        tables = _plan(src, dst, "ask_naren", "ask_naren", exclude)
-        print(f"[plan] {len(tables)} tables, in FK order: {', '.join(tables)}"
+        names = tables_copy.plan(src, dst, "ask_naren", "ask_naren",
+                                 src_tables=set(tables_copy.tables(src, "ask_naren")),
+                                 exclude=exclude)
+        print(f"[plan] {len(names)} tables, in FK order: {', '.join(names)}"
               f"{'' if args.with_sessions else ' (sessions NOT copied)'}", flush=True)
-        _refuse_if_live(dst, "ask_naren_app")
+        tables_copy.refuse_if_live(dst, "ask_naren_app")
         if args.dry_run:
             raise _DryRun
-        _empty_or_refuse(dst, "ask_naren", tables, args.replace)
-        counts = {}
-        for t in tables:
-            counts[t] = _copy_table(src, dst, "ask_naren", "ask_naren", t)
-            _reset_sequences(dst, "ask_naren", t)
-            print(f"[copy] ask_naren.{t}: {counts[t]} rows", flush=True)
-    return counts
+        tables_copy.empty_or_refuse(dst, "ask_naren", names, args.replace)
+        return tables_copy.copy_tables(src, dst, "ask_naren", "ask_naren", names)
 
 
 class _DryRun(Exception):
@@ -351,6 +212,8 @@ def main() -> int:
     ap.add_argument("part", choices=["brain", "ask-naren"])
     ap.add_argument("--from", dest="source", required=True,
                     help="Brain/.env variable holding the SOURCE database URL")
+    ap.add_argument("--to", dest="target", default=TARGET_ENV,
+                    help=f"Brain/.env variable holding the TARGET URL (default {TARGET_ENV})")
     ap.add_argument("--label", default=None,
                     help="brain: what this Brain is, recorded in brain_meta (e.g. bridge-v3)")
     ap.add_argument("--replace", action="store_true")
@@ -362,14 +225,14 @@ def main() -> int:
     if args.part == "brain" and not args.label:
         raise SystemExit("ERROR: brain copies need --label (what this Brain is)")
 
-    src_url, dst_url = _source_url(args.source, args.source_hostaddr), _target_url()
+    src_url, dst_url = _source_url(args.source, args.source_hostaddr), _target_url(args.target)
     if redacted(src_url) == redacted(dst_url):
         raise SystemExit("ERROR: source and target are the same database")
     print(f"[from] {redacted(src_url)}\n[to]   {redacted(dst_url)}"
           f"{'   (DRY RUN: nothing will be written)' if args.dry_run else ''}", flush=True)
 
     if not args.dry_run:
-        _migrate()
+        _migrate(args.target)
     with psycopg.connect(src_url, connect_timeout=30) as src, \
          psycopg.connect(connection_url(dst_url), connect_timeout=30) as dst:
         src.execute("set transaction isolation level repeatable read read only")
@@ -378,10 +241,12 @@ def main() -> int:
         except _DryRun:
             print("[dry run] every check passed; nothing written", flush=True)
             return 0
-        # Source counts from the SAME snapshot the copy read.
+        except CopyRefused as refusal:
+            print(f"ERROR: {refusal}. Nothing was written.", file=sys.stderr)
+            return 1
         schema = "public" if args.part == "brain" else "ask_naren"
-        bad = {t: (_count(src, schema, t), n) for t, n in counts.items()
-               if t != "trigger_vectors" and _count(src, schema, t) != n}
+        bad = tables_copy.mismatched_counts(
+            src, schema, {t: n for t, n in counts.items() if t != "trigger_vectors"})
         if args.part == "brain" and counts.get("trigger_vectors") != counts.get("kb_pairs"):
             bad["trigger_vectors"] = (counts.get("kb_pairs"), counts.get("trigger_vectors"))
         src.rollback()

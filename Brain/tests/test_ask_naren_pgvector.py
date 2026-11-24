@@ -49,6 +49,15 @@ def test_a_non_rds_url_is_left_exactly_as_given():
     assert connection_url(url) == url
 
 
+def test_a_non_rds_url_asking_for_verification_gets_public_authorities():
+    """2026-11-24: the web app's verify-full Neon URL failed from Python with no root.crt."""
+    import certifi
+    url = "postgresql://u:p@ep-x-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=verify-full"
+    out = connection_url(url)
+    assert "sslmode=verify-full" in out and "sslrootcert=" in out
+    assert certifi.where().replace("/", "%2F") in out
+
+
 def test_an_explicit_root_certificate_is_respected():
     url = "postgresql://u:p@h.rds.amazonaws.com/x?sslmode=verify-ca&sslrootcert=/etc/ca.pem"
     assert connection_url(url) == url
@@ -76,8 +85,9 @@ def test_a_key_value_connection_string_is_never_printed():
 
 
 def test_the_copy_refuses_while_the_app_is_connected():
-    # The copy is a laptop tool in CS-platform's Brain/ops; the deployment does not ship it.
-    copy = pytest.importorskip("ops.copy_brain_to_rds")
+    # Shared by the laptop copy and POST /admin/setup since 2026-11-24.
+    from ask_naren.db import copy
+    from ask_naren.db.copy import CopyRefused
 
     class _Conn:
         def __init__(self, n):
@@ -91,9 +101,9 @@ def test_the_copy_refuses_while_the_app_is_connected():
                     return (n,)
             return _Cur()
 
-    copy._refuse_if_live(_Conn(0), "ask_naren_service")
-    with pytest.raises(SystemExit, match="app is running"):
-        copy._refuse_if_live(_Conn(2), "ask_naren_service")
+    copy.refuse_if_live(_Conn(0), "ask_naren_service")
+    with pytest.raises(CopyRefused, match="app is"):
+        copy.refuse_if_live(_Conn(2), "ask_naren_service")
 
 
 # ---------------------------------------------------------------------------------------
@@ -128,7 +138,7 @@ def test_only_unapplied_migrations_are_pending():
 def test_an_applied_migration_that_was_edited_stops_the_run():
     ms = migrate.collect([("brain", migrate.MIGRATIONS)])
     conn = _TrackingConn({ms[0].name: "0" * 64})
-    with pytest.raises(SystemExit, match="EDITED"):
+    with pytest.raises(migrate.MigrationRefused, match="EDITED"):
         migrate.pending(conn, ms)
 
 
