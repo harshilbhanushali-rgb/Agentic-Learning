@@ -14,7 +14,7 @@ import pytest
 
 from ask_naren import api
 from ask_naren.db import copy as tables_copy
-from ask_naren.db import setup
+from ask_naren.db import admin_setup as setup
 from ask_naren.db.copy import CopyRefused
 
 TOKEN = "t" * 40

@@ -676,9 +676,9 @@ async def _run(args) -> int:
         # raises CancelledError and the client and Pinecone session leak. Uvicorn runs the
         # lifespan shutdown as part of its GRACEFUL stop, before any of that. The `finally`
         # still matters for every other exit: `--ask`, a startup failure, a bind failure.
-        # POST /admin/setup: ON only while ASK_NAREN_SETUP_TOKEN is set (ask_naren/db/setup.py),
+        # POST /admin/setup: ON only while ASK_NAREN_SETUP_TOKEN is set (ask_naren/db/admin_setup.py),
         # to fill a database only the deployment can reach. Remove the setting after cutover.
-        from ask_naren.db.setup import SetupJobs
+        from ask_naren.db.admin_setup import SetupJobs
         await api.serve(answer, host=args.host, port=args.port, ready=lambda: True,
                         on_shutdown=_close, verify=verify, setup=SetupJobs.from_env())
     finally:

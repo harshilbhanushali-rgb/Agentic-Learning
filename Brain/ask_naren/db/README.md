@@ -69,7 +69,7 @@ master user is a member of `rds_superuser`, and the web app refuses to serve as 
 ## A database only the deployment can reach (production): POST /admin/setup
 
 Production's RDS cannot be reached from a laptop, so the deployed service fills it itself
-(`setup.py` here). Nothing below changes what CSMs see: the service keeps answering from its
+(`admin_setup.py` here). Nothing below changes what CSMs see: the service keeps answering from its
 current `DATABASE_URL` the whole time.
 
 1. **Turn it on.** Add these to the ask-naren deployment's settings, temporarily:

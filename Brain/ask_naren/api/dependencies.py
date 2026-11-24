@@ -45,7 +45,7 @@ def _verifier(request: Request) -> "Verifier | None":
 
 
 def _setup(request: Request):
-    """The POST /admin/setup jobs (ask_naren/db/setup.SetupJobs), or None when it is off."""
+    """The POST /admin/setup jobs (ask_naren/db/admin_setup.SetupJobs), or None when it is off."""
     return request.app.state.setup
 
 

@@ -2,7 +2,7 @@
 
   * ops/copy_brain_to_rds.py (CS-platform, a laptop): Neon -> RDS, with the trigger vectors
     loaded from the local embedding cache.
-  * ask_naren/db/setup.py (inside the deployed image, behind POST /admin/setup): RDS -> RDS
+  * ask_naren/db/admin_setup.py (inside the deployed image, behind POST /admin/setup): RDS -> RDS
     for the Brain (its vectors are already in pgvector), Neon -> RDS for sign-in data.
 
 Every function takes open psycopg connections and raises `CopyRefused` -- never exits -- so a

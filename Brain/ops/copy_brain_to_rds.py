@@ -28,7 +28,7 @@ brain_meta commit together or not at all. The source is read in ONE read-only
 repeatable-read snapshot, so the tables agree with each other.
 
 A database this laptop cannot reach (production RDS) is filled from INSIDE the deployment
-instead: POST /admin/setup, ask_naren/db/setup.py. Both paths share ask_naren/db/copy.py.
+instead: POST /admin/setup, ask_naren/db/admin_setup.py. Both paths share ask_naren/db/copy.py.
 
 URLs come from Brain/.env, never the command line: `--from` names the SOURCE variable, and
 `--to` the target (a login that can create tables: on RDS, the master user). Migrations and

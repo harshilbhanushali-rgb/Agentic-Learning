@@ -85,7 +85,7 @@ def _setup_refusal(jobs, request: Request) -> "JSONResponse | None":
 
 @router.post("/admin/setup/{step}", include_in_schema=False)
 async def start_setup(step: str, request: Request, jobs: SetupDep) -> JSONResponse:
-    """Start a database setup step in the background (ask_naren/db/setup.py).
+    """Start a database setup step in the background (ask_naren/db/admin_setup.py).
 
     404 unless ASK_NAREN_SETUP_TOKEN is set; 401 without `Authorization: Bearer <token>`;
     202 started; 409 while a step is already running. Takes no admission slot. Only ever
@@ -93,7 +93,7 @@ async def start_setup(step: str, request: Request, jobs: SetupDep) -> JSONRespon
     """
     if (refusal := _setup_refusal(jobs, request)) is not None:
         return refusal
-    from ask_naren.db.setup import STEPS
+    from ask_naren.db.admin_setup import STEPS
     if step not in STEPS:
         return JSONResponse({"status": "unknown_step", "steps": list(STEPS)}, status_code=400)
     if not jobs.start(step):
