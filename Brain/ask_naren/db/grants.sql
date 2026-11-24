@@ -19,8 +19,11 @@ do $$
 declare
   t text;
 begin
+  -- primary_topics is not read by the service. It is here so a copy made AS this login
+  -- (POST /admin/setup reads the source Brain with it) can carry the rows scenarios'
+  -- primary_topic_key foreign key points at.
   foreach t in array array['scenarios', 'kb_pairs', 'calls', 'playbooks', 'brain_meta',
-                           'trigger_vectors'] loop
+                           'trigger_vectors', 'primary_topics'] loop
     if to_regclass('brain.' || t) is null then
       raise notice 'brain.% does not exist yet -- not granted (copy a Brain in, then re-run)', t;
     else

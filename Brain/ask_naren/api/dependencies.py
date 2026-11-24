@@ -44,8 +44,14 @@ def _verifier(request: Request) -> "Verifier | None":
     return request.app.state.verify
 
 
+def _setup(request: Request):
+    """The POST /admin/setup jobs (ask_naren/db/setup.SetupJobs), or None when it is off."""
+    return request.app.state.setup
+
+
 GateDep = Annotated[admission.Admission, Depends(_gate)]
 AnswererDep = Annotated[Answerer, Depends(_answerer)]
 ReadyDep = Annotated[ReadyCheck, Depends(_is_ready)]
 # A real type, not a string: FastAPI evaluates this annotation in the ROUTES module.
 VerifierDep = Annotated[Optional[Verifier], Depends(_verifier)]
+SetupDep = Annotated[Optional[object], Depends(_setup)]

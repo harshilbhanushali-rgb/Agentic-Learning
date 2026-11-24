@@ -15,7 +15,7 @@ async def serve(answerer: Answerer, *, host: str = DEFAULT_HOST, port: int = DEF
                 ready: ReadyCheck | None = None,
                 on_shutdown: "Callable[[], Awaitable[None]] | None" = None,
                 gate: "admission.Admission | None" = None,
-                verify: "Verifier | None" = None) -> None:
+                verify: "Verifier | None" = None, setup=None) -> None:
     """Serve until interrupted. AWAITED, because uvicorn owns the event loop.
 
     `uvicorn` is imported here rather than at module scope so `--ask` and the answer-path
@@ -39,7 +39,8 @@ async def serve(answerer: Answerer, *, host: str = DEFAULT_HOST, port: int = DEF
 
     gate = gate if gate is not None else admission.Admission()
     config = uvicorn.Config(
-        build_app(answerer, ready=ready, on_shutdown=on_shutdown, gate=gate, verify=verify),
+        build_app(answerer, ready=ready, on_shutdown=on_shutdown, gate=gate, verify=verify,
+                  setup=setup),
         host=host, port=port, log_level="info", access_log=False)
     server = uvicorn.Server(config)
     sock = config.bind_socket()

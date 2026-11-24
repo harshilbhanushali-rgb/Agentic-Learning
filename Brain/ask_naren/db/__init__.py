@@ -47,17 +47,31 @@ def connection_url(url: str) -> str:
     RDS certificates are signed by Amazon's own RDS authorities, which no default trust
     store holds, so `sslmode=require` is the tempting setting -- and it encrypts without
     checking who answered. This upgrades an RDS URL to `verify-full` against the bundled
-    authorities instead. An explicit `sslrootcert` in the URL is left alone. Non-RDS URLs
-    (Neon, a local Docker Postgres) pass through unchanged.
+    authorities instead. An explicit `sslrootcert` in the URL is left alone.
+
+    A NON-RDS URL that already asks for verification (`verify-full`/`verify-ca`, e.g. the web
+    app's Neon URL) gets certifi's public authorities. libpq otherwise looks for
+    ~/.postgresql/root.crt, which no container has, and the psycopg wheel's own OpenSSL does
+    not see the system store: measured 2026-11-24, that URL failed from Python while Node
+    connected, and connected verified once certifi's bundle was named. Any other URL passes
+    through unchanged.
     """
-    if not is_rds(url):  # raises on anything that is not a postgresql:// URI
-        return url
+    rds = is_rds(url)  # raises on anything that is not a postgresql:// URI
     parts = urlparse(url)
     query = dict(parse_qsl(parts.query, keep_blank_values=True))
     if "sslrootcert" in query:
         return url
-    query["sslrootcert"] = str(RDS_CA_BUNDLE)
-    query["sslmode"] = "verify-full"
+    if rds:
+        query["sslrootcert"] = str(RDS_CA_BUNDLE)
+        query["sslmode"] = "verify-full"
+    elif query.get("sslmode") in ("verify-full", "verify-ca"):
+        try:
+            import certifi
+        except ImportError:
+            return url
+        query["sslrootcert"] = certifi.where()
+    else:
+        return url
     return urlunparse(parts._replace(query=urlencode(query)))
 
 

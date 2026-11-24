@@ -66,6 +66,49 @@ master user is a member of `rds_superuser`, and the web app refuses to serve as 
    counts, vector width, that every answerable exchange has a vector, and that sampled
    vectors find themselves. HTTP 200 means every check passed; 503 names what failed.
 
+## A database only the deployment can reach (production): POST /admin/setup
+
+Production's RDS cannot be reached from a laptop, so the deployed service fills it itself
+(`setup.py` here). Nothing below changes what CSMs see: the service keeps answering from its
+current `DATABASE_URL` the whole time.
+
+1. **Turn it on.** Add these to the ask-naren deployment's settings, temporarily:
+
+   | Setting | Value |
+   |---|---|
+   | `ASK_NAREN_SETUP_TOKEN` | a random string of 32+ characters (the password for the two routes) |
+   | `ASK_NAREN_MIGRATE_URL` | the NEW database, master login |
+   | `ASK_NAREN_SETUP_BRAIN_FROM` | staging's `ask_naren_service` URL (read-only; the Brain is already there, vectors included) |
+   | `ASK_NAREN_SETUP_LOGINS_FROM` | the web app's current `ASK_NAREN_DATABASE_URL` (Neon) |
+   | `ASK_NAREN_SETUP_SERVICE_URL` | the NEW database's `ask_naren_service` URL, with a new 16+ character password |
+   | `ASK_NAREN_SETUP_APP_URL` | the NEW database's `ask_naren_app` URL, likewise |
+
+   The last two are how the new logins get their passwords; they become `DATABASE_URL` and
+   the web app's `ASK_NAREN_DATABASE_URL` at cutover.
+
+2. **Fill the Brain, any time before cutover:**
+
+   ```bash
+   curl -X POST -H "Authorization: Bearer $TOKEN" https://<ask-naren>/admin/setup/brain
+   curl -H "Authorization: Bearer $TOKEN" https://<ask-naren>/admin/setup   # until status != running
+   ```
+
+   Migrations, the two logins' passwords, the Brain and its vectors, then a login as each to
+   prove what it can and cannot do. `done` with counts, or `refused`/`failed` with the reason.
+
+3. **At cutover**, with the web app stopped (so nothing written mid-copy is lost):
+   `POST /admin/setup/logins`, then point `DATABASE_URL` and `ASK_NAREN_DATABASE_URL` at the
+   new database, start both, and check `GET /verify`.
+
+4. **Turn it off:** remove every `ASK_NAREN_SETUP_*` setting and `ASK_NAREN_MIGRATE_URL`.
+   The routes then answer 404, exactly as if they did not exist.
+
+**It only ever fills an EMPTY database.** A target that already holds Brain or sign-in rows
+is refused with nothing written, so whoever holds the token cannot wipe or overwrite
+anything. The source logins only read. Rehearsed end to end on 2026-11-24 against a
+throwaway database on staging: both steps `done`, counts equal, a second run refused, and
+`/verify` all green on the result.
+
 ## Connecting
 
 RDS certificates are signed by Amazon's own authorities, which default trust stores lack.
@@ -74,6 +117,9 @@ RDS certificates are signed by Amazon's own authorities, which default trust sto
 The web app ships the same file at `db/certs/rds-global-bundle.pem` and names it in its URL:
 `...?sslmode=verify-full&sslrootcert=<path to that file>`. Without it, node-postgres refuses
 the connection (measured), which is the correct failure.
+
+A non-RDS URL that asks for `verify-full` (the web app's Neon URL) is given certifi's public
+authorities, because Python's libpq has no usable default store in a container.
 
 ## Switching back
 
