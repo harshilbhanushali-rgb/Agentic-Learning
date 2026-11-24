@@ -12,6 +12,15 @@ const geistMono = GeistMono;
 export const metadata = {
   title: 'N10 · Joveo',
   description: 'Answers from Naren’s real client calls, for Support and Implementation',
+  // Static files in public/ (the N10 mark), served as-is by the standalone build. The .ico is
+  // for browsers that ignore SVG icons; iOS uses the touch icon for home-screen bookmarks.
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: '48x48' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 /**
