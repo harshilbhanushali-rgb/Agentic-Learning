@@ -427,6 +427,23 @@ def test_broken_json_is_not_retried_when_the_deadline_cannot_fit_one():
              _written(SETUP_REPLY, SETUP_CALL), time_left=lambda: 5.0)
 
 
+# -- no deadline at all: `time_left` passed but returning None (2026-11-24) -------------------
+# admission.seconds_left returns None outside a request (--ask, the audit harnesses), and
+# comparing that None with a number crashed every retry. No deadline means retries go ahead.
+
+def test_a_retry_with_no_deadline_proceeds_instead_of_crashing():
+    made_up = "Always tell the client the pixel takes five minutes."
+    result, gw, _ = _run(_plan("where to place the pixel"), _written(made_up, SETUP_CALL),
+                         _written(SETUP_REPLY, SETUP_CALL), time_left=lambda: None)
+    assert result["outcome"] == "answered" and len(gw.calls) == 3
+
+
+def test_a_broken_json_retry_with_no_deadline_proceeds_instead_of_crashing():
+    result, gw, _ = _run(_plan("where to place the pixel"), GatewayReplyNotJSON("bad"),
+                         _written(SETUP_REPLY, SETUP_CALL), time_left=lambda: None)
+    assert result["outcome"] == "answered" and len(gw.calls) == 3
+
+
 def test_other_gateway_faults_are_not_retried():
     with pytest.raises(GatewayError):
         _run(_plan("where to place the pixel"), GatewayError("HTTP 500"),

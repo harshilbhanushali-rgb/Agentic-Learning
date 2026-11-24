@@ -516,6 +516,17 @@ def _drawn_from(used_calls, shown: set[str], label_for) -> list[dict]:
     return out
 
 
+def _seconds_left(time_left) -> float | None:
+    """Seconds left of the deadline, or None when there is none.
+
+    None in TWO cases: no `time_left` was passed, or it was passed and RETURNED None --
+    `admission.seconds_left` does that outside a request (`--ask`, the audit harnesses).
+    Comparing that None to a number crashed every retry there (2026-11-24); a served
+    request always has a deadline, so CSMs never hit it.
+    """
+    return None if time_left is None else time_left()
+
+
 async def write(message: str, turns, searches: list[str], matches: list[Match],
                 playbooks: list[tuple[str, dict]], gateway, *, label_for, time_left=None,
                 carried_pairs: list[dict] = (), reworking: bool = False) -> dict:
@@ -538,9 +549,10 @@ async def write(message: str, turns, searches: list[str], matches: list[Match],
         return answering._decline(reason, matches[0], 1, label_for)
 
     for attempt in range(answering.MAX_ATTEMPTS):
-        if attempt and time_left is not None and time_left() < RETRY_NEEDS_SECONDS:
+        left = _seconds_left(time_left)
+        if attempt and left is not None and left < RETRY_NEEDS_SECONDS:
             print("[ask-naren] " + json.dumps({"event": "grounding_retry_skipped",
-                                               "seconds_left": round(time_left(), 1),
+                                               "seconds_left": round(left, 1),
                                                "needs": RETRY_NEEDS_SECONDS}),
                   file=sys.stderr, flush=True)
             break
@@ -558,8 +570,9 @@ async def write(message: str, turns, searches: list[str], matches: list[Match],
             # when there is one and the deadline fits it. Otherwise it stays a service fault.
             _trace("write_not_json", attempt=attempt + 1,
                    seconds=time.perf_counter() - started)
+            left = _seconds_left(time_left)
             if (attempt + 1 < answering.MAX_ATTEMPTS
-                    and (time_left is None or time_left() >= RETRY_NEEDS_SECONDS)):
+                    and (left is None or left >= RETRY_NEEDS_SECONDS)):
                 continue
             raise
         _trace("write", attempt=attempt + 1, seconds=time.perf_counter() - started,
