@@ -46,8 +46,9 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ask_naren import (api, citations, rendering, responding, retrieval,  # noqa: E402
-                       vector_store)
+                       vector_store, verification)
 from ask_naren.api import admission                    # noqa: E402
+from ask_naren.db import connection_url, is_rds, redacted  # noqa: E402
 from config import load_config                        # noqa: E402
 from preprocessing import embedder                    # noqa: E402
 from shared import storage                            # noqa: E402
@@ -158,10 +159,28 @@ VECTOR_INDEX_NAME = "narens-brain-rebuild-3072"
 # switch: restore a database and its index comes with it, including on rollback (the
 # pre-2026-11-11 Brain has no table, so it falls back to the constant it was built with).
 def _vector_index_for(conn) -> str:
-    if conn.execute("SELECT to_regclass('public.brain_meta')").fetchone()[0] is None:
-        return VECTOR_INDEX_NAME
-    row = conn.execute("SELECT value FROM brain_meta WHERE key = 'vector_index'").fetchone()
-    return row[0] if row and row[0] else VECTOR_INDEX_NAME
+    return _brain_setting(conn, "vector_index") or VECTOR_INDEX_NAME
+
+
+# AND SINCE THE MOVE TO RDS, WHICH STORE. The same argument one step further: a Brain copied
+# into Postgres on RDS carries its vectors in the same database (pgvector), and
+# ops/copy_brain_to_rds.py writes `vector_store = pgvector` into its brain_meta. A Neon Brain
+# has no such row and keeps searching Pinecone. So DATABASE_URL alone decides, and rolling
+# back to Neon + Pinecone is pointing it back -- no code edit, no second switch to forget.
+# The VECTOR_STORE constant above still overrides with "memory", the code-edit rollback.
+def _vector_store_for(conn) -> str:
+    if VECTOR_STORE == "memory":
+        return "memory"
+    return _brain_setting(conn, "vector_store") or VECTOR_STORE
+
+
+def _brain_setting(conn, key: str) -> str | None:
+    """A `brain_meta` value, or None. The table is found through the search path -- `public`
+    on Neon, `brain` on RDS -- never by a hard-coded schema."""
+    if conn.execute("SELECT to_regclass('brain_meta')").fetchone()[0] is None:
+        return None
+    row = conn.execute("SELECT value FROM brain_meta WHERE key = %s", (key,)).fetchone()
+    return row[0] if row and row[0] else None
 
 # How many pool identifiers the startup guard checks against the store. 1,000 of 6,496 --
 # about 15% of the pool -- costs ~1.7s because the check transfers no vectors. The sample is
@@ -183,10 +202,25 @@ def _connect_read_only(database_url: str, hostaddr: str | None):
     THIS connection's own session -- confirmed by reproducing the leak
     directly and then flushing the poisoned pool back to 'off'.
     """
-    if hostaddr and "hostaddr=" not in database_url:
+    rds = is_rds(database_url)
+    # The pinned IP is a Neon workaround; on RDS it would point the right name at a wrong
+    # address. RDS URLs are instead upgraded to a VERIFIED TLS connection (ask_naren/db).
+    if hostaddr and not rds and "hostaddr=" not in database_url:
         database_url += ("&" if "?" in database_url else "?") + f"hostaddr={hostaddr}"
         print(f"[dns] hostaddr={hostaddr} (host kept in the URL for SNI/SCRAM)")
-    conn = storage.get_connection(database_url)
+    conn = storage.get_connection(connection_url(database_url))
+    if rds:
+        # Brain lives in `brain` on RDS, beside another application's `public`. The
+        # ask_naren_service role already has this search path; setting it here too means a
+        # broader login (an operator's) still reads Brain and never the other app's tables.
+        # A direct connection, not a transaction pooler, so a session setting is safe here.
+        conn.execute("SET search_path = brain, extensions")
+        # The role's 30s statement_timeout guards SEARCHES. This connection does the startup
+        # bulk read (all of kb_pairs, ~8 MB of text), and a statement's clock includes sending
+        # its rows to a slow client: from a laptop ~200 ms from us-east-1 it was cancelled at
+        # 30s (2026-11-23). Lifted for this one read-only session, which is closed before
+        # serving; the search pool keeps the role's limit.
+        conn.execute("SET statement_timeout = '5min'")
     conn.execute("SET SESSION default_transaction_read_only = on")
     ro = conn.execute("SELECT current_setting('default_transaction_read_only')").fetchone()[0]
     if ro != "on":
@@ -222,6 +256,7 @@ async def build_pool(hostaddr: str | None):
         coachable_scenarios = _load_coachable_scenarios(conn)
         following_by_pair = _load_call_adjacency(conn, pairs)
         index_name = _vector_index_for(conn)
+        store_kind = _vector_store_for(conn)
     finally:
         conn.close()
     if not pairs:
@@ -229,12 +264,23 @@ async def build_pool(hostaddr: str | None):
                          "that can only decline.")
     print(f"[pool] {len(pairs)} coachable kb_pairs after content dedup", flush=True)
     scenario_keys = sorted({p["scenario_key"] for p in pairs})
-    pool = retrieval.RetrievalPool(
-        pairs, store=await _build_store(config, pairs, scenario_keys, index_name))
+    store = await _build_store(config, pairs, scenario_keys, index_name, store_kind)
+    pool = retrieval.RetrievalPool(pairs, store=store)
     print(f"[pool] ready: {len(pool)} pairs across {len(scenario_keys)} coachable scenarios",
           flush=True)
     return (pool, moves_by_scenario, playbooks_by_scenario,
-            coachable_scenarios, following_by_pair)
+            coachable_scenarios, following_by_pair,
+            _verifier(store, store_kind, pairs, config.database_url))
+
+
+def _verifier(store, store_kind: str, pairs: list[dict], database_url: str):
+    """GET /verify for this process: the full check on pgvector, a short note otherwise."""
+    if store_kind != "pgvector":
+        return lambda: verification.not_verifiable(store_kind)
+    cfg = get_tuning().embedding
+    dims = cfg.gemini_dimensions or EMBED_DIMENSIONS
+    return lambda: verification.verify_pgvector(
+        store, pairs, database=redacted(database_url), expected_dims=dims)
 
 
 def _load_coachable_scenarios(conn) -> list[dict]:
@@ -340,8 +386,9 @@ def _load_playbooks(conn, pairs: list[dict]) -> dict[str, dict]:
 
 
 async def _build_store(config, pairs: list[dict], scenario_keys: list[str],
-                       index_name: str = VECTOR_INDEX_NAME):
-    """The store the pool ranks with, per the VECTOR_STORE switch above.
+                       index_name: str = VECTOR_INDEX_NAME, store_kind: str = VECTOR_STORE):
+    """The store the pool ranks with: `store_kind`, which the Brain database decides
+    (`_vector_store_for`), or the VECTOR_STORE constant's "memory" rollback.
 
     THE ROLLBACK PATH IS THE ONE PLACE IN THIS PROCESS THE SYNCHRONOUS GATEWAY CLIENT IS
     STILL USED. It embeds the pool HERE, at startup, before anything is served and before
@@ -354,20 +401,35 @@ async def _build_store(config, pairs: list[dict], scenario_keys: list[str],
     WINDOW, so on a cold-cache rollback start the first CSM questions can land in the same
     window as the tail of those startup embeddings. Read that entry before relying on this.
     """
-    if VECTOR_STORE == "memory":
+    if store_kind == "memory":
         print(f"[vectors] ROLLBACK PATH: embedding {len(pairs)} triggers in-process "
               f"(warm gateway cache -> mostly free)...", flush=True)
         vectors = embedder.embed_query_matrix([p["trigger_text"] for p in pairs])
         return vector_store.InMemoryTriggerStore([p["pair_id"] for p in pairs], vectors)
-    if VECTOR_STORE != "pinecone":
-        raise SystemExit(f"ERROR: unknown VECTOR_STORE {VECTOR_STORE!r} -- "
-                         f"expected 'pinecone' or 'memory'.")
-    store = await vector_store.PineconeTriggerStore.open(
-        config.pinecone_api_key, index_name, scenario_keys=scenario_keys)
-    print(f"[vectors] {index_name}, restricted to {len(scenario_keys)} coachable "
-          f"scenarios -- nothing embedded, no vectors held", flush=True)
+    if store_kind == "pgvector":
+        store = await vector_store.PgVectorTriggerStore.open(
+            config.database_url, scenario_keys=scenario_keys)
+        where = f"pgvector at {redacted(config.database_url)}"
+        print(f"[vectors] {where}, restricted to {len(scenario_keys)} coachable scenarios "
+              f"-- exact search, nothing embedded, no vectors held", flush=True)
+        # EVERY pair, not a sample: absence is one anti-join in the database, not a network
+        # round trip per id as on Pinecone.
+        sample_size = len(pairs)
+    elif store_kind == "pinecone":
+        if not config.pinecone_api_key:
+            raise SystemExit("ERROR: this Brain database searches Pinecone, and "
+                             "PINECONE_API_KEY is not set.")
+        store = await vector_store.PineconeTriggerStore.open(
+            config.pinecone_api_key, index_name, scenario_keys=scenario_keys)
+        where = index_name
+        print(f"[vectors] {index_name}, restricted to {len(scenario_keys)} coachable "
+              f"scenarios -- nothing embedded, no vectors held", flush=True)
+        sample_size = COVERAGE_SAMPLE
+    else:
+        raise SystemExit(f"ERROR: unknown vector store {store_kind!r} -- expected "
+                         f"'pinecone', 'pgvector' or 'memory'.")
     try:
-        await _assert_store_covers_pool(store, pairs, index_name)
+        await _assert_store_covers_pool(store, pairs, where, sample_size)
     except BaseException:
         # Closed HERE, by the function that opened it. The guard exits the process on a
         # fatal coverage gap, so `_build_store` never returns and `_run`'s `finally` has no
@@ -380,7 +442,8 @@ async def _build_store(config, pairs: list[dict], scenario_keys: list[str],
 
 
 async def _assert_store_covers_pool(store, pairs: list[dict],
-                                    index_name: str = VECTOR_INDEX_NAME) -> None:
+                                    index_name: str = VECTOR_INDEX_NAME,
+                                    sample_size: int = COVERAGE_SAMPLE) -> None:
     """Refuse to serve if the index is missing pool pairs. See ADR 0008.
 
     The failure this prevents is silent, which is why it is worth a second of startup: a
@@ -393,7 +456,7 @@ async def _assert_store_covers_pool(store, pairs: list[dict],
     widen the coverage actually checked. The full check is ops/check_vector_coverage.py, to
     be run after shipping a layer.
     """
-    sample = random.sample(pairs, min(COVERAGE_SAMPLE, len(pairs)))
+    sample = random.sample(pairs, min(sample_size, len(pairs)))
     fatal, stale = await store.unretrievable(sample)
     if stale:
         print(f"[vectors] WARNING: {len(stale)} of {len(sample)} sampled pairs are filed "
@@ -566,7 +629,7 @@ async def _run(args) -> int:
 
     try:
         (pool, moves_by_scenario, playbooks_by_scenario, coachable_scenarios,
-         following_by_pair) = await build_pool(args.hostaddr or None)
+         following_by_pair, verify) = await build_pool(args.hostaddr or None)
         label_for, account_for = build_label_resolver()
         # None unless the constant above was edited. answer_situation treats None as
         # pairs-only, so the shipped path never touches the playbook code at all.
@@ -614,7 +677,7 @@ async def _run(args) -> int:
         # lifespan shutdown as part of its GRACEFUL stop, before any of that. The `finally`
         # still matters for every other exit: `--ask`, a startup failure, a bind failure.
         await api.serve(answer, host=args.host, port=args.port, ready=lambda: True,
-                            on_shutdown=_close)
+                        on_shutdown=_close, verify=verify)
     finally:
         # Covers `--ask`, a startup failure and a bind failure. On Ctrl-C the lifespan
         # shutdown has already run `_close`, and this task is cancelled by then -- which is

@@ -63,7 +63,7 @@ async def main() -> int:
     print(f"loading the pool (Postgres read + Pinecone coverage guard)...", flush=True)
     t0 = time.monotonic()
     (pool, moves_by_scenario, playbooks_by_scenario, coachable_scenarios,
-     following_by_pair) = await serve.build_pool(serve.DEFAULT_HOSTADDR)
+     following_by_pair, _verify) = await serve.build_pool(serve.DEFAULT_HOSTADDR)
     label_for, account_for = serve.build_label_resolver()
     print(f"pool ready in {time.monotonic() - t0:.1f}s: {len(pool)} pairs\n", flush=True)
 

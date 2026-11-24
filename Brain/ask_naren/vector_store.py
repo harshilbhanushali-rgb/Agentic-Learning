@@ -1,7 +1,9 @@
 """Where Ask Naren's nearest-neighbour search actually runs (ADR 0008).
 
 Every vector operation is behind ONE method -- `search(query_vec, top_k)` returning
-`(pair_id, cosine)` nearest first -- with two implementations:
+`(pair_id, cosine)` nearest first. A third implementation, `PgVectorTriggerStore`, searches
+Postgres (pgvector) on AWS RDS; it is used when the Brain database names it, and is
+described at the class. The original two:
 
   * `PineconeTriggerStore` is what ships. The vectors already exist in the pipeline's
     `narens-brain-3072` index and the stored values are exact (cos = 1.000000 on 24/24
@@ -242,6 +244,168 @@ class PineconeTriggerStore:
             found = {_bare_id(i) for i in confirmed}
             fatal.extend((p, "absent from the index") for p in provisional if p not in found)
         return fatal, stale
+
+
+class PgVectorTriggerStore:
+    """The trigger vectors in Postgres (pgvector), on the same database as the Brain tables.
+
+    Replaces `PineconeTriggerStore` when the Brain database says so (`brain_meta`
+    `vector_store = pgvector`, written by ops/copy_brain_to_rds.py). Same contract: bare
+    string ids, nearest first, cosines kept inside [-1, 1].
+
+    WHAT IS DIFFERENT, AND WHY IT IS BETTER HERE:
+
+      * EXACT. There is no ANN index (0002_trigger_vectors.sql explains why), so the ranking
+        is the true cosine order. Pinecone's was approximate, with a measured 1.6e-3 error.
+
+      * NO KEY DRIFT. The scenario filter JOINS `kb_pairs` and reads its LIVE
+        `scenario_key`, rather than a copy written into vector metadata at ship time. The
+        "key drift" failure `PineconeTriggerStore.unretrievable` has to hunt for cannot
+        happen, so `stale` is always empty and only absence is checked.
+
+      * IT HOLDS A DATABASE CONNECTION WHILE SERVING. The Pinecone path closed Postgres
+        before the first request; a search in Postgres cannot. What keeps "Ask Naren cannot
+        write to Brain" true is now the ROLE: ask_naren_service can SELECT six tables, and
+        every session is read-only (0003_service_role.sql, and again on each connection
+        below). That is a permission, not a convention.
+
+    `search_path` decides which schema's `trigger_vectors` and `kb_pairs` are read -- `brain`
+    in production, a scratch schema in the integration tests.
+    """
+
+    DEFAULT_SEARCH_PATH = "brain,extensions"
+
+    def __init__(self, pool, *, scenario_keys: Sequence[str], generation: str | None = None):
+        """`pool` is a `psycopg_pool.AsyncConnectionPool`, already open. Use `open()`.
+
+        `generation` is the Brain's `brain_meta.copied_at` when this process loaded it. See
+        `search`: a different value later means the Brain was replaced underneath us.
+        """
+        if not scenario_keys:
+            raise ValueError(
+                "no coachable scenario keys -- an unrestricted filter would let Ask Naren "
+                "answer from scenarios it is not allowed to coach")
+        self._pool = pool
+        self._scenario_keys = sorted(set(scenario_keys))
+        self._generation = generation
+
+    @classmethod
+    async def open(cls, database_url: str, *, scenario_keys: Sequence[str],
+                   search_path: str = DEFAULT_SEARCH_PATH,
+                   max_connections: int = 4) -> "PgVectorTriggerStore":
+        """Open and hold a small pool of read-only connections, at startup.
+
+        FOUR CONNECTIONS. Six answers run at once (ADR 0010) and each runs one to four
+        searches, but a search is milliseconds of a connection's time against seconds of
+        model calls around it, so a queue for a connection is rare and short. The role's
+        own `connection limit 10` is the ceiling.
+        """
+        if not scenario_keys:
+            raise ValueError(
+                "no coachable scenario keys -- an unrestricted filter would let Ask Naren "
+                "answer from scenarios it is not allowed to coach")
+        from psycopg_pool import AsyncConnectionPool
+
+        from ask_naren.db import connection_url
+
+        pool = AsyncConnectionPool(
+            connection_url(database_url), min_size=1, max_size=max_connections, open=False,
+            # CHECKED ON CHECKOUT, AND KEPT ALIVE. psycopg_pool's default is no check, so after
+            # an RDS restart or failover every idle connection was handed out dead and its
+            # CSM got an error (bug hunt, 2026-11-23). The check is one round trip per
+            # search; keepalives stop a silent network drop from hanging until the deadline.
+            check=AsyncConnectionPool.check_connection,
+            # Set per connection as well as on the role, so a store opened with a broader
+            # login (the master user, in a verification run) is still read-only.
+            kwargs={"autocommit": True,
+                    "keepalives": 1, "keepalives_idle": 30, "keepalives_interval": 10,
+                    "keepalives_count": 5,
+                    "options": f"-c search_path={search_path} "
+                               f"-c default_transaction_read_only=on"})
+        await pool.open(wait=True, timeout=30)
+        try:
+            async with pool.connection() as conn:
+                generation = await _generation(conn)
+        except BaseException:
+            await pool.close()
+            raise
+        return cls(pool, scenario_keys=scenario_keys, generation=generation)
+
+    async def aclose(self) -> None:
+        await self._pool.close()
+
+    async def search(self, query_vec, top_k: int) -> list[tuple[str, float]]:
+        """Exact cosine ranking over the coachable scenarios, nearest first.
+
+        `<=>` is pgvector's cosine DISTANCE, so 1 - distance is the cosine itself; the query
+        need not be unit length for that to hold.
+        """
+        async with self._pool.connection() as conn:
+            rows = await (await conn.execute(
+                """with q as (select %s::vector as v)
+                   select t.pair_id::text, 1 - (t.embedding <=> q.v)
+                   from trigger_vectors t
+                   join kb_pairs k on k.pair_id = t.pair_id
+                   cross join q
+                   where k.scenario_key = any(%s)
+                   order by t.embedding <=> q.v
+                   limit %s""",
+                (_vector_literal(query_vec), self._scenario_keys, int(top_k)))).fetchall()
+            # THE BRAIN MUST STILL BE THE ONE THIS PROCESS LOADED. The pool's texts were read
+            # once at startup and are keyed by pair_id, while this search reads the tables
+            # live; a Brain copied in with --replace reuses the ids for different exchanges,
+            # so every answer would quote an unrelated exchange as Naren's -- silently (bug
+            # hunt, 2026-11-23). Checked in the same connection, after the search: a mismatch
+            # is a loud error (service_error to the CSM) until the process is restarted.
+            # One indexed lookup; skipped when the Brain had no copied_at at startup.
+            if self._generation is not None and (await (await conn.execute(
+                    "select value from brain_meta where key = 'copied_at'")).fetchone()
+                    or (None,))[0] != self._generation:
+                raise RuntimeError(
+                    "the Brain database was replaced after this process loaded it "
+                    "(brain_meta.copied_at changed) -- restart the service")
+        return [(pair_id, _clamp_cosine(cos)) for pair_id, cos in rows]
+
+    async def unretrievable(self, pairs: Sequence[dict]) -> tuple[list[tuple[str, str]],
+                                                                  list[tuple[str, str]]]:
+        """(fatal, stale) -- the same startup guard as Pinecone's. `stale` is always empty:
+        the filter reads kb_pairs' live key, so a key cannot drift (see the class note)."""
+        ids = [int(p["pair_id"]) for p in pairs]
+        async with self._pool.connection() as conn:
+            rows = await (await conn.execute(
+                """select p.pair_id::text
+                   from unnest(%s::int[]) as p(pair_id)
+                   left join trigger_vectors t on t.pair_id = p.pair_id
+                   where t.pair_id is null""", (ids,))).fetchall()
+        return [(r[0], "no vector in trigger_vectors") for r in rows], []
+
+    async def stored_vectors(self, pair_ids: Sequence) -> dict[str, list[float]]:
+        """The stored vectors for these pairs, for GET /verify's self-match check."""
+        async with self._pool.connection() as conn:
+            rows = await (await conn.execute(
+                "select pair_id::text, embedding::text from trigger_vectors "
+                "where pair_id = any(%s)", ([int(p) for p in pair_ids],))).fetchall()
+        return {pair_id: [float(x) for x in text.strip("[]").split(",")]
+                for pair_id, text in rows}
+
+    async def fetch(self, sql: str, params: tuple = ()) -> list[tuple]:
+        """One read-only query on the store's pool -- for GET /verify's reports."""
+        async with self._pool.connection() as conn:
+            return await (await conn.execute(sql, params)).fetchall()
+
+
+async def _generation(conn) -> str | None:
+    """`brain_meta.copied_at` -- which copy of the Brain this is -- or None without one."""
+    if (await (await conn.execute("select to_regclass('brain_meta')")).fetchone())[0] is None:
+        return None
+    row = await (await conn.execute(
+        "select value from brain_meta where key = 'copied_at'")).fetchone()
+    return row[0] if row else None
+
+
+def _vector_literal(query_vec) -> str:
+    """pgvector's text form, `[x,y,...]`. repr() of a Python float round-trips exactly."""
+    return "[" + ",".join(repr(x) for x in _as_floats(query_vec)) + "]"
 
 
 def _clamp_cosine(score) -> float:

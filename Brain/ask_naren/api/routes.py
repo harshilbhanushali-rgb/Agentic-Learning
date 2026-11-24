@@ -1,4 +1,4 @@
-"""The four endpoints: `/ask`, `/health` (and its `/healthz` alias) and `/ready`.
+"""The endpoints: `/ask`, `/health` (and its `/healthz` alias), `/ready` and `/verify`.
 
 Thin on purpose. What `/ask` does beyond parsing -- the slot, the deadline, noticing a
 caller who left -- is `answer_flow`, and every way it can say no is `refusals`.
@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
 from ask_naren.api.answer_flow import admit_and_answer, unless_abandoned
-from ask_naren.api.dependencies import AnswererDep, GateDep, ReadyDep
+from ask_naren.api.dependencies import AnswererDep, GateDep, ReadyDep, VerifierDep
 from ask_naren.api.models import AskRequest, AskResponse, Declined, Error, Health, Readiness
 
 router = APIRouter()
@@ -46,6 +46,28 @@ async def ready(gate: GateDep, is_ready: ReadyDep) -> JSONResponse:
     if gate.saturated:
         return JSONResponse({"status": "saturated", **gate.snapshot()}, status_code=503)
     return JSONResponse({"status": "ready", **gate.snapshot()})
+
+
+@router.get("/verify", summary="Check the database and vectors this process answers from",
+            response_model=None,
+            responses={200: {"description": "Every check passed, or the store is one this "
+                                            "endpoint does not verify (`not_applicable`)."},
+                       404: {"description": "`not_configured`: built without a verifier."},
+                       503: {"description": "`failed`: at least one check failed; each "
+                                            "check says why."}})
+async def verify(verifier: VerifierDep) -> JSONResponse:
+    """VERIFICATION, for an operator after a database move (ask_naren/verification.py).
+
+    Which database and user, read-only or not, pgvector's version, table counts, that every
+    answerable exchange has a vector of the right width, and that sampled stored vectors find
+    themselves. NOT a probe: it runs real queries and a few searches, so never wire it to a
+    liveness or readiness check. It takes no admission slot -- an operator checking a
+    saturated service must still get an answer -- and reveals no credentials.
+    """
+    if verifier is None:
+        return JSONResponse({"status": "not_configured"}, status_code=404)
+    ok, report = await verifier()
+    return JSONResponse(report, status_code=200 if ok else 503)
 
 
 @router.post(

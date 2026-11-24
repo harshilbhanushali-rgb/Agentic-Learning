@@ -223,4 +223,40 @@ describe('the startup privilege check', () => {
       console.error = quiet;
     }
   });
+
+  // On AWS RDS Brain lives in the `brain` schema, beside another application's `public`.
+  it('refuses a role that can read the RDS Brain’s brain.kb_pairs', async () => {
+    await pg.exec(`create schema if not exists brain;
+                   create table if not exists brain.kb_pairs (pair_id int primary key);
+                   create role leaky_rds login nosuperuser;
+                   grant usage on schema brain to leaky_rds;
+                   grant select on brain.kb_pairs to leaky_rds`);
+    const quiet = console.error;
+    console.error = () => {};
+    try {
+      await expect(assertLeastPrivilege(as('leaky_rds'))).rejects.toThrow(/can read Brain's brain.kb_pairs/);
+    } finally {
+      console.error = quiet;
+    }
+  });
+
+  it('refuses a member of rds_superuser -- the RDS master user’s group', async () => {
+    await pg.exec(`create role rds_superuser nologin;
+                   create role rds_member login nosuperuser;
+                   grant rds_superuser to rds_member`);
+    const quiet = console.error;
+    console.error = () => {};
+    try {
+      await expect(assertLeastPrivilege(as('rds_member'))).rejects.toThrow(/rds_superuser/);
+    } finally {
+      console.error = quiet;
+    }
+  });
+
+  it('passes for both SQL-created roles once an RDS-style brain schema exists', async () => {
+    await pg.exec(`create schema if not exists brain;
+                   create table if not exists brain.kb_pairs (pair_id int primary key)`);
+    await expect(assertLeastPrivilege(app())).resolves.toBeUndefined();
+    await expect(assertLeastPrivilege(admin())).resolves.toBeUndefined();
+  });
 });

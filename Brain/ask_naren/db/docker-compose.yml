@@ -1,0 +1,27 @@
+# A local Postgres with pgvector, for development and the integration tests -- NOT production.
+# Production is AWS RDS, which ships pgvector itself (CREATE EXTENSION, migration 0001), so no
+# database image is built or deployed anywhere.
+#
+#   docker compose -f ask_naren/db/docker-compose.yml up -d
+#   # then in Brain/.env (git-ignored):
+#   #   ASK_NAREN_PG_TEST_URL=postgresql://postgres@127.0.0.1:5433/ask_naren
+#   #   ASK_NAREN_MIGRATE_URL=postgresql://postgres@127.0.0.1:5433/ask_naren
+#
+# NO PASSWORD: `trust` authentication, safe only because the port is published on 127.0.0.1
+# and nowhere else. Never copy this setting anywhere reachable from a network.
+# Pinned to the pgvector and Postgres versions RDS staging runs (0.8.1, 16).
+
+services:
+  pgvector:
+    image: pgvector/pgvector:0.8.1-pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: ask_naren
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - ask-naren-pgvector:/var/lib/postgresql/data
+
+volumes:
+  ask-naren-pgvector:
