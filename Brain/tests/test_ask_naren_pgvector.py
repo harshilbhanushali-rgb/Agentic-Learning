@@ -182,7 +182,7 @@ class _FakeStore:
         if self.broken and "count(*)" in sql:
             raise RuntimeError("relation \"kb_pairs\" does not exist")
         if "current_user" in sql:
-            return [("ask_naren_service", "coder_roam_duct", "on", "0.8.1")]
+            return [("ask_naren_service", "ask_naren_test", "on", "0.8.1")]
         if "count(*)" in sql:
             return [(2, 2, 3, 1, 1)]
         if "vector_dims" in sql:
